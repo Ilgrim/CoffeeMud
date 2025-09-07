@@ -12,13 +12,16 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.ChannelsLibrary.CMChannel;
+import com.planet_ink.coffee_mud.Libraries.interfaces.ChannelsLibrary.ChannelFlag;
+import com.planet_ink.coffee_mud.Libraries.interfaces.ChannelsLibrary.ChannelMsg;
+import com.planet_ink.coffee_mud.Libraries.interfaces.IntermudInterface.InterProto;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -67,16 +70,62 @@ public interface ChannelsLibrary extends CMLibrary
 	public CMChannel getChannel(int channelNumber);
 
 	/**
+	 * Returns the CMChannel object embedded in
+	 * the given channel message, if possible.
+	 * @param msg the message that is a channel message
+	 * @return the cmchannel object
+	 */
+	public CMChannel getChannelFromMsg(final CMMsg msg);
+
+	/**
 	 * Generates a list of previous channel messages, in ChannelMsg
 	 * object format.  This may potentially hit the database.
 	 * @see ChannelsLibrary#getChannelIndex(String)
 	 * @see ChannelsLibrary.ChannelMsg
+	 * @see ChannelsLibrary#getChannelQuePageEnd(int, MOB)
 	 * @param channelNumber the channel id number/index
 	 * @param numNewToSkip starting message number (0 based)
 	 * @param numToReturn total number of messages to return
+	 * @param mob the channel reader
 	 * @return the list of messages
 	 */
-	public List<ChannelMsg> getChannelQue(int channelNumber, int numNewToSkip, int numToReturn);
+	public List<ChannelMsg> getChannelQue(int channelNumber, int numNewToSkip, int numToReturn, MOB mob);
+
+	/**
+	 * Searches the list of previous channel messages, in ChannelMsg
+	 * object format.  This will always want to hit the database.
+	 * @see ChannelsLibrary#getChannelIndex(String)
+	 * @see ChannelsLibrary.ChannelMsg
+	 * @see ChannelsLibrary#getChannelQuePageEnd(int, MOB)
+	 * @param mob the channel reader
+	 * @param channelNumber the channel id number/index
+	 * @param srchTerms the string to search for
+	 * @param maxReturn max number of messages to return
+	 * @return the list of messages found
+	 */
+	public List<ChannelMsg> searchChannelQue(final MOB mob, final int channelNumber, final String srchTerms, final int maxReturn);
+
+	/**
+	 * Returns the highest page index for messages in the given channel, for the given reader.
+	 *
+	 * @see ChannelsLibrary#getChannelIndex(String)
+	 * @see ChannelsLibrary.ChannelMsg
+	 * @see ChannelsLibrary#getChannelQue(int, int, int, MOB)
+	 *
+	 * @param channelNumber the channel id number/index
+	 * @param mob the channel reader
+	 * @return the highest page index for messages in the given channel, for the given reader.
+	 */
+	public int getChannelQuePageEnd(final int channelNumber, final MOB mob);
+
+	/**
+	 * Returns the lowest page index to messages in the given channel after the given date
+	 * @param channelNumber the channel id number/index
+	 * @param mob the channel reader
+	 * @param oldestDateMs the oldest date timestamp
+	 * @return the lowest index, or -1
+	 */
+	public int getChannelQueIndex(final int channelNumber, final MOB mob, final long oldestDateMs);
 
 	/**
 	 * Returns whether the given Mob can read a channel message from the given sender, on
@@ -145,8 +194,9 @@ public interface ChannelsLibrary extends CMLibrary
 	 * @see ChannelsLibrary#getChannelIndex(String)
 	 * @param channelNumber the channel index number
 	 * @param msg the channel message msg that was sent around
+	 * @param subNameField extra audience data for the given new message
 	 */
-	public void channelQueUp(int channelNumber, CMMsg msg);
+	public void channelQueUp(int channelNumber, CMMsg msg, int subNameField);
 
 	/**
 	 * Returns the official index number of the channel with the
@@ -192,17 +242,11 @@ public interface ChannelsLibrary extends CMLibrary
 
 	/**
 	 * Returns all the CMChannel objects for any channels flagged
-	 * as being mapped to IMC2.
-	 * @return all the CMChannel objects for IMC2
+	 * as being mapped to the given external service.
+	 * @param proto which intermud service to fetch channels for
+	 * @return all the CMChannel objects for the protocol only
 	 */
-	public List<CMChannel> getIMC2ChannelsList();
-
-	/**
-	 * Returns all the CMChannel objects for any channels flagged
-	 * as being mapped to I3.
-	 * @return all the CMChannel objects for I3
-	 */
-	public List<CMChannel> getI3ChannelsList();
+	public List<CMChannel> getIMudChannelsList(InterProto proto);
 
 	/**
 	 * Returns an array of all the names of all the channels.
@@ -267,7 +311,7 @@ public interface ChannelsLibrary extends CMLibrary
 	 * Sends the given channel message from the given sender to the given session on the
 	 * given channelNumbered channel.
 	 * @see ChannelsLibrary#getNumChannels()
-	 * @see ChannelsLibrary#createAndSendChannelMessage(MOB, String, String, boolean)
+	 * @see ChannelsLibrary#createAndSendChannelMessage(MOB, String, String, boolean, boolean)
 	 * @param ses the session to send the channel message to
 	 * @param areareq true if the sender and session must be in the same area, false otherwise
 	 * @param channelNumber the channel index number of the message
@@ -285,23 +329,23 @@ public interface ChannelsLibrary extends CMLibrary
 	 * @param channelName the name of the channel to send the message on
 	 * @param message the string message to send on the channel
 	 * @param systemMsg true to format as a system message, false for a normal chat message
+	 * @param skipIMud true to skip sending the message anywhere but locally
 	 */
-	public void createAndSendChannelMessage(MOB mob, String channelName, String message, boolean systemMsg);
+	public void createAndSendChannelMessage(MOB mob, String channelName, String message, boolean systemMsg, final boolean skipIMud);
 
 	/**
 	 * Creates a new channel object.
 	 * @see ChannelsLibrary.CMChannel
 	 * @see ChannelsLibrary.ChannelFlag
 	 * @param name the channel name
-	 * @param i3Name empty string, or the mapped name of the i3 channel
-	 * @param imc2Name empty string, or the mapped name of the imc2 channel
+	 * @param imudNames empty map, or map of service protocols to remote channel names
 	 * @param mask the zapper mask for who may read the channel
 	 * @param flags the channel flags to set for the given channel
 	 * @param colorOverrideANSI empty string for default, or the color code for this channel
 	 * @param colorOverrideWords empty string for default, or the color code for this channel
 	 * @return the newly created channel object
 	 */
-	public CMChannel createNewChannel(final String name, final String i3Name, final String imc2Name,
+	public CMChannel createNewChannel(final String name, final Map<InterProto,String> imudNames,
 									  final String mask, final Set<ChannelFlag> flags,
 									  final String colorOverrideANSI, final String colorOverrideWords);
 
@@ -332,6 +376,20 @@ public interface ChannelsLibrary extends CMLibrary
 		public String imc2Name();
 
 		/**
+		 * An empty string, or the name of the grapevine channel that
+		 * this channel is mapped to.
+		 * @return the name of the grapevine channel or ""
+		 */
+		public String grapevineName();
+
+		/**
+		 * An empty string, or the name of the discord channel that
+		 * this channel is mapped to.
+		 * @return the name of the discord channel or ""
+		 */
+		public String discordName();
+
+		/**
 		 * The zapper mask to filter in those who may read this
 		 * channel.
 		 * @see MaskingLibrary
@@ -357,6 +415,7 @@ public interface ChannelsLibrary extends CMLibrary
 
 		/**
 		 * The channel flags for this channel.
+		 * TODO: This should be a map, and contain all the other stuff
 		 * @see ChannelsLibrary.ChannelFlag
 		 * @return channel flags for this channel.
 		 */
@@ -392,6 +451,14 @@ public interface ChannelsLibrary extends CMLibrary
 		 * @return timestamp of when the message was sent
 		 */
 		public long sentTimeMillis();
+
+		/**
+		 * A number as a sub-category to determine the proper audience
+		 * for this message.  This number might represent the hash of
+		 * an area or clan name, for example.
+		 * @return a set of strings
+		 */
+		public int subNameField();
 	}
 
 	/**
@@ -440,6 +507,15 @@ public interface ChannelsLibrary extends CMLibrary
 		REALNAMEOOCNOADMIN,
 		ACCOUNTLOGINS,
 		ACCOUNTLOGOFFS,
-		NOMOOD
+		NOMOOD,
+		FACTIONANNOUNCEMENTS,
+		PROFICIENT,
+		CALENDAR,
+		SAMEHOST,
+		NOMOUTH,
+		DISCORD,
+		I3,
+		IMC2,
+		GRAPEVINE
 	}
 }

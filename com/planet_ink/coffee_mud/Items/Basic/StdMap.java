@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,6 +53,14 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 		baseGoldValue=10;
 		material=RawMaterial.RESOURCE_PAPER;
 		recoverPhyStats();
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a map");
 	}
 
 	protected static class MapRoom
@@ -217,9 +225,13 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 				for(final Enumeration<Room> r=A.getCompleteMap();r.hasMoreElements();)
 				{
 					final Room R=r.nextElement();
-					final MapRoom mr=new MapRoom();
-					mr.r=R;
-					mapRooms.put(R,mr);
+					if((R!=null)
+					&&(!CMath.bset(R.phyStats().sensesMask(), PhyStats.SENSE_ROOMUNMAPPABLE)))
+					{
+						final MapRoom mr=new MapRoom();
+						mr.r=R;
+						mapRooms.put(R,mr);
+					}
 				}
 			}
 		}
@@ -299,7 +311,9 @@ public class StdMap extends StdItem implements com.planet_ink.coffee_mud.Items.i
 						line6+="---"+dirChar(Directions.SOUTH,grid,x,y,'-')+"----";
 					}
 				}
-				if(xcoord>=0)
+				if((xcoord>=0)
+				&&(xcoord<map.length)
+				&&(ycoord<map[xcoord].length))
 				{
 					if(map[xcoord][ycoord]==null)
 						map[xcoord][ycoord]=new StringBuffer("");

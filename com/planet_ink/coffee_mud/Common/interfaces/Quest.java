@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -78,6 +78,38 @@ public interface Quest extends Tickable, CMCommon, Modifiable
 	public void setAuthor(String newName);
 
 	/**
+	 * Returns the descriptive 'type' of the quest.
+	 * This is an arbitrary string for filtering.
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#setQuestTypeDesc(String)
+	 * @return the author of the quest
+	 */
+	public String questTypeDesc();
+
+	/**
+	 * Sets the descriptive 'type' of the quest.
+	 * This is an arbitrary string for filtering.
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#questTypeDesc()
+	 * @param newType the descriptive type of the quest
+	 */
+	public void setQuestTypeDesc(String newType);
+
+	/**
+	 * Returns the descriptive 'category' of the quest.
+	 * This is an arbitrary string for filtering.
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#setQuestCategory(String)
+	 * @return the author of the quest
+	 */
+	public String questCategory();
+
+	/**
+	 * Sets the descriptive 'category' of the quest.
+	 * This is an arbitrary string for filtering.
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#questCategory()
+	 * @param newCat the descriptive type of the quest
+	 */
+	public void setQuestCategory(String newCat);
+
+	/**
 	 * Returns the friendly display name of the quest
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#setDisplayName(String)
 	 * @return the friendly display name of the quest
@@ -90,6 +122,37 @@ public interface Quest extends Tickable, CMCommon, Modifiable
 	 * @param newName the friendly display name of the quest
 	 */
 	public void setDisplayName(String newName);
+
+	/**
+	 * Returns the friendly third person instructions of the quest
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#setInstructions(String)
+	 * @return the friendly third person instructions of the quest
+	 */
+	public String instructions();
+
+	/**
+	 * Sets the friendly third person instructions of the quest
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#instructions()
+	 * @param instructions the friendly third person instructions of the quest
+	 */
+	public void setInstructions(String instructions);
+
+	/**
+	 * Returns whether the given mob can accept this quest.  If the mob
+	 * is null, this method should return whether this quest even
+	 * supports auto-accepting at all.
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#acceptQuest(MOB)
+	 * @param mob the mob to check
+	 * @return true if the quest can be accepted by this mob
+	 */
+	public boolean canAcceptQuest(final MOB mob);
+
+	/**
+	 * Causes the given mob to accept the quest.
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#canAcceptQuest(MOB)
+	 * @param mob the mob to accept
+	 */
+	public void acceptQuest(final MOB mob);
 
 	/**
 	 * Returns the unique start date of the quest.  The format
@@ -235,6 +298,15 @@ public interface Quest extends Tickable, CMCommon, Modifiable
 	public boolean stepQuest();
 
 	/**
+	 * This is a utility method that will stop the current running
+	 * quest step, if necessary, and clean it up.  Then it will start
+	 * the script executing from the given step number 1...n
+	 * @param stepNum the step number 1...n
+	 * @return true if the step was started, false otherwise
+	 */
+	public boolean setQuestStep(int stepNum);
+
+	/**
 	 * A dormant state is the state where a quest is no longer running, but
 	 * is not, or has not yet, been scheduled to wait for another run time.
 	 * This may result in a quest being deleted if it was a spawned temporary
@@ -260,10 +332,7 @@ public interface Quest extends Tickable, CMCommon, Modifiable
 	/**
 	 * Sets the flag denoting whether this quest spawns new ones
 	 * from its several steps and if so, by what method.
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#SPAWN_ANY
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#SPAWN_FIRST
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#SPAWN_NO
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#SPAWN_DESCS
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest.Spawn
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#getSpawn()
 	 * @param spawnFlag the quest spawn flag info
 	 */
@@ -272,10 +341,7 @@ public interface Quest extends Tickable, CMCommon, Modifiable
 	/**
 	 * Returns the flag denoting whether this quest spawns new ones
 	 * from its several steps and if so, by what method.
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#SPAWN_ANY
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#SPAWN_FIRST
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#SPAWN_NO
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#SPAWN_DESCS
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest.Spawn
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#setSpawn(int)
 	 * @return the quest spawn flag info
 	 */
@@ -566,7 +632,7 @@ public interface Quest extends Tickable, CMCommon, Modifiable
 
 	/**
 	 * Returns the zappermask that determines who counts as an
-	 * elligible player for the purposes of the minPlayer setting.
+	 * eligible player for the purposes of the minPlayer setting.
 	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#setMinPlayers(int)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#minPlayers()
@@ -577,7 +643,7 @@ public interface Quest extends Tickable, CMCommon, Modifiable
 
 	/**
 	 * Sets the zappermask that determines who counts as an
-	 * elligible player for the purposes of the minPlayer setting.
+	 * eligible player for the purposes of the minPlayer setting.
 	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#setMinPlayers(int)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest#minPlayers()
@@ -709,14 +775,49 @@ public interface Quest extends Tickable, CMCommon, Modifiable
 	 */
 	public void setFlags(long flags);
 
-	/** A quest spawn flag denoting that this quest does not spawn its steps */
-	public final static int SPAWN_NO=0;
-	/** A quest spawn flag denoting that this quest spawns only its first step */
-	public final static int SPAWN_FIRST=1;
-	/** A quest spawn flag denoting that this quest attempts to spawn every step at once */
-	public final static int SPAWN_ANY=2;
-	/** Descriptions of the several quest step spawn flags */
-	public final static String[] SPAWN_DESCS={"FALSE","TRUE","ALL"};
+
+	/**
+	 * If errors occured on the last start of this quest, this will
+	 * return those messages.  Works regardless of whether log
+	 * reporting is turned on.
+	 *
+	 * @return "" or some errors.
+	 */
+	public String getLastErrors();
+
+	/**
+	 * If a specific area can be associated with this quest
+	 * script easily, this will return it.  Once a quest runs,
+	 * this becomes fairly reliable, but until then, is at
+	 * best a guess or null.
+	 * @return null or an area
+	 */
+	public Area getQuestArea();
+
+	/**
+	 * Quest step spawning options
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public static enum Spawn
+	{
+		/** A quest spawn flag denoting that this quest does not spawn its steps */
+		NO,
+		/** A quest spawn flag denoting that this quest spawns only its first step */
+		TRUE,
+		/** A quest spawn flag denoting that this quest spawns only its first step */
+		FIRST,
+		/** A quest spawn flag denoting that this quest attempts to spawn every step at the same time */
+		ALL,
+		/** A quest spawn flag denoting that this quest spawns only its first step, once */
+		ONCE,
+		/** A quest spawn flag denoting that this quest attempts to spawn every step, but only once */
+		ALLONCE,
+		/** A quest spawn flag denoting that this quest attempts to spawn one random step, once */
+		ANY,
+		/** A quest spawn flag denoting that this quest attempts to spawn one random step, once */
+		ANYONCE,
+	}
 
 	/** A quest flag @see {@link Quest#getFlags()} */
 	public final static int FLAG_SUSPENDED=1;
@@ -725,15 +826,16 @@ public interface Quest extends Tickable, CMCommon, Modifiable
 	public static enum QCODES
 	{
 		CLASS, NAME, DURATION, WAIT, MINPLAYERS, PLAYERMASK,
-		RUNLEVEL, DATE, MUDDAY, INTERVAL,SPAWNABLE, DISPLAY,
-		INSTRUCTIONS, PERSISTANCE, AUTHOR, EXPIRATION
+		RUNLEVEL, DATE, MUDDAY, INTERVAL, SPAWNABLE,
+		DISPLAY, INSTRUCTIONS, PERSISTANCE, AUTHOR, EXPIRATION,
+		QUESTTYPE, CATEGORY
 	}
 
 	/** The list of basic quest objects defined in an iterative fashion during quest script execution */
 	public static enum QOBJS
 	{
 		LOADEDMOBS, LOADEDITEMS, LOADEDABILITIES, AREA, ROOM, MOBGROUP, ITEMGROUP, ROOMGROUP,
-		ABILITYGROUP, ITEM, ENVOBJ, STUFF, MOB, ABILITY
+		ABILITYGROUP, ITEM, ENVOBJ, STUFF, MOB, ABILITY, STEPNUM
 	}
 
 	/** The list of basic mystery quest objects defined in an iterative fashion during quest script execution */

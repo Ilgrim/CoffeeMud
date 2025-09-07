@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,10 +60,10 @@ public class Trap_FloodRoom extends StdTrap
 		return 0;
 	}
 
-	@Override
-	protected int trapLevel()
+	public Trap_FloodRoom()
 	{
-		return 29;
+		super();
+		trapLevel = 29;
 	}
 
 	@Override
@@ -88,7 +88,7 @@ public class Trap_FloodRoom extends StdTrap
 		for(int i=0;i<mob.location().numItems();i++)
 		{
 			final Item I=mob.location().getItem(i);
-			if((I instanceof Drink)&&(((Drink)I).containsDrink()))
+			if((I instanceof Drink)&&(((Drink)I).containsLiquid()))
 				num++;
 		}
 		return num;
@@ -116,7 +116,7 @@ public class Trap_FloodRoom extends StdTrap
 		while((num>0)&&(i<mob.location().numItems()))
 		{
 			final Item I=mob.location().getItem(i);
-			if((I instanceof Drink)&&(((Drink)I).containsDrink()))
+			if((I instanceof Drink)&&(((Drink)I).containsLiquid()))
 			{
 				if(I instanceof RawMaterial)
 				{
@@ -266,7 +266,7 @@ public class Trap_FloodRoom extends StdTrap
 	public void disable()
 	{
 		super.disable();
-		if((affected!=null)&&(affected instanceof Room))
+		if((affected instanceof Room))
 		{
 			((Room)affected).recoverPhyStats();
 			((Room)affected).recoverRoomStats();
@@ -280,12 +280,19 @@ public class Trap_FloodRoom extends StdTrap
 		{
 			if((doesSaveVsTraps(target))
 			||(invoker().getGroupMembers(new HashSet<MOB>()).contains(target)))
-				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> avoid(s) setting off a trap!"));
-			else
-			if(target.location().show(target,target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> trigger(s) a trap!")))
 			{
-				super.spring(target);
-				target.location().showHappens(CMMsg.MSG_OK_VISUAL,L("The exits are blocked off! Water starts pouring in!"));
+				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,
+						getAvoidMsg(L("<S-NAME> avoid(s) setting off a trap!")));
+			}
+			else
+			{
+				if(target.location().show(target,target,this,
+						CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,getTrigMsg(L("<S-NAME> trigger(s) a trap!"))))
+				{
+					super.spring(target);
+					target.location().showHappens(CMMsg.MSG_OK_VISUAL,
+							getDamMsg(L("The exits are blocked off! Water starts pouring in!")));
+				}
 			}
 		}
 	}

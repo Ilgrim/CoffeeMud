@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -77,6 +77,17 @@ public class Prayer_CureLight extends Prayer implements MendingSkill
 	{
 		return (item instanceof MOB)
 				&&((((MOB)item).curState()).getHitPoints()<(((MOB)item).maxState()).getHitPoints());
+	}
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
+	{
+		if(((msg.targetMinor()==CMMsg.TYP_EAT)
+			||(msg.targetMinor()==CMMsg.TYP_DRINK))
+		&&(msg.target() == affected)
+		&&(affected instanceof Item)
+		&&(!(affected instanceof MiscMagic)))
+			invoke(anInvoker(msg.source()),new XVector<String>(),msg.source(),true,0);
 	}
 
 	@Override

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ public class View extends StdCommand
 		throws java.io.IOException
 	{
 		final Vector<String> origCmds=new XVector<String>(commands);
-		final Environmental shopkeeper=CMLib.english().parseShopkeeper(mob,commands,"View what merchandise from whom?");
+		final Environmental shopkeeper=CMLib.english().parseShopkeeper(mob,commands,"from", "View what merchandise from whom?");
 		if(shopkeeper==null)
 			return false;
 		if(commands.size()==0)
@@ -88,16 +88,17 @@ public class View extends StdCommand
 		}
 		int addendum=1;
 		boolean doBugFix = true;
+		final ShopKeeper SK=CMLib.coffeeShops().getShopKeeper(shopkeeper);
+		final CoffeeShop shop = SK.getShop(mob);
 		while(doBugFix || ((allFlag)&&(addendum<=maxToDo)))
 		{
 			doBugFix=false;
-			final ShopKeeper SK=CMLib.coffeeShops().getShopKeeper(shopkeeper);
-			final Environmental itemToDo=SK.getShop().getStock(whatName,mob);
+			final Environmental itemToDo=shop.getStock(whatName,mob);
 			if(itemToDo==null)
 				break;
 			if(CMLib.flags().canBeSeenBy(itemToDo,mob))
 				V.add(itemToDo);
-			if(addendum>=CMLib.coffeeShops().getShopKeeper(shopkeeper).getShop().numberInStock(itemToDo))
+			if(addendum>=shop.numberInStock(itemToDo))
 				break;
 			addendum++;
 		}

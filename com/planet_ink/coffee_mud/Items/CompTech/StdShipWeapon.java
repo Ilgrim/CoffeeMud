@@ -1,9 +1,9 @@
 package com.planet_ink.coffee_mud.Items.CompTech;
 import com.planet_ink.coffee_mud.core.interfaces.*;
-import com.planet_ink.coffee_mud.core.interfaces.BoundedObject.BoundedCube;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.CMSecurity.DbgFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
+import com.planet_ink.coffee_mud.Abilities.Thief.Thief_Superstition;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -13,7 +13,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.BasicTech.StdElecItem;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
-import com.planet_ink.coffee_mud.Items.interfaces.TechComponent.ShipDir;
+import com.planet_ink.coffee_mud.Items.interfaces.ShipDirectional.ShipDir;
 import com.planet_ink.coffee_mud.Items.interfaces.Technical.TechCommand;
 import com.planet_ink.coffee_mud.Items.interfaces.Technical.TechType;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
@@ -26,7 +26,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ public class StdShipWeapon extends StdElecCompItem implements ShipWarComponent
 	{
 		super();
 		this.maxRechargePer = 0.2f;
+		basePhyStats.setDamage(100);
 	}
 
 	@Override
@@ -64,7 +65,7 @@ public class StdShipWeapon extends StdElecCompItem implements ShipWarComponent
 	private int				numPermitDirs		= 1;
 	private int[]			damageMsgTypes		= new int[] { CMMsg.TYP_ELECTRIC };
 	private volatile long	powerSetting		= Integer.MAX_VALUE;
-	private final double[]	targetDirection		= new double[]{0.0,0.0};
+	private final Dir3D	targetDirection			= new Dir3D();
 
 	private volatile ShipDir[]  		  currCoverage = null;
 	private volatile Reference<SpaceShip> myShip 	   = null;
@@ -79,7 +80,7 @@ public class StdShipWeapon extends StdElecCompItem implements ShipWarComponent
 	@Override
 	public int powerNeeds()
 	{
-		return (int) Math.min((int) Math.min(powerCapacity,powerSetting) - power, (int)Math.round((double)powerCapacity*getRechargeRate()*this.getComputedEfficiency()));
+		return (int) Math.min((int) Math.min(powerCapacity(),powerTarget()) - power, (int)Math.round((double)powerCapacity*getRechargeRate()*this.getComputedEfficiency()));
 	}
 
 	protected synchronized SpaceShip getMyShip()
@@ -93,6 +94,20 @@ public class StdShipWeapon extends StdElecCompItem implements ShipWarComponent
 				myShip = new WeakReference<SpaceShip>(null);
 		}
 		return myShip.get();
+	}
+
+	@Override
+	public long powerTarget()
+	{
+		if(powerSetting<0)
+			return 0;
+		return powerSetting>powerCapacity()?powerCapacity():powerSetting;
+	}
+
+	@Override
+	public void setPowerTarget(final long capacity)
+	{
+		powerSetting = capacity;
 	}
 
 	@Override
@@ -139,7 +154,7 @@ public class StdShipWeapon extends StdElecCompItem implements ShipWarComponent
 		return true;
 	}
 
-	protected static void sendComputerMessage(final ShipWarComponent me, final String circuitKey, final MOB mob, final Item controlI, final String code)
+	protected static void sendComputerMessage(final Technical me, final String circuitKey, final MOB mob, final Item controlI, final String code)
 	{
 		for(final Iterator<Computer> c=CMLib.tech().getComputers(circuitKey);c.hasNext();)
 		{
@@ -156,7 +171,7 @@ public class StdShipWeapon extends StdElecCompItem implements ShipWarComponent
 	protected ShipDir[] getCurrentBattleCoveredDirections()
 	{
 		if(this.currCoverage == null)
-			this.currCoverage = CMLib.tech().getCurrentBattleCoveredDirections(this);
+			this.currCoverage = CMLib.space().getCurrentBattleCoveredDirections(this);
 		return this.currCoverage;
 	}
 
@@ -191,18 +206,15 @@ public class StdShipWeapon extends StdElecCompItem implements ShipWarComponent
 				final Software controlI=(msg.tool() instanceof Software)?((Software)msg.tool()):null;
 				final MOB mob=msg.source();
 				if(msg.targetMessage()==null)
-				{
 					powerSetting = powerCapacity();
-				}
 				else
 				{
-					final String[] parts=msg.targetMessage().split(" ");
-					final TechCommand command=TechCommand.findCommand(parts);
+					final TechCommand command=TechCommand.findCommand(msg.targetMessage());
 					if(command==null)
 						reportError(this, controlI, mob, lang.L("@x1 does not respond.",me.name(mob)), lang.L("Failure: @x1: control failure.",me.name(mob)));
 					else
 					{
-						final Object[] parms=command.confirmAndTranslate(parts);
+						final Object[] parms=command.confirmAndTranslate(msg.targetMessage());
 						if(parms==null)
 							reportError(this, controlI, mob, lang.L("@x1 did not respond.",me.name(mob)), lang.L("Failure: @x1: control syntax failure.",me.name(mob)));
 						else
@@ -216,39 +228,51 @@ public class StdShipWeapon extends StdElecCompItem implements ShipWarComponent
 								powerSetting = powerCapacity();
 						}
 						else
-						if(command == TechCommand.WEAPONTARGETSET)
+						if(command == TechCommand.AIMSET)
 						{
-							final SpaceObject ship = CMLib.map().getSpaceObject(this, true);
+							final SpaceObject ship = CMLib.space().getSpaceObject(this, true);
 							if(ship == null)
 								reportError(this, controlI, mob, lang.L("@x1 did not respond.",me.name(mob)), lang.L("Failure: @x1: control syntax failure.",me.name(mob)));
 							else
 							{
-								targetDirection[0] = ((Double)parms[0]).doubleValue();
-								targetDirection[1] = ((Double)parms[1]).doubleValue();
 								if(ship instanceof SpaceShip)
 								{
-									final ShipDir dir = CMLib.map().getDirectionFromDir(((SpaceShip)ship).facing(), ((SpaceShip)ship).roll(), targetDirection);
+									final Dir3D proposedDirection=new Dir3D(new double[] {((Double)parms[0]).doubleValue(),((Double)parms[1]).doubleValue()});
+									final ShipDir dir = CMLib.space().getDirectionFromDir(((SpaceShip)ship).facing(), ((SpaceShip)ship).roll(), proposedDirection);
 									if(!CMParms.contains(getCurrentBattleCoveredDirections(), dir))
-										reportError(this, controlI, mob, lang.L("@x1 is not facing a covered direction.",me.name(mob)), lang.L("Failure: @x1: weapon is not facing correctly.",me.name(mob)));
+										reportError(this, controlI, mob, null, lang.L("Failure: @x1: weapon is not facing correctly for that target direction.",me.name(mob)));
+									else
+									{
+										targetDirection.xy(((Double)parms[0]).doubleValue());
+										targetDirection.z(((Double)parms[1]).doubleValue());
+									}
+								}
+								else
+								{
+									targetDirection.xy(((Double)parms[0]).doubleValue());
+									targetDirection.z(((Double)parms[1]).doubleValue());
 								}
 							}
 						}
 						else
-						if(command == TechCommand.WEAPONFIRE)
+						if(command == TechCommand.FIRE)
 						{
-							final SpaceObject ship = CMLib.map().getSpaceObject(this, true);
+							final SpaceObject ship = CMLib.space().getSpaceObject(this, true);
 							if(ship == null)
 								reportError(this, controlI, mob, lang.L("@x1 did not respond.",me.name(mob)), lang.L("Failure: @x1: control syntax failure.",me.name(mob)));
 							else
-							if(this.power < Math.min(powerCapacity,powerSetting) - getBleedAmount())
+							if(this.power < Math.min(powerCapacity(),powerTarget()) - getBleedAmount())
 								reportError(this, controlI, mob, lang.L("@x1 is not charged up.",me.name(mob)), lang.L("Failure: @x1: weapon is not charged.",me.name(mob)));
 							else
 							{
 								if(ship instanceof SpaceShip)
 								{
-									final ShipDir dir = CMLib.map().getDirectionFromDir(((SpaceShip)ship).facing(), ((SpaceShip)ship).roll(), targetDirection);
+									final ShipDir dir = CMLib.space().getDirectionFromDir(((SpaceShip)ship).facing(), ((SpaceShip)ship).roll(), targetDirection);
 									if(!CMParms.contains(getCurrentBattleCoveredDirections(), dir))
-										reportError(this, controlI, mob, lang.L("@x1 is not facing a covered direction.",me.name(mob)), lang.L("Failure: @x1: weapon is not facing correctly.",me.name(mob)));
+									{
+										reportError(this, controlI, mob, null, lang.L("Failure: @x1: weapon is not targeted correctly for its field of fire.",me.name(mob)));
+										return;
+									}
 								}
 								final SpaceObject weaponO=(SpaceObject)CMClass.getTech("StdSpaceTechWeapon");
 								int damageMsgType = CMMsg.TYP_ELECTRIC;
@@ -313,7 +337,10 @@ public class StdShipWeapon extends StdElecCompItem implements ShipWarComponent
 								}
 								weaponO.setKnownSource(ship);
 								final int weaponRadius = 10;
-								final long[] firstCoords = CMLib.map().moveSpaceObject(ship.coordinates(), targetDirection, ship.radius()+weaponRadius+1);
+								final int accellerationOfShipInSameDirectionAsWeapon = 4;
+								final Coord3D firstCoords = CMLib.space().moveSpaceObject(ship.coordinates(), targetDirection,
+										(int)Math.round(ship.radius()+weaponRadius+ship.speed()+accellerationOfShipInSameDirectionAsWeapon));
+								//TODO: adjust targeting based on tech, efficiency, installed, etc, etc.
 								weaponO.setCoords(firstCoords);
 								weaponO.setRadius(weaponRadius);
 								weaponO.setDirection(targetDirection);
@@ -321,10 +348,10 @@ public class StdShipWeapon extends StdElecCompItem implements ShipWarComponent
 								((Technical)weaponO).setTechLevel(techLevel());
 								((Technical)weaponO).basePhyStats().setWeight(0);
 								((Technical)weaponO).phyStats().setWeight(0);
-								((Technical)weaponO).basePhyStats().setDamage(phyStats().damage());
-								((Technical)weaponO).phyStats().setDamage(phyStats().damage());
-								CMLib.threads().startTickDown(weaponO, Tickable.TICKID_BEAMWEAPON, 10);
-								CMLib.map().addObjectToSpace(weaponO, firstCoords);
+								((Technical)weaponO).basePhyStats().setDamage((int)Math.round(CMath.mul(phyStats().damage(),super.getComputedEfficiency())));
+								((Technical)weaponO).phyStats().setDamage((int)Math.round(CMath.mul(phyStats().damage(),super.getComputedEfficiency())));
+								CMLib.threads().startTickDown(weaponO, Tickable.TICKID_BALLISTICK, 10);
+								CMLib.space().addObjectToSpace(weaponO, firstCoords);
 								setPowerRemaining(0);
 							}
 						}

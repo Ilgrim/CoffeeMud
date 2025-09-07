@@ -20,7 +20,7 @@ import java.io.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ public class Load extends StdCommand
 	{
 	}
 
-	private final String[]	access	= I(new String[] { "LOAD" });
+	private final String[]	access	= I(new String[] { "LOAD", "RELOAD" });
 
 	@Override
 	public String[] getAccessWords()
@@ -76,11 +76,15 @@ public class Load extends StdCommand
 	{
 		if(mob==null)
 			return true;
-		boolean tryArchon=CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.LOADUNLOAD);
+		boolean tryArchon=CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.LOADUNLOAD)
+							&&((commands.size()==0)||(!commands.get(0).toUpperCase().startsWith("RE")));
 		if(commands.size()<3)
 		{
 			if(tryArchon)
 				mob.tell(L("LOAD what? Try @x1 [CLASSNAME]",CMParms.toListString(ARCHON_LIST)));
+			else
+			if((commands.size()>0)&&(commands.get(1).toUpperCase().startsWith("RE")))
+				mob.tell(L("Reload what where?"));
 			else
 				mob.tell(L("Load what where?"));
 			return false;
@@ -99,6 +103,12 @@ public class Load extends StdCommand
 				&&(((AmmunitionWeapon)I).requiresAmmunition())
 				&&((AmmunitionWeapon)I).isFreeStanding())
 					tryArchon=false;
+				else
+				{
+					I=mob.fetchItem(null, Wearable.FILTER_UNWORNONLY, name);
+					if((I instanceof AmmunitionWeapon)&&((AmmunitionWeapon)I).requiresAmmunition())
+						tryArchon=false;
+				}
 			}
 			for(final String aList : ARCHON_LIST)
 			{
@@ -254,7 +264,7 @@ public class Load extends StdCommand
 						{
 							C=Class.forName("com.sun.tools.javac.Main", true, CMClass.instance());
 							if(C!=null)
-								CO=C.newInstance();
+								CO=C.getDeclaredConstructor().newInstance();
 						}
 						catch(final Exception e)
 						{

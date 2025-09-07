@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -240,7 +240,7 @@ public class Skill_HighJump extends StdSkill
 				if((R.getRoomInDir(dirCode)==null)
 				||(R.getExitInDir(dirCode)==null))
 					break;
-				msg=CMClass.getMsg(mob,null,this,CMMsg.MSG_NOISYMOVEMENT,L("<S-NAME> fly(s) @x1!",targetName));
+				msg=CMClass.getMsg(mob,null,this,CMMsg.MSG_NOISYMOVEMENT,L("<S-NAME> fl(ys) @x1!",targetName));
 			}
 		}
 		mob.recoverPhyStats();

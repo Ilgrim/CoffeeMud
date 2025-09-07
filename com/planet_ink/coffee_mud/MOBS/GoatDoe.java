@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -163,13 +163,13 @@ public class GoatDoe extends Goat implements Drink
 	}
 
 	@Override
-	public boolean containsDrink()
+	public boolean containsLiquid()
 	{
 		return true;
 	}
 
 	@Override
-	public int amountTakenToFillMe(final Drink theSource)
+	public int amountTakenToFillMe(final LiquidHolder theSource)
 	{
 		return 0;
 	}

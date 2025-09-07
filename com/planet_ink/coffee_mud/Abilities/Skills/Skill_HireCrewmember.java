@@ -4,6 +4,7 @@ import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.Thief.Thief_Articles;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftedItem;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.StdBehavior;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -21,7 +22,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -277,6 +278,52 @@ public class Skill_HireCrewmember extends StdSkill
 		return ((articlesA!=null)&&(articlesA.shipName.equals(shipName)));
 	}
 
+	protected List<Item> craftGear(final MOB mob, final String[] gearNames, final String... skillNames)
+	{
+		final List<Item> items = new ArrayList<Item>();
+		final ItemCraftor[] craftors = new ItemCraftor[skillNames.length];
+		final int[] mats = new int[skillNames.length];
+		int c=0, m=0;
+		for(final String skillName : skillNames)
+		{
+			final int mat = RawMaterial.CODES.FIND_IgnoreCase(skillName);
+			if(mat >0)
+				mats[m++]=m;
+			else
+				craftors[c++]=(ItemCraftor)CMClass.getAbility(skillName);
+		}
+		for(final String bit : gearNames)
+		{
+			Item I=null;
+			for(final ItemCraftor craftor : craftors)
+			{
+				final CraftedItem item = craftor.craftItem(bit, -1, true, false);
+				if((item != null)
+				&&(item.item != null))
+				{
+					I=item.item;
+					break;
+				}
+			}
+			if(I != null)
+			{
+				I.setBaseValue(1);
+				if(I.basePhyStats().level()>mob.phyStats().level())
+				{
+					I.basePhyStats().setLevel(mob.phyStats().level());
+					I.phyStats().setLevel(mob.phyStats().level());
+				}
+				mob.addItem(I);
+				I.wearIfPossible(mob);
+				if(!I.amBeingWornProperly())
+					I.destroy();
+				else
+					items.add(I);
+			}
+		}
+		return items;
+	}
+
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
@@ -297,11 +344,12 @@ public class Skill_HireCrewmember extends StdSkill
 					return false;
 				}
 
-				if((R.getArea() instanceof BoardableShip)
-				&&(((BoardableShip)R.getArea()).getShipItem() instanceof SailingShip))
+				if((R.getArea() instanceof Boardable)
+				&&(((Boardable)R.getArea()).getBoardableItem() instanceof NavigableItem)
+				&&(((NavigableItem)((Boardable)R.getArea()).getBoardableItem()).navBasis()==Rideable.Basis.WATER_BASED))
 				{
 					final Area shipArea=R.getArea();
-					final SailingShip ship = (SailingShip)((BoardableShip)shipArea).getShipItem();
+					final NavigableItem ship = (NavigableItem)((Boardable)shipArea).getBoardableItem();
 					if(this.type==null)
 					{
 						int numRooms=0;
@@ -412,6 +460,57 @@ public class Skill_HireCrewmember extends StdSkill
 						this.makeNonUninvokable();
 						this.setSavable(true);
 						getSailor();
+						//metacraft white pants, blue and white-striped shirts and white hats for everyone else.
+						if((type != CrewType.DEFENDER)
+						&&(type != CrewType.CAPTAIN))
+						{
+							final String[] gear = new String[] {
+								"pants", "shirt", "Sailor`s Cap"
+							};
+							final List<Item> Is = craftGear(mob, gear, "Tailoring", "COTTON");
+							for(final Item I : Is)
+							{
+								final String on = I.Name();
+								final int x=on.indexOf(' ');
+								I.setName(L("@x1 ^wwhite^N@x2",on.substring(0,x),on.substring(x)));
+								I.setDisplayText(CMStrings.replaceAll(I.displayText(), on, I.Name()));
+							}
+						}
+						switch(type)
+						{
+						case DEFENDER:
+						{
+							final String[] gear = new String[] {
+								"vambrace", "gauntlets", "vest", "skullcap", "leggings", "bullwhip", "small shield"
+							};
+							craftGear(mob, gear, "LeatherWorking", "LEATHER", "Carpentry", "OAK");
+							break;
+						}
+						case REPAIRER:
+							craftGear(mob, new String[] {"craftsmans hammer"}, "Weaponsmithing", "IRON");
+							break;
+						case CAPTAIN:
+						{
+							final String[] gear = new String[] {
+								"pants", "shirt", "Captain`s Hat"
+							};
+							final List<Item> Is = craftGear(mob, gear, "Tailoring", "COTTON");
+							for(final Item I : Is)
+							{
+								final String on = I.Name();
+								final int x=on.indexOf(' ');
+								I.setName(L("@x1 ^bblue^N@x2",on.substring(0,x),on.substring(x)));
+								I.setDisplayText(CMStrings.replaceAll(I.displayText(), on, I.Name()));
+							}
+							break;
+						}
+						case TACTICIAN:
+							craftGear(mob, new String[] {"drum"}, "InstrumentMaking", "OAK");
+							break;
+						case TRAWLER:
+							craftGear(mob, new String[] {"net"}, "Weaving", "HEMP");
+							break;
+						}
 						CMLib.commands().postSay(mob, L("I am ready for duty."));
 					}
 				}
@@ -491,6 +590,7 @@ public class Skill_HireCrewmember extends StdSkill
 				return false;
 			}
 			final TrackingLibrary.TrackingFlags flags=CMLib.tracking().newFlags();
+			flags.plus(TrackingLibrary.TrackingFlag.PASSABLE);
 			final int roomRange = baseWaterRange + super.getXLEVELLevel(mob)+super.getXMAXRANGELevel(mob);
 			final List<Room> nearby=CMLib.tracking().findTrailToAnyRoom(R, TrackingFlag.WATERSURFACEONLY.myFilter, flags, roomRange);
 			if((nearby==null)||(nearby.size()==0))
@@ -501,7 +601,7 @@ public class Skill_HireCrewmember extends StdSkill
 
 			final int medLevel = minLevel + (int)Math.round(CMath.ceiling(CMath.div(range, 2.0)));
 			final double amt = medLevel * 10.0;
-			final String currency=R.getArea().getCurrency();
+			final String currency=R.getArea().getFinalCurrency();
 			moneyStr = CMLib.beanCounter().abbreviatedPrice(currency, amt);
 			if(CMLib.beanCounter().getTotalAbsoluteValue(mob, currency) < amt)
 			{
@@ -526,7 +626,7 @@ public class Skill_HireCrewmember extends StdSkill
 			if(money > 0.0)
 				CMLib.beanCounter().subtractMoney(mob, money);
 			final MOB targetM=CMClass.getMOB("GenMob");
-			final List<Race> races=CMLib.login().raceQualifies(Area.THEME_FANTASY);
+			final List<Race> races=CMLib.login().raceQualifies(mob, Area.THEME_FANTASY);
 			final Race raceR=races.get(CMLib.dice().roll(1, races.size(), -1));
 			final String name=CMLib.login().generateRandomName(1, 5);
 			final String raceName=raceR.name();
@@ -564,7 +664,9 @@ public class Skill_HireCrewmember extends StdSkill
 			targetM.basePhyStats().setAttackAdjustment(CMLib.leveler().getLevelAttack(targetM));
 			targetM.basePhyStats().setDamage(CMLib.leveler().getLevelMOBDamage(targetM));
 			targetM.basePhyStats().setSpeed(CMLib.leveler().getLevelMOBSpeed(targetM));
-			//targetM.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience")); -- could be dangerous not having this, but 5-10 levels lower, so...
+			//targetM.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0")); -- could be dangerous not having this, but 5-10 levels lower, so...
+			targetM.addTattoo("SYSTEM_SUMMONED");
+			targetM.addTattoo("SUMMONED_BY:"+mob.name());
 			targetM.recoverCharStats();
 			targetM.recoverPhyStats();
 			targetM.recoverMaxState();

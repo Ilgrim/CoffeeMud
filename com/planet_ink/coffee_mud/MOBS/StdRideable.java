@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ public class StdRideable extends StdMOB implements Rideable
 		return "StdRideable";
 	}
 
-	protected int			rideBasis		= Rideable.RIDEABLE_LAND;
+	protected Basis			rideBasis		= Rideable.Basis.LAND_BASED;
 	protected int			riderCapacity	= 2;
 	protected List<Rider>	riders			= new SVector<Rider>();
 	protected String		putString		= "";
@@ -50,10 +50,22 @@ public class StdRideable extends StdMOB implements Rideable
 	protected String		mountString		= "";
 	protected String		dismountString	= "";
 
+	protected static String DEFAULT_RIDE_STRING = CMLib.lang().L("ride(s)");
+	protected static String DEFAULT_FOLLOW_STRING = CMLib.lang().L("follow(s)");
+	protected static String DEFAULT_IS_PULLED_STRING = CMLib.lang().L("is pulled");
+	protected static String DEFAULT_PULLING_ALONG_STRING = CMLib.lang().L("pulling along");
+	protected static String DEFAULT_MOUNTED_WITH_STRING = CMLib.lang().L("mounted with");
+	protected static String DEFAULT_BEING_RIDDEN_BY_STRING = CMLib.lang().L("being ridden by");
+	protected static String DEFAULT_BEING_PULLED_BY_STRING = CMLib.lang().L("being pulled by");
+	protected static String DEFAULT_RIDING_ON_STRING = CMLib.lang().L("riding on");
+	protected static String DEFAULT_MOUNTS_STRING = CMLib.lang().L("mount(s)");
+	protected static String DEFAULT_DISMOUNTS_STRING = CMLib.lang().L("dismount(s)");
+	protected static String DEFAULT_ON_STRING = CMLib.lang().L("on");
+
 	public StdRideable()
 	{
 		super();
-		username="a horse";
+		_name="a horse";
 		setDescription("A brown riding horse looks sturdy and reliable.");
 		setDisplayText("a horse stands here.");
 		baseCharStats().setMyRace(CMClass.getRace("Horse"));
@@ -103,12 +115,15 @@ public class StdRideable extends StdMOB implements Rideable
 	{
 		switch(rideBasis())
 		{
-			case RIDEABLE_SIT:
-			case RIDEABLE_TABLE:
-			case RIDEABLE_ENTERIN:
-			case RIDEABLE_SLEEP:
-			case RIDEABLE_LADDER:
+			case FURNITURE_SIT:
+			case FURNITURE_TABLE:
+			case FURNITURE_HOOK:
+			case ENTER_IN:
+			case FURNITURE_SLEEP:
+			case LADDER:
 				return false;
+			default:
+				break;
 		}
 		return true;
 	}
@@ -128,13 +143,13 @@ public class StdRideable extends StdMOB implements Rideable
 
 	// common item/mob stuff
 	@Override
-	public int rideBasis()
+	public Basis rideBasis()
 	{
 		return rideBasis;
 	}
 
 	@Override
-	public void setRideBasis(final int basis)
+	public void setRideBasis(final Basis basis)
 	{
 		rideBasis = basis;
 	}
@@ -170,7 +185,7 @@ public class StdRideable extends StdMOB implements Rideable
 		{
 			return riders.get(which);
 		}
-		catch (final java.lang.ArrayIndexOutOfBoundsException e)
+		catch (final IndexOutOfBoundsException e)
 		{
 		}
 		return null;
@@ -180,7 +195,7 @@ public class StdRideable extends StdMOB implements Rideable
 	public String putString(final Rider R)
 	{
 		if((R==null)||(putString.length()==0))
-			return "on";
+			return DEFAULT_ON_STRING;
 		return putString;
 	}
 
@@ -236,10 +251,10 @@ public class StdRideable extends StdMOB implements Rideable
 	public void recoverPhyStats()
 	{
 		super.recoverPhyStats();
-		if(rideBasis==Rideable.RIDEABLE_AIR)
+		if(rideBasis==Rideable.Basis.AIR_FLYING)
 			phyStats().setDisposition(phyStats().disposition()|PhyStats.IS_FLYING);
 		else
-		if(rideBasis==Rideable.RIDEABLE_WATER)
+		if(rideBasis==Rideable.Basis.WATER_BASED)
 			phyStats().setDisposition(phyStats().disposition()|PhyStats.IS_SWIMMING);
 	}
 
@@ -308,8 +323,17 @@ public class StdRideable extends StdMOB implements Rideable
 	@Override
 	public String stateString(final Rider R)
 	{
-		if((R==null)||(stateString.length()==0))
-			return "riding on";
+
+		if((R==null)
+		||(stateString.length()==0))
+		{
+			if(R instanceof Item)
+				return DEFAULT_BEING_PULLED_BY_STRING;
+			else
+			if(R instanceof Rideable)
+				return DEFAULT_MOUNTED_WITH_STRING;
+			return DEFAULT_RIDING_ON_STRING;
+		}
 		return stateString;
 	}
 
@@ -337,7 +361,7 @@ public class StdRideable extends StdMOB implements Rideable
 	public String mountString(final int commandType, final Rider R)
 	{
 		if((R==null)||(mountString.length()==0))
-			return "mount(s)";
+			return DEFAULT_MOUNTS_STRING;
 		return mountString;
 	}
 
@@ -365,7 +389,7 @@ public class StdRideable extends StdMOB implements Rideable
 	public String dismountString(final Rider R)
 	{
 		if((R==null)||(dismountString.length()==0))
-			return "dismount(s)";
+			return DEFAULT_DISMOUNTS_STRING;
 		return dismountString;
 	}
 
@@ -393,7 +417,14 @@ public class StdRideable extends StdMOB implements Rideable
 	public String rideString(final Rider R)
 	{
 		if((R==null)||(rideString.length()==0))
-			return "ride(s)";
+		{
+			if(R instanceof Item)
+				return DEFAULT_IS_PULLED_STRING;
+			else
+			if(R instanceof Rideable)
+				return DEFAULT_FOLLOW_STRING;
+			return DEFAULT_RIDE_STRING;
+		}
 		return rideString;
 	}
 
@@ -422,9 +453,15 @@ public class StdRideable extends StdMOB implements Rideable
 	{
 		if((R==null)||(stateSubjectStr.length()==0))
 		{
-			if((R instanceof Rideable)&&((Rideable)R).rideBasis()==Rideable.RIDEABLE_WAGON)
-				return "pulling along";
-			return "being ridden by";
+			if(R instanceof Rideable)
+			{
+				final Rideable rI=(Rideable)R;
+				if(rI.rideBasis()==Rideable.Basis.WAGON)
+					return DEFAULT_PULLING_ALONG_STRING;
+				if(rI instanceof MOB)
+					return DEFAULT_MOUNTED_WITH_STRING;
+			}
+			return DEFAULT_BEING_RIDDEN_BY_STRING;
 		}
 		return stateSubjectStr;
 	}
@@ -516,6 +553,11 @@ public class StdRideable extends StdMOB implements Rideable
 			else
 			if(msg.amITarget(this))
 			{
+				if(rideBasis()==Basis.FURNITURE_HOOK)
+				{
+					msg.source().tell(L("You can't do that to @x1.",name(msg.source())));
+					return false;
+				}
 				msg.source().tell(L("You cannot simply sit on @x1, try 'mount'.",name(msg.source())));
 				return false;
 			}
@@ -560,6 +602,11 @@ public class StdRideable extends StdMOB implements Rideable
 					msg.source().tell(L("@x1 won't let you do that right now.",name(msg.source())));
 					return false;
 				}
+				if(rideBasis()==Basis.FURNITURE_HOOK)
+				{
+					msg.source().tell(L("You can't do that to @x1.",name(msg.source())));
+					return false;
+				}
 				if(riding()==whoWantsToRide)
 				{
 					if(msg.tool() instanceof Physical)
@@ -581,15 +628,24 @@ public class StdRideable extends StdMOB implements Rideable
 				}
 				if((msg.tool() instanceof Rideable)
 				&&(msg.tool() instanceof Item)
-				&&(((Rideable)msg.tool()).rideBasis()!=Rideable.RIDEABLE_WAGON))
+				&&(((Rideable)msg.tool()).rideBasis()!=Rideable.Basis.WAGON))
 				{
 					msg.source().tell(L("@x1 can not be mounted on @x2.",((Item)msg.tool()).name(msg.source()),name(msg.source())));
 					return false;
 				}
-				if((basePhyStats().weight()*5<whoWantsToRide.basePhyStats().weight()))
+				if((msg.tool() instanceof Rideable)
+				&&(msg.tool() instanceof NavigableItem)
+				&&((((NavigableItem)msg.tool()).navBasis() ==Rideable.Basis.LAND_BASED)))
 				{
-					msg.source().tell(L("@x1 is too small for @x2.",name(msg.source()),whoWantsToRide.name(msg.source())));
-					return false;
+					//handles its own pullers
+				}
+				else
+				{
+					if((basePhyStats().weight()*5<whoWantsToRide.basePhyStats().weight()))
+					{
+						msg.source().tell(L("@x1 is too small for @x2.",name(msg.source()),whoWantsToRide.name(msg.source())));
+						return false;
+					}
 				}
 				if((numRiders()>=riderCapacity())
 				&&(!amRiding(whoWantsToRide)))
@@ -609,7 +665,7 @@ public class StdRideable extends StdMOB implements Rideable
 				if(this.playerStats!=null)
 				{
 					if((!charStats().getMyRace().useRideClass())
-					||(playerStats.isIgnored(msg.source()))
+					||(playerStats.isIgnored("RIDE",msg.source()))
 					||(!getGroupMembers(new HashSet<MOB>()).contains(msg.source())))
 					{
 						msg.source().tell(L("@x1 won't let you do that.",name(msg.source())));
@@ -629,25 +685,49 @@ public class StdRideable extends StdMOB implements Rideable
 				if((sourceRoom!=null)&&(!msg.amITarget(sourceRoom)))
 				{
 					boolean ok=((targetRoom.domainType()&Room.INDOORS)==0)
-								||(targetRoom.maxRange()>4);
+								||(targetRoom.maxRange()>4)
+								||(targetRoom.phyStats().weight()>2);
 					switch(rideBasis)
 					{
-					case Rideable.RIDEABLE_LAND:
+					case LAND_BASED:
 						if((targetRoom.domainType()==Room.DOMAIN_OUTDOORS_AIR)
-						||(CMLib.flags().isWateryRoom(targetRoom))
+						||(CMLib.flags().isDeepWateryRoom(targetRoom))
 						||(targetRoom.domainType()==Room.DOMAIN_INDOORS_AIR))
 							ok=false;
+						else
+						if((!ok)
+						&&(phyStats().weight() < 200)
+						&&(!(amFollowing() instanceof Item)))
+						{
+							ok=true;
+							for(final Rider R : riders)
+							{
+								if(R instanceof Item)
+									ok=false;
+							}
+						}
 						break;
-					case Rideable.RIDEABLE_AIR:
+					case AIR_FLYING:
 						break;
-					case Rideable.RIDEABLE_WATER:
-						if((!CMLib.flags().isWaterySurfaceRoom(sourceRoom))
-						&&(!CMLib.flags().isWaterySurfaceRoom(targetRoom)))
+					case WATER_BASED:
+						if((!CMLib.flags().canBreatheThis(this,RawMaterial.RESOURCE_FRESHWATER))
+						&&(!CMLib.flags().canBreatheThis(this,RawMaterial.RESOURCE_SALTWATER)))
+						{
+							if((!CMLib.flags().isWaterySurfaceRoom(sourceRoom))
+							&&(!CMLib.flags().isWaterySurfaceRoom(targetRoom)))
+								ok=false;
+							if(CMLib.flags().isUnderWateryRoom(targetRoom))
+								ok=false;
+						}
+						else
+						if((!CMLib.flags().isWateryRoom(sourceRoom))
+						&&(!CMLib.flags().isWateryRoom(targetRoom)))
 							ok=false;
 						if((targetRoom.domainType()==Room.DOMAIN_INDOORS_AIR)
-						||(targetRoom.domainType()==Room.DOMAIN_OUTDOORS_AIR)
-						||(CMLib.flags().isUnderWateryRoom(targetRoom)))
+						||(targetRoom.domainType()==Room.DOMAIN_OUTDOORS_AIR))
 							ok=false;
+						break;
+					default:
 						break;
 					}
 					if(!ok)
@@ -669,20 +749,28 @@ public class StdRideable extends StdMOB implements Rideable
 			}
 			break;
 		case CMMsg.TYP_GIVE:
-			if(msg.target() instanceof MOB)
+			if((msg.target() instanceof MOB)
+			&&(!msg.targetMajor(CMMsg.MASK_ALWAYS)))
 			{
 				final MOB tmob=(MOB)msg.target();
-				if((amRiding(tmob))&&(!amRiding(msg.source())))
+				if((amRiding(tmob))
+				&&(!amRiding(msg.source())))
 				{
-					msg.source().tell(msg.source(),tmob,null,L("<T-NAME> must dismount first."));
-					return false;
+					if(!(tmob.okMessage(myHost, msg)))
+						return false;
+					if(!msg.targetMajor(CMMsg.MASK_ALWAYS))
+					{
+						msg.source().tell(msg.source(),tmob,null,L("<T-NAME> must dismount first."));
+						return false;
+					}
 				}
 			}
 			break;
 		case CMMsg.TYP_BUY:
 		case CMMsg.TYP_BID:
 		case CMMsg.TYP_SELL:
-			if(amRiding(msg.source()))
+			if((amRiding(msg.source()))
+			&&(!msg.targetMajor(CMMsg.MASK_ALWAYS)))
 			{
 				msg.source().tell(L("You cannot do that while @x1 @x2.",stateString(msg.source()),name(msg.source())));
 				return false;
@@ -692,9 +780,13 @@ public class StdRideable extends StdMOB implements Rideable
 		if((msg.sourceMajor(CMMsg.MASK_HANDS))
 		&&(amRiding(msg.source()))
 		&&((msg.sourceMessage()!=null)||(msg.othersMessage()!=null))
-		&&(((!CMLib.utensils().reachableItem(msg.source(),msg.target())))
-			|| ((!CMLib.utensils().reachableItem(msg.source(),msg.tool())))
-			|| ((msg.sourceMinor()==CMMsg.TYP_GIVE)&&(msg.target() instanceof MOB)&&(msg.target()!=this)&&(!amRiding((MOB)msg.target())))))
+		&&(!msg.targetMajor(CMMsg.MASK_ALWAYS))
+		&&((!CMLib.utensils().reachableItem(msg.source(),msg.target()))
+			|| (!CMLib.utensils().reachableItem(msg.source(),msg.tool()))
+			|| ((msg.sourceMinor()==CMMsg.TYP_GIVE)
+				&&(msg.target() instanceof MOB)
+				&&(msg.target()!=this)
+				&&(!amRiding((MOB)msg.target())))))
 		{
 			msg.source().tell(L("You cannot do that while @x1 @x2.",stateString(msg.source()),name(msg.source())));
 			return false;

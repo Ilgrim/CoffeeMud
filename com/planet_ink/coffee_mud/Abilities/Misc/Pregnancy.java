@@ -22,7 +22,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -54,6 +54,9 @@ public class Pregnancy extends StdAbility implements HealthCondition
 
 	protected long	monthsRemaining	= -1;
 	protected long	daysRemaining	= -1;
+	protected Ability addictions	= null;
+	protected int	ticksInLabor	= 0;
+
 
 	@Override
 	public String getHealthConditionDesc()
@@ -78,177 +81,140 @@ public class Pregnancy extends StdAbility implements HealthCondition
 		return "";
 	}
 
+	protected enum PregArg
+	{
+		STARTTIME,
+		ENDTIME,
+		FATHERNAME,
+		FATHERRACE,
+		BABYRACE,
+		BABYGENDER
+	}
+
+	protected String getSplitArgument(final PregArg arg)
+	{
+		return getSplitArgument(arg, "");
+	}
+
+	protected String getSplitArgument(final PregArg arg, final String def)
+	{
+		final String txt = text();
+		int ord = 0;
+		int prevX = 0;
+		int x = txt.indexOf('/');
+		while(ord < arg.ordinal())
+		{
+			if(x<0)
+				return def;
+			prevX = x+1;
+			x=txt.indexOf('/',prevX);
+			ord++;
+		}
+		if(x<0)
+			return txt.substring(prevX);
+		return txt.substring(prevX,x);
+	}
+
+	protected void setSplitArgument(final PregArg arg, final String value)
+	{
+		final List<String> parms = CMParms.parseAny(text(),'/',false);
+		if(arg.ordinal() >= parms.size())
+			return;
+		while(parms.size()<=arg.ordinal())
+			parms.add("");
+		parms.set(arg.ordinal(),value);
+		setMiscText(CMParms.combineWith(parms, '/'));
+	}
+
 	protected long getPregnancyStartTime()
 	{
-		final String text = text();
-		final int x = text.indexOf('/');
-		if (x > 0)
-		{
-			final int y = text.indexOf('/', x + 1);
-			if (y >= 0)
-				return CMath.s_long(text.substring(0, x));
-		}
-		return -1;
+		return CMath.s_long(this.getSplitArgument(PregArg.STARTTIME, "-1"));
 	}
 
 	protected void setPregnancyStartTime(final long newTime)
 	{
-		final String text = text();
-		final int x = text.indexOf('/');
-		if (x > 0)
-		{
-			final int y = text.indexOf('/', x + 1);
-			if (y >= 0)
-				this.setMiscText(newTime + text.substring(x));
-		}
+		this.setSplitArgument(PregArg.STARTTIME, ""+newTime);
 	}
 
 	protected long getPregnancyEndTime()
 	{
-		final int x = text().indexOf('/');
-		if (x > 0)
-		{
-			final int y = text().indexOf('/', x + 1);
-			if (y >= 0)
-				return CMath.s_long(text().substring(x + 1, y));
-		}
-		return -1;
+		return CMath.s_long(this.getSplitArgument(PregArg.ENDTIME, "-1"));
 	}
 
 	protected void setPregnancyEndTime(final long newTime)
 	{
-		final String text = text();
-		final int x = text.indexOf('/');
-		if (x > 0)
-		{
-			final int y = text.indexOf('/', x + 1);
-			if (y >= 0)
-				this.setMiscText(text.substring(0, x + 1) + newTime + text.substring(y));
-		}
+		this.setSplitArgument(PregArg.ENDTIME, ""+newTime);
 	}
 
 	protected String getFathersName()
 	{
-		final int x = text().indexOf('/');
-		if (x > 0)
-		{
-			final int y = text().indexOf('/', x + 1);
-			if (y > x)
-			{
-				final int z = text().indexOf('/', y + 1);
-				if (z > y)
-					return text().substring(y + 1, z);
-			}
-		}
-		return "";
+		return getSplitArgument(PregArg.FATHERNAME);
 	}
 
 	protected void setFathersName(final String name)
 	{
-		final int x = text().indexOf('/');
-		if (x > 0)
-		{
-			final int y = text().indexOf('/', x + 1);
-			if (y > x)
-			{
-				final int z = text().indexOf('/', y + 1);
-				if (z > y)
-					super.setMiscText(text().substring(0,y+1)+name+text().substring(z));
-			}
-		}
+		setSplitArgument(PregArg.FATHERNAME,name);
+	}
+
+	protected String getBabyRace()
+	{
+		return getSplitArgument(PregArg.BABYRACE);
+	}
+
+	protected void setBabyRace(final String raceID)
+	{
+		setSplitArgument(PregArg.BABYRACE,raceID);
+	}
+
+	protected String getBabyGender()
+	{
+		return getSplitArgument(PregArg.BABYGENDER);
+	}
+
+	protected void setBabyGender(final String genderChar)
+	{
+		setSplitArgument(PregArg.BABYGENDER,genderChar);
 	}
 
 	protected String getFathersRace()
 	{
-		final int x = text().indexOf('/');
-		if (x > 0)
-		{
-			final int y = text().indexOf('/', x + 1);
-			if (y > x)
-			{
-				final int z = text().indexOf('/', y + 1);
-				if (z > y)
-				{
-					final String race2 = text().substring(z + 1).trim();
-					if((race2.length()>2)
-					&& Character.isDigit(race2.charAt(0))
-					&& race2.charAt(1)=='X')
-						return race2.substring(2);
-					else
-						return race2;
-				}
-			}
-		}
-		return "";
+		final String racePart=getSplitArgument(PregArg.FATHERRACE);
+		if((racePart.length()>2)
+		&& Character.isDigit(racePart.charAt(0))
+		&& racePart.charAt(1)=='X')
+			return racePart.substring(2);
+		return racePart;
 	}
 
 	protected void setFathersRace(final String raceID)
 	{
-		final int x = text().indexOf('/');
-		if (x > 0)
-		{
-			final int y = text().indexOf('/', x + 1);
-			if (y > x)
-			{
-				final int z = text().indexOf('/', y + 1);
-				if (z > y)
-				{
-					final int numKids = this.getNumKids();
-					final String race2;
-					if(numKids > 1)
-						race2=numKids+"X"+raceID;
-					else
-						race2=raceID;
-					super.setMiscText(text().substring(0,z+1)+race2);
-				}
-			}
-		}
+		if((raceID.length()>2)
+		&& Character.isDigit(raceID.charAt(0))
+		&& raceID.charAt(1)=='X')
+			setSplitArgument(PregArg.FATHERRACE,raceID);
+		else
+			setSplitArgument(PregArg.FATHERRACE,getNumKids()+"X"+raceID);
 	}
 
 	protected int getNumKids()
 	{
-		final int x = text().indexOf('/');
-		if (x > 0)
-		{
-			final int y = text().indexOf('/', x + 1);
-			if (y > x)
-			{
-				final int z = text().indexOf('/', y + 1);
-				if (z > y)
-				{
-					final String race2 = text().substring(z + 1).trim();
-					if((race2.length()>2)
-					&& Character.isDigit(race2.charAt(0))
-					&& race2.charAt(1)=='X')
-						return CMath.s_int(race2.substring(0,1));
-				}
-			}
-		}
+		final String racePart=getSplitArgument(PregArg.FATHERRACE);
+		if((racePart.length()>2)
+		&& Character.isDigit(racePart.charAt(0))
+		&& racePart.charAt(1)=='X')
+			return CMath.s_int(racePart.substring(0,1));
 		return 1;
 	}
 
-	protected void setNumKids(final int num)
+	protected void setNumKids(int num)
 	{
-		final int x = text().indexOf('/');
-		if (x > 0)
-		{
-			final int y = text().indexOf('/', x + 1);
-			if (y > x)
-			{
-				final int z = text().indexOf('/', y + 1);
-				if (z > y)
-				{
-					String race2 = text().substring(z + 1).trim();
-					if((race2.length()>2)
-					&& Character.isDigit(race2.charAt(0))
-					&& race2.charAt(1)=='X')
-						race2=race2.substring(2);
-					if(num > 1)
-						race2=num+"X"+race2;
-					super.setMiscText(text().substring(0,z+1)+race2);
-				}
-			}
-		}
+		final String racePart=getSplitArgument(PregArg.FATHERRACE);
+		if(num<1)
+			num=1;
+		else
+		if(num>9)
+			num=9;
+		setSplitArgument(PregArg.FATHERRACE,num+"X"+racePart);
 	}
 
 	@Override
@@ -267,6 +233,12 @@ public class Pregnancy extends StdAbility implements HealthCondition
 			else
 			if (code.equalsIgnoreCase("FATHERRACE"))
 				this.setFathersRace(val);
+			else
+			if (code.equalsIgnoreCase("BABYRACE"))
+				this.setBabyRace(val);
+			else
+			if (code.equalsIgnoreCase("BABYGENDER"))
+				this.setBabyGender(val);
 			else
 			if (code.equalsIgnoreCase("NUMBABIES"))
 				this.setNumKids(Math.min(9, CMath.s_int(val)));
@@ -300,6 +272,12 @@ public class Pregnancy extends StdAbility implements HealthCondition
 			else
 			if (code.equalsIgnoreCase("NUMBABIES"))
 				return "" + this.getNumKids();
+			else
+			if (code.equalsIgnoreCase("BABYRACE"))
+				return "" + this.getBabyRace();
+			else
+			if (code.equalsIgnoreCase("BABYGENDER"))
+				return "" + this.getBabyGender();
 			else
 				return super.getStat(code);
 		}
@@ -371,8 +349,6 @@ public class Pregnancy extends StdAbility implements HealthCondition
 		return Ability.ACODE_PROPERTY;
 	}
 
-	protected int	ticksInLabor	= 0;
-
 	@Override
 	public void executeMsg(final Environmental host, final CMMsg msg)
 	{
@@ -383,6 +359,30 @@ public class Pregnancy extends StdAbility implements HealthCondition
 		&& ((daysRemaining > 0) && (monthsRemaining <= 3)))
 		{
 			msg.addTrailerMsg(CMClass.getMsg((MOB)affected, null, null, CMMsg.MSG_OK_VISUAL, L("\n\r<S-NAME> <S-IS-ARE> obviously with child.\n\r"), CMMsg.NO_EFFECT, null, CMMsg.NO_EFFECT, null));
+		}
+
+		if((addictions != null)
+		&&(affected instanceof MOB))
+			addictions.executeMsg(affected, msg);
+		else
+		if((msg.source()==affected)
+		&&(msg.targetMinor()==CMMsg.TYP_EAT)
+		&&(addictions == null)
+		&&(msg.target() instanceof Food)
+		&&(!CMSecurity.isAbilityDisabled("Addictions")))
+		{
+			addictions = CMClass.getAbility("Addictions");
+			if(addictions != null)
+			{
+				addictions.setAffectedOne(affected);
+				if(msg.target() instanceof RawMaterial)
+					addictions.setMiscText(RawMaterial.CODES.NAME(((RawMaterial)msg.target()).material()));
+				else
+				if(CMLib.dice().rollPercentage()>75)
+					addictions.setMiscText(RawMaterial.CODES.NAME(((Food)msg.target()).material()));
+				else
+					addictions.setMiscText(msg.target().Name());
+			}
 		}
 		super.executeMsg(host, msg);
 	}
@@ -396,6 +396,9 @@ public class Pregnancy extends StdAbility implements HealthCondition
 		&& (affected instanceof MOB)
 		&& (CMLib.flags().isInTheGame((MOB) affected, true)))
 		{
+			if((addictions != null)
+			&&(!addictions.tick(ticking, tickID)))
+				addictions = null;
 			final MOB mob = (MOB) affected;
 			final long end=this.getPregnancyEndTime();
 			if(end != -1)
@@ -405,7 +408,8 @@ public class Pregnancy extends StdAbility implements HealthCondition
 				daysRemaining = (end - System.currentTimeMillis()) / divisor; // down to days
 				monthsRemaining = daysRemaining / C.getDaysInMonth(); // down to months
 				if ((CMLib.dice().roll(1, 200, 0) == 1)
-				&&(!CMSecurity.isDisabled(DisFlag.AUTOMOODS)))
+				&&(!CMSecurity.isDisabled(DisFlag.AUTOMOODS))
+				&&(!mob.phyStats().isAmbiance(PhyStats.Ambiance.SUPPRESS_MOOD)))
 				{
 					final Ability A = CMClass.getAbility("Mood");
 					if (A != null)
@@ -420,44 +424,63 @@ public class Pregnancy extends StdAbility implements HealthCondition
 						if (mob.charStats().getStat(CharStats.STAT_INTELLIGENCE) > 5)
 							mob.location().show(mob, null, CMMsg.MSG_NOISE, L("<S-NAME> moan(s) and scream(s) in labor pain!!"));
 						else
-							mob.location().show(mob, null, CMMsg.MSG_NOISE, L("<S-NAME> look(s) like <S-HE-SHE> is ready to give birth!!"));
+							mob.location().show(mob, null, CMMsg.MSG_NOISE, L("<S-NAME> look(s) like <S-HE-SHE> <S-IS-ARE> ready to give birth!!"));
 					}
 					ticksInLabor++;
 					if (ticksInLabor >= 45)
 					{
 						ticksInLabor = 0;
-						final String race1 = mob.baseCharStats().getMyRace().ID();
+						final String motherR = mob.baseCharStats().getMyRace().ID();
 						String classID="GenMOB";
 						if(mob.isGeneric()
 						&& (!mob.ID().equalsIgnoreCase(classID))
 						&&(!(mob instanceof ShopKeeper)))
 							classID=mob.ID();
 						final int numKids=this.getNumKids();
-						String race2 = this.getFathersRace();
-						if((race2==null)||(race2.length()==0))
-							race2=mob.baseCharStats().getMyRace().ID();
 						String otherParentName = this.getFathersName();
 						if((otherParentName!=null)&&(otherParentName.length()==0))
 							otherParentName = null;
 						MOB otherParentM = null;
+						String fatherR = this.getFathersRace();
 						if((otherParentName!=null)&&(otherParentName.length()>0))
 							otherParentM=CMLib.players().getLoadPlayer(otherParentName);
+						if((fatherR==null)||(fatherR.length()==0))
+						{
+							if(otherParentM!=null)
+								fatherR=otherParentM.baseCharStats().getMyRace().ID();
+							else
+								fatherR=mob.baseCharStats().getMyRace().ID();
+						}
+						final String babyRaceID = this.getBabyRace();
 						for(int k=0;k<numKids;k++)
 						{
-							char gender = 'F';
-							String sondat = "daughter";
-							if (CMLib.dice().rollPercentage() > 50)
+							char gender;
+							if((getBabyGender()!=null)
+							&&(getBabyGender().length()>0)
+							&&("MFN".indexOf(getBabyGender().toUpperCase().charAt(0))>=0))
+								gender = getBabyGender().toUpperCase().charAt(0);
+							else
+								gender = (CMLib.dice().rollPercentage() > 50)?'M':'F';
+							String sondat;
+							switch(gender)
 							{
-								gender = 'M';
-								sondat = "son";
+							case 'M':
+								sondat="son";
+								break;
+							case 'F':
+								sondat="daughter";
+								break;
+							default:
+								sondat="child";
 							}
+
 							final MOB babe = CMClass.getMOB(classID);
 							babe.addTattoo("PARENT:" + mob.Name());
 							final String desc;
 							if(otherParentName==null)
-								desc = L("The " + sondat + " of @x1.",mob.Name());
+								desc = L("The @x1 of @x2.",sondat,mob.Name());
 							else
-								desc = L("The " + sondat + " of @x1 and @x2.",mob.Name(),otherParentName);
+								desc = L("The @x1 of @x2 and @x3.",sondat,mob.Name(),otherParentName);
 							if(otherParentM != null)
 								babe.addTattoo("PARENT:" + otherParentM.Name());
 							if((!mob.isPlayer())
@@ -489,14 +512,20 @@ public class Pregnancy extends StdAbility implements HealthCondition
 									A = mob.fetchAbility(ID());
 								}
 							}
-							final int numRaces = CMClass.numPrototypes(CMObjectType.RACE);
 							boolean newRaceGenerated = false;
-							Race R = CMLib.utensils().getMixedRace(race1, race2, false);
-							if (R == null)
-								R = mob.baseCharStats().getMyRace();
+							Race R;
+							if((babyRaceID!=null)&&(babyRaceID.length()>0)&&(CMClass.getRace(babyRaceID)!=null))
+								R=CMClass.getRace(babyRaceID);
 							else
-							if(numRaces > CMClass.numPrototypes(CMObjectType.RACE))
-								newRaceGenerated = true;
+							{
+								final int numRaces = CMClass.numPrototypes(CMObjectType.RACE);
+								R = CMLib.utensils().getMixedRace(motherR, fatherR, false);
+								if (R == null)
+									R = mob.baseCharStats().getMyRace();
+								else
+								if(numRaces > CMClass.numPrototypes(CMObjectType.RACE))
+									newRaceGenerated = true;
+							}
 							String name = CMLib.english().startWithAorAn(R.makeMobName(gender, 2)).toLowerCase();
 							babe.setName(name);
 							CMLib.factions().setAlignment(babe, Faction.Align.GOOD);
@@ -527,7 +556,7 @@ public class Pregnancy extends StdAbility implements HealthCondition
 							CMLib.beanCounter().clearZeroMoney(babe, null);
 							babe.setMoneyVariation(0);
 							babe.baseCharStats().setMyRace(R);
-							babe.baseCharStats().setMyClasses("Apprentice");
+							babe.baseCharStats().setAllClassInfo("Apprentice", "1");
 							babe.baseCharStats().setStat(CharStats.STAT_CHARISMA, 10);
 							babe.baseCharStats().setStat(CharStats.STAT_CONSTITUTION, 6);
 							babe.baseCharStats().setStat(CharStats.STAT_DEXTERITY, 2);
@@ -541,6 +570,7 @@ public class Pregnancy extends StdAbility implements HealthCondition
 							babe.baseState().setHitPoints(1);
 							babe.baseState().setMana(0);
 							babe.baseState().setMovement(0);
+							babe.setStartRoom(mob.getStartRoom());
 							if(CMLib.flags().isAnimalIntelligence(mob)
 							&&((otherParentM==null)||(CMLib.flags().isAnimalIntelligence(otherParentM))))
 								babe.baseCharStats().setStat(CharStats.STAT_INTELLIGENCE, 1);
@@ -559,6 +589,9 @@ public class Pregnancy extends StdAbility implements HealthCondition
 								retainA.setMiscText(s);
 								babe.addNonUninvokableEffect(retainA);
 							}
+							final Ability racistA = mob.fetchEffect("Disease_Racism");
+							if(racistA != null)
+								babe.addNonUninvokableEffect((Ability)racistA.copyOf());
 							if (!CMLib.flags().isAnimalIntelligence(babe))
 							{
 								if (CMLib.dice().rollPercentage() > 50)
@@ -594,6 +627,16 @@ public class Pregnancy extends StdAbility implements HealthCondition
 									babe.addNonUninvokableEffect(AGE);
 								}
 							}
+							for(final Enumeration<Ability> a = mob.effects();a.hasMoreElements();)
+							{
+								final Ability A = a.nextElement();
+								if((A instanceof DiseaseAffect)
+								&&((((DiseaseAffect)A).spreadBitmap()&DiseaseAffect.SPREAD_INHERETED)==DiseaseAffect.SPREAD_INHERETED))
+								{
+									final Ability effA = (Ability)A.copyOf();
+									babe.addEffect(effA);
+								}
+							}
 							babe.recoverCharStats();
 							babe.recoverPhyStats();
 							babe.recoverMaxState();
@@ -610,6 +653,7 @@ public class Pregnancy extends StdAbility implements HealthCondition
 							final Item I = CMClass.getItem("GenCaged");
 							((CagedAnimal) I).cageMe(babe);
 							((CagedAnimal) I).setCageFlagsBitmap(CagedAnimal.CAGEFLAG_TO_MOB_PROGRAMMATICALLY);
+							I.setBaseValue(1000);
 							final Ability AGE = CMClass.getAbility("Age");
 							if (AGE != null)
 							{
@@ -661,8 +705,12 @@ public class Pregnancy extends StdAbility implements HealthCondition
 				else
 				{
 					// pregnant folk get fatigued more often.
-					if (mob.maxState().getFatigue() > Long.MIN_VALUE / 2)
-						mob.curState().adjFatigue(monthsRemaining * 100, mob.maxState());
+					if((!CMSecurity.isDisabled(DisFlag.FATIGUE))
+					&&(!mob.charStats().getMyRace().infatigueable()))
+					{
+						if (mob.maxState().getFatigue() > Long.MIN_VALUE / 2)
+							mob.curState().adjFatigue(monthsRemaining * 100, mob.maxState());
+					}
 					if ((monthsRemaining <= 1)
 					&& (CMLib.dice().rollPercentage() == 1))
 					{
@@ -684,7 +732,7 @@ public class Pregnancy extends StdAbility implements HealthCondition
 						if (CMLib.dice().rollPercentage() > 25)
 							mob.tell(L("You feel really sick this morning."));
 						else
-							mob.location().show(mob, null, CMMsg.MSG_NOISYMOVEMENT, L("**BLEH** <S-NAME> just threw up."));
+							mob.location().show(mob, null, CMMsg.MSG_NOISYMOVEMENT, L("^G**BLEH** <S-NAME> just threw up.^?"));
 					}
 				}
 			}
@@ -748,7 +796,7 @@ public class Pregnancy extends StdAbility implements HealthCondition
 				setMiscText(start + "/" + end + "/" + mob.Name() + "/" + numKidMarker+mob.charStats().getMyRace().ID());
 				final List<String> channels = CMLib.channels().getFlaggedChannelNames(ChannelsLibrary.ChannelFlag.CONCEPTIONS, mob);
 				for (int i = 0; i < channels.size(); i++)
-					CMLib.commands().postChannel(channels.get(i), mob.clans(), L("@x1 is now in a 'family way'.", target.name()), true);
+					CMLib.commands().postChannel(channels.get(i), mob.clans(), L("@x1 is now in a 'family way'.", target.name()), true,mob);
 				final Pregnancy P=(Pregnancy)copyOf();
 				if((!mob.isPlayer())
 				&&(!target.isPlayer()))

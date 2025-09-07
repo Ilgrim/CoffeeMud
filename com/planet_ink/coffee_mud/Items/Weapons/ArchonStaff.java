@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Items.Weapons;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.planet_ink.coffee_mud.Items.MiscMagic.StdWand;
 import com.planet_ink.coffee_mud.core.interfaces.*;
@@ -21,7 +22,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,7 +45,8 @@ public class ArchonStaff extends Staff implements Wand, MiscMagic, ArchonOnly
 	}
 
 	private static Wand theWand=(Wand)CMClass.getMiscMagic("StdWand");
-	protected final static String[] MAGIC_WORDS={"LEVEL","RESTORE","REFRESH","BLAST","BURN","GAIN"};
+	protected final static String[] MAGIC_WORDS={"LEVEL","RESTORE","REFRESH","BLAST","BURN","GAIN","REWIND"};
+	protected AtomicBoolean noRecurse = new AtomicBoolean(false);
 
 	public ArchonStaff()
 	{
@@ -68,17 +70,17 @@ public class ArchonStaff extends Staff implements Wand, MiscMagic, ArchonOnly
 		weaponClassification=Weapon.CLASS_STAFF;
 		if(theWand==null)
 			theWand=(Wand)CMClass.getMiscMagic("StdWand");
-		secretWord="REFRESH, RESTORE, BLAST, LEVEL X UP, LEVEL X DOWN, BURN, GAIN X UP";
+		secretWord="REFRESH, RESTORE, REWIND, BLAST, LEVEL X UP, LEVEL X DOWN, BURN, GAIN X UP";
 	}
 
 	@Override
-	public int maxUses()
+	public int getMaxCharges()
 	{
 		return Integer.MAX_VALUE;
 	}
 
 	@Override
-	public void setMaxUses(final int newMaxUses)
+	public void setMaxCharges(final int newMaxUses)
 	{
 	}
 
@@ -86,22 +88,27 @@ public class ArchonStaff extends Staff implements Wand, MiscMagic, ArchonOnly
 	public void setSpell(final Ability theSpell)
 	{
 		super.setSpell(theSpell);
-		secretWord="REFRESH, RESTORE, BLAST, LEVEL X UP, LEVEL X DOWN, BURN, GAIN X UP";
+		secretWord="REFRESH, RESTORE, REWIND, BLAST, LEVEL X UP, LEVEL X DOWN, BURN, GAIN X UP";
 	}
 
 	@Override
 	public void setMiscText(final String newText)
 	{
 		super.setMiscText(newText);
-		secretWord="REFRESH, RESTORE, BLAST, LEVEL X UP, LEVEL X DOWN, BURN, GAIN X UP";
+		secretWord="REFRESH, RESTORE, REWIND, BLAST, LEVEL X UP, LEVEL X DOWN, BURN, GAIN X UP";
 	}
 
 	public boolean safetyCheck(final MOB mob, final String message)
 	{
-		if((!mob.isMonster())
+		final Session S = mob.session();
+		if((S!=null)
 		&&(message.length()>0)
-		&&(mob.session().getPreviousCMD()!=null)
-		&&(CMParms.combine(mob.session().getPreviousCMD(),0).toUpperCase().indexOf(message.toUpperCase())<0))
+		&&(S.getHistory().size()>0)
+		&&(S.getHistory().getLast().size()>0)
+		&&(CMParms.combine(S.getHistory().getLast(),0).toUpperCase().indexOf(message.toUpperCase())<0)
+		&&((!mob.isPlayer())
+			||(mob.isMonster())
+			||(mob.playerStats().getAlias(S.getHistory().getLast().get(0))==null)))
 		{
 			mob.tell(L("The wand fizzles in an irritating way."));
 			return false;
@@ -151,7 +158,8 @@ public class ArchonStaff extends Staff implements Wand, MiscMagic, ArchonOnly
 						mob.tell(L("The wand will not work on such as @x1.",target.name(mob)));
 					else
 					{
-						while(target.basePhyStats().level()<destLevel)
+						int tries = 100 * destLevel;
+						while((target.phyStats().level()<destLevel)&&(--tries>0))
 						{
 							if((target.getExpNeededLevel()==Integer.MAX_VALUE)
 							||(target.charStats().getCurrentClass().expless())
@@ -159,7 +167,7 @@ public class ArchonStaff extends Staff implements Wand, MiscMagic, ArchonOnly
 							||(CMProps.getIntVar(CMProps.Int.EXPDEFER_PCT)>0))
 								CMLib.leveler().level(target);
 							else
-								CMLib.leveler().postExperience(target,null,null,target.getExpNeededLevel()+1,false);
+								CMLib.leveler().postExperience(target,"MISC:"+ID(),null,null,target.getExpNeededLevel()+1, false);
 						}
 					}
 				}
@@ -183,13 +191,18 @@ public class ArchonStaff extends Staff implements Wand, MiscMagic, ArchonOnly
 					{
 						for(int i=0;i<num;i++)
 						{
-							if((target.getExpNeededLevel()==Integer.MAX_VALUE)
-							||(target.charStats().getCurrentClass().expless())
-							||(target.charStats().getMyRace().expless())
-							||(CMProps.getIntVar(CMProps.Int.EXPDEFER_PCT)>0))
-								CMLib.leveler().level(target);
-							else
-								CMLib.leveler().postExperience(target,null,null,target.getExpNeededLevel()+1,false);
+							final int nextLevel = target.phyStats().level()+1;
+							int tries = 100;
+							while((target.phyStats().level()<nextLevel)&&(--tries>0))
+							{
+								if((target.getExpNeededLevel()==Integer.MAX_VALUE)
+								||(target.charStats().getCurrentClass().expless())
+								||(target.charStats().getMyRace().expless())
+								||(CMProps.getIntVar(CMProps.Int.EXPDEFER_PCT)>0))
+									CMLib.leveler().level(target);
+								else
+									CMLib.leveler().postExperience(target,"MISC:"+ID(),null,null,target.getExpNeededLevel()+1, false);
+							}
 						}
 					}
 					return;
@@ -272,6 +285,7 @@ public class ArchonStaff extends Staff implements Wand, MiscMagic, ArchonOnly
 					if((target.charStats().getCurrentClass().leveless())
 					||(target.charStats().isLevelCapped(target.charStats().getCurrentClass()))
 					||(target.charStats().getMyRace().leveless())
+					||(CMSecurity.isDisabled(CMSecurity.DisFlag.UNLEVEL))
 					||(CMSecurity.isDisabled(CMSecurity.DisFlag.LEVELS)))
 						mob.tell(L("The wand will not work on such as @x1.",target.name(mob)));
 					else
@@ -281,12 +295,18 @@ public class ArchonStaff extends Staff implements Wand, MiscMagic, ArchonOnly
 						||(target.charStats().getCurrentClass().expless())
 						||(target.charStats().getMyRace().expless())
 						||(CMProps.getIntVar(CMProps.Int.EXPDEFER_PCT)>0))
-							CMLib.leveler().unLevel(target);
+							CMLib.leveler().unLevel(target, true);
 						else
 						{
-							final int xpLevelBelow=CMLib.leveler().getLevelExperience(mob, target.basePhyStats().level()-2);
-							final int levelDown=(target.getExperience()-xpLevelBelow)+1;
-							CMLib.leveler().postExperience(target,null,null,-levelDown,false);
+							final int oldLevel = target.basePhyStats().level();
+							for(int x=0;(x<10) && (oldLevel == target.basePhyStats().level());x++)
+							{
+								final int xpLevelBelow=CMLib.leveler().getLevelExperience(mob, oldLevel-2);
+								int levelDown=(target.getExperience()-xpLevelBelow)+1;
+								if(levelDown > target.getExperience())
+									levelDown = target.getExperience();
+								CMLib.leveler().postExperience(target,"MISC:"+ID(),null,null,-levelDown, false);
+							}
 						}
 					}
 					return;
@@ -335,10 +355,39 @@ public class ArchonStaff extends Staff implements Wand, MiscMagic, ArchonOnly
 						brok.unInvoke();
 						target.delEffect(brok);
 					}
+					final Ability scarA = target.fetchEffect("Scarring");
+					if (scarA != null)
+					{
+						scarA.unInvoke();
+						target.delEffect(scarA);
+					}
 
 					target.recoverMaxState();
 					target.resetToMaxState();
 					target.tell(L("You feel refreshed!"));
+					return;
+				}
+				else
+				if(message.equals("REWIND"))
+				{
+					if(!safetyCheck(mob,message))
+						return;
+					mob.location().show(mob,target,CMMsg.MSG_OK_VISUAL,L("@x1 glows brightly at <T-NAME>.",this.name()));
+					boolean didsomething=false;
+					for(final Enumeration<Ability> a=target.abilities();a.hasMoreElements();)
+					{
+						final Ability A=a.nextElement();
+						if((A!=null)
+						&&(CMath.s_long(A.getStat("NEXTCAST"))>0))
+						{
+							A.setStat("NEXTCAST", "0");
+							didsomething=true;
+						}
+					}
+					if(didsomething)
+						target.tell(L("You feel refreshed!"));
+					else
+						mob.tell(L("Nothing happened."));
 					return;
 				}
 				else
@@ -450,19 +499,29 @@ public class ArchonStaff extends Staff implements Wand, MiscMagic, ArchonOnly
 		&&((msg.value())>0)
 		&&(msg.tool()==this)
 		&&(msg.target() instanceof MOB)
-		&&(!((MOB)msg.target()).amDead()))
+		&&(!((MOB)msg.target()).amDead())
+		&&(!noRecurse.get()))
 		{
-			final CMMsg msg2=CMClass.getMsg(msg.source(),msg.target(),new ArchonStaff(),CMMsg.MSG_OK_ACTION,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_FIRE,CMMsg.MSG_NOISYMOVEMENT,null);
-			if(msg.source().location().okMessage(msg.source(),msg2))
+			noRecurse.set(true);
+			try
 			{
-				msg.source().location().send(msg.source(), msg2);
-				if(msg2.value()<=0)
+				final CMMsg msg2=CMClass.getMsg(msg.source(),msg.target(),this,CMMsg.MSG_OK_ACTION,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_FIRE,CMMsg.MSG_NOISYMOVEMENT,null);
+				if(msg.source().location().okMessage(msg.source(),msg2))
 				{
-					int flameDamage = (int) Math.round( Math.random() * 6 );
-					flameDamage *= basePhyStats().level();
-					if(!((MOB)msg.target()).amDead())
-						CMLib.combat().postDamage(msg.source(),(MOB)msg.target(),null,flameDamage,CMMsg.TYP_FIRE,Weapon.TYPE_BURNING,L("@x1 shoots a flame which <DAMAGE> <T-NAME>!",name()));
+					msg.source().location().send(msg.source(), msg2);
+					if(msg2.value()<=0)
+					{
+						int flameDamage = (int) Math.round( Math.random() * 6 );
+						flameDamage *= basePhyStats().level();
+						if(!((MOB)msg.target()).amDead())
+							CMLib.combat().postDamage(msg.source(),(MOB)msg.target(),null,flameDamage,CMMsg.TYP_FIRE,
+									Weapon.TYPE_BURNING,L("@x1 shoots a flame which <DAMAGE> <T-NAME>!",name()));
+					}
 				}
+			}
+			finally
+			{
+				noRecurse.set(false);
 			}
 		}
 	}

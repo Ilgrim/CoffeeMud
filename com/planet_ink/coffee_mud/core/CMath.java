@@ -3,10 +3,11 @@ import java.text.DecimalFormat;
 import java.util.*;
 import java.util.Map.Entry;
 import java.io.*;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -49,6 +50,7 @@ public class CMath
 	private static final int[]			INTEGER_BITMASKS= new int[31];
 	private static final long[]			LONG_BITMASKS	= new long[63];
 	private static Random 				rand			= new Random(System.currentTimeMillis());
+	private final static boolean[]		IS_HEX_DIGITS	= new boolean[128];
 
 	static
 	{
@@ -59,6 +61,8 @@ public class CMath
 			if(l<LONG_BITMASKS.length)
 				LONG_BITMASKS[l]=1L<<l;
 		}
+		for (int i = 0; i < 128; i++)
+			IS_HEX_DIGITS[i] = i >= '0' && (i <= '9' || (i >= 'A' && i <= 'F') || (i >= 'a' && i <= 'f'));
 	}
 
 	/**
@@ -229,6 +233,23 @@ public class CMath
 	}
 
 	/**
+	 * Safely parse the given hex string into hex.
+	 * @param str the hex string
+	 * @return the int value
+	 */
+	public final static int s_parseHex(final String str)
+	{
+		try
+		{
+			return Integer.parseUnsignedInt(str.toUpperCase().trim(), 16);
+		}
+		catch(final Exception e)
+		{
+			return 0;
+		}
+	}
+
+	/**
 	 * Returns which object in the object array is same as the
 	 * string, when cast to a string.
 	 * @param o array of objects
@@ -292,6 +313,32 @@ public class CMath
 		}
 	}
 
+
+	/**
+	 * Returns the matching enums.  Case Sensitive!
+	 * @param c the enum class to look in
+	 * @param lst the list of strings to look
+	 * @return the enums that matched
+	 */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public final static List<Enum<? extends Enum>> s_valuesOf(final Class<? extends Enum> c, final List<String> lst)
+	{
+		final List<Enum<? extends Enum>> enums = new Vector<Enum<? extends Enum>>(5);
+		if((c==null)||(lst==null)||(lst.size()==0))
+			return enums;
+		for(final String s : lst)
+		{
+			try
+			{
+				enums.add(Enum.valueOf(c, s));
+			}
+			catch(final Exception e)
+			{
+			}
+		}
+		return enums;
+	}
+
 	/**
 	 * Returns the matching enum.  Case Sensitive!
 	 * @param c the enum class to look in
@@ -307,6 +354,31 @@ public class CMath
 			return def;
 		return obj;
 	}
+
+	/**
+	 * Returns the matching enum using startsWith.  Case insensitive!
+	 * @param c the enum class to look in
+	 * @param s the string to look
+	 * @return the enum or null
+	 */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public final static Enum<? extends Enum> s_valueOfStartsWith(final Class<? extends Enum> c, final String s)
+	{
+		if((c==null)||(s==null))
+			return null;
+		final Enum<? extends Enum> fe = s_valueOf(c, s);
+		if(fe != null)
+			return fe;
+		final String us = s.toUpperCase().trim();
+		for(final Enum e : c.getEnumConstants())
+		{
+			if(e.name().toUpperCase().startsWith(us))
+				return e;
+		}
+		return null;
+	}
+
+
 
 	/**
 	 * Returns true if the string is a number (float or int)
@@ -328,6 +400,21 @@ public class CMath
 			if("0123456789.,".indexOf(ups.charAt(i))<0)
 				return false;
 		}
+		return true;
+	}
+
+	/**
+	 * Returns true if the string is a hex number
+	 * @param s the string to test
+	 * @return true if a hex number, false otherwise
+	 */
+	public final static boolean isHexNumber(final String s)
+	{
+		if((s==null)||(s.length()==0))
+			return false;
+		for(int i=0;i<s.length();i++)
+			if(!isHexDigit(s.charAt(i)))
+				return false;
 		return true;
 	}
 
@@ -396,7 +483,7 @@ public class CMath
 	 * and that the return is precisely double.
 	 * @param a the first number
 	 * @param b the second number
-	 * @return the retult of multiplying a and b
+	 * @return the result of multiplying a and b
 	 */
 	public final static double mul(final double a, final double b)
 	{
@@ -408,7 +495,7 @@ public class CMath
 	 * and that the return is precisely double.
 	 * @param a the first number
 	 * @param b the second number
-	 * @return the retult of multiplying a and b
+	 * @return the result of multiplying a and b
 	 */
 	public final static double mul(final double a, final int b)
 	{
@@ -420,7 +507,7 @@ public class CMath
 	 * and that the return is precisely double.
 	 * @param a the first number
 	 * @param b the second number
-	 * @return the retult of multiplying a and b
+	 * @return the result of multiplying a and b
 	 */
 	public final static double mul(final int a, final double b)
 	{
@@ -432,7 +519,7 @@ public class CMath
 	 * and that the return is precisely double.
 	 * @param a the first number
 	 * @param b the second number
-	 * @return the retult of multiplying a and b
+	 * @return the result of multiplying a and b
 	 */
 	public final static double mul(final double a, final long b)
 	{
@@ -440,11 +527,110 @@ public class CMath
 	}
 
 	/**
+	 * Returns the smaller or larger or existing of the numbers
+	 * greater than or equal to 0.
+	 * @param a the min number
+	 * @param b the middle number
+	 * @param c the max number
+	 * @return the min or max or middle
+	 */
+	public final static long minMax(final long a, final long b, final long c)
+	{
+		if(b<a)
+			return a;
+		if(b>c)
+			return c;
+		return b;
+	}
+
+	/**
+	 * Returns the smaller or larger or existing of the numbers
+	 * greater than or equal to 0.
+	 * @param a the min number
+	 * @param b the middle number
+	 * @param c the max number
+	 * @return the min or max or middle
+	 */
+	public final static int minMax(final int a, final int b, final int c)
+	{
+		if(b<a)
+			return a;
+		if(b>c)
+			return c;
+		return b;
+	}
+
+	/**
+	 * Returns the smaller or larger or existing of the numbers
+	 * greater than or equal to 0.
+	 * @param a the min number
+	 * @param b the middle number
+	 * @param c the max number
+	 * @return the min or max or middle
+	 */
+	public final static double minMax(final double a, final double b, final double c)
+	{
+		if(b<a)
+			return a;
+		if(b>c)
+			return c;
+		return b;
+	}
+
+	/**
+	 * Returns the smaller of the two numbers that is
+	 * greater than or equal to 0.
+	 * @param a the first number
+	 * @param b the second number
+	 * @return the smaller of the two
+	 */
+	public final static long posMin(final long a, final long b)
+	{
+		if(a<0)
+			return b;
+		if(b<0)
+			return a;
+		return Math.min(a,b);
+	}
+
+	/**
+	 * Returns the smaller of the two numbers that is
+	 * greater than or equal to 0.
+	 * @param a the first number
+	 * @param b the second number
+	 * @return the smaller of the two
+	 */
+	public final static int posMin(final int a, final int b)
+	{
+		if(a<0)
+			return b;
+		if(b<0)
+			return a;
+		return Math.min(a,b);
+	}
+
+	/**
+	 * Returns the smaller of the two numbers that is
+	 * greater than or equal to 0.
+	 * @param a the first number
+	 * @param b the second number
+	 * @return the smaller of the two
+	 */
+	public final static double posMin(final double a, final double b)
+	{
+		if(a<0)
+			return b;
+		if(b<0)
+			return a;
+		return Math.min(a,b);
+	}
+
+	/**
 	 * Multiply a and b, making sure both are cast to doubles
 	 * and that the return is precisely double.
 	 * @param a the first number
 	 * @param b the second number
-	 * @return the retult of multiplying a and b
+	 * @return the result of multiplying a and b
 	 */
 	public final static double mul(final long a, final double b)
 	{
@@ -456,7 +642,7 @@ public class CMath
 	 * and that the return is precisely double.
 	 * @param a the first number
 	 * @param b the second number
-	 * @return the retult of multiplying a and b
+	 * @return the result of multiplying a and b
 	 */
 	public final static long mul(final long a, final long b)
 	{
@@ -468,7 +654,7 @@ public class CMath
 	 * and that the return is precisely double.
 	 * @param a the first number
 	 * @param b the second number
-	 * @return the retult of multiplying a and b
+	 * @return the result of multiplying a and b
 	 */
 	public final static int mul(final int a, final int b)
 	{
@@ -870,6 +1056,17 @@ public class CMath
 	}
 
 	/**
+	 * Checks if a single hex digit
+	 * @param c the hex digit, maybe
+	 * @return true if hex
+	 */
+	public final static boolean isHexDigit(final char c)
+	{
+		if(c<128) return IS_HEX_DIGITS[c];
+		return false;
+	}
+
+	/**
 	 * Converts the given string to a floating
 	 * point number, 1&gt;=N&gt;=0, representing
 	 * the whole percentage of the string.  The
@@ -923,6 +1120,37 @@ public class CMath
 	public final static String toPct(final String s)
 	{
 		return toPct(s_pct(s));
+	}
+
+	/**
+	 * Returns the pct of difference between the two
+	 * given numbers, given the range.  EG, if your
+	 * range is 10, then the diff between 4 and 5 is 10%.
+	 * The percentages are returned as 0-1
+	 * @param d1 the first number
+	 * @param d2 the second number
+	 * @param range the range of the numbers from 0-range
+	 * @return a pct value from 0-1
+	 */
+	public final static double pctDiff(final double d1, final double d2, final double range)
+	{
+		final double diff=(d1>d2)?d1-d2:d2-d1;
+		return diff/range;
+	}
+
+	/**
+	 * Returns whether the first number is within a %pct (0-1) distance from
+	 * the second/ideal value.
+	 *
+	 * @param v the value to test
+	 * @param ideal the ideal
+	 * @param pct the pct to return true if less than or equal to
+	 * @return true if its within the pct range, false otherwise
+	 */
+	public final static boolean isWithin(final double v, final double ideal, final double pct)
+	{
+		final double a = Math.abs(v - ideal);
+		return (a / ideal) < pct;
 	}
 
 	/**
@@ -1188,6 +1416,8 @@ public class CMath
 				case '+':
 				case '<':
 				case '>':
+				case '=':
+				case '!':
 				case '-':
 				case '%':
 				case '*':
@@ -1210,6 +1440,12 @@ public class CMath
 					break;
 				case '>':
 					finalValue = finalValue > curValue ? finalValue : curValue;
+					break;
+				case '=':
+					finalValue = finalValue == curValue ? 1 : 0;
+					break;
+				case '!':
+					finalValue = finalValue == curValue ? 0 : 1;
 					break;
 				case '+':
 					finalValue += curValue;
@@ -1311,7 +1547,7 @@ public class CMath
 
 	/**
 	 * A class representing a a list of compiled operation in a complete formula.
-	 * Optomized for speed of execution rather than the obvious wastefulness of storage.
+	 * Optimized for speed of execution rather than the obvious wastefulness of storage.
 	 */
 	public static final class CompiledFormula extends LinkedList<CompiledOperation> implements Cloneable
 	{
@@ -1322,7 +1558,7 @@ public class CMath
 	}
 
 	/**
-	 * A class representing a single piece of a compiled operation.  Optomized for
+	 * A class representing a single piece of a compiled operation.  Optimized for
 	 * speed of execution rather than the obvious wastefulness of storage.
 	 */
 	public static final class CompiledOperation
@@ -1449,6 +1685,8 @@ public class CMath
 				case '?':
 				case '<':
 				case '>':
+				case '=':
+				case '!':
 				case '^':
 				{
 					lastOperation=(char)c;
@@ -1467,6 +1705,8 @@ public class CMath
 				case '?':
 				case '<':
 				case '>':
+				case '=':
+				case '!':
 				case '^':
 					list.add(new CompiledOperation(lastOperation));
 					break;
@@ -1557,6 +1797,12 @@ public class CMath
 				case '>':
 					finalValue = finalValue > curValue ? finalValue : curValue;
 					break;
+				case '=':
+					finalValue = finalValue == curValue ? 1 : 0;
+					break;
+				case '!':
+					finalValue = finalValue == curValue ? 0 : 1;
+					break;
 				case '^':
 					finalValue = Math.pow(finalValue, curValue);
 					break;
@@ -1602,6 +1848,12 @@ public class CMath
 			break;
 		case '>':
 			finalValue = finalValue > curValue ? finalValue : curValue;
+			break;
+		case '=':
+			finalValue = finalValue == curValue ? 1 : 0;
+			break;
+		case '!':
+			finalValue = finalValue == curValue ? 0 : 1;
 			break;
 		case '^':
 			finalValue = Math.pow(finalValue, curValue);
@@ -2014,6 +2266,19 @@ public class CMath
 	}
 
 	/**
+	 * Returns whether the given value is between the from and to values
+	 * (inclusive!).
+	 * @param val the value
+	 * @param from the lowest valid value
+	 * @param to the highest valid value
+	 * @return true if the val is between them
+	 */
+	public final static boolean between(final int val, final int from, final int to)
+	{
+		return (val >= from) && (val <= to);
+	}
+
+	/**
 	 * Replaces the internal Random object with the one
 	 * passed in.  Intended to be used for debugging purposes
 	 * only.
@@ -2277,6 +2542,7 @@ public class CMath
 	 * Rounds to specified precision
 	 * @see java.lang.Math#round(float)
 	 * @param d the real number
+	 * @param precision the precision
 	 * @return the rounded number as a long
 	 */
 	public final static double round(final double d, final int precision)
@@ -2290,6 +2556,7 @@ public class CMath
 	 * Rounds to specified precision
 	 * @see java.lang.Math#round(float)
 	 * @param d the real number
+	 * @param precision the precision
 	 * @return the rounded number as a long
 	 */
 	public final static float round(final float d, final int precision)
@@ -2389,6 +2656,86 @@ public class CMath
 	public final static float sqrt(final float d)
 	{
 		return (float) Math.sqrt(d);
+	}
+
+	/**
+	 * Converts a primitive array to an object array of the
+	 * same object type
+	 * @param xs the primitive array
+	 * @return the object array of the appropriate type
+	 */
+	public final static List<? extends Object> asList(final int[] xs)
+	{
+		if(xs==null)
+			return new Vector<Object>(0);
+		final List<Object> Xs = new Vector<Object>(xs.length);
+		for(int i=0;i<xs.length;i++)
+			Xs.add(Integer.valueOf(xs[i]));
+		return Xs;
+	}
+
+	/**
+	 * Converts a primitive array to an object array of the
+	 * same object type
+	 * @param xs the primitive array
+	 * @return the object array of the appropriate type
+	 */
+	public final static List<? extends Object> asList(final long[] xs)
+	{
+		if(xs==null)
+			return new Vector<Object>(0);
+		final List<Object> Xs = new Vector<Object>(xs.length);
+		for(int i=0;i<xs.length;i++)
+			Xs.add(Long.valueOf(xs[i]));
+		return Xs;
+	}
+
+	/**
+	 * Converts a primitive array to an object array of the
+	 * same object type
+	 * @param xs the primitive array
+	 * @return the object array of the appropriate type
+	 */
+	public final static List<? extends Object> asList(final float[] xs)
+	{
+		if(xs==null)
+			return new Vector<Object>(0);
+		final List<Object> Xs = new Vector<Object>(xs.length);
+		for(int i=0;i<xs.length;i++)
+			Xs.add(Float.valueOf(xs[i]));
+		return Xs;
+	}
+
+	/**
+	 * Converts a primitive array to an object array of the
+	 * same object type
+	 * @param xs the primitive array
+	 * @return the object array of the appropriate type
+	 */
+	public final static List<? extends Object> asList(final double[] xs)
+	{
+		if(xs==null)
+			return new Vector<Object>(0);
+		final List<Object> Xs = new Vector<Object>(xs.length);
+		for(int i=0;i<xs.length;i++)
+			Xs.add(Double.valueOf(xs[i]));
+		return Xs;
+	}
+
+	/**
+	 * Converts a primitive array to an object array of the
+	 * same object type
+	 * @param xs the primitive array
+	 * @return the object array of the appropriate type
+	 */
+	public final static List<? extends Object> asList(final boolean[] xs)
+	{
+		if(xs==null)
+			return new Vector<Object>(0);
+		final List<Object> Xs = new Vector<Object>(xs.length);
+		for(int i=0;i<xs.length;i++)
+			Xs.add(Boolean.valueOf(xs[i]));
+		return Xs;
 	}
 
 	/**

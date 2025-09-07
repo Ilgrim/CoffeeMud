@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,9 +53,11 @@ public class NoFollow extends Follow
 		final Vector<String> origCmds=new XVector<String>(commands);
 		if(commands.size()>1)
 		{
+			final boolean quietly = ((commands.size()>1)&&(commands.get(1).equalsIgnoreCase("QUIETLY")))
+								||(CMath.bset(metaFlags, MUDCmdProcessor.METAFLAG_QUIETLY));
 			if(commands.get(0).equalsIgnoreCase("UNFOLLOW"))
 			{
-				unfollow(mob,((commands.size()>1)&&(commands.get(1).equalsIgnoreCase("QUIETLY"))));
+				unfollow(mob,quietly);
 				return false;
 			}
 			final String name=CMParms.combine(commands,1);
@@ -64,7 +66,7 @@ public class NoFollow extends Follow
 				if(mob.numFollowers()==0)
 					CMLib.commands().postCommandFail(mob,origCmds,L("No one is following you!"));
 				else
-					unfollow(mob,((commands.size()>1)&&(commands.get(1).equalsIgnoreCase("QUIETLY"))));
+					unfollow(mob,quietly);
 				return false;
 			}
 			MOB M=mob.fetchFollower(name);
@@ -89,12 +91,12 @@ public class NoFollow extends Follow
 		{
 			mob.setAttribute(MOB.Attrib.NOFOLLOW,true);
 			//unfollow(mob,false);
-			mob.tell(L("You are no longer accepting new followers."));
+			mob.tell(L("You are no longer accepting new followers or vassals."));
 		}
 		else
 		{
 			mob.setAttribute(MOB.Attrib.NOFOLLOW,false);
-			mob.tell(L("You are now accepting new followers."));
+			mob.tell(L("You are now accepting new followers and vassals."));
 		}
 		return false;
 	}

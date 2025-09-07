@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ public class Thief_LocateAlcohol extends ThiefSkill
 	@Override
 	public int classificationCode()
 	{
-		return Ability.ACODE_THIEF_SKILL | Ability.DOMAIN_DIVINATION;
+		return Ability.ACODE_THIEF_SKILL | Ability.DOMAIN_ANATOMY;
 	}
 
 	private final static String localizedStaticDisplay = CMLib.lang().L("(Locating Alcohol)");
@@ -185,7 +185,7 @@ public class Thief_LocateAlcohol extends ThiefSkill
 
 			final MOB mob=(MOB)affected;
 
-			if(!CMLib.flags().canSmell(mob))
+			if(!CMLib.flags().canSmell(mob,affected))
 			{
 				mob.tell(L("The alcohol trail fizzles out here."));
 				nextDirection=-999;
@@ -277,12 +277,12 @@ public class Thief_LocateAlcohol extends ThiefSkill
 
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already trying to find a stiff drink."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already trying to find a stiff drink."));
 			return false;
 		}
 		if(!CMLib.flags().canSmell(target))
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> unable to smell alcohol."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> unable to smell alcohol."));
 			return false;
 		}
 		final List<Ability> V=CMLib.flags().flaggedAffects(mob,Ability.FLAG_TRACKING);
@@ -303,18 +303,20 @@ public class Thief_LocateAlcohol extends ThiefSkill
 
 		TrackingLibrary.TrackingFlags flags;
 		flags = CMLib.tracking().newFlags();
+		flags.plus(TrackingLibrary.TrackingFlag.PASSABLE);
 		final ArrayList<Room> rooms=new ArrayList<Room>();
-		final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,15+adjustedLevel(mob,asLevel));
-		for (final Room R : checkSet)
-		{
-			final Room R2=CMLib.map().getRoom(R);
-			if(R2!=null)
+		final List<Room> trashRooms = new ArrayList<Room>();
+		if(CMLib.tracking().getRadiantRoomsToTarget(mob.location(), trashRooms, flags, new TrackingLibrary.RFilter() {
+			@Override
+			public boolean isFilteredOut(final Room hostR, Room R, final Exit E, final int dir)
 			{
-				if(alcoholHere(mob,R2).length()>0)
-					rooms.add(R2);
+				R=CMLib.map().getRoom(R);
+				if(alcoholHere(mob,R).length()>0)
+					return false;
+				return true;
 			}
-		}
-
+		}, 15+adjustedLevel(mob,asLevel)))
+			rooms.add(trashRooms.get(trashRooms.size()-1));
 		if(rooms.size()>0)
 		{
 			//TrackingLibrary.TrackingFlags flags;
@@ -326,7 +328,8 @@ public class Thief_LocateAlcohol extends ThiefSkill
 
 		if((success)&&(theTrail!=null))
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_DELICATE_HANDS_ACT,auto?L("<T-NAME> begin(s) to sense alcohol!"):L("^S<S-NAME> sniff(s) around for signs of a stiff drink.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_DELICATE_HANDS_ACT,
+					auto?L("<T-NAME> begin(s) to sense alcohol!"):L("^S<S-NAME> sniff(s) around for signs of a stiff drink.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

@@ -1,7 +1,9 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
 <html>
 <head>
+	<META CHARSET="utf-8"/>
  	<link rel="grinder icon" href="/images/grinder.ico" >
+ 	<link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="admin.css">
 	<title>Archon Help Files</title>
 	<SCRIPT LANGUAGE=JavaScript>
 	<!--

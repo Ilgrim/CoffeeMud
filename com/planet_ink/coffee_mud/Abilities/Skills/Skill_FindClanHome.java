@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -107,6 +107,12 @@ public class Skill_FindClanHome extends StdAbility
 	}
 
 	@Override
+	public int usageType()
+	{
+		return USAGE_MOVEMENT;
+	}
+
+	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
 		if(!super.tick(ticking,tickID))
@@ -126,9 +132,9 @@ public class Skill_FindClanHome extends StdAbility
 			if(nextDirection==999)
 			{
 				if(isClanHome(mob,mob.location()))
-					mob.tell(L("You feel like this is home."));
+					commonTelL(mob,"You feel like this is home.");
 				else
-					mob.tell(L("The trail home dries up here."));
+					commonTelL(mob,"The trail home dries up here.");
 				nextDirection=-2;
 				unInvoke();
 			}
@@ -136,7 +142,7 @@ public class Skill_FindClanHome extends StdAbility
 			if(nextDirection==-1)
 			{
 				if(!isClanHome(mob,mob.location()))
-					mob.tell(L("The trail home dries up here."));
+					commonTelL(mob,"The trail home dries up here.");
 				nextDirection=-999;
 				unInvoke();
 			}
@@ -188,7 +194,7 @@ public class Skill_FindClanHome extends StdAbility
 			if((msg.tool()!=null)&&(msg.tool().ID().equals(ID())))
 			{
 				if(isClanHome((MOB)affected,(Room)msg.target()))
-					((MOB)affected).tell(L("This place feels very clan homey."));
+					commonTelL((MOB)affected,"This place feels very clan homey.");
 			}
 			else
 			if(isClanHome((MOB)affected,(Room)msg.target()))
@@ -210,8 +216,8 @@ public class Skill_FindClanHome extends StdAbility
 	{
 		if(CMLib.law().doesHaveWeakPriviledgesHere(mob, room))
 		{
-			final String ownerName=CMLib.law().getLandOwnerName(room);
-			if(CMLib.clans().getClanExact(ownerName)!=null)
+			final String ownerName=CMLib.law().getPropertyOwnerName(room);
+			if(CMLib.clans().fetchClanAnyHost(ownerName)!=null)
 				return true;
 		}
 		return false;
@@ -224,7 +230,7 @@ public class Skill_FindClanHome extends StdAbility
 		for(final Ability A : V) A.unInvoke();
 		if(V.size()>0)
 		{
-			mob.tell(L("You stop tracking."));
+			commonTelL(mob,"You stop tracking.");
 			if(commands.size()==0)
 				return true;
 		}
@@ -234,7 +240,7 @@ public class Skill_FindClanHome extends StdAbility
 
 		if(isClanHome(mob, mob.location()))
 		{
-			mob.tell(L("You already feel at home"));
+			commonTelL(mob,"You already feel at home");
 			return true;
 		}
 
@@ -243,17 +249,23 @@ public class Skill_FindClanHome extends StdAbility
 		final ArrayList<Room> rooms=new ArrayList<Room>();
 		TrackingLibrary.TrackingFlags flags;
 		flags = CMLib.tracking().newFlags()
+				.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 				.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
 				.plus(TrackingLibrary.TrackingFlag.NOAIR);
 		final int range=60 + (2*super.getXLEVELLevel(mob))+(10*super.getXMAXRANGELevel(mob));
-		final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,range);
-		for (final Room room : checkSet)
-		{
-			final Room R=CMLib.map().getRoom(room);
-			if(isClanHome(mob,R))
-				rooms.add(R);
-		}
+		final List<Room> trashRooms = new ArrayList<Room>();
+		if(CMLib.tracking().getRadiantRoomsToTarget(mob.location(), trashRooms, flags, new TrackingLibrary.RFilter() {
+			@Override
+			public boolean isFilteredOut(final Room hostR, Room R, final Exit E, final int dir)
+			{
+				R=CMLib.map().getRoom(R);
+				if(isClanHome(mob,R))
+					return false;
+				return true;
+			}
 
+		}, range))
+			rooms.add(trashRooms.get(trashRooms.size()-1));
 		if(rooms.size()>0)
 			theTrail=CMLib.tracking().findTrailToAnyRoom(mob.location(),rooms,flags,range);
 

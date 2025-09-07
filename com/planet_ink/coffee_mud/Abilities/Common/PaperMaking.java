@@ -5,6 +5,8 @@ import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftParms;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftingActivity;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftedItem;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftorType;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
@@ -23,7 +25,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,13 +64,19 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 	}
 
 	@Override
+	public CraftorType getCraftorType()
+	{
+		return CraftorType.Resources;
+	}
+
+	@Override
 	public String supportedResourceString()
 	{
 		return "WOODEN|HEMP|SILK|CLOTH";
 	}
 
 	@Override
-	public String parametersFormat()
+	public String getRecipeFormat()
 	{
 		return "ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\tMATERIALS_REQUIRED\tITEM_BASE_VALUE\t"
 			+ "ITEM_CLASS_ID\tRESOURCE_OR_MATERIAL\tLID_LOCK||STATUE||RES_SUBTYPE||\tCONTAINER_CAPACITY||PAGES_CHARS\tCODED_SPELL_LIST";
@@ -76,7 +84,7 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 
 	//protected static final int RCP_FINALNAME=0;
 	//protected static final int RCP_LEVEL=1;
-	//protected static final int RCP_TICKS=2;
+	protected static final int	RCP_TICKS		= 2;
 	protected static final int	RCP_WOOD		= 3;
 	protected static final int	RCP_VALUE		= 4;
 	protected static final int	RCP_CLASSTYPE	= 5;
@@ -102,7 +110,7 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			if(buildingI==null)
 				unInvoke();
@@ -111,7 +119,7 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 	}
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return "papermaking.txt";
 	}
@@ -119,7 +127,7 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 	@Override
 	protected List<List<String>> loadRecipes()
 	{
-		return super.loadRecipes(parametersFile());
+		return super.loadRecipes(getRecipeFilename());
 	}
 
 	@Override
@@ -133,11 +141,14 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 				if((buildingI!=null)&&(!aborted))
 				{
 					if(messedUp)
-						commonTell(mob,L("<S-NAME> mess(es) up making @x1.",buildingI.name(mob)));
+					{
+						commonTelL(mob,"<S-NAME> mess(es) up making @x1.",buildingI.name(mob));
+						dropALoser(mob,buildingI);
+					}
 					else
 					{
 						dropAWinner(mob,buildingI);
-						CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this);
+						CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this, buildingI);
 						if(key!=null)
 						{
 							dropAWinner(mob,key);
@@ -162,12 +173,12 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new Vector<Item>(0));
+		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new ArrayList<CraftedItem>(0));
 	}
 
 	@Override
 	protected boolean autoGenInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto,
-								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<Item> crafted)
+								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<CraftedItem> crafted)
 	{
 		final List<String> originalCommands = new XVector<String>(commands);
 		if(super.checkStop(mob, commands))
@@ -179,7 +190,7 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 		randomRecipeFix(mob,addRecipes(mob,loadRecipes()),commands,autoGenerate);
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Papermake what? Enter \"papermake list\" for a list, or \"papermake stop\" to cancel."));
+			commonTelL(mob,"Papermake what? Enter \"papermake list\" for a list, or \"papermake stop\" to cancel.");
 			return false;
 		}
 		if((!auto)
@@ -195,7 +206,7 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 		final String str=commands.get(0);
 		String startStr=null;
 		int duration=4;
-		if(str.equalsIgnoreCase("list"))
+		if(str.equalsIgnoreCase("list") && (autoGenerate <= 0))
 		{
 			String mask=CMParms.combine(commands,1);
 			boolean allFlag=false;
@@ -208,8 +219,8 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 				CMLib.lister().fixColWidth(22,mob.session()),
 				CMLib.lister().fixColWidth(3,mob.session())
 			};
-			final StringBuffer buf=new StringBuffer(L("@x1 @x2 Material required\n\r",CMStrings.padRight(L("Item"),cols[0]),CMStrings.padRight(L("Lvl"),cols[1])));
-			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipeNames(recipes, mask, true);
+			final StringBuffer buf=new StringBuffer(L("^H@x1 @x2 Material required^N\n\r",CMStrings.padRight(L("Item"),cols[0]),CMStrings.padRight(L("Lvl"),cols[1])));
+			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipes(recipes, mask, true);
 			for(int r=0;r<listRecipes.size();r++)
 			{
 				final List<String> V=listRecipes.get(r);
@@ -230,7 +241,7 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 					else
 						material="pound of "+material;
 					if((level<=xlevel(mob))||allFlag)
-						buf.append(CMStrings.padRight(item,cols[0])+" "+CMStrings.padRight(""+level,cols[1])+" "+wood+" "+material.toLowerCase()+"\n\r");
+						buf.append("^w"+CMStrings.padRight(item,cols[0])+"^N "+CMStrings.padRight(""+level,cols[1])+" "+wood+" "+material.toLowerCase()+"\n\r");
 				}
 			}
 			commonTell(mob,buf.toString());
@@ -252,7 +263,9 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 		String materialDesc="";
 		final String recipeName=CMParms.combine(commands,0);
 		List<String> foundRecipe=null;
-		final List<List<String>> matches=matchingRecipeNames(recipes,recipeName,true);
+		final List<List<String>> matches=matchingRecipes(recipes,recipeName,false);
+		if(matches.size()==0)
+			matches.addAll(matchingRecipes(recipes,recipeName,true));
 		for(int r=0;r<matches.size();r++)
 		{
 			final List<String> V=matches.get(r);
@@ -276,7 +289,7 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 
 		if(foundRecipe==null)
 		{
-			commonTell(mob,L("You don't know how to make a '@x1'.  Try \"make list\" for a list.",recipeName));
+			commonTelL(mob,"You don't know how to make a '@x1'.  Try \"papermake list\" for a list.",recipeName);
 			return false;
 		}
 
@@ -341,7 +354,7 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 
 		final MaterialLibrary.DeadResourceRecord deadMats;
 		if((componentsFoundList.size() > 0)||(autoGenerate>0))
-			deadMats = new MaterialLibrary.DeadResourceRecord();
+			deadMats = deadRecord;
 		else
 		{
 			deadMats = CMLib.materials().destroyResources(mob.location(),data[0][FOUND_AMT],
@@ -352,7 +365,7 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 		final Item buildingI=this.buildingI;
 		if(buildingI==null)
 		{
-			commonTell(mob,L("There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE)));
+			commonTelL(mob,"There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE));
 			return false;
 		}
 		duration=getDuration(CMath.s_int(foundRecipe.get(RCP_TICKS)),mob,CMath.s_int(foundRecipe.get(RCP_LEVEL)),4);
@@ -372,13 +385,13 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 		buildingI.setBaseValue(CMath.s_int(foundRecipe.get(RCP_VALUE))+(woodRequired*(RawMaterial.CODES.VALUE(data[0][FOUND_CODE]))));
 		buildingI.setMaterial(super.getBuildingMaterial(woodRequired, data, compData));
 		final String spell=(foundRecipe.size()>RCP_SPELL)?foundRecipe.get(RCP_SPELL).trim():"";
-		addSpells(buildingI,spell,deadMats.lostProps,deadComps.lostProps);
+		addSpellsOrBehaviors(buildingI,spell,deadMats.getLostProps(),deadComps.getLostProps());
 		setBrand(mob, buildingI);
 		if(((data[0][FOUND_CODE]&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_WOODEN)
 		||(data[0][FOUND_CODE]==RawMaterial.RESOURCE_RICE))
 			buildingI.setMaterial(RawMaterial.RESOURCE_PAPER);
-		if(buildingI instanceof Recipe)
-			((Recipe)buildingI).setTotalRecipePages(CMath.s_int(woodRequiredStr));
+		if(buildingI instanceof RecipesBook)
+			((RecipesBook)buildingI).setTotalRecipePages(CMath.s_int(woodRequiredStr));
 		final int capacity;
 		if(buildingI instanceof Book)
 		{
@@ -426,15 +439,16 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 		if((buildingI instanceof Container)
 		&&(!(buildingI instanceof Armor)))
 		{
+			final String[] allTypes=CMParms.parseAny(misctype, "|", true).toArray(new String[0]);
 			if(capacity>0)
 			{
 				((Container)buildingI).setCapacity(capacity+woodRequired);
 				((Container)buildingI).setContainTypes(Container.CONTAIN_ANYTHING);
 			}
-			if(misctype.equalsIgnoreCase("LID"))
+			if(CMParms.contains(allTypes, "LID"))
 				((Container)buildingI).setDoorsNLocks(true,false,true,false,false,false);
 			else
-			if(misctype.equalsIgnoreCase("LOCK"))
+			if(CMParms.contains(allTypes, "LOCK"))
 			{
 				((Container)buildingI).setDoorsNLocks(true,false,true,true,false,true);
 				((Container)buildingI).setKeyName(Double.toString(Math.random()));
@@ -453,9 +467,7 @@ public class PaperMaking extends CraftingSkill implements ItemCraftor
 
 		if(autoGenerate>0)
 		{
-			if(key!=null)
-				crafted.add(key);
-			crafted.add(buildingI);
+			crafted.add(new CraftedItem(buildingI,key,duration));
 			return true;
 		}
 

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_web.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class AbilityPlayerNext extends StdWebMacro
 	@Override
 	public String runMacro(final HTTPRequest httpReq, final String parm, final HTTPResponse httpResp)
 	{
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return CMProps.getVar(CMProps.Str.MUDSTATUS);
 
 		final java.util.Map<String,String> parms=parseParms(parm);
@@ -73,7 +73,7 @@ public class AbilityPlayerNext extends StdWebMacro
 			return " @break@";
 		}
 
-		final Vector<Ability> abilities=new Vector<Ability>();
+		final List<Ability> abilities=new ArrayList<Ability>();
 		HashSet<String> foundIDs=new HashSet<String>();
 		for(final Enumeration<Ability> a=M.allAbilities();a.hasMoreElements();)
 		{
@@ -81,14 +81,14 @@ public class AbilityPlayerNext extends StdWebMacro
 			if((A!=null)&&(!foundIDs.contains(A.ID())))
 			{
 				foundIDs.add(A.ID());
-				abilities.addElement(A);
+				abilities.add(A);
 			}
 		}
 		foundIDs.clear();
 		foundIDs=null;
 		for(int a=0;a<abilities.size();a++)
 		{
-			final Ability A=abilities.elementAt(a);
+			final Ability A=abilities.get(a);
 			boolean okToShow=true;
 			final int classType=A.classificationCode()&Ability.ALL_ACODES;
 			final String className=httpReq.getUrlParameter("CLASS");
@@ -107,7 +107,7 @@ public class AbilityPlayerNext extends StdWebMacro
 			}
 			else
 			{
-				final int level=CMLib.ableMapper().getQualifyingLevel("Archon",true,A.ID());
+				final int level=CMLib.ableMapper().qualifiesByAnything(A.ID())?CMLib.ableMapper().lowestQualifyingLevel(A.ID()):-1;
 				if(level<0)
 					okToShow=false;
 				else
@@ -122,13 +122,13 @@ public class AbilityPlayerNext extends StdWebMacro
 				if(parms.containsKey("DOMAIN")&&(classType==Ability.ACODE_SPELL))
 				{
 					final String domain=parms.get("DOMAIN");
-					if(!domain.equalsIgnoreCase(Ability.DOMAIN_DESCS[(A.classificationCode()&Ability.ALL_DOMAINS)>>5]))
+					if(!domain.equalsIgnoreCase(Ability.DOMAIN.DESCS.get((A.classificationCode()&Ability.ALL_DOMAINS)>>5)))
 						okToShow=false;
 				}
 				else
 				{
 					boolean containsOne=false;
-					for (final String element : Ability.ACODE_DESCS)
+					for (final String element : Ability.ACODE.DESCS)
 					{
 						if(parms.containsKey(element))
 						{
@@ -136,7 +136,7 @@ public class AbilityPlayerNext extends StdWebMacro
 							break;
 						}
 					}
-					if(containsOne&&(!parms.containsKey(Ability.ACODE_DESCS[classType])))
+					if(containsOne&&(!parms.containsKey(Ability.ACODE.DESCS.get(classType))))
 						okToShow=false;
 				}
 			}

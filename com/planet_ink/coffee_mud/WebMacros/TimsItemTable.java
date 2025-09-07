@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -116,12 +116,8 @@ public class TimsItemTable extends StdWebMacro
 		{
 			str.append("<TR><TD>Name</TD><TD>LVL</TD><TD>TVLV</TD><TD>DIFF</TD><TD>DIFF%</TD><TD>ARM</TD><TD>ATT</TD><TD>DAM</TD><TD>ADJ</TD><TD>CAST</TD><TD>RESIST</TD></TR>");
 			final List<ItemCraftor> allCraftingSkills=new SVector<ItemCraftor>();
-			for(final Enumeration<Ability> e=CMClass.abilities();e.hasMoreElements();)
-			{
-				final Ability A=e.nextElement();
-				if(A instanceof ItemCraftor)
-					allCraftingSkills.add((ItemCraftor)A.copyOf());
-			}
+			for(final Enumeration<ItemCraftor> e=CMClass.craftorAbilities();e.hasMoreElements();)
+				allCraftingSkills.add((ItemCraftor)e.nextElement().copyOf());
 			final List<ItemCraftor> craftingSkills=new SVector<ItemCraftor>();
 			for(final ItemCraftor skill : allCraftingSkills)
 			{
@@ -143,10 +139,10 @@ public class TimsItemTable extends StdWebMacro
 			}
 			for(final ItemCraftor skill : craftingSkills)
 			{
-				final List<ItemCraftor.ItemKeyPair> pairs=skill.craftAllItemSets(false);
+				final List<ItemCraftor.CraftedItem> pairs=skill.craftAllItemSets(false);
 				if(pairs!=null)
 				{
-					for(final ItemCraftor.ItemKeyPair IP : pairs)
+					for(final ItemCraftor.CraftedItem IP : pairs)
 					{
 						if(IP.item instanceof Weapon)
 							str.append(addRow(IP.item));

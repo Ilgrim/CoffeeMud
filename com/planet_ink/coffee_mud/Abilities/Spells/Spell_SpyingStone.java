@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -67,6 +67,12 @@ public class Spell_SpyingStone extends Spell
 	protected int canTargetCode()
 	{
 		return Ability.CAN_ITEMS;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -121,13 +127,13 @@ public class Spell_SpyingStone extends Spell
 
 		if(!(target instanceof Item))
 		{
-			mob.tell(L("You can't cast this spell on that."));
+			commonTelL(mob,"You can't cast this spell on that.");
 			return false;
 		}
 
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(L("@x1 is already a spying stone!",target.name(mob)));
+			commonTelL(mob,"@x1 is already a spying stone!",target.name(mob));
 			return false;
 		}
 
@@ -138,7 +144,7 @@ public class Spell_SpyingStone extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> point(s) <S-HIS-HER> finger at <T-NAMESELF>, incanting.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> point(s) <S-HIS-HER> finger at <T-NAMESELF>, incanting.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

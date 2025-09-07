@@ -3,9 +3,11 @@
 @if?!Authenticate@ @AddFile?/grinder/failedlogin.cmvp@ @else@
 @if?!CheckAuthCode?ANYFILEBROWSE=true&SYSOP=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <html>
+	<META CHARSET="utf-8"/>
 <head>
 	<title>File/Script Editor</title>
  	<link rel="grinder icon" href="/images/grinder.ico" >
+ 	<link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
 	<script language=JavaScript>
 	<!--
 		function openUp(named)
@@ -54,12 +56,14 @@
 @endif@
 <BR><FONT COLOR=WHITE SIZE=-1>
 <INPUT TYPE=RADIO NAME=FILESAVETO VALUE=DEFAULT checked>Save Default (@if?FileInfo?ISVFS@VFS@else@Local@endif@)
+@if?!CheckReqParm?FILE=coffeemud.ini@
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 <INPUT TYPE=RADIO NAME=FILESAVETO VALUE=VFS>Save VFS
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 <INPUT TYPE=RADIO NAME=FILESAVETO VALUE=LOCAL>Save Local
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 <INPUT TYPE=RADIO NAME=FILESAVETO VALUE=BOTH>Save Both
+@endif@
 </FONT>
 <BR>
 <BR>

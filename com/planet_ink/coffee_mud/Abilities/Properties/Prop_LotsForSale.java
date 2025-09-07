@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,105 +48,128 @@ public class Prop_LotsForSale extends Prop_RoomForSale
 
 	protected String	uniqueLotID	= null;
 
+	protected volatile long			lastRoomsTimestamp	= 0;
+	protected volatile Area			lastArea			= null;
+	protected final    List<Room>	lastRoomsV			= new ArrayList<Room>();
+
 	@Override
 	public boolean allowsExpansionConstruction()
 	{
 		return true;
 	}
 
-	protected void fillCluster(final Room R, final List<Room> V)
+	@Override
+	public Room getAConnectedPropertyRoom()
 	{
-		V.add(R);
-		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
-		{
-			final Room R2=R.getRoomInDir(d);
-			if((R2!=null)&&(R2.roomID().length()>0)&&(!V.contains(R2)))
-			{
-				final Ability A=R2.fetchEffect(ID());
-				if((R2.getArea()==R.getArea())&&(A!=null))
-					fillCluster(R2,V);
-				else
-				{
-					V.remove(R); // purpose here is to put the "front" door up front.
-					V.add(0,R);
-				}
-			}
-		}
+		if(affected instanceof Room)
+			return (Room)affected;
+		return CMLib.map().getRoom(landPropertyID());
 	}
 
 	@Override
-	public List<Room> getConnectedPropertyRooms()
+	public int getNumConnectedPropertyRooms()
 	{
-		final List<Room> V=new ArrayList<Room>();
-		Room R=null;
-		if(affected instanceof Room)
-			R=(Room)affected;
-		else
-			R=CMLib.map().getRoom(landPropertyID());
+		return getConnectedPropertyRooms().size();
+	}
+
+	protected void fillLotsCluster(final Room R, final List<Room> roomsV)
+	{
+		fillCluster(R, roomsV, null, true);
+	}
+
+	protected List<Room> getConnectedPropertyRooms()
+	{
+		final List<Room> roomsV=new ArrayList<Room>();
+		Room R=getAConnectedPropertyRoom();
 		if(R!=null)
 		{
-			fillCluster(R,V);
-			String uniqueID="LOTS_PROPERTY_"+this;
-			if(V.size()>0)
-				uniqueID="LOTS_PROPERTY_"+CMLib.map().getExtendedRoomID(V.get(0));
-			for(final Iterator<Room> r=V.iterator();r.hasNext();)
+			final Area A=R.getArea();
+			if((A==this.lastArea)
+			&&(A.getProperRoomnumbers().getLastChangedMs() == this.lastRoomsTimestamp))
+				roomsV.addAll(this.lastRoomsV);
+			else
 			{
-				Ability A=null;
-				R=r.next();
-				if(R!=null)
-					A=R.fetchEffect(ID());
-				if(A instanceof Prop_LotsForSale)
-					((Prop_LotsForSale)A).uniqueLotID=uniqueID;
+				fillLotsCluster(R,roomsV);
+				String uniqueID="LOTS_PROPERTY_"+this;
+				if(roomsV.size()>0)
+					uniqueID="LOTS_PROPERTY_"+CMLib.map().getExtendedRoomID(roomsV.get(0));
+				for(final Iterator<Room> r=roomsV.iterator();r.hasNext();)
+				{
+					Ability bA=null;
+					R=r.next();
+					if(R!=null)
+						bA=R.fetchEffect(ID());
+					if(bA instanceof Prop_LotsForSale)
+						((Prop_LotsForSale)bA).uniqueLotID=uniqueID;
+				}
+				this.lastArea = A;
+				this.lastRoomsV.clear();
+				this.lastRoomsV.addAll(roomsV);
+				this.lastRoomsTimestamp = A.getProperRoomnumbers().getLastChangedMs();
 			}
 		}
 		else
 			uniqueLotID="";
-		return V;
+		return roomsV;
 
 	}
 
-	protected boolean isRetractableLink(final Map<Room,Boolean> recurseChkRooms, final Room fromRoom, final Room theRoom)
+	protected boolean isRetractableGridLink(final Map<Room,boolean[]> recurseChkRooms, final Room fromRoom, final Room theRoom)
 	{
+		// the only potentially retractable rooms are those that ARE for sale, and NOT owned
 		if(theRoom==null)
 			return true;
 
-		if((theRoom.roomID().length()>0)
-		&&((CMLib.law().getLandTitle(theRoom)==null)
-			||(CMLib.law().getLandTitle(theRoom).getOwnerName().length()>0)))
+		if(recurseChkRooms.containsKey(theRoom))
 		{
-			if(recurseChkRooms != null)
-				recurseChkRooms.put(theRoom, Boolean.valueOf(false));
+			final boolean[] B=recurseChkRooms.get(theRoom);
+			if(B.length>0)
+				return B[0];
+		}
+
+		// never retract across areas!
+		if((fromRoom != null)
+		&&(theRoom.getArea()!=fromRoom.getArea()))
 			return false;
+
+		final LegalLibrary theLaw=CMLib.law();
+
+		// if its a legit room and either not for sale, or owned already, then it is NOT retractable.
+		if(theRoom.roomID().length()>0)
+		{
+			final LandTitle theTitle=theLaw.getLandTitle(theRoom);
+			if((theTitle==null)||(theTitle.getOwnerName().length()>0))
+			{
+				recurseChkRooms.put(theRoom, new boolean[]{false});
+				return false;
+			}
 		}
 
 		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 		{
-			final Room R=theRoom.rawDoors()[d];
-			if(R!=null)
+			final Room R=theRoom.getRawDoor(d);
+			if((R!=null)
+			&&(R!=fromRoom)
+			&&(R.roomID().length()>0))
 			{
-				if((recurseChkRooms != null)
-				&&(recurseChkRooms.containsKey(R)))
-					return recurseChkRooms.get(theRoom).booleanValue();
-				if((R!=fromRoom)
-				&&(R.roomID().length()>0))
+				if(!R.isSavable())
+					return false; // if its not cached, it can't be retracted
+				if(recurseChkRooms.containsKey(R))
 				{
-					if((CMLib.law().getLandTitle(R)==null)||(CMLib.law().getLandTitle(R).getOwnerName().length()>0))
-					{
-						if(recurseChkRooms != null)
-							recurseChkRooms.put(theRoom, Boolean.valueOf(false));
-						return false;
-					}
-					if((recurseChkRooms != null)
-					&&(!isRetractableLink(recurseChkRooms,theRoom,R)))
-					{
-						recurseChkRooms.put(theRoom, Boolean.valueOf(false));
-						return false;
-					}
+					final boolean[] B=recurseChkRooms.get(R);
+					if(B.length>0)
+						return B[0];
+					continue;
+				}
+				recurseChkRooms.put(R, new boolean[0]);
+				if(!isRetractableGridLink(recurseChkRooms,theRoom,R))
+				{
+					recurseChkRooms.put(theRoom, new boolean[]{false});
+					return false;
 				}
 			}
 		}
-		if(recurseChkRooms != null)
-			recurseChkRooms.put(theRoom, Boolean.valueOf(true));
+		recurseChkRooms.put(theRoom, new boolean[]{true});
 		return true;
 	}
 
@@ -164,6 +187,7 @@ public class Prop_LotsForSale extends Prop_RoomForSale
 		final LandTitle newTitle=(LandTitle)this.copyOf();
 		newTitle.setOwnerName("");
 		newTitle.setBackTaxes(0);
+		this.lastRoomsTimestamp=0;
 		return newTitle;
 	}
 
@@ -172,114 +196,136 @@ public class Prop_LotsForSale extends Prop_RoomForSale
 		return getOwnerName().length()>0;
 	}
 
+	/**
+	 * Given a room that is 1. this land title, and 2. has no owner (or otherwise can't expand),
+	 * this will see if the room qualifies for deletion, and do so if it can.
+	 * @param R the room to work on
+	 * @param postWork a set of runnables that do the actual deleting.
+	 * @return true if the room is schedules for deletion.
+	 */
 	protected boolean retractRooms(final Room R, final List<Runnable> postWork)
 	{
-		boolean updateExits=false;
-		boolean foundOne=false;
-		boolean didAnything = false;
-		final Map<Room,Boolean> checkedRetractRooms;
-		if(super.gridLayout())
-			checkedRetractRooms = new Hashtable<Room,Boolean>();
-		else
-			checkedRetractRooms = null;
+		final int numKillableLinks = this.gridLayout()?2:1;
+		int linksToOtherLotForSaleRoomsThatAreForSale = 0;
+		int numDoors = 0;
+		final PairList<Room,Integer> linkBack = new PairArrayList<Room,Integer>(4);
 		for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
 		{
 			if(d==Directions.GATE)
 				continue;
-			final Room R2=R.rawDoors()[d];
-			if((R2!=null)&&((!R2.isSavable())||(R2.roomID().length()==0)))
+			final Room R2=R.getRawDoor(d);
+			if(R2==null)
 				continue;
-			Exit E=R.getRawExit(d);
-			if(checkedRetractRooms != null)
-				checkedRetractRooms.clear();
-			if((R2!=null)&&(R2.rawDoors()[Directions.getOpDirectionCode(d)]==R))
-				foundOne=true;
-			else
-			if((R2!=null)
-			&&(isRetractableLink(checkedRetractRooms,R,R2)))
+			if(R2.roomID().length()==0) // skys and underwater don't count
+				continue;
+			numDoors++;
+			// check for exceptions that protect Room R FOREVER!
+			if(R2.getArea() != R.getArea())
+				return false;
+			// check the loop back, and whether this is an actual peer
+			final Room RR2 = R2.getRawDoor(Directions.getOpDirectionCode(d));
+			if((RR2 != null)
+			&&((RR2!=R)
+			&&(!RR2.roomID().equalsIgnoreCase(R2.roomID()))))
+				return false; // if links to a room that doesn't link back, protect it!
+			if(canGenerateAdjacentRooms(R2))
+				return false;
+			// loop back passed; area check passed; so now check the title
+			final LandTitle lotA;
+			if((!R2.isSavable())&&(R2.numEffects()==0)) // might be thin
 			{
-				R.rawDoors()[d]=null;
-				R.setRawExit(d,null);
-				updateExits=true;
+				final Room realR2=CMLib.database().DBReadRoomObject(R2.roomID(), true, false);
+				lotA = (realR2 != null) ? (LandTitle)realR2.fetchEffect(ID()) : null;
+			}
+			else
+				lotA = (LandTitle)R2.fetchEffect(ID());
+			if(lotA != null)
+			{
+				if((lotA.getOwnerName()!=null)
+				&&(lotA.getOwnerName().trim().length()==0))
+				{
+					linksToOtherLotForSaleRoomsThatAreForSale++;
+					linkBack.add(R2,Integer.valueOf(Directions.getOpDirectionCode(d)));
+				}
+				else
+					return false; // linked to an owned room means R is safe
+			}
+			else
+			if(CMLib.law().getLandTitle(R2)!=null)
+				return false; // linked to another titled room means R is safe
+		}
+		if((linksToOtherLotForSaleRoomsThatAreForSale == 1)
+		||(linksToOtherLotForSaleRoomsThatAreForSale == numKillableLinks)
+		||(numDoors == 0))
+		{
+			for(final Pair<Room,Integer> p : linkBack)
+			{
+				final Room lbR=p.first;
+				final int linkBackDir = p.second.intValue();
+				if((lbR!=null)
+				&&(lbR.getRawDoor(linkBackDir)==R))
+				{
+					// this might help obliterate,
+					// and with future work on the same thread
+					lbR.setRawExit(linkBackDir, null);
+					lbR.setRawDoor(linkBackDir,null);
+				}
 				postWork.add(new Runnable()
 				{
-					final Room room=R2;
-
+					final Room room=R;
+					final Room lbroom=lbR;
 					@Override
 					public void run()
 					{
-						CMLib.map().obliterateMapRoom(room);
+						final Room obliteR = CMLib.map().getRoom(room);
+						if(obliteR != null)
+							CMLib.map().obliterateMapRoom(obliteR);
+						final Room updateR = CMLib.map().getRoom(lbroom);
+						if((updateR != null)
+						&&(updateR.getArea()!=null))
+						{
+							CMLib.database().DBUpdateExits(updateR);
+							updateR.getArea().fillInAreaRoom(updateR);
+						}
 					}
 				});
-				didAnything=true;
-			}
-			else
-			if((E!=null)&&(E.hasALock())&&(E.isGeneric()))
-			{
-				E.setKeyName("");
-				E.setDoorsNLocks(E.hasADoor(),E.isOpen(),E.defaultsClosed(),false,false,false);
-				updateExits=true;
-				if(R2!=null)
-				{
-					E=R2.getRawExit(Directions.getOpDirectionCode(d));
-					if((E!=null)&&(E.hasALock())&&(E.isGeneric()))
-					{
-						E.setKeyName("");
-						E.setDoorsNLocks(E.hasADoor(),E.isOpen(),E.defaultsClosed(),false,false,false);
-						postWork.add(new Runnable()
-						{
-							final Room room=R2;
-							@Override
-							public void run()
-							{
-								CMLib.database().DBUpdateExits(room);
-								R2.getArea().fillInAreaRoom(room);
-							}
-						});
-						didAnything=true;
-					}
-				}
 			}
 		}
-		if(checkedRetractRooms != null)
-			checkedRetractRooms.clear();
-		if(!foundOne)
-		{
-			CMLib.map().obliterateMapRoom(R);
-			didAnything=true;
-		}
-		else
-		if(updateExits)
-		{
-			CMLib.database().DBUpdateExits(R);
-			R.getArea().fillInAreaRoom(R);
-			didAnything=true;
-		}
-		return didAnything;
+		return false;
 	}
 
 	public boolean expandRooms(final Room R, final List<Runnable> postWork)
 	{
-		int numberOfPeers = -1;//getConnectedPropertyRooms().size();
+		int numberOfPeers = -1;//was: get Connected Property Rooms.size();
 		final boolean doGrid=super.gridLayout();
-		long roomLimit = Long.MAX_VALUE;
+		long roomLimit = 300; // default limit
 		final Set<Room> updateExits=new HashSet<Room>();
-		Prop_ReqCapacity cap = null;
+		Prop_ReqCapacity capA = null;
 		boolean didAnything = false;
+		List<Room> allRooms = null;
 		for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
 		{
 			if((d==Directions.UP)||(d==Directions.DOWN)||(d==Directions.GATE))
 				continue;
-			final Room chkR=R.getRoomInDir(d);
+			final Room chkR;
+			synchronized(R)
+			{
+				synchronized(R.rawDoors())
+				{
+					chkR=R.getRawDoor(d);
+				}
+			}
 			if((chkR==null)&&(numberOfPeers < 0))
 			{
-				final List<Room> allRooms = getConnectedPropertyRooms();
+				if(allRooms == null) // this is now only mildly inefficient for thin areas
+					allRooms = getConnectedPropertyRooms();
 				if(allRooms.size()>0)
 				{
-					cap = (Prop_ReqCapacity)allRooms.get(0).fetchEffect("Prop_ReqCapacity");
-					if(cap != null)
+					final Room capRoom = this.getAConnectedPropertyRoom();
+					capA = (Prop_ReqCapacity)((capRoom!=null)?capRoom.fetchEffect("Prop_ReqCapacity"):null);
+					if(capA != null)
 					{
-						roomLimit = cap.roomLimit;
+						roomLimit = capA.roomLimit;
 					}
 				}
 				numberOfPeers = allRooms.size();
@@ -287,13 +333,39 @@ public class Prop_LotsForSale extends Prop_RoomForSale
 			if((chkR==null)&&(numberOfPeers < roomLimit))
 			{
 				numberOfPeers++;
+				if(doGrid)
+				{
+					final PairVector<Room,int[]> rooms=CMLib.tracking().buildGridList(R, null, 100);
+					Room R3=R.getRoomInDir(d);
+					if(R3 == null)
+					{
+						R3=CMLib.tracking().getCalculatedAdjacentGridRoom(rooms, R, d);
+						if(R3!=null)
+						{
+							R3=CMLib.map().getRoom(R3);
+							final int opd = Directions.getOpDirectionCode(d);
+							R.setRawDoor(d,R3);
+							R3.setRawDoor(opd,R);
+							Exit E = R.getRawExit(d);
+							if(E == null)
+								E = R3.getRawExit(opd);
+							if(R.getRawExit(d)==null)
+								R.setRawExit(d, E);
+							if(R3.getRawExit(opd)==null)
+								R3.setRawExit(opd, E);
+							updateExits.add(R);
+							updateExits.add(R3);
+							continue;
+						}
+					}
+				}
+				final LandTitle newTitle;
 				final Room R2=CMClass.getLocale(CMClass.classID(R));
 				R2.setRoomID(R.getArea().getNewRoomID(R,d));
 				if(R2.roomID().length()==0)
 					continue;
 				R2.setArea(R.getArea());
 				final LandTitle oldTitle=CMLib.law().getLandTitle(R);
-				final LandTitle newTitle;
 				if((oldTitle!=null)&&(CMLib.law().getLandTitle(R2)==null))
 				{
 					newTitle = oldTitle.generateNextRoomTitle();
@@ -301,39 +373,20 @@ public class Prop_LotsForSale extends Prop_RoomForSale
 				}
 				else
 					newTitle=null;
-				R.rawDoors()[d]=R2;
+				R.setRawDoor(d,R2);
 				R.setRawExit(d,CMClass.getExit("Open"));
-				R2.rawDoors()[Directions.getOpDirectionCode(d)]=R;
+				R2.setRawDoor(Directions.getOpDirectionCode(d),R);
 				R2.setRawExit(Directions.getOpDirectionCode(d),CMClass.getExit("Open"));
 				updateExits.add(R);
-				if(doGrid)
-				{
-					final PairVector<Room,int[]> rooms=CMLib.tracking().buildGridList(R2, this.getOwnerName(), 100);
-					for(int dir=0;dir<Directions.NUM_DIRECTIONS();dir++)
-					{
-						if(dir==Directions.GATE)
-							continue;
-						Room R3=R2.getRoomInDir(dir);
-						if(R3 == null)
-						{
-							R3=CMLib.tracking().getCalculatedAdjacentRoom(rooms, R3, dir);
-							if(R3!=null)
-							{
-								R2.rawDoors()[dir]=R3;
-								R3.rawDoors()[Directions.getOpDirectionCode(dir)]=R2;
-								updateExits.add(R3);
-							}
-						}
-					}
-				}
 				updateExits.add(R2);
 				if(CMSecurity.isDebugging(CMSecurity.DbgFlag.PROPERTY))
 					Log.debugOut("Lots4Sale",R2.roomID()+" created and put up for sale.");
-				if(cap != null)
-					R2.addNonUninvokableEffect((Ability)cap.copyOf());
+				if(capA != null)
+					R2.addNonUninvokableEffect((Ability)capA.copyOf());
+				final Room postR = R2;
 				postWork.add(new Runnable()
 				{
-					final Room room = R2;
+					final Room room = postR;
 					final LandTitle title=newTitle;
 
 					@Override
@@ -382,27 +435,30 @@ public class Prop_LotsForSale extends Prop_RoomForSale
 	public void updateLot(final Set<String> optPlayerList)
 	{
 		final Environmental EV=affected;
-		if(!(EV instanceof Room))
+		if((!(EV instanceof Room))
+		||(!((Room)EV).isSavable())) // not thin!
 			return;
 		Room R=(Room)EV;
 		boolean didAnything=false;
 		try
 		{
 			final List<Runnable> postWork=new ArrayList<Runnable>();
-			synchronized(("SYNC"+R.roomID()).intern())
+			synchronized(CMClass.getSync("SYNC"+R.roomID()))
 			{
 				R=CMLib.map().getRoom(R);
-				final int[] data=updateLotWithThisData(R,this,true,scheduleReset,optPlayerList,lastItemNums,daysWithNoChange);
-				lastItemNums=data[0];
-				daysWithNoChange=data[1];
-				if(getOwnerName().length()==0)
+				if((R!=null)
+				&&(R.isSavable())) // not thin!
 				{
-					didAnything = retractRooms(R,postWork) || didAnything;
-				}
-				else
-				if(canGenerateAdjacentRooms(R))
-				{
-					didAnything = expandRooms(R,postWork) || didAnything;
+					final int[] data=updateLotWithThisData(R,this,true,scheduleReset,optPlayerList,lastItemNums,daysWithNoChange);
+					if(data != null)
+					{
+						lastItemNums=data[0];
+						daysWithNoChange=data[1];
+						if(canGenerateAdjacentRooms(R))
+							didAnything = expandRooms(R,postWork) || didAnything;
+						else
+							didAnything = retractRooms(R,postWork) || didAnything;
+					}
 				}
 			}
 			for(final Runnable run : postWork)
@@ -412,7 +468,12 @@ public class Prop_LotsForSale extends Prop_RoomForSale
 		finally
 		{
 			if(didAnything)
+			{
+				this.lastArea=null;
+				this.lastRoomsTimestamp=0;
+				this.lastRoomsV.clear();
 				getConnectedPropertyRooms(); // recalculates the unique id for this lot of rooms
+			}
 		}
 	}
 }

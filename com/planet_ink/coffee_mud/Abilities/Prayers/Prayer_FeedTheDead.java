@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -126,18 +126,19 @@ public class Prayer_FeedTheDead extends Prayer
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L(auto?"<T-NAME> gain(s) fake life!":"^S<S-NAME> "+prayWord(mob)+" for <T-NAMESELF> to be fed.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					L(auto?"<T-NAME> gain(s) fake life!":"^S<S-NAME> @x1 for <T-NAMESELF> to be fed.^?",prayWord(mob)));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				amount=-CMLib.leveler().postExperience(mob,null,null,-amount,false);
+				amount=-CMLib.leveler().postExperience(mob,"ABILITY:"+ID(),null,null,-amount, false);
 				if((mob.phyStats().level()>target.phyStats().level())&&(target.isMonster()))
 				{
 					final int adjLevel = adjustedLevel(mob,asLevel);
 					amount+=(adjustedLevel(mob,asLevel)-target.phyStats().level())
 						  *(adjLevel/3);
 				}
-				amount=CMLib.leveler().postExperience(target,null,null,amount,false);
+				amount=CMLib.leveler().postExperience(target,"ABILITY:"+ID(),null,null,amount, false);
 				if((CMLib.dice().rollPercentage() < amount)
 				&&(target.isMonster())
 				&&(target.fetchEffect("Loyalty")==null)

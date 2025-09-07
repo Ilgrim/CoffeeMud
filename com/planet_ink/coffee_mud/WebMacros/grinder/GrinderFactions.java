@@ -10,6 +10,7 @@ import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.FactionManager.FAbilityMaskType;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
@@ -21,7 +22,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -65,6 +66,9 @@ public class GrinderFactions
 
 		old=httpReq.getUrlParameter("SHOWINFACTIONS");
 		F.setShowInFactionsCommand((old!=null)&&(old.equalsIgnoreCase("on")));
+
+		old=httpReq.getUrlParameter("INHERITED");
+		F.setInherited((old!=null)&&(old.equalsIgnoreCase("on")));
 
 		old=httpReq.getUrlParameter("SHOWINEDITOR");
 		F.setShowInEditor((old!=null)&&(old.equalsIgnoreCase("on")));
@@ -151,9 +155,15 @@ public class GrinderFactions
 				v=CMath.s_int(httpReq.getUrlParameter("RPXP"+num));
 				if(v!=0)
 					old+=" RPXP="+v;
+				id=httpReq.getUrlParameter("CHGRESTIME");
+				if((id!=null)&&(id.trim().length()>0))
+					old+=" RESTIME=\""+id+"\"";
+				id=httpReq.getUrlParameter("CHGANNOUNCE");
+				if((id!=null)&&(id.trim().length()>0))
+					old+=" ANNOUNCE=\""+id+"\"";
 				old+=";";
 				old+=httpReq.getUrlParameter("CHANGESMASK"+num);
-				F.createChangeEvent(old);
+				F.createChangeEvent("CHANGE"+num, old);
 			}
 			num++;
 		}
@@ -223,8 +233,9 @@ public class GrinderFactions
 			old=httpReq.getUrlParameter("ABILITYUSE"+num);
 			if(old.length()>0)
 			{
-				final int usedType=CMLib.factions().getAbilityFlagType(old);
-				if(usedType>0)
+				final FAbilityMaskType usedType=CMLib.factions().getAbilityFlagType(old);
+				if((usedType != null)
+				&&(usedType != FAbilityMaskType.ID))
 				{
 					int x=-1;
 					while(httpReq.isUrlParameter("ABILITYUSE"+num+"_"+(++x)))

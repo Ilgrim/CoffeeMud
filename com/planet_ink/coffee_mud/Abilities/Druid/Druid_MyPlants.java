@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -191,9 +191,9 @@ public class Druid_MyPlants extends StdAbility
 					}
 				}
 				else
-				if(I instanceof BoardableShip)
+				if(I instanceof Boardable)
 				{
-					final Area A=((BoardableShip)I).getShipArea();
+					final Area A=((Boardable)I).getArea();
 					if(A!=null)
 					{
 						for(final Enumeration<Room> r=A.getFilledProperMap();r.hasMoreElements();)
@@ -295,7 +295,7 @@ public class Druid_MyPlants extends StdAbility
 		final boolean success=proficiencyCheck(mob,0,auto);
 
 		if(!success)
-			mob.tell(L("Your plant senses fail you."));
+			commonTelL(mob,"Your plant senses fail you.");
 		else
 		{
 			final CMMsg msg=CMClass.getMsg(mob,null,null,CMMsg.MSG_QUIETMOVEMENT|CMMsg.MASK_MAGIC,null);
@@ -329,9 +329,9 @@ public class Druid_MyPlants extends StdAbility
 					}
 				}
 				if(V.size()==0)
-					mob.tell(L("You don't sense that there are ANY plants which are attuned to you."));
+					commonTelL(mob,"You don't sense that there are ANY plants which are attuned to you.");
 				else
-					mob.tell(L("### Plant Name           Location\n\r@x1",yourPlants.toString()));
+					commonTelL(mob,"### Plant Name           Location\n\r@x1",yourPlants.toString());
 			}
 		}
 		return success;

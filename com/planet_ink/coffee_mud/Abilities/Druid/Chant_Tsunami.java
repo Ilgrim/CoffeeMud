@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -175,7 +175,7 @@ public class Chant_Tsunami extends Chant
 	{
 		if(mob!=null)
 		{
-			if(!(target instanceof BoardableShip))
+			if(!(target instanceof Boardable))
 				return Ability.QUALITY_INDIFFERENT;
 		}
 		return super.castingQuality(mob,target);
@@ -187,7 +187,7 @@ public class Chant_Tsunami extends Chant
 		final Room mobR=mob.location();
 		if(mobR==null)
 			return false;
-		if(((mobR.domainType()&Room.INDOORS)>0)||(mobR.getArea() instanceof BoardableShip))
+		if(((mobR.domainType()&Room.INDOORS)>0)||(mobR.getArea() instanceof Boardable))
 		{
 			mob.tell(L("You must be on or near the shore for this chant to work."));
 			return false;
@@ -203,7 +203,10 @@ public class Chant_Tsunami extends Chant
 		final String fromDir = CMLib.directions().getFromCompassDirectionName(waterDir);
 
 		//targetRooms.add(mobR);
-		final TrackingLibrary.TrackingFlags flags=CMLib.tracking().newFlags().plus(TrackingFlag.NOAIR).plus(TrackingFlag.OPENONLY).plus(TrackingFlag.NOWATER);
+		final TrackingLibrary.TrackingFlags flags=CMLib.tracking().newFlags()
+				.plus(TrackingFlag.NOAIR)
+				.plus(TrackingFlag.OPENONLY)
+				.plus(TrackingFlag.NOWATER);
 		targetRooms.addAll(CMLib.tracking().getRadiantRooms(mobR, flags, 2));
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
@@ -266,7 +269,7 @@ public class Chant_Tsunami extends Chant
 			}
 
 			final Set<MOB> casterGroup=mob.getGroupMembers(new HashSet<MOB>());
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L(""):L("^S<S-NAME> chant(s), calling in a tsunami from @x1.^?",fromDir));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> chant(s), calling in a tsunami from @x1.^?",fromDir));
 			if(mobR.okMessage(mob,msg))
 			{
 				mobR.send(mob, msg);

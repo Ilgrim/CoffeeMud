@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -189,7 +189,9 @@ public class Spell_Enthrall extends Spell
 
 		super.unInvoke();
 
-		if((canBeUninvoked()&&(!mob.amDead())))
+		if((canBeUninvoked())
+		&&(!mob.amDead())
+		&&(mob.location()!=null))
 		{
 			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-YOUPOSS> free-will returns."));
 			if(mob.amFollowing()!=null)
@@ -239,17 +241,15 @@ public class Spell_Enthrall extends Spell
 		if(levelDiff<0)
 			levelDiff=0;
 
-		if(!CMLib.flags().canSpeak(mob))
+		if(!CMLib.flags().isSeeable(mob))
 		{
-			mob.tell(L("You can't speak!"));
+			mob.tell(L("You can't be seen!"));
 			return false;
 		}
 
-		// if they can't hear the sleep spell, it
-		// won't happen
-		if((!auto)&&(!CMLib.flags().canBeHeardSpeakingBy(mob,target)))
+		if((!auto)&&(!CMLib.flags().canBeSeenBy(mob,target)))
 		{
-			mob.tell(L("@x1 can't hear your words.",target.charStats().HeShe()));
+			mob.tell(L("@x1 can't see you.",target.charStats().HeShe()));
 			return false;
 		}
 

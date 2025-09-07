@@ -15,7 +15,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ public class GrinderRoom
 
 	public void fixExits(final Room R)
 	{
-		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+		for(int d=R.rawDoors().length-1;d>=0;d--)
 		{
 			final GrinderDir D=new GrinderDir();
 			R.clearSky();
@@ -73,7 +73,8 @@ public class GrinderRoom
 			final Exit E2=R.getRawExit(d);
 			if(E2!=null)
 				D.exit=E2;
-			doors[d]=D;
+			if(d < doors.length)
+				doors[d]=D;
 		}
 	}
 

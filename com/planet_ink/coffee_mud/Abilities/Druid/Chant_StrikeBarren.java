@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -132,9 +132,10 @@ public class Chant_StrikeBarren extends Chant
 			return false;
 
 		final boolean success=proficiencyCheck(mob,0,auto);
-		if((success)&&(target.charStats().getStat(CharStats.STAT_GENDER)=='F'))
+		if((success)&&(target.charStats().reproductiveCode()=='F'))
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("<T-NAME> become(s) barren!"):L("^S<S-NAME> chant(s) at <T-NAMESELF>, striking <T-HIM-HER> barren!^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					auto?L("<T-NAME> become(s) barren!"):L("^S<S-NAME> chant(s) at <T-NAMESELF>, striking <T-HIM-HER> barren!^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

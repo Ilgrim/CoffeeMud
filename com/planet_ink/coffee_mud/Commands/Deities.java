@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,18 +45,47 @@ public class Deities extends StdCommand
 		return access;
 	}
 
-	private final static Class<?>[][] internalParameters=new Class<?>[][]{{Deity.class}};
+	private final static Class<?>[][] internalParameters=new Class<?>[][]{{Deity.class},{Deity.class,Boolean.class}};
 
-	public String getDeityInformation(final MOB mob, final Deity D)
+	protected void addToSet(final Set<String> set, final Item I)
+	{
+		if(I instanceof Weapon)
+			set.add(I.name());
+	}
+
+	protected Set<String> getWeapons(final MOB mob, final Deity D)
+	{
+		final Set<String> set=new HashSet<String>();
+		if(D != null)
+		{
+			addToSet(set, D.fetchWieldedItem());
+			addToSet(set, D.fetchHeldItem());
+			for(final Enumeration<Item> i=D.items();i.hasMoreElements();)
+				addToSet(set,i.nextElement());
+		}
+		return set;
+	}
+
+	public String getDeityInformation(final MOB mob, final Deity D, final boolean nameOnly)
 	{
 		final StringBuffer msg = new StringBuffer("");
-		msg.append("\n\r^x"+D.name()+"^.^?");
-		if(D.hasFaction(CMLib.factions().getAlignmentID()))
+		msg.append("^x"+D.name()+"^.^?");
+		if(D.hasFaction(CMLib.factions().getAlignmentID())||D.hasFaction(CMLib.factions().getInclinationID()))
 		{
-			final int faction=D.fetchFaction(CMLib.factions().getAlignmentID());
-			msg.append("^N ("+CMLib.factions().getRange(CMLib.factions().getAlignmentID(), faction)+")");
+			msg.append("^N (");
+			int faction=D.fetchFaction(CMLib.factions().getAlignmentID());
+			final Faction.FRange range1=CMLib.factions().getRange(CMLib.factions().getAlignmentID(), faction);
+			if(range1!=null)
+				msg.append(range1.name());
+			faction=D.fetchFaction(CMLib.factions().getInclinationID());
+			final Faction.FRange range2=CMLib.factions().getRange(CMLib.factions().getInclinationID(), faction);
+			if(range2!=null)
+				msg.append((range1!=null)?"/":"").append(range2.name());
+			msg.append(")");
 		}
 		msg.append("\n\r");
+		if(nameOnly)
+			return msg.toString();
 		msg.append(D.description()+"\n\r\n\r");
 		if((mob==null)||(CMSecurity.isASysOp(mob)))
 		{
@@ -64,10 +93,19 @@ public class Deities extends StdCommand
 			msg.append(D.getWorshipRequirementsDesc()+"\n\r");
 		}
 		else
-		if(mob.charStats().getCurrentClass().baseClass().equals("Cleric"))
+		if(mob.charStats().getStat(CharStats.STAT_FAITH)>=100)
 			msg.append(D.getClericRequirementsDesc()+"\n\r");
 		else
+		if(mob.charStats().getStat(CharStats.STAT_FAITH)>=25)
+		{
+			msg.append(D.getClericRequirementsDesc()+"\n\r\n\r");
 			msg.append(D.getWorshipRequirementsDesc()+"\n\r");
+		}
+		else
+			msg.append(D.getWorshipRequirementsDesc()+"\n\r");
+		final Set<String> items = getWeapons(mob,D);
+		if(items.size()>0)
+			msg.append(L("\n\r^HWields: ^N@x1\n\r",CMParms.toListString(items)));
 		if(D.numBlessings()>0)
 		{
 			msg.append(L("\n\r^HBlessings: ^N"));
@@ -86,12 +124,13 @@ public class Deities extends StdCommand
 				msg.append(D.getWorshipTriggerDesc()+"\n\r");
 			}
 			else
-			if(mob.charStats().getCurrentClass().baseClass().equals("Cleric"))
+			if(mob.charStats().getStat(CharStats.STAT_FAITH)>=100)
 				msg.append(D.getClericTriggerDesc()+"\n\r");
 			else
 				msg.append(D.getWorshipTriggerDesc()+"\n\r");
+			msg.append(L("See also help on BLESSINGS\n\r"));
 		}
-		if((mob==null)||CMSecurity.isASysOp(mob)||mob.charStats().getCurrentClass().baseClass().equals("Cleric"))
+		if((mob==null)||(mob.charStats().getStat(CharStats.STAT_FAITH)>=100))
 		{
 			if(D.numPowers()>0)
 			{
@@ -104,9 +143,11 @@ public class Deities extends StdCommand
 				}
 				msg.append(L("\n\r^HPowers Instructions: ^N"));
 				msg.append(D.getClericPowerupDesc()+"\n\r");
+				msg.append(L("See also help on POWERS\n\r"));
 			}
 			msg.append(L("\n\r^HService Instructions: ^N"));
 			msg.append(D.getServiceTriggerDesc()+"\n\r");
+			msg.append(L("See also help on SERVICES\n\r"));
 		}
 		return msg.toString();
 	}
@@ -116,7 +157,11 @@ public class Deities extends StdCommand
 	{
 		if(!super.checkArguments(internalParameters, args))
 			return Boolean.FALSE.toString();
-		return this.getDeityInformation(mob, (Deity)args[0]);
+		if((args.length==2)
+		&&(args[1] instanceof Boolean)
+		&&(((Boolean)args[1]).booleanValue()))
+			return this.getDeityInformation(mob, (Deity)args[0], true);
+		return this.getDeityInformation(mob, (Deity)args[0], false);
 	}
 
 	@Override
@@ -135,7 +180,7 @@ public class Deities extends StdCommand
 		{
 			final Deity D=d.nextElement();
 			if((str.length()>0)&&(CMLib.english().containsString(D.name(),str)))
-				msg.append(this.getDeityInformation(mob, D));
+				msg.append("\n\r"+this.getDeityInformation(mob, D, false));
 			else
 			if(str.length()==0)
 			{

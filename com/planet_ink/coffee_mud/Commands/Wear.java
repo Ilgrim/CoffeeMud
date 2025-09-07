@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ public class Wear extends StdCommand
 		}
 		else
 		if(locationIndex!=0)
-			str=L("<S-NAME> put(s) <T-NAME> on <S-HIS-HER> @x1.",Wearable.CODES.NAME(locationIndex).toLowerCase());
+			str=L("<S-NAME> put(s) <T-NAME> on <S-HIS-HER> @x1.",Wearable.CODES.instance().name(locationIndex));
 		final CMMsg newMsg=CMClass.getMsg(mob,item,null,msgType,quiet?null:str);
 		newMsg.setValue(locationIndex);
 		if(mob.location().okMessage(mob,newMsg))
@@ -144,7 +144,7 @@ public class Wear extends StdCommand
 			{
 				I=items.get(i);
 				if((items.size()==1)||(I.canWear(mob,0)))
-					wear(mob,I,wearLocationIndex,false);
+					wear(mob,I,wearLocationIndex,CMath.bset(metaFlags, MUDCmdProcessor.METAFLAG_QUIETLY));
 			}
 		}
 		return false;
@@ -157,7 +157,7 @@ public class Wear extends StdCommand
 			return Boolean.FALSE;
 		final Wearable.CODES codes = Wearable.CODES.instance();
 		final Item targetWearI = (Item)args[0];
-		boolean quietly = false;
+		boolean quietly = (CMath.bset(metaFlags, MUDCmdProcessor.METAFLAG_QUIETLY));
 		int wearLocationIndex = 0;
 		for(int i=1;i<args.length;i++)
 		{

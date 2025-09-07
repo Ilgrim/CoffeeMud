@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,6 +70,54 @@ public class Prop_FightSpellCast extends Prop_SpellAdder
 		return TriggeredAffect.TRIGGER_HITTING_WITH;
 	}
 
+	protected boolean allMobs = false;
+	protected boolean allItems = false;
+	protected boolean onlyMobs = false;
+	protected boolean onlyItems = false;
+	protected boolean noOwn = false;
+
+	@Override
+	public void setMiscText(final String text)
+	{
+		allMobs = false;
+		allItems = false;
+		onlyMobs = false;
+		onlyItems = false;
+		noOwn = false;
+		super.setMiscText(text);
+	}
+
+	@Override
+	protected boolean setOtherField(final String var)
+	{
+		if(var.startsWith("ALLMOB"))
+		{
+			allMobs=true;
+			return true;
+		}
+		if(var.startsWith("ALLITEM"))
+		{
+			allItems=true;
+			return true;
+		}
+		if(var.startsWith("ONLYMOB"))
+		{
+			onlyMobs=true;
+			return true;
+		}
+		if(var.startsWith("ONLYITEM"))
+		{
+			onlyItems=true;
+			return true;
+		}
+		if(var.startsWith("NOOWN"))
+		{
+			noOwn=true;
+			return true;
+		}
+		return false;
+	}
+
 	@Override
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
@@ -93,22 +141,23 @@ public class Prop_FightSpellCast extends Prop_SpellAdder
 			&&(msg.targetMinor()==CMMsg.TYP_DAMAGE)
 			&&((msg.value())>0))
 			{
-				if(CMLib.combat().isAShipSiegeWeapon(myItem)
+				getMySpellsV(); // ensure props are loaded
+				if(CMLib.combat().isASiegeWeapon(myItem)
 				&&(msg.target() instanceof MOB))
 					addMeIfNeccessary(msg.source(),(MOB)msg.target(),false,0,maxTicks);
 				else
-				if((myItem.amBeingWornProperly())
-				&&(myItem.owner() instanceof MOB)
+				if((noOwn||myItem.amBeingWornProperly())
+				&&(noOwn||myItem.owner() instanceof MOB)
 				&&(msg.target() instanceof MOB))
 				{
-					final MOB mob=(MOB)myItem.owner();
+					final MOB mob=noOwn?msg.source():(MOB)myItem.owner();
 					if((mob.isInCombat())
 					&&(mob.location()!=null)
 					&&(!mob.amDead()))
 					{
 						if((myItem instanceof Weapon)
 						&&(msg.tool()==myItem)
-						&&(myItem.amWearingAt(Wearable.WORN_WIELD))
+						&&(noOwn||myItem.amWearingAt(Wearable.WORN_WIELD))
 						&&(msg.amISource(mob)))
 							addMeIfNeccessary(msg.source(),(MOB)msg.target(),false,0,maxTicks);
 						else
@@ -119,13 +168,13 @@ public class Prop_FightSpellCast extends Prop_SpellAdder
 					}
 				}
 				else
-				if(CMLib.combat().isAShipSiegeWeapon(myItem)
+				if(CMLib.combat().isASiegeWeapon(myItem)
 				&&(msg.target() instanceof Item))
 				{
 					final Item I=(Item)msg.target();
-					if(I instanceof BoardableShip)
+					if(I instanceof Boardable)
 					{
-						final Area A=((BoardableShip)I).getShipArea();
+						final Area A=((Boardable)I).getArea();
 						if(A!=null)
 						{
 							final List<Physical> stuff = new ArrayList<Physical>();
@@ -135,18 +184,43 @@ public class Prop_FightSpellCast extends Prop_SpellAdder
 								if((R!=null)&&((R.domainType()&Room.INDOORS)==0))
 								{
 									final Item I2=R.getRandomItem();
-									if(I2!=null)
+									if((I2!=null)&&(!onlyMobs))
 										stuff.add(I2);
 									final MOB M=R.fetchRandomInhabitant();
-									if(M!=null)
+									if((M!=null)&&(!onlyItems))
 										stuff.add(M);
 								}
 							}
 							if(stuff.size()>0)
 							{
-								final Physical P=stuff.get(CMLib.dice().roll(1, stuff.size(), -1));
-								if(P!=null)
+								if(allMobs && allItems)
+								{
+									for(final Physical P : stuff)
+										addMeIfNeccessary(msg.source(),P,true,0,maxTicks);
+								}
+								else
+								if(allMobs)
+								{
+									for(final Physical P : stuff)
+									{
+										if(P instanceof MOB)
+											addMeIfNeccessary(msg.source(),P,true,0,maxTicks);
+									}
+								}
+								else
+								if(allItems)
+								{
+									for(final Physical P : stuff)
+									{
+										if(P instanceof Item)
+											addMeIfNeccessary(msg.source(),P,true,0,maxTicks);
+									}
+								}
+								else
+								{
+									final Physical P=stuff.get(CMLib.dice().roll(1, stuff.size(), -1));
 									addMeIfNeccessary(msg.source(),P,true,0,maxTicks);
+								}
 							}
 						}
 					}
@@ -207,6 +281,28 @@ public class Prop_FightSpellCast extends Prop_SpellAdder
 			if((code.equalsIgnoreCase("TONEDOWN-ARMOR"))
 			||(code.equalsIgnoreCase("TONEDOWN-WEAPON"))
 			||(code.equalsIgnoreCase("TONEDOWN-MISC")))
+			{
+				/*
+				final double pct=CMath.s_pct(val);
+				final String s=text();
+				int plusminus=s.indexOf('+');
+				int minus=s.indexOf('-');
+				if((minus>=0)&&((plusminus<0)||(minus<plusminus)))
+					plusminus=minus;
+				while(plusminus>=0)
+				{
+					minus=s.indexOf('-',plusminus+1);
+					plusminus=s.indexOf('+',plusminus+1);
+					if((minus>=0)&&((plusminus<0)||(minus<plusminus)))
+						plusminus=minus;
+				}
+				setMiscText(s);
+				*/
+			}
+			else
+			if((code.equalsIgnoreCase("TONEUP-ARMOR"))
+			||(code.equalsIgnoreCase("TONEUP-WEAPON"))
+			||(code.equalsIgnoreCase("TONEUP-MISC")))
 			{
 				/*
 				final double pct=CMath.s_pct(val);

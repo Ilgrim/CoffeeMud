@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -63,6 +63,16 @@ public class StdContainer extends StdItem implements Container
 	}
 
 	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		if(this.capacity>0)
+			return L("a container");
+		return super.genericName();
+	}
+
+	@Override
 	public int capacity()
 	{
 		return capacity;
@@ -91,7 +101,8 @@ public class StdContainer extends StdItem implements Container
 	{
 		if(!super.okMessage(myHost,msg))
 			return false;
-		if(msg.amITarget(this))
+		if(msg.amITarget(this)
+		&&(!msg.targetMajor(CMMsg.MASK_ALWAYS)))
 		{
 			final MOB mob=msg.source();
 			switch(msg.targetMinor())
@@ -687,11 +698,12 @@ public class StdContainer extends StdItem implements Container
 	public int recursiveWeight()
 	{
 		int weight=phyStats().weight();
-		if(owner()==null)
+		final ItemPossessor owner = owner();
+		if(owner==null)
 			return weight;
-		if(owner() instanceof MOB)
+		if(owner instanceof MOB)
 		{
-			final MOB M=(MOB)owner();
+			final MOB M=(MOB)owner;
 			for(int i=0;i<M.numItems();i++)
 			{
 				final Item thisItem=M.getItem(i);
@@ -700,9 +712,9 @@ public class StdContainer extends StdItem implements Container
 			}
 		}
 		else
-		if(owner() instanceof Room)
+		if(owner instanceof Room)
 		{
-			final Room R=(Room)owner();
+			final Room R=(Room)owner;
 			for(int i=0;i<R.numItems();i++)
 			{
 				final Item thisItem=R.getItem(i);
@@ -717,10 +729,11 @@ public class StdContainer extends StdItem implements Container
 	public ReadOnlyList<Item> getDeepContents()
 	{
 		final List<Item> V=new Vector<Item>();
-		if(owner()!=null)
+		final ItemPossessor owner = owner();
+		if(owner!=null)
 		{
 			Item I;
-			for(final Enumeration<Item> e = owner().items(); e.hasMoreElements();)
+			for(final Enumeration<Item> e = owner.items(); e.hasMoreElements();)
 			{
 				I=e.nextElement();
 				if(I!=null)
@@ -737,10 +750,11 @@ public class StdContainer extends StdItem implements Container
 	public ReadOnlyList<Item> getContents()
 	{
 		final List<Item> V=new ArrayList<Item>();
-		if(owner()!=null)
+		final ItemPossessor owner = owner();
+		if(owner!=null)
 		{
 			Item I;
-			for(final Enumeration<Item> e = owner().items(); e.hasMoreElements();)
+			for(final Enumeration<Item> e = owner.items(); e.hasMoreElements();)
 			{
 				I=e.nextElement();
 				if((I!=null)&&(I.container()==this))
@@ -753,10 +767,11 @@ public class StdContainer extends StdItem implements Container
 	@Override
 	public boolean hasContent()
 	{
-		if(owner()!=null)
+		final ItemPossessor owner = owner();
+		if(owner!=null)
 		{
 			Item I;
-			for(final Enumeration<Item> e = owner().items(); e.hasMoreElements();)
+			for(final Enumeration<Item> e = owner.items(); e.hasMoreElements();)
 			{
 				I=e.nextElement();
 				if((I!=null)&&(I.container()==this))

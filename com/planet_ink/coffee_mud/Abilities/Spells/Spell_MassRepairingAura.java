@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -115,7 +115,9 @@ public class Spell_MassRepairingAura extends Spell
 				choices.addAll(this.getChoices((ItemPossessor)affected));
 			for(final Item I : choices)
 			{
-				if((I.subjectToWearAndTear())&&(I.usesRemaining()<100))
+				if((I.subjectToWearAndTear())
+				&&(I.usesRemaining()<100)
+				&&(I.phyStats().weight()<=500))
 				{
 					if(I.owner() instanceof Room)
 						((Room)I.owner()).showHappens(CMMsg.MSG_OK_VISUAL,I,L("<S-NAME> is magically repairing itself."));
@@ -160,7 +162,9 @@ public class Spell_MassRepairingAura extends Spell
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		final Physical target=getAnyTarget(mob,commands,givenTarget,Wearable.FILTER_ANY);
+		if((commands.size()==0)&&(givenTarget==null))
+			commands.add("SELF");
+		final Physical target=getAnyTarget(mob,commands,givenTarget,Wearable.FILTER_ANY,false,false,false);
 		if(target==null)
 			return false;
 		if((target.fetchEffect(this.ID())!=null)
@@ -170,7 +174,9 @@ public class Spell_MassRepairingAura extends Spell
 			mob.tell(L("@x1 is already repairing!",target.name(mob)));
 			return false;
 		}
-		if((!(target instanceof Item))&&(!(target instanceof MOB))&&(!(target instanceof Room)))
+		if((!(target instanceof Item))
+		&&(!(target instanceof MOB))
+		&&(!(target instanceof Room)))
 		{
 			mob.tell(L("@x1 would not be affected by this spell.",target.name(mob)));
 			return false;
@@ -200,7 +206,7 @@ public class Spell_MassRepairingAura extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAMESELF>, incanting.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAMESELF>, incanting.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

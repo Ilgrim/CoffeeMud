@@ -57,7 +57,16 @@ public class StdPowder extends StdItem implements MagicDust
 		secretIdentity="This is a pile of inert materials.";
 		baseGoldValue=0;
 		material=RawMaterial.RESOURCE_ASH;
+		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_BONUS);
 		recoverPhyStats();
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a powder");
 	}
 
 	@Override
@@ -91,6 +100,12 @@ public class StdPowder extends StdItem implements MagicDust
 				spreadIfAble(msg.source(),(Physical)msg.target());
 			else
 				super.executeMsg(myHost,msg);
+		}
+		else
+		if((msg.targetMinor()==CMMsg.TYP_SNIFF )
+		&&(msg.target()==this))
+		{
+			spreadIfAble(msg.source(),msg.source());
 		}
 		else
 			super.executeMsg(myHost,msg);
@@ -151,6 +166,6 @@ public class StdPowder extends StdItem implements MagicDust
 	@Override
 	public String secretIdentity()
 	{
-		return description()+"\n\r"+super.secretIdentity();
+		return StdScroll.makeSecretIdentity("powder",super.secretIdentity(),"",StdPotion.getSpells(this));
 	}
 }

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -123,6 +123,7 @@ public class Skill_RevealText extends StdSkill
 		return true;
 	}
 
+	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
 		if(!super.tick(ticking, tickID))
@@ -156,10 +157,16 @@ public class Skill_RevealText extends StdSkill
 	@Override
 	public void unInvoke()
 	{
+		final Item revealI;
+		synchronized(this)
+		{
+			revealI=this.revealI;
+		}
 		final Physical P=affected;
 		confirmSuccess();
 		super.unInvoke();
-		if(P instanceof MOB)
+		if((P instanceof MOB)
+		&&(revealI!=null))
 		{
 			final MOB mob=(MOB)P;
 			if(!success)

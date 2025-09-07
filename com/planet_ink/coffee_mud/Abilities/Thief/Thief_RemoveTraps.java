@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -107,7 +107,10 @@ public class Thief_RemoveTraps extends ThiefSkill
 			nextRoom=R.getRoomInDir(dirCode);
 			unlockThis=R.getExitInDir(dirCode);
 		}
-		if((unlockThis==null)&&(whatTounlock.equalsIgnoreCase("room")||whatTounlock.equalsIgnoreCase("here")))
+		if((unlockThis==null)
+		&&(whatTounlock.equalsIgnoreCase("room")
+			||whatTounlock.equalsIgnoreCase("here")
+			||whatTounlock.equalsIgnoreCase(CMLib.english().removeArticleLead(mob.location().Name()))))
 			unlockThis=R;
 		if(unlockThis==null)
 			unlockThis=getAnyTarget(mob,commands,givenTarget,Wearable.FILTER_UNWORNONLY);

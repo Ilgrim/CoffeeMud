@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2020-2020 Bo Zimmerman
+   Copyright 2020-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -75,21 +75,25 @@ public class Song_ReadMusic extends Song implements Scroll.ScrollUsage
 		return Ability.QUALITY_INDIFFERENT;
 	}
 
+	@Override
 	protected boolean skipStandardSongInvoke()
 	{
 		return true;
 	}
 
+	@Override
 	protected boolean mindAttack()
 	{
 		return abstractQuality() == Ability.QUALITY_MALICIOUS;
 	}
 
+	@Override
 	protected boolean skipStandardSongTick()
 	{
 		return true;
 	}
 
+	@Override
 	protected boolean skipSimpleStandardSongTickToo()
 	{
 		return true;

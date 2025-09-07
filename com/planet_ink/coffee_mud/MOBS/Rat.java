@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Rat extends StdMOB
 	public Rat()
 	{
 		super();
-		username="a rat";
+		_name="a rat";
 		setDescription("A small furry rodent with a long, leathery tail.");
 		setDisplayText("A rat is here nibbling on something.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -55,7 +55,7 @@ public class Rat extends StdMOB
 		baseCharStats().setMyRace(CMClass.getRace("Rat"));
 		baseCharStats().getMyRace().startRacing(this,false);
 
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(1);
 		basePhyStats().setArmor(90);
 

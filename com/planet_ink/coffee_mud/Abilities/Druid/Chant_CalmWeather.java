@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ public class Chant_CalmWeather extends Chant
 				||(newC.weatherType(null)==Climate.WEATHER_CLOUDY)))
 			{
 				mob.tell(CMLib.lang().L("^YYou have restored balance to the weather!^N"));
-				CMLib.leveler().postExperience(mob,null,null,25,false);
+				CMLib.leveler().postExperience(mob,"ABILITY:Chant_CalmWeather",null,null,25, false);
 				A=CMClass.getAbility("Chant_ControlWeather");
 				A.invoke(mob,area,true,0);
 				A=area.fetchEffect("Chant_ControlWeather");
@@ -161,6 +161,9 @@ public class Chant_CalmWeather extends Chant
 				final Climate oldC=(Climate)C.copyOf();
 				switch(C.weatherType(mob.location()))
 				{
+				case Climate.WEATHER_FOG:
+					C.setNextWeatherType(Climate.WEATHER_CLEAR);
+					break;
 				case Climate.WEATHER_WINDY:
 					C.setNextWeatherType(Climate.WEATHER_CLEAR);
 					break;

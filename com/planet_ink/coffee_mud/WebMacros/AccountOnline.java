@@ -18,7 +18,7 @@ import com.planet_ink.coffee_web.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class AccountOnline extends StdWebMacro
 	@Override
 	public String runMacro(final HTTPRequest httpReq, final String parm, final HTTPResponse httpResp)
 	{
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return CMProps.getVar(CMProps.Str.MUDSTATUS);
 
 		final String last=httpReq.getUrlParameter("ACCOUNT");
@@ -116,7 +116,7 @@ public class AccountOnline extends StdWebMacro
 					{
 						if(canBoot&&(parms.containsKey("BOOT")))
 						{
-							onlineM.session().stopSession(false,false,false);
+							onlineM.session().stopSession(true,false,false, false);
 							return "false";
 						}
 						return "true";

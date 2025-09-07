@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,8 +44,7 @@ public class StdWeapon extends StdItem implements Weapon, AmmunitionWeapon
 	protected int		weaponDamageType		= TYPE_NATURAL;
 	protected int		weaponClassification	= CLASS_NATURAL;
 	protected boolean	useExtendedMissString	= false;
-	protected int		minRange				= 0;
-	protected int		maxRange				= 0;
+	protected int[]		ranges					= new int[] { 0, 0 };
 	protected int		ammoCapacity			= 0;
 	protected long		lastReloadTime			= 0;
 
@@ -65,6 +64,14 @@ public class StdWeapon extends StdItem implements Weapon, AmmunitionWeapon
 		material=RawMaterial.RESOURCE_STEEL;
 		setUsesRemaining(100);
 		recoverPhyStats();
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return CMLib.english().startWithAorAn(Weapon.CLASS_DESCS[weaponClassification()].toLowerCase());
 	}
 
 	@Override
@@ -120,23 +127,30 @@ public class StdWeapon extends StdItem implements Weapon, AmmunitionWeapon
 	}
 
 	@Override
+	protected boolean abilityImbuesMagic()
+	{
+		return true;
+	}
+
+	@Override
 	public void recoverPhyStats()
 	{
 		super.recoverPhyStats();
 		final PhyStats phyStats = phyStats();
-		if(phyStats.damage()!=0)
+		if(phyStats.ability() != 0)
 		{
-			if(phyStats.ability() != 0)
+			final int ability = phyStats.ability();
+			if(phyStats.damage()!=0)
 			{
-				final int ability=super.wornLogicalAnd ? (phyStats.ability()*CMath.numberOfSetBits(super.properWornBitmap)) : phyStats.ability();
-				if(ability != 0)
-				{
-					phyStats.setDamage(phyStats.damage()+(ability*2));
-					phyStats.setAttackAdjustment(phyStats.attackAdjustment()+(ability*10));
-				}
+				phyStats.setDamage(phyStats.damage()+ability);
+				phyStats.setAttackAdjustment(phyStats.attackAdjustment()+(ability*10));
 			}
+			if(abilityImbuesMagic())
+				phyStats().setDisposition(phyStats().disposition()|PhyStats.IS_BONUS);
 		}
-		if((subjectToWearAndTear())&&(usesRemaining()<100))
+		if(this instanceof MiscMagic)
+			phyStats().setDisposition(phyStats().disposition()|PhyStats.IS_BONUS);
+		if(subjectToWearAndTear() && (usesRemaining()<100) && (phyStats().damage()>0))
 			phyStats.setDamage(((int)Math.round(CMath.mul(phyStats.damage(),CMath.div(usesRemaining(),100)))));
 	}
 
@@ -154,7 +168,12 @@ public class StdWeapon extends StdItem implements Weapon, AmmunitionWeapon
 				if(CMLib.flags().canBeSeenBy(this,msg.source()))
 				{
 					if(requiresAmmunition())
-						msg.source().tell(L("@x1 remaining: @x2/@x3.",ammunitionType(),""+ammunitionRemaining(),""+ammunitionCapacity()));
+					{
+						msg.source().tell(L("@x1 remaining: @x2/@x3.",
+										ammunitionType(),
+										""+ammunitionRemaining(),
+										""+ammunitionCapacity()));
+					}
 					if((subjectToWearAndTear())&&(usesRemaining()<100))
 						msg.source().tell(weaponHealth());
 				}
@@ -297,15 +316,15 @@ public class StdWeapon extends StdItem implements Weapon, AmmunitionWeapon
 						((Room)owner()).showHappens(CMMsg.MSG_OK_VISUAL, L("@x1 is out of @x2.",name(),ammunitionType()));
 					else
 						msg.source().tell(L("@x1 is out of @x2.",name(),ammunitionType()));
+					final Room R = msg.source().location();
 					if((msg.source().isMine(this))
-					&&(msg.source().location()!=null)
+					&&(R!=null)
 					&&(CMLib.flags().isAliveAwakeMobile(msg.source(),true)))
 					{
 						lastReloadTime=msg.source().lastTickedDateTime();
-						if((!msg.source().isMonster())||inventoryAmmoCheck(msg.source()))
-							msg.source().enqueCommand(CMParms.parse("LOAD ALL \"$"+name()+"$\""), 0, 0);
-						else
-							msg.source().enqueCommand(CMParms.parse("REMOVE \"$"+name()+"$\""), 0, 0);
+						final CMMsg msg2 = CMClass.getMsg(msg.source(), this, null, CMMsg.MSG_NEEDRELOAD, null, CMMsg.MSG_NEEDRELOAD, null, CMMsg.NO_EFFECT, null);
+						if(R.okMessage(msg.source(), msg2))
+							R.send(msg.source(),msg2);
 					}
 				}
 				return false;
@@ -314,20 +333,6 @@ public class StdWeapon extends StdItem implements Weapon, AmmunitionWeapon
 				setUsesRemaining(usesRemaining()-1);
 		}
 		return true;
-	}
-
-	protected boolean inventoryAmmoCheck(final MOB M)
-	{
-		if(M==null)
-			return false;
-		for(int i=0;i<M.numItems();i++)
-		{
-			final Item I=M.getItem(i);
-			if((I instanceof Ammunition)
-			&&(((Ammunition)I).ammunitionType().equalsIgnoreCase(ammunitionType())))
-				return true;
-		}
-		return false;
 	}
 
 	@Override
@@ -382,30 +387,29 @@ public class StdWeapon extends StdItem implements Weapon, AmmunitionWeapon
 	@Override
 	public int minRange()
 	{
-		if(CMath.bset(phyStats().sensesMask(),PhyStats.SENSE_ITEMNOMINRANGE))
-			return 0;
-		return minRange;
+		if(CMath.bset(phyStats().armor(),Weapon.MASK_MINRANGEFLAG))
+			return (phyStats().armor()&Weapon.MASK_MINRANGEBITS)>>Weapon.MASK_MINRANGESHFT;
+		return ranges[0];
 	}
 
 	@Override
 	public int maxRange()
 	{
-		if(CMath.bset(phyStats().sensesMask(),PhyStats.SENSE_ITEMNOMAXRANGE))
-			return 100;
-		return maxRange;
+		if(CMath.bset(phyStats().armor(),Weapon.MASK_MAXRANGEFLAG))
+			return (phyStats().armor()&Weapon.MASK_MAXRANGEBITS)>>Weapon.MASK_MAXRANGESHFT;
+		return ranges[1];
 	}
 
 	@Override
 	public void setRanges(final int min, final int max)
 	{
-		minRange = min;
-		maxRange = max;
+		ranges = new int[] {min, max};
 	}
 
 	@Override
 	public int[] getRanges()
 	{
-		return new int[] { minRange, maxRange };
+		return ranges;
 	}
 
 	@Override
@@ -471,6 +475,14 @@ public class StdWeapon extends StdItem implements Weapon, AmmunitionWeapon
 
 	@Override
 	public int ammunitionCapacity()
+	{
+		if(CMath.bset(phyStats().armor(),Weapon.MASK_MOAMMOFLAG))
+			return (phyStats().armor()&Weapon.MASK_MOAMMOBITS) >> Weapon.MASK_MOAMMOSHFT;
+		return ammoCapacity;
+	}
+
+	@Override
+	public int rawAmmunitionCapacity()
 	{
 		return ammoCapacity;
 	}

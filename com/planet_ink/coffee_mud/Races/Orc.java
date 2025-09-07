@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -107,9 +107,9 @@ public class Orc extends StdRace
 		return culturalAbilityProficiencies;
 	}
 
-	private final String[]	racialEffectNames			= { "Prayer_TaintOfEvil"};
-	private final int[]		racialEffectLevels			= { 1};
-	private final String[]	racialEffectParms			= { ""};
+	private final String[]	racialEffectNames			= { "Prayer_TaintOfEvil", "Carnivorous"};
+	private final int[]		racialEffectLevels			= { 1, 1};
+	private final String[]	racialEffectParms			= { "", ""};
 
 	@Override
 	protected String[] racialEffectNames()
@@ -165,22 +165,32 @@ public class Orc extends StdRace
 	public void affectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
 		super.affectCharStats(affectedMOB, affectableStats);
-		affectableStats.setStat(CharStats.STAT_STRENGTH,affectableStats.getStat(CharStats.STAT_STRENGTH)+2);
-		affectableStats.setStat(CharStats.STAT_MAX_STRENGTH_ADJ,affectableStats.getStat(CharStats.STAT_MAX_STRENGTH_ADJ)+2);
-		affectableStats.setStat(CharStats.STAT_INTELLIGENCE,affectableStats.getStat(CharStats.STAT_INTELLIGENCE)-1);
-		affectableStats.setStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ,affectableStats.getStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ)-1);
-		affectableStats.setStat(CharStats.STAT_WISDOM,affectableStats.getStat(CharStats.STAT_WISDOM)-1);
-		affectableStats.setStat(CharStats.STAT_MAX_WISDOM_ADJ,affectableStats.getStat(CharStats.STAT_MAX_WISDOM_ADJ)-1);
-		affectableStats.setStat(CharStats.STAT_CHARISMA,affectableStats.getStat(CharStats.STAT_CHARISMA)-1);
-		affectableStats.setStat(CharStats.STAT_MAX_CHARISMA_ADJ,affectableStats.getStat(CharStats.STAT_MAX_CHARISMA_ADJ)-1);
+		affectableStats.adjStat(CharStats.STAT_STRENGTH,2);
+		affectableStats.adjStat(CharStats.STAT_INTELLIGENCE,-1);
+		affectableStats.adjStat(CharStats.STAT_WISDOM,-1);
+		affectableStats.adjStat(CharStats.STAT_CHARISMA,-1);
 		affectableStats.setStat(CharStats.STAT_SAVE_POISON,affectableStats.getStat(CharStats.STAT_SAVE_POISON)+10);
 		affectableStats.setStat(CharStats.STAT_SAVE_WATER,affectableStats.getStat(CharStats.STAT_SAVE_WATER)-10);
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
-		return funHumanoidWeapon();
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.adjStat(CharStats.STAT_STRENGTH,-2);
+		affectableStats.adjStat(CharStats.STAT_INTELLIGENCE,+1);
+		affectableStats.adjStat(CharStats.STAT_WISDOM,+1);
+		affectableStats.adjStat(CharStats.STAT_CHARISMA,+1);
+		affectableStats.setStat(CharStats.STAT_SAVE_POISON,affectableStats.getStat(CharStats.STAT_SAVE_POISON)-10);
+		affectableStats.setStat(CharStats.STAT_SAVE_WATER,affectableStats.getStat(CharStats.STAT_SAVE_WATER)+10);
+	}
+
+	@Override
+	public Weapon[] getNaturalWeapons()
+	{
+		if(naturalWeaponChoices.length==0)
+			naturalWeaponChoices = getHumanoidWeapons();
+		return super.getNaturalWeapons();
 	}
 
 	@Override
@@ -197,12 +207,13 @@ public class Orc extends StdRace
 			s1.setDisplayText(L("a tattered tunic is wadded up here."));
 			outfitChoices.add(s1);
 			final Armor p1=CMClass.getArmor("GenPants");
-			p1.setName("a pair of tattered pants");
-			p1.setDisplayText("a pair of tattered pants lies here");
-			p1.setDescription("a well tailored pair of travelers pants, all shredded and nasty.");
+			p1.setName(L("a pair of tattered pants"));
+			p1.setDisplayText(L("a pair of tattered pants lies here"));
+			p1.setDescription(L("a well tailored pair of travelers pants, all shredded and nasty."));
 			outfitChoices.add(p1);
 			final Armor s3=CMClass.getArmor("GenBelt");
 			outfitChoices.add(s3);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

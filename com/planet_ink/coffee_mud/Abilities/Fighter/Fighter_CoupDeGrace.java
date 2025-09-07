@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -135,6 +135,11 @@ public class Fighter_CoupDeGrace extends FighterSkill
 			mob.tell(L("You are too far away to try that!"));
 			return false;
 		}
+		if((!auto)&&(!CMLib.flags().isStanding(mob)))
+		{
+			mob.tell(L("You need to stand up!"));
+			return false;
+		}
 		final Item w=mob.fetchWieldedItem();
 		Weapon ww=null;
 		if(!auto)
@@ -179,12 +184,15 @@ public class Fighter_CoupDeGrace extends FighterSkill
 		final int chance=(-levelDiff)+(-(target.charStats().getStat(CharStats.STAT_CONSTITUTION)*2));
 		final boolean hit=(auto)||CMLib.combat().rollToHit(mob,target);
 		final boolean success=proficiencyCheck(mob,chance,auto)&&(hit);
-		if((success)&&((dmg<50)||(dmg<(target.maxState().getHitPoints()/4))))
+		if((success)
+		&&((dmg<50)||(dmg<(target.maxState().getHitPoints()/4))))
 		{
 			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE|(auto?CMMsg.MASK_ALWAYS:0),null);
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
+				if(msg.value()>0)
+					return maliciousFizzle(mob,target,L("<T-NAME> fight(s) off <S-YOUPOSS> coup-de-grace."));
 				target.curState().setHitPoints(1);
 				CMLib.combat().postDamage(mob,target,ww,dmg,CMMsg.MSG_WEAPONATTACK,ww.weaponClassification(),auto?"":L("^F^<FIGHT^><S-NAME> rear(s) back and Coup-de-Grace(s) <T-NAME>!^</FIGHT^>^?@x1",CMLib.protocol().msp("decap.wav",30)));
 				mob.location().recoverRoomStats();

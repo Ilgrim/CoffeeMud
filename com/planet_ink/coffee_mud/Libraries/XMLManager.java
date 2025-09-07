@@ -18,6 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
@@ -25,7 +26,7 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
 import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -84,7 +85,7 @@ public class XMLManager extends StdLibrary implements XMLLibrary
 
 		try
 		{
-			illegalTags=CMLib.coffeeFilter().getTagTable().keySet();
+			illegalTags=CMLib.coffeeFilter().getPronounSuffixes();
 		}
 		catch(final Exception e)
 		{
@@ -188,6 +189,15 @@ public class XMLManager extends StdLibrary implements XMLLibrary
 		public String value()
 		{
 			return value;
+		}
+
+		/* (non-Javadoc)
+		 * @see com.planet_ink.coffee_mud.Libraries.interfaces.XMLTag#setValue()
+		 */
+		@Override
+		public void setValue(final String newVal)
+		{
+			this.value = newVal;
 		}
 
 		/* (non-Javadoc)
@@ -418,6 +428,8 @@ public class XMLManager extends StdLibrary implements XMLLibrary
 	@Override
 	public String parseOutAngleBrackets(String s)
 	{
+		if(s==null)
+			return "";
 		int x=s.indexOf('<');
 		if(x>=0)
 		{
@@ -450,6 +462,8 @@ public class XMLManager extends StdLibrary implements XMLLibrary
 	@Override
 	public String parseOutAngleBracketsAndQuotes(String s)
 	{
+		if(s==null)
+			return "";
 		int x=s.indexOf('<');
 		if(x>=0)
 		{
@@ -496,8 +510,7 @@ public class XMLManager extends StdLibrary implements XMLLibrary
 	public String restoreAngleBrackets(final String s)
 	{
 		if(s==null)
-			return null;
-
+			return "";
 		int loop=s.indexOf('&');
 		if(loop<0)
 		{
@@ -1786,9 +1799,17 @@ public class XMLManager extends StdLibrary implements XMLLibrary
 							}
 							else
 							{
-								final Object newObj = cType.newInstance();
-								fromXMLtoPOJO(vTag.contents(), newObj);
-								Array.set(tgt, i, newObj);
+								Object newObj;
+								try
+								{
+									newObj = cType.getDeclaredConstructor().newInstance();
+									fromXMLtoPOJO(vTag.contents(), newObj);
+									Array.set(tgt, i, newObj);
+								}
+								catch (final Exception e)
+								{
+									e.printStackTrace();
+								}
 							}
 						}
 						field.set(o, tgt);
@@ -1844,7 +1865,8 @@ public class XMLManager extends StdLibrary implements XMLLibrary
 						field.set(o, Boolean.valueOf(valTag.value()));
 					else
 					{
-						final Object newObj = field.getType().newInstance();
+						Object newObj;
+						newObj = field.getType().getDeclaredConstructor().newInstance();
 						fromXMLtoPOJO(valTag.contents(), newObj);
 						field.set(o, newObj);
 					}
@@ -1859,6 +1881,18 @@ public class XMLManager extends StdLibrary implements XMLLibrary
 				throw new IllegalArgumentException(e.getMessage(),e);
 			}
 			catch (final InstantiationException e)
+			{
+				throw new IllegalArgumentException(e.getMessage(),e);
+			}
+			catch (final NoSuchMethodException e)
+			{
+				throw new IllegalArgumentException(e.getMessage(),e);
+			}
+			catch (final SecurityException e)
+			{
+				throw new IllegalArgumentException(e.getMessage(),e);
+			}
+			catch (final InvocationTargetException e)
 			{
 				throw new IllegalArgumentException(e.getMessage(),e);
 			}

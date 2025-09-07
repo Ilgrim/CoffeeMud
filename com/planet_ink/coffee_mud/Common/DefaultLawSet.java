@@ -22,7 +22,7 @@ import java.io.IOException;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ public class DefaultLawSet implements Law
 	{
 		try
 		{
-			return getClass().newInstance();
+			return getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -93,11 +93,11 @@ public class DefaultLawSet implements Law
 
 	private final List<List<String>>	otherCrimes		= new Vector<List<String>>();
 	private final List<String[]>		otherBits		= new Vector<String[]>();
-	private final List<List<String>>	bannedSubstances= new Vector<List<String>>();
-	private final List<String[]>		bannedBits		= new Vector<String[]>();
 	private final Map<String, String[]>	abilityCrimes	= new Hashtable<String, String[]>();
 	private final Map<String, String[]>	basicCrimes		= new Hashtable<String, String[]>();
 	private final Map<String, Object>	taxLaws			= new Hashtable<String, Object>();
+
+	private final List<Pair<List<String>,String[]>>		bannedStuff= new Vector<Pair<List<String>,String[]>>();
 
 	private List<String>chitChat	= new Vector<String>();
 	private List<String>chitChat2	= new Vector<String>();
@@ -105,24 +105,27 @@ public class DefaultLawSet implements Law
 	private List<String>chitChat4	= new Vector<String>();
 	private List<String>jailRooms	= new Vector<String>();
 	private List<String>releaseRooms= new Vector<String>();
+	private List<String>trespassRoom= new Vector<String>();
 	private List<String>officerNames= new Vector<String>();
 	private List<String>judgeNames	= new Vector<String>();
 	private String[]	messages	= new String[Law.MSG_TOTAL];
 
 	private boolean activated=true;
 
-	private final SVector<LegalWarrant> oldWarrants=new SVector<LegalWarrant>();
-	private final SVector<LegalWarrant> warrants=new SVector<LegalWarrant>();
+	private final SVector<LegalWarrant>	oldWarrants	= new SVector<LegalWarrant>();
+	private final SVector<LegalWarrant>	warrants	= new SVector<LegalWarrant>();
 
-	private boolean arrestMobs=false;
+	private boolean arrestMobs = false;
 
-	private Properties theLaws=null;
+	private Properties theLaws = null;
 
-	private final String[] paroleMessages=new String[4];
-	private final Integer[] paroleTimes=new Integer[4];
+	private final String[]	paroleMessages	= new String[4];
+	private final Integer[]	paroleTimes		= new Integer[4];
 
-	private final String[] jailMessages=new String[4];
-	private final Integer[] jailTimes=new Integer[4];
+	private final String[]	jailMessages	= new String[4];
+	private final Integer[]	jailTimes		= new Integer[4];
+
+	private volatile long lastReset 		= System.currentTimeMillis();
 
 	@Override
 	public void initialize(final LegalBehavior details, final Properties laws, final boolean modifiableNames, final boolean modifiableLaws)
@@ -146,15 +149,9 @@ public class DefaultLawSet implements Law
 	}
 
 	@Override
-	public List<List<String>> bannedSubstances()
+	public List<Pair<List<String>, String[]>> bannedItems()
 	{
-		return bannedSubstances;
-	}
-
-	@Override
-	public List<String[]> bannedBits()
-	{
-		return bannedBits;
+		return bannedStuff;
 	}
 
 	@Override
@@ -221,6 +218,12 @@ public class DefaultLawSet implements Law
 	public List<String> releaseRooms()
 	{
 		return releaseRooms;
+	}
+
+	@Override
+	public List<String> trespassRooms()
+	{
+		return trespassRoom;
 	}
 
 	@Override
@@ -352,7 +355,8 @@ public class DefaultLawSet implements Law
 		return true;
 	}
 
-	protected boolean notifyPlayer(final String ownerName, String owerName, final double owed, final String fourWord, final String subject, final String message)
+	protected boolean notifyPlayer(final String ownerName, String owerName, final double owed,
+									final String fourWord, final String fifthWord, final String subject, final String message)
 	{
 		MOB M=CMLib.players().getPlayerAllHosts(ownerName);
 		if((M!=null)&&(CMLib.flags().isInTheGame(M, true)))
@@ -360,7 +364,7 @@ public class DefaultLawSet implements Law
 			final String amountOwed = CMLib.beanCounter().nameCurrencyLong(M, owed);
 			if(owerName.length()==0)
 				owerName=M.Name();
-			M.tell(CMLib.lang().L(message,owerName,amountOwed,CMProps.getVar(CMProps.Str.MUDNAME),fourWord));
+			M.tell(CMStrings.replaceVariables(message,owerName,amountOwed,CMProps.getVar(CMProps.Str.MUDNAME),fourWord,fifthWord));
 		}
 		else
 		{
@@ -378,8 +382,8 @@ public class DefaultLawSet implements Law
 					if(owerName.length()==0)
 						owerName=M.Name();
 					final String amountOwed = CMLib.beanCounter().nameCurrencyLong(M, owed);
-					final String subj = CMLib.lang().L(subject,owerName,amountOwed,CMProps.getVar(CMProps.Str.MUDNAME),fourWord);
-					final String msg = CMLib.lang().L(message,owerName,amountOwed,CMProps.getVar(CMProps.Str.MUDNAME),fourWord);
+					final String subj = CMStrings.replaceVariables(subject,owerName,amountOwed,CMProps.getVar(CMProps.Str.MUDNAME),fourWord);
+					final String msg = CMStrings.replaceVariables(message,owerName,amountOwed,CMProps.getVar(CMProps.Str.MUDNAME),fourWord);
 					return sendGameMail(M.Name(), subj, msg);
 				}
 			}
@@ -394,14 +398,16 @@ public class DefaultLawSet implements Law
 		if(!Resources.isResource("SYSTEM_TAXES_LASTCHECK"))
 			Resources.submitResource("SYSTEM_TAXES_LASTCHECK", Integer.valueOf(A.getTimeObj().getMonth()));
 		final int lastMonthChecked = ((Integer)Resources.getResource("SYSTEM_TAXES_LASTCHECK")).intValue();
-		if(lastMonthChecked!=A.getTimeObj().getMonth())
+		if(lastMonthChecked != A.getTimeObj().getMonth())
 		{
 			Resources.submitResource("SYSTEM_TAXES_LASTCHECK", Integer.valueOf(A.getTimeObj().getMonth()));
 			double tax=CMath.s_double((String)taxLaws.get("PROPERTYTAX"));
 			if(tax==0.0)
 				return;
-			tax=CMath.div(tax,100.0);
-			List<LandTitle> titles=CMLib.law().getAllUniqueLandTitles(A.getMetroMap(),"*",false);
+			if(tax >= 1.0)
+				tax=CMath.div(tax,100.0); // property tax is already a portion of 1%, except when it isn't.
+			// now pull out the actual unique titles from the rooms
+			List<LandTitle> titles=CMLib.law().getAllUniqueLandTitles(A,"*",false);
 			final Map<String,List<LandTitle>> owners=new HashMap<String,List<LandTitle>>();
 			for(final LandTitle T : titles)
 			{
@@ -422,12 +428,7 @@ public class DefaultLawSet implements Law
 
 			for(final String owner : owners.keySet())
 			{
-				MOB responsibleMob=null;
 				final Clan C=CMLib.clans().getClanExact(owner);
-				if(C!=null)
-					responsibleMob=C.getResponsibleMember();
-				else
-					responsibleMob=CMLib.players().getLoadPlayer(owner);
 				final List<LandTitle> particulars=owners.get(owner);
 
 				double totalValue=0;
@@ -441,12 +442,14 @@ public class DefaultLawSet implements Law
 					if(p>0)
 						properties.append(", ");
 					T=(particulars.get(p));
-					final List<Room> propertyRooms=T.getAllTitledRooms();
-					if((propertyRooms.size()<2)
-					||(CMLib.map().getArea(T.landPropertyID())!=null))
+					//the message below is thin-safe
+					final int size = T.getNumTitledRooms();
+					if((size<2)
+					|| (CMLib.map().getArea(T.landPropertyID())!=null)
+					|| (CMLib.map().getShip(T.landPropertyID())!=null))
 						properties.append(T.landPropertyID());
 					else
-						properties.append("around "+CMLib.map().getExtendedRoomID(propertyRooms.get(0)));
+						properties.append("around "+CMLib.map().getExtendedRoomID(T.getATitledRoom()));
 					totalValue+=T.getPrice();
 					if(T.backTaxes()>0)
 					{
@@ -455,6 +458,8 @@ public class DefaultLawSet implements Law
 					}
 				}
 				owed+=CMath.mul(totalValue,tax);
+				if((tax>0.0)&&(owed<1.0)&&(owed>0.1))
+					owed=1.0;
 
 				if(owed>0)
 				{
@@ -500,27 +505,29 @@ public class DefaultLawSet implements Law
 									final Clan clanC=CMLib.clans().getClanExact(T.getOwnerName());
 									if(clanC!=null)
 									{
-										final MOB M=clanC.getResponsibleMember();
+										final MOB M=CMLib.players().getLoadPlayer(C.getResponsibleMemberName());
 										final List<Pair<Clan,Integer>> clanSet=new ArrayList<Pair<Clan,Integer>>();
 										clanSet.add(new Pair<Clan,Integer>(C,Integer.valueOf(0)));
 										final List<String> channels=CMLib.channels().getFlaggedChannelNames(ChannelsLibrary.ChannelFlag.CLANINFO, M);
 										for(int i=0;i<channels.size();i++)
 										{
 											CMLib.commands().postChannel(channels.get(i),clanSet,
-												CMLib.lang().L("@x1 has lost the title to @x2 in "+A.Name()+" due to failure to pay "
-															+ "property taxes.",T.getOwnerName(),T.landPropertyID()),false);
+												CMLib.lang().L("@x1 has lost the title to @x2 in @x3 due to failure to pay "
+															+ "property taxes.",T.getOwnerName(),T.landPropertyID(),A.Name()),false,null);
 										}
 										if(M!=null)
 										{
-											notifyPlayer(M.Name(),clanC.name(),owed,"","@x1 lost property on @x3.",
-													"@x1 has lost the title to @x4 in "+A.Name()+" due to failure to pay property taxes.");
+											notifyPlayer(M.Name(),clanC.name(),owed,T.landPropertyID(),"",CMLib.lang().L("@x1 lost property on @x3."),
+													CMLib.lang().L("@x1 has lost the title to @x4 due to failure to pay property taxes."));
 										}
 									}
 									else
 									{
-										notifyPlayer(T.getOwnerName(),"",owed,T.landPropertyID(),"@x1 property lost on @x3.",
-												"@x1 has lost the title to @x4 in "+A.Name()+" due to failure to pay property taxes.");
+										notifyPlayer(T.getOwnerName(),A.Name(),owed,T.landPropertyID(),"",CMLib.lang().L("@x1 property lost on @x3."),
+												CMLib.lang().L("@x1 has lost the title to @x4 in @x2 due to failure to pay property taxes."));
 									}
+									if(CMSecurity.isDebugging(CMSecurity.DbgFlag.PROPTAXES))
+										Log.debugOut("Confiscated property "+T.getTitleID()+" ("+T.getOwnerName()+") owed "+T.backTaxes()+" on property valued "+T.getPrice());
 									T.setBackTaxes(0);
 									T.setOwnerName("");
 									T.updateTitle();
@@ -528,6 +535,8 @@ public class DefaultLawSet implements Law
 								else
 								if(T.backTaxes() > oldBackTaxes)
 								{
+									if(CMSecurity.isDebugging(CMSecurity.DbgFlag.PROPTAXES))
+										Log.debugOut("Back taxes on "+T.getTitleID()+" ("+T.getOwnerName()+") went from "+oldBackTaxes+"->"+T.backTaxes()+" on property valued "+T.getPrice());
 									owesButNotConfiscated=true;
 									T.updateTitle();
 								}
@@ -538,43 +547,44 @@ public class DefaultLawSet implements Law
 							final Clan clanC=CMLib.clans().getClanExact(owner);
 							if(clanC!=null)
 							{
-								final MOB M=clanC.getResponsibleMember();
+								final MOB M=CMLib.players().getLoadPlayer(C.getResponsibleMemberName());
 								final String amountOwed = CMLib.beanCounter().nameCurrencyLong(M, owed);
 								final List<Pair<Clan,Integer>> clanSet=new ArrayList<Pair<Clan,Integer>>();
 								clanSet.add(new Pair<Clan,Integer>(C,Integer.valueOf(0)));
 								final List<String> channels=CMLib.channels().getFlaggedChannelNames(ChannelsLibrary.ChannelFlag.CLANINFO, null);
 								for(int i=0;i<channels.size();i++)
 								{
-									CMLib.commands().postChannel(channels.get(i),clanSet,CMLib.lang().L("@x1 owes @x2 in back taxes to "+A.Name()+".  "
+									CMLib.commands().postChannel(channels.get(i),clanSet,CMLib.lang().L("@x1 owes @x2 in back taxes to @x3.  "
 											+ "Sufficient funds were not found in a local bank account."
-											+ "  Failure to pay could result in loss of property. ",clanC.name(),amountOwed),false);
+											+ "  Failure to pay could result in loss of property. ",clanC.name(),amountOwed,A.Name()),false,null);
 								}
 								if(M!=null)
 								{
-									notifyPlayer(M.Name(),clanC.name(),owed,"",A.Name()+" Taxes Owed by @x1 on @x3.",
-											"@x1 owes @x2 in back taxes to "+A.Name()+".  Sufficient funds were not found in a local bank account.  "
-											+ "Failure to pay could result in loss of property.");
+									notifyPlayer(M.Name(),clanC.name(),owed,"",A.Name(),CMLib.lang().L("@x5 Taxes Owed by @x1 on @x3."),
+											CMLib.lang().L("@x1 owes @x2 in back taxes to @x5.  Sufficient funds were not found in a local bank account.  "
+											+ "Failure to pay could result in loss of property."));
 								}
 							}
 							else
 							{
-								notifyPlayer(owner,"",owed,"",A.Name()+" Taxes Owed by @x1 on @x3.",
-										"@x1 owes @x2 in back taxes to "+A.Name()+".  Sufficient were not found in a local bank account.  "
-												+ "Failure to pay could result in loss of property.");
+								notifyPlayer(owner,"",owed,"",A.Name(),CMLib.lang().L("@x5 Taxes Owed by @x1 on @x3."),
+										CMLib.lang().L("@x1 owes @x2 in back taxes to @x5.  Sufficient were not found in a local bank account.  "
+												+ "Failure to pay could result in loss of property."));
 							}
 							if((evasionBits!=null)
-							&&(evasionBits[Law.BIT_CRIMENAME].length()>0)
-							&&(responsibleMob!=null))
+							&&(evasionBits[Law.BIT_CRIMENAME].length()>0))
 							{
-								legalDetails.fillOutWarrant(responsibleMob,
-															this,
-															A,
-															null,
-															evasionBits[Law.BIT_CRIMELOCS],
-															evasionBits[Law.BIT_CRIMEFLAGS],
-															evasionBits[Law.BIT_CRIMENAME],
-															evasionBits[Law.BIT_SENTENCE],
-															evasionBits[Law.BIT_WARNMSG]);
+								final MOB responsibleMob=(C!=null)?CMLib.players().getPlayer(C.getResponsibleMemberName()):CMLib.players().getPlayer(owner);
+								if(responsibleMob != null)
+									legalDetails.fillOutWarrant(responsibleMob,
+																this,
+																A,
+																null,
+																evasionBits[Law.BIT_CRIMELOCS],
+																evasionBits[Law.BIT_CRIMEFLAGS],
+																evasionBits[Law.BIT_CRIMENAME],
+																evasionBits[Law.BIT_SENTENCE],
+																evasionBits[Law.BIT_WARNMSG]);
 							}
 						}
 					}
@@ -596,19 +606,21 @@ public class DefaultLawSet implements Law
 							final List<Coins> V=CMLib.beanCounter().makeAllCurrency(CMLib.beanCounter().getCurrency(A),owed+paid);
 							for(int v=0;v<V.size();v++)
 							{
-								final Coins COIN=V.get(v);
-								COIN.setContainer(container);
-								treasuryR.addItem(COIN);
-								COIN.putCoinsBack();
+								final Coins coinI=V.get(v);
+								coinI.setContainer(container);
+								treasuryR.addItem(coinI);
+								coinI.putCoinsBack();
 							}
 						}
 						if((evasionBits!=null)
-						&&(evasionBits[Law.BIT_CRIMENAME].length()>0)
-						&&(responsibleMob!=null))
+						&&(evasionBits[Law.BIT_CRIMENAME].length()>0))
 						{
-							while(removeWarrant(responsibleMob,evasionBits[Law.BIT_CRIMENAME],debugging)!=null)
-							{
-							}
+							// if they aren't cached, they can't have a warrant!
+							final MOB responsibleMob=(C!=null)?CMLib.players().getPlayer(C.getResponsibleMemberName()):CMLib.players().getPlayer(owner);
+							if(responsibleMob != null)
+								while(removeWarrant(responsibleMob,evasionBits[Law.BIT_CRIMENAME],debugging)!=null)
+								{
+								}
 						}
 					}
 				}
@@ -707,6 +719,7 @@ public class DefaultLawSet implements Law
 
 	private void resetLaw(final Properties laws)
 	{
+		lastReset = System.currentTimeMillis();
 		theLaws=laws;
 		activated=(!getInternalStr("ACTIVATED").equalsIgnoreCase("FALSE"));
 		officerNames=CMParms.parse(getInternalStr("OFFICERS"));
@@ -753,6 +766,7 @@ public class DefaultLawSet implements Law
 
 		jailRooms=CMParms.parseSemicolons(getInternalStr("JAIL"),true);
 		releaseRooms=CMParms.parseSemicolons(getInternalStr("RELEASEROOM"),true);
+		trespassRoom=CMParms.parseSemicolons(getInternalStr("TRESPASSROOM"),true);
 
 		taxLaws.clear();
 		String taxLaw=getInternalStr("PROPERTYTAX");
@@ -800,8 +814,7 @@ public class DefaultLawSet implements Law
 		abilityCrimes.clear();
 		otherCrimes.clear();
 		otherBits.clear();
-		bannedSubstances.clear();
-		bannedBits.clear();
+		bannedStuff.clear();
 		for(final Enumeration<Object> e=laws.keys();e.hasMoreElements();)
 		{
 			final String key=(String)e.nextElement();
@@ -830,7 +843,7 @@ public class DefaultLawSet implements Law
 				else
 				if(key.startsWith("BANNED"))
 				{
-					bannedSubstances.add(CMParms.parse(words.substring(0,x)));
+					final List<String> wordsV = CMParms.parse(words.substring(0,x).toUpperCase().trim());
 					final String[] bits=new String[Law.BIT_NUMBITS];
 					final List<String> parsed=CMParms.parseSemicolons(words.substring(x+1),false);
 					for(int i=0;i<Law.BIT_NUMBITS;i++)
@@ -844,20 +857,26 @@ public class DefaultLawSet implements Law
 							bits[i]="";
 						}
 					}
-					bannedBits.add(bits);
+					bannedStuff.add(new Pair<List<String>,String[]>(wordsV,bits));
 				}
 				else
 				if((key.startsWith("$")&&(CMClass.getAbility(key.substring(1))!=null))
 				||(CMClass.getAbility(key)!=null)
-				||(CMParms.containsIgnoreCase(Ability.ACODE_DESCS_,key))
-				||(key.startsWith("$")&&CMParms.containsIgnoreCase(Ability.ACODE_DESCS_,key.substring(1)))
-				||(CMParms.containsIgnoreCase(Ability.DOMAIN_DESCS,key))
-				||(key.startsWith("$")&&CMParms.containsIgnoreCase(Ability.DOMAIN_DESCS,key.substring(1))))
+				||(CMParms.containsIgnoreCase(Ability.ACODE.DESCS_,key))
+				||(key.startsWith("$")&&CMParms.containsIgnoreCase(Ability.ACODE.DESCS_,key.substring(1)))
+				||(CMParms.containsIgnoreCase(Ability.DOMAIN.DESCS,key))
+				||(key.startsWith("$")&&CMParms.containsIgnoreCase(Ability.DOMAIN.DESCS,key.substring(1))))
 				{
 					abilityCrimes.put(key.toUpperCase(),getInternalBits(words));
 				}
 			}
 		}
+	}
+
+	@Override
+	public long lastResetTime()
+	{
+		return this.lastReset;
 	}
 
 	@Override
@@ -913,8 +932,6 @@ public class DefaultLawSet implements Law
 		}
 		return null;
 	}
-
-
 
 	public LegalWarrant removeWarrant(final MOB criminal,
 									  final String crime,

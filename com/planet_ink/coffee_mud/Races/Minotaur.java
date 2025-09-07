@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -112,24 +112,32 @@ public class Minotaur extends StdRace
 	private static Vector<RawMaterial>	resources	= new Vector<RawMaterial>();
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public Weapon[] getNaturalWeapons()
 	{
-		if(naturalWeapon==null)
+		if(this.naturalWeaponChoices.length==0)
 		{
-			naturalWeapon=CMClass.getWeapon("StdWeapon");
+			final Weapon naturalWeapon=CMClass.getWeapon("GenWeapon");
 			naturalWeapon.setName(L("a pair of deadly horns"));
 			naturalWeapon.setMaterial(RawMaterial.RESOURCE_BONE);
 			naturalWeapon.setUsesRemaining(1000);
 			naturalWeapon.setWeaponDamageType(Weapon.TYPE_PIERCING);
+			this.naturalWeaponChoices = new Weapon[] { naturalWeapon };
 		}
-		return naturalWeapon;
+		return super.getNaturalWeapons();
 	}
 
 	@Override
 	public void affectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
 		super.affectCharStats(affectedMOB, affectableStats);
-		affectableStats.setStat(CharStats.STAT_STRENGTH,affectableStats.getStat(CharStats.STAT_STRENGTH)+5);
+		affectableStats.adjStat(CharStats.STAT_STRENGTH,5);
+	}
+
+	@Override
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
+	{
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.adjStat(CharStats.STAT_STRENGTH,-5);
 	}
 
 	private final String[]	racialAbilityNames			= { "Skill_Buck", "Grazing" };

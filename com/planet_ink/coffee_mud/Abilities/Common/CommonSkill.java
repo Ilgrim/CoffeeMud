@@ -13,6 +13,7 @@ import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.Basic.GenDrink;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.CostDef;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -20,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -67,13 +68,15 @@ public class CommonSkill extends StdAbility
 	protected static Item						fakeFire		= null;
 	protected static final List<String>			uninvokeEmpties	= new ReadOnlyList<String>(new ArrayList<String>(0));
 
+	private static final String DEFAULT_WORKING_WORD = CMLib.lang().L("working");
+
 	protected volatile Room	activityRoom	= null;
 	protected boolean		aborted			= false;
 	protected boolean		helping			= false;
 	protected boolean		bundling		= false;
 	public Ability			helpingAbility	= null;
 	protected volatile int	tickUp			= 0;
-	protected String		verb			= L("working");
+	protected String		verb			= DEFAULT_WORKING_WORD;
 	protected String		playSound		= null;
 	protected int			bonusYield		= 0;
 	protected volatile int	lastBaseDuration= 0;
@@ -89,7 +92,10 @@ public class CommonSkill extends StdAbility
 		return Ability.QUALITY_INDIFFERENT;
 	}
 
-	protected String displayText = L("(Doing something productive)");
+
+	private static final String DEFAULT_DISPLAY_TEXT=CMLib.lang().L("(Doing something productive)");
+
+	protected String displayText = DEFAULT_DISPLAY_TEXT;
 
 	@Override
 	public String displayText()
@@ -98,7 +104,7 @@ public class CommonSkill extends StdAbility
 	}
 
 	@Override
-	protected ExpertiseLibrary.SkillCostDefinition getRawTrainingCost()
+	protected CostDef getRawTrainingCost()
 	{
 		return CMProps.getCommonSkillGainCost(ID());
 	}
@@ -172,6 +178,11 @@ public class CommonSkill extends StdAbility
 		return L("<S-NAME> <S-IS-ARE> almost done @x1.@x2",verb,sound);
 	}
 
+	public void setTickUp(final int up)
+	{
+		this.tickUp = up;
+	}
+
 	protected String getYouContinueMessage()
 	{
 		final int total=tickUp+tickDown;
@@ -231,6 +242,15 @@ public class CommonSkill extends StdAbility
 				unInvoke();
 				return false;
 			}
+			if(((!allowedWhileMounted())&&(mob.riding()!=null))
+			||((!allowedInTheDark())&&(!CMLib.flags().canBeSeenBy(mob.location(),mob)))
+			||((!canBeDoneSittingDown())&&(CMLib.flags().isSitting(mob))))
+			{
+				aborted=true;
+				unInvoke();
+				return false;
+			}
+
 			if(tickDown==4)
 			{
 				if(!R.show(mob,null,getActivityMessageType(),getAlmostDoneMessage()))
@@ -269,64 +289,10 @@ public class CommonSkill extends StdAbility
 		return true;
 	}
 
+	// so we can override it on a skill-by-skill basis
 	protected List<List<String>> loadList(final StringBuffer str)
 	{
-		final List<List<String>> V=new Vector<List<String>>();
-		if(str==null)
-			return V;
-		List<String> V2=new Vector<String>();
-		boolean oneComma=false;
-		int start=0;
-		int longestList=0;
-		boolean skipLine=(str.length()>0)&&(str.charAt(0)=='#');
-		for(int i=0;i<str.length();i++)
-		{
-			if(str.charAt(i)=='\t')
-			{
-				if(!skipLine)
-				{
-					V2.add(str.substring(start,i));
-					start=i+1;
-					oneComma=true;
-				}
-			}
-			else
-			if((str.charAt(i)=='\n')||(str.charAt(i)=='\r'))
-			{
-				if(skipLine)
-					skipLine=false;
-				else
-				if(oneComma)
-				{
-					V2.add(str.substring(start,i));
-					if(V2.size()>longestList)
-						longestList=V2.size();
-					if(V2 instanceof Vector)
-						((Vector<?>)V2).trimToSize();
-					V.add(V2);
-					V2=new Vector<String>();
-				}
-				start=i+1;
-				oneComma=false;
-				if((start<str.length())&&(str.charAt(start)=='#'))
-					skipLine=true;
-			}
-		}
-		if((oneComma)&&(str.substring(start).trim().length()>0)&&(!skipLine))
-			V2.add(str.substring(start));
-		if(V2.size()>1)
-		{
-			if(V2.size()>longestList)
-				longestList=V2.size();
-			V.add(V2);
-		}
-		for(int v=0;v<V.size();v++)
-		{
-			V2=V.get(v);
-			while(V2.size()<longestList)
-				V2.add("");
-		}
-		return V;
+		return CMLib.utensils().loadRecipeList(str.toString(), true);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -335,8 +301,13 @@ public class CommonSkill extends StdAbility
 		List<List<String>> V=(List<List<String>>)Resources.getResource("PARSED_RECIPE: "+filename);
 		if(V==null)
 		{
-			final StringBuffer str=new CMFile(Resources.buildResourcePath("skills")+filename,null,CMFile.FLAG_LOGERRORS).text();
-			V=new ReadOnlyList<List<String>>(loadList(str));
+			final List<List<String>> frecipes = new ArrayList<List<String>>();
+			for(final CMFile F : CMFile.getExistingExtendedFiles(Resources.buildResourcePath("skills")+filename,null,CMFile.FLAG_LOGERRORS))
+			{
+				final StringBuffer str = F.text();
+				frecipes.addAll(loadList(str));
+			}
+			V=new ReadOnlyList<List<String>>(frecipes);
 			if((V.size()==0)
 			&&(!ID().equals("GenCraftSkill"))
 			&&(!ID().endsWith("Costuming")))
@@ -344,66 +315,6 @@ public class CommonSkill extends StdAbility
 			Resources.submitResource("PARSED_RECIPE: "+filename,V);
 		}
 		return V;
-	}
-
-	protected List<List<String>> addRecipes(final MOB mob, List<List<String>> recipes)
-	{
-		if(mob==null)
-			return recipes;
-		Item I=null;
-		List<List<String>> V=null;
-		List<String> V2=null;
-		List<String> lastRecipeV=null;
-		boolean clonedYet=false;
-		for(int i=0;i<mob.numItems();i++)
-		{
-			I=mob.getItem(i);
-			if((I instanceof Recipe)
-			&&(((Recipe)I).getCommonSkillID().equalsIgnoreCase(ID())))
-			{
-				if(!clonedYet)
-				{
-					recipes=new XVector<List<String>>(recipes);
-					clonedYet=true;
-				}
-				final StringBuffer allRecipeLines=new StringBuffer("");
-				if(((Recipe)I).getRecipeCodeLines().length>0)
-				{
-					for(final String recipeLine : ((Recipe)I).getRecipeCodeLines())
-					{
-						allRecipeLines.append(recipeLine);
-						allRecipeLines.append( "\n" );
-					}
-				}
-				V=loadList(allRecipeLines);
-				for(int v=0;v<V.size();v++)
-				{
-					V2=V.get(v);
-					if(recipes.size()==0)
-						recipes.add(V2);
-					else
-					{
-						lastRecipeV=recipes.get(recipes.size()-1);
-						if((recipes.size()==0)||lastRecipeV.size()<=V2.size())
-							recipes.add(V2);
-						else
-						{
-							//Log.errOut(ID(),"Not enough parms ("+lastRecipeV.size()+"<="+V2.size()+"): "+CMParms.combine(V2));
-							while(V2.size()<lastRecipeV.size())
-								V2.add("");
-							while(V2.size()>lastRecipeV.size())
-								V2.remove(V2.size()-1);
-							recipes.add(V2);
-						}
-					}
-					if(V2 instanceof Vector)
-						((Vector<?>)V2).trimToSize();
-				}
-			}
-		}
-		if(recipes instanceof Vector)
-			((Vector<?>)recipes).trimToSize();
-		return recipes;
 	}
 
 	@Override
@@ -416,10 +327,15 @@ public class CommonSkill extends StdAbility
 			&&(((MOB)affected).location()!=null))
 			{
 				final MOB mob=(MOB)affected;
-				if(aborted)
-					mob.location().show(mob,null,getActivityMessageType(),L("<S-NAME> stop(s) @x1.",verb));
-				else
-					mob.location().show(mob,null,getActivityMessageType(),L("<S-NAME> <S-IS-ARE> done @x1.",verb));
+				final String verb = this.verb;
+				if((verb != null)
+				&&(verb.length()>0))
+				{
+					if(aborted)
+						mob.location().show(mob,null,getActivityMessageType(),L("<S-NAME> stop(s) @x1.",verb));
+					else
+						mob.location().show(mob,null,getActivityMessageType(),L("<S-NAME> <S-IS-ARE> done @x1.",verb));
+				}
 				helping=false;
 				helpingAbility=null;
 			}
@@ -457,65 +373,7 @@ public class CommonSkill extends StdAbility
 		if(buildingI instanceof RawMaterial)
 			buildingI.setSecretIdentity(buildingI.name());
 		else
-			buildingI.setSecretIdentity(getBrand(mob));
-	}
-
-	protected String getBrand(final Item buildingI)
-	{
-		if(buildingI != null)
-		{
-			final Ability A=buildingI.fetchEffect("Copyright");
-			if((A!=null)&&(A.text().length()>0))
-				return A.text();
-			final int x=buildingI.secretIdentity().indexOf(ItemCraftor.CRAFTING_BRAND_STR_PREFIX);
-			if(x>=0)
-			{
-				final int y=buildingI.secretIdentity().indexOf('.',x+ItemCraftor.CRAFTING_BRAND_STR_PREFIX.length());
-				if(y>=0)
-				{
-					return buildingI.secretIdentity().substring(x,y);
-				}
-			}
-		}
-		return "";
-	}
-
-	protected String getBrand(final MOB mob)
-	{
-		if(mob==null)
-			return L(ItemCraftor.CRAFTING_BRAND_STR_ANON);
-		else
-			return L(ItemCraftor.CRAFTING_BRAND_STR_NAME,mob.Name());
-	}
-
-	protected void commonTell(final MOB mob, final Environmental target, final Environmental tool, String str)
-	{
-		if(mob.isMonster()&&(mob.amFollowing()!=null))
-		{
-			if(str.startsWith("You"))
-				str=L("I@x1",str.substring(3));
-			if(target!=null)
-				str=CMStrings.replaceAll(str,"<T-NAME>",target.name());
-			if(tool!=null)
-				str=CMStrings.replaceAll(str,"<O-NAME>",tool.name());
-			CMLib.commands().postSay(mob,null,str,false,false);
-		}
-		else
-			mob.tell(mob,target,tool,str);
-	}
-
-	protected void commonTell(final MOB mob, String str)
-	{
-		if(mob==null)
-			return;
-		if(mob.isMonster()&&(mob.amFollowing()!=null))
-		{
-			if(str.startsWith("You"))
-				str=L("I@x1",str.substring(3));
-			CMLib.commands().postSay(mob,null,str,false,false);
-		}
-		else
-			mob.tell(str);
+			buildingI.setSecretIdentity(CMLib.ableParms().createCraftingBrand(mob));
 	}
 
 	protected void commonEmote(final MOB mob, final String str)
@@ -541,10 +399,10 @@ public class CommonSkill extends StdAbility
 	protected boolean dropAWinner(MOB mob, final Room R, final Item buildingI)
 	{
 		if(R==null)
-			commonTell(mob,L("You are NOWHERE?!"));
+			commonTelL(mob,"You are NOWHERE?!");
 		else
 		if(buildingI==null)
-			commonTell(mob,L("You have built NOTHING?!!"));
+			commonTelL(mob,"You have built NOTHING?!!");
 		else
 		if(mob == null)
 		{
@@ -571,14 +429,15 @@ public class CommonSkill extends StdAbility
 			final CMMsg msg=CMClass.getMsg(mob,buildingI,this,CMMsg.TYP_ITEMGENERATED|CMMsg.MASK_ALWAYS,null);
 			if(R.okMessage(mob,msg))
 			{
-				R.addItem(buildingI,ItemPossessor.Expire.Resource);
+				final Item I=(Item)msg.target();
+				R.addItem(I,ItemPossessor.Expire.Resource);
 				R.recoverRoomStats();
 				mob.location().send(mob,msg);
 
-				if(!R.isContent(buildingI))
+				if(!R.isContent(I))
 				{
-					commonTell(mob,L("You have won the common-skill-failure LOTTERY! Congratulations!"));
-					CMLib.leveler().postExperience(mob, null, null,50,false);
+					commonTelL(mob,"You have won the common-skill-failure LOTTERY! Congratulations!");
+					CMLib.leveler().postExperience(mob, "ABILITY:"+ID(), null,null,50, false);
 				}
 				else
 					return true;
@@ -664,7 +523,7 @@ public class CommonSkill extends StdAbility
 		}
 		if((fire==null)||(!mob.location().isContent(fire)))
 		{
-			commonTell(mob,L("A fire will need to be built first."));
+			commonTelL(mob,"A fire will need to be built first.");
 			return null;
 		}
 		return fire;
@@ -673,12 +532,17 @@ public class CommonSkill extends StdAbility
 	@Override
 	public int[] usageCost(final MOB mob, final boolean ignoreClassOverride)
 	{
+		final Map<String,int[]> overrideCache=getHardOverrideManaCache();
 		if(mob==null)
-			return super.usageCost(null, ignoreClassOverride);
+		{
+			if(overrideCache.containsKey(ID()))
+				return overrideCache.get(ID());
+
+		}
 		if(usageType()==Ability.USAGE_NADA)
 			return super.usageCost(mob, ignoreClassOverride);
 
-		final int[][] abilityUsageCache=mob.getAbilityUsageCache(ID());
+		final int[][] abilityUsageCache=(mob==null)?new int[Ability.CACHEINDEX_TOTAL][]:mob.getAbilityUsageCache(ID());
 		final int myCacheIndex=ignoreClassOverride?Ability.CACHEINDEX_CLASSLESS:Ability.CACHEINDEX_NORMAL;
 		final int[] myCache=abilityUsageCache[myCacheIndex];
 		final boolean rebuildCache=(myCache==null);
@@ -694,48 +558,63 @@ public class CommonSkill extends StdAbility
 		else
 		{
 			consumed=25;
-			final int lvl=CMLib.ableMapper().qualifyingClassLevel(mob,this)+super.getXLOWCOSTLevel(mob);
-			final int lowest=CMLib.ableMapper().qualifyingLevel(mob,this);
+			final int lvl;
+			final int lowest;
+			if(mob != null)
+			{
+				lvl=CMLib.ableMapper().qualifyingClassLevel(mob,this)+super.getXLOWCOSTLevel(mob);
+				lowest=CMLib.ableMapper().qualifyingLevel(mob,this);
+			}
+			else
+			{
+				lvl=CMLib.ableMapper().lowestQualifyingLevel(ID());
+				lowest=lvl;
+			}
 			final int diff=lvl-lowest;
 			Integer[] costOverrides=null;
-			if(!ignoreClassOverride)
+			if((!ignoreClassOverride)&&(mob!=null))
 				costOverrides=CMLib.ableMapper().getCostOverrides(mob,ID());
 			if(diff>0)
-			switch(diff)
 			{
-			case 1:
-				consumed = 20;
-				break;
-			case 2:
-				consumed = 16;
-				break;
-			case 3:
-				consumed = 13;
-				break;
-			case 4:
-				consumed = 11;
-				break;
-			case 5:
-				consumed = 8;
-				break;
-			default:
-				consumed = 5;
-				break;
-			}
-			final int maxOverride=CMProps.getMaxManaException(ID());
-			if(maxOverride!=Short.MIN_VALUE)
-			{
-				if(maxOverride<0)
-					consumed=consumed+lowest;
+				if(diff > 60)
+					consumed=5;
 				else
-				if(consumed > maxOverride)
-					consumed=maxOverride;
+				if(diff > 2)
+					consumed = consumed - diff/3;
 			}
+			final int maxOverride;
+			final Object maxOverrideCost = CMProps.getManaCostExceptionObject(ID());
+			if(maxOverrideCost instanceof Integer)
+				maxOverride=((Integer)maxOverrideCost).intValue();
+			else
+			if(maxOverrideCost instanceof CMath.CompiledFormula)
+			{
+				final double[] vars = new double[] {
+					lowest,
+					(mob==null)?lvl:mob.phyStats().level(),
+					consumed,
+					(mob==null)?lvl:adjustedLevel(mob,0)
+				};
+				maxOverride=(int)CMath.parseMathExpression((CMath.CompiledFormula)maxOverrideCost, vars, 0.0);
+			}
+			else
+				maxOverride=-1;
+			if((maxOverride<0)&&(maxOverride>-9999))
+				consumed=consumed+(lowest*CMath.abs(maxOverride));
+			else
+			if(consumed > maxOverride)
+				consumed=maxOverride;
 			final int minOverride=CMProps.getMinManaException(ID());
-			if(minOverride!=Short.MIN_VALUE)
+			if(minOverride!=Integer.MIN_VALUE)
 			{
 				if(minOverride<0)
-					consumed=(lowest<5)?5:lowest;
+				{
+					int actualMinimum=5;
+					final int exception = CMProps.getMinManaException("_DEFAULT");
+					if(exception > 0 )
+						actualMinimum = exception;
+					consumed=(lowest<actualMinimum)?actualMinimum:lowest;
+				}
 				else
 				if(consumed<minOverride)
 					consumed=minOverride;
@@ -743,9 +622,9 @@ public class CommonSkill extends StdAbility
 			if(overrideMana()>=0)
 				consumed=overrideMana();
 			minimum=5;
-			if((costOverrides!=null)&&(costOverrides[AbilityMapper.Cost.MANA.ordinal()]!=null))
+			if((costOverrides!=null)&&(costOverrides[AbilityMapper.AbilCostType.MANA.ordinal()]!=null))
 			{
-				consumed=costOverrides[AbilityMapper.Cost.MANA.ordinal()].intValue();
+				consumed=costOverrides[AbilityMapper.AbilCostType.MANA.ordinal()].intValue();
 				if((consumed<minimum)&&(consumed>=0))
 					minimum=consumed;
 			}
@@ -758,6 +637,8 @@ public class CommonSkill extends StdAbility
 			else
 				abilityUsageCache[myCacheIndex]=usageCost;
 		}
+		if(mob == null)
+			overrideCache.put(ID(), usageCost);
 		return usageCost;
 	}
 
@@ -853,7 +734,8 @@ public class CommonSkill extends StdAbility
 			return false;
 		for(final Integer R : supportedResourcesMap())
 		{
-			if((R.intValue() & RawMaterial.MATERIAL_MASK)==0)
+			// basically check if lower 8 bits are 0, therefore its a raw mat
+			if((R.intValue() & RawMaterial.MATERIAL_MASK)==R.intValue())
 			{
 				if((I.material()& RawMaterial.MATERIAL_MASK)==R.intValue())
 					return true;
@@ -979,29 +861,32 @@ public class CommonSkill extends StdAbility
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		aborted=false;
-		if(mob.isInCombat())
-		{
-			commonEmote(mob,L("<S-NAME> <S-IS-ARE> in combat!"));
-			return false;
-		}
-		if((!allowedWhileMounted())&&(mob.riding()!=null))
-		{
-			commonEmote(mob,L("You can't do that while @x1 @x2.",mob.riding().stateString(mob),mob.riding().name()));
-			return false;
-		}
-
-		if((!allowedInTheDark())&&(!CMLib.flags().canBeSeenBy(mob.location(),mob)))
-		{
-			commonTell(mob,L("<S-NAME> can't see to do that!"));
-			return false;
-		}
-		if((CMLib.flags().isSitting(mob)&&(!canBeDoneSittingDown()))||CMLib.flags().isSleeping(mob))
-		{
-			commonTell(mob,L("You need to stand up!"));
-			return false;
-		}
 		if(!auto)
 		{
+			if(mob.isInCombat())
+			{
+				commonEmote(mob,L("<S-NAME> <S-IS-ARE> in combat!"));
+				return false;
+			}
+			if((!allowedWhileMounted())
+			&&(mob.riding()!=null))
+			{
+				commonEmote(mob,L("You can't do that while @x1 @x2.",mob.riding().stateString(mob),mob.riding().name()));
+				return false;
+			}
+
+			if((!allowedInTheDark())
+			&&(!CMLib.flags().canBeSeenBy(mob.location(),mob)))
+			{
+				commonTelL(mob,"<S-NAME> can't see to do that!");
+				return false;
+			}
+			if((CMLib.flags().isSitting(mob)&&(!canBeDoneSittingDown()))
+			||CMLib.flags().isSleeping(mob))
+			{
+				commonTelL(mob,"You need to stand up!");
+				return false;
+			}
 			for(final Enumeration<Ability> a=mob.personalEffects();a.hasMoreElements();)
 			{
 				final Ability A=a.nextElement();
@@ -1015,12 +900,12 @@ public class CommonSkill extends StdAbility
 					A.unInvoke();
 				}
 			}
+			// if you can't move, you can't do anything!
+			if(!CMLib.flags().isAliveAwakeMobileUnbound(mob,false))
+				return false;
 		}
 		isAnAutoEffect=false;
 
-		// if you can't move, you can't do anything!
-		if(!CMLib.flags().isAliveAwakeMobileUnbound(mob,false))
-			return false;
 		final int[] consumed=usageCost(mob,false);
 		if(mob.curState().getMana()<consumed[Ability.USAGEINDEX_MANA])
 		{
@@ -1064,8 +949,6 @@ public class CommonSkill extends StdAbility
 	@Override
 	public String getStat(final String code)
 	{
-		if(super.isStat(code))
-			return super.getStat(code);
 		switch(getMyCodeNum(code))
 		{
 		case 0:
@@ -1075,22 +958,19 @@ public class CommonSkill extends StdAbility
 			final int tot= tickUp +tickDown;
 			if((tot > 0)
 			&&(affected != null))
-				return CMath.toPct(CMath.div(tickUp, tot));
+				return CMath.toPct(CMath.div(Math.round(CMath.div(tickUp, tot)*100.0),100.0));
 			return "";
 		}
 		case 2:
 			return name();
 		default:
-			return "";
+			return super.getStat(code);
 		}
 	}
 
 	@Override
 	public void setStat(final String code, final String val)
 	{
-		if(super.isStat(code))
-			super.setStat(code,  val);
-		else
 		switch(getMyCodeNum(code))
 		{
 		case 0:
@@ -1101,6 +981,7 @@ public class CommonSkill extends StdAbility
 		case 2:
 			break;
 		default:
+			super.setStat(code,  val);
 			break;
 		}
 	}

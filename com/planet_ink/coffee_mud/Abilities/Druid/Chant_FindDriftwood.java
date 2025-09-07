@@ -12,6 +12,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary.TrackingFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -19,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -64,7 +65,7 @@ public class Chant_FindDriftwood extends Chant_FindPlant
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_TRACKING;
+		return Ability.FLAG_TRACKING | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -90,11 +91,15 @@ public class Chant_FindDriftwood extends Chant_FindPlant
 		return null;
 	}
 
+	private static String DEFAULT_LOOKING_FOR=CMLib.lang().L("driftwood");
+	private static String DEFAULT_DISPLAYTEXT=CMLib.lang().L("(Finding Driftwood)");
+
 	public Chant_FindDriftwood()
 	{
 		super();
 
-		lookingFor = "driftwood";
+		lookingFor = DEFAULT_LOOKING_FOR;
+		displayText = DEFAULT_DISPLAYTEXT;
 	}
 
 	@Override
@@ -105,7 +110,7 @@ public class Chant_FindDriftwood extends Chant_FindPlant
 		if((theDriftwood != null)
 		&&(theDriftwood.owner() instanceof Room)
 		&&(CMLib.map().roomLocation(theDriftwood) == R))
-			return "There seems to be "+lookingFor+" around here.\n\r";
+			return L("There seems to be @x1 around here.\n\r",lookingFor);
 		return "";
 	}
 
@@ -131,11 +136,12 @@ public class Chant_FindDriftwood extends Chant_FindPlant
 	protected boolean findWhatImLookingFor(final MOB mob, final String s)
 	{
 		final TrackingLibrary.TrackingFlags flags = getTrackingFlags();
+		flags.add(TrackingFlag.PASSABLE);
 		int limit = 50 - (super.getXLEVELLevel(mob) + super.getXMAXRANGELevel(mob));
 		final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,limit);
 		if((checkSet == null) || (checkSet.size() < limit))
 		{
-			mob.tell(L("You don't sense any driftwood around here.  Perhaps no wrecks have occurred?"));
+			commonTelL(mob,"You don't sense any driftwood around here.  Perhaps no wrecks have occurred?");
 			return false;
 		}
 		final int[] choices = new int[]{
@@ -167,7 +173,7 @@ public class Chant_FindDriftwood extends Chant_FindPlant
 		else
 			theDriftroom=checkSet.get(checkSet.size()-1);
 		theDriftwood=CMLib.materials().makeItemResource(this.whatImLookingFor);
-		final int amount=CMLib.dice().roll(1,4,3);
+		final int amount=CMLib.dice().roll(1,4+(super.adjustedLevel(mob, 0)/15),3+super.getXLEVELLevel(mob));
 		theDriftwood.basePhyStats().setWeight(amount);
 		theDriftwood.phyStats().setWeight(amount);
 		CMLib.materials().adjustResourceName(theDriftwood);
@@ -190,6 +196,7 @@ public class Chant_FindDriftwood extends Chant_FindPlant
 		}
 
 		final TrackingLibrary.TrackingFlags flags = getTrackingFlags();
+		flags.plus(TrackingLibrary.TrackingFlag.PASSABLE);
 		final List<Room> rooms=new XVector<Room>(theDriftroom);
 		final int limit = 50 - (super.getXLEVELLevel(mob));
 		if(rooms.size()>0)
@@ -219,7 +226,9 @@ public class Chant_FindDriftwood extends Chant_FindPlant
 	protected TrackingLibrary.TrackingFlags getTrackingFlags()
 	{
 		TrackingLibrary.TrackingFlags flags;
-		flags = CMLib.tracking().newFlags().plus(TrackingLibrary.TrackingFlag.WATERSURFACEONLY);
+		flags = CMLib.tracking().newFlags()
+				.plus(TrackingLibrary.TrackingFlag.PASSABLE)
+				.plus(TrackingLibrary.TrackingFlag.WATERSURFACEONLY);
 		return flags;
 	}
 
@@ -235,7 +244,7 @@ public class Chant_FindDriftwood extends Chant_FindPlant
 			return false;
 		if(!CMLib.flags().isWaterySurfaceRoom(R))
 		{
-			mob.tell(L("You must be on the surface of the water to find driftwood."));
+			commonTelL(mob,"You must be on the surface of the water to find driftwood.");
 			return false;
 		}
 		return super.invoke(mob, commands, givenTarget, auto, asLevel);

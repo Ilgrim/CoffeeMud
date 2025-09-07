@@ -8,6 +8,7 @@ import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityParameters.AbilityRecipeRow;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
@@ -19,7 +20,7 @@ import com.planet_ink.coffee_web.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,7 +61,7 @@ public class AbilityRecipeData extends StdWebMacro
 			httpReq.addFakeUrlParameter("REPLACE","");
 		}
 
-		final String last=httpReq.getUrlParameter("ABILITY");
+		final String last=httpReq.getUrlParameter("RECIPEABILITY");
 		if(last==null)
 			return " @break@";
 
@@ -70,17 +71,17 @@ public class AbilityRecipeData extends StdWebMacro
 		{
 			final Ability A=CMClass.getAbility(last);
 			if((A!=null)
-			&&(A instanceof CraftorAbility)
-			&&(((CraftorAbility)A).parametersFile()!=null)
-			&&(((CraftorAbility)A).parametersFile().length()>0)
-			&&(((CraftorAbility)A).parametersFormat()!=null)
-			&&(((CraftorAbility)A).parametersFormat().length()>0))
+			&&(A instanceof RecipeDriven)
+			&&(((RecipeDriven)A).getRecipeFilename()!=null)
+			&&(((RecipeDriven)A).getRecipeFilename().length()>0)
+			&&(((RecipeDriven)A).getRecipeFormat()!=null)
+			&&(((RecipeDriven)A).getRecipeFormat().length()>0))
 			{
 				AbilityParameters.AbilityRecipeData recipeData =
 					(AbilityParameters.AbilityRecipeData)httpReq.getRequestObjects().get("ABILITYRECIPEDATA-"+last);
 				if(recipeData == null)
 				{
-					recipeData = CMLib.ableParms().parseRecipe(((CraftorAbility)A).parametersFile(),((CraftorAbility)A).parametersFormat());
+					recipeData = CMLib.ableParms().parseRecipe(((RecipeDriven)A).getRecipeFilename(),((RecipeDriven)A).getRecipeFormat());
 					if(recipeData.parseError() != null)
 					{
 						Log.errOut(ID(),recipeData.parseError());
@@ -105,7 +106,7 @@ public class AbilityRecipeData extends StdWebMacro
 				if(parms.containsKey("ROWTABLE")&&(CMath.isInteger(rownum)))
 				{
 					final int row = CMath.s_int(rownum);
-					DVector dataRow = null;
+					PairList<Object,String> dataRow = null;
 					final int classFieldIndex = recipeData.getClassFieldIndex();
 					if((row>0)&&((row-1)<recipeData.dataRows().size()))
 						dataRow = recipeData.dataRows().get(row-1);
@@ -115,8 +116,8 @@ public class AbilityRecipeData extends StdWebMacro
 					for(int c=0;c<dataRow.size();c++)
 					{
 						final AbilityParameters.AbilityParmEditor editor =
-							CMLib.ableParms().getEditors().get(dataRow.elementAt(c,1));
-						final String oldVal = (String)dataRow.elementAt(c,2);
+							CMLib.ableParms().getEditors().get(dataRow.get(c).first);
+						final String oldVal = dataRow.get(c).second;
 						if(!editor.ID().equalsIgnoreCase("N_A"))
 						{
 							str.append("\n\r<TR>");
@@ -131,9 +132,9 @@ public class AbilityRecipeData extends StdWebMacro
 					str.append("\n\r</TABLE>");
 					if(classFieldIndex>=0)
 					{
-						final String oldVal = (String)dataRow.elementAt(classFieldIndex,2);
+						final String oldVal = dataRow.get(classFieldIndex).second;
 						final AbilityParameters.AbilityParmEditor editor =
-							CMLib.ableParms().getEditors().get(dataRow.elementAt(classFieldIndex,1));
+							CMLib.ableParms().getEditors().get(dataRow.get(classFieldIndex).first);
 						str.append("<INPUT TYPE=HIDDEN NAME=CLASSFIELD VALUE=\""+editor.webValue(httpReq,parms,oldVal,"CLASSFIELD")+"\">");
 					}
 				}
@@ -144,14 +145,18 @@ public class AbilityRecipeData extends StdWebMacro
 					final int cfIndex = recipeData.getClassFieldIndex();
 					if(recipeData.dataRows().size()==0)
 					{
-						final DVector editRow = new DVector(2);
+						final PairList<List<String>,String> editRow = new PairArrayList<List<String>,String>();
 						for(int c=0;c<recipeData.columns().size();c++)
 						{
-							if(recipeData.columns().get(c) instanceof List)
-								editRow.addElement(recipeData.columns().get(c),"");
+							final Object o = recipeData.columns().get(c);
+							if(o instanceof List)
+							{
+								@SuppressWarnings("unchecked")
+								final List<String> lst = (List<String>)o;
+								editRow.add(lst,"");
+							}
 						}
-						@SuppressWarnings("unchecked")
-						final List<String> o=(List<String>)editRow.elementAt(cfIndex,1);
+						final List<String> o=editRow.get(cfIndex).first;
 						classFieldEditor = CMLib.ableParms().getEditors().get(o.get(0).toString());
 					}
 					else
@@ -159,17 +164,18 @@ public class AbilityRecipeData extends StdWebMacro
 					{
 						if(cfIndex>=0)
 						{
-							final DVector dataRow = recipeData.dataRows().get(row);
-							classFieldEditor = CMLib.ableParms().getEditors().get(dataRow.elementAt(cfIndex,1));
+							final PairList<Object,String> dataRow = recipeData.dataRows().get(row);
+							classFieldEditor = CMLib.ableParms().getEditors().get(dataRow.get(cfIndex).first);
 						}
 					}
 					if(classFieldEditor != null)
 						str.append(classFieldEditor.webField(httpReq,parms,classFieldEditor.defaultValue(),"NEWCLASSFIELD"));
 				}
 				else
-				if(parms.containsKey("SAVEROW")&&(CMath.isInteger(rownum)))
+				if(parms.containsKey("SAVEROW")
+				&&(CMath.isInteger(rownum)))
 				{
-					DVector dataRow = null;
+					AbilityRecipeRow dataRow = null;
 					final int row = CMath.s_int(rownum);
 					if((row-1>=0)&&(row-1<recipeData.dataRows().size()))
 						dataRow = recipeData.dataRows().get(row-1);
@@ -181,14 +187,14 @@ public class AbilityRecipeData extends StdWebMacro
 					for(int c=0;c<dataRow.size();c++)
 					{
 						final AbilityParameters.AbilityParmEditor editor =
-							CMLib.ableParms().getEditors().get(dataRow.elementAt(c,1));
-						final String oldVal = (String)dataRow.elementAt(c,2);
+							CMLib.ableParms().getEditors().get(dataRow.get(c).first);
+						final String oldVal = dataRow.get(c).second;
 						String newVal = editor.webValue(httpReq,parms,oldVal,"DATA_"+row+"_"+c);
 						if(newVal != null)
 							newVal = newVal.replace('\'', '`');
 						if(!editor.confirmValue(newVal))
-							return L("The value for field "+editor.colHeader()+" is invalid.");
-						dataRow.setElementAt(c,2,newVal);
+							return L("The value for field @x is invalid.",editor.colHeader());
+						dataRow.get(c).second=newVal;
 					}
 					final MOB M = Authenticate.getAuthenticatedMob(httpReq);
 					if(M==null)
@@ -234,7 +240,7 @@ public class AbilityRecipeData extends StdWebMacro
 					str.append("</TR>");
 					for(int r=0;r<recipeData.dataRows().size();r++)
 					{
-						final DVector dataRow = recipeData.dataRows().get(r);
+						final PairList<Object,String> dataRow = recipeData.dataRows().get(r);
 						str.append("\n\r<TR>");
 						str.append("<TD>");
 						str.append("<A HREF=\"javascript:Select("+(r+1)+")\">" + sfont + "<B><FONT COLOR=YELLOW>"+(r+1)+"</FONT></B>");
@@ -243,11 +249,14 @@ public class AbilityRecipeData extends StdWebMacro
 						for(int c=0;c<dataRow.size();c++)
 						{
 							str.append("<TD>" + sfont);
-							String val = (String)dataRow.elementAt(c,2);
+							String val = dataRow.get(c).second;
 							final AbilityParameters.AbilityParmEditor editor =
-								CMLib.ableParms().getEditors().get(dataRow.elementAt(c,1));
+								CMLib.ableParms().getEditors().get(dataRow.get(c).first);
 							val = editor.webTableField(httpReq, parms, val);
-							str.append(CMStrings.limit(val,(int)Math.round(CMath.div(recipeData.columnLengths()[c],36) * 100.0)));
+							int width=(int)Math.round(CMath.div(recipeData.columnLengths()[c],36) * 100.0);
+							if(width<2)
+								width=2;
+							str.append(CMStrings.limit(val,width));
 							str.append(efont + "</TD>");
 						}
 						str.append("</A></TR>");

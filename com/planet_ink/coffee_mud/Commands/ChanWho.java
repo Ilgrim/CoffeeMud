@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -73,16 +73,16 @@ public class ChanWho extends StdCommand
 				mob.tell(L("You must specify a valid channel name. Try CHANNELS for a list."));
 				return false;
 			}
-			CMLib.intermud().i3chanwho(mob,channel,mud);
+			CMLib.intermud().chanWho(mob,channel,mud);
 			return false;
 		}
 		final int channelInt=channels.getChannelIndex(channel.toUpperCase());
-		channel=channels.getChannel(channelInt).name();
 		if(channelInt<0)
 		{
 			mob.tell(L("You must specify a valid channel name. Try CHANNELS for a list."));
 			return false;
 		}
+		channel=channels.getChannel(channelInt).name();
 		final String head="^x\n\rListening on "+channel+":^?^.^N\n\r";
 		final StringBuffer buf=new StringBuffer("");
 		final boolean areareq=CMLib.channels().getChannel(channelInt).flags().contains(ChannelsLibrary.ChannelFlag.SAMEAREA);

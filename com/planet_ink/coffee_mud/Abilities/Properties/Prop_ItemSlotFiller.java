@@ -3,12 +3,14 @@ package com.planet_ink.coffee_mud.Abilities.Properties;
 import com.planet_ink.coffee_mud.core.CMClass;
 import com.planet_ink.coffee_mud.core.CMLib;
 import com.planet_ink.coffee_mud.core.CMParms;
+import com.planet_ink.coffee_mud.core.CMStrings;
 import com.planet_ink.coffee_mud.core.collections.Converter;
 import com.planet_ink.coffee_mud.core.collections.ConvertingEnumeration;
 import com.planet_ink.coffee_mud.core.collections.IteratorEnumeration;
 import com.planet_ink.coffee_mud.core.collections.Pair;
 import com.planet_ink.coffee_mud.core.collections.PairList;
 import com.planet_ink.coffee_mud.core.collections.PairVector;
+import com.planet_ink.coffee_mud.core.collections.XVector;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.CharClass;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
@@ -22,7 +24,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.Race;
 import java.util.*;
 
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -65,6 +67,30 @@ public class Prop_ItemSlotFiller extends Property implements AbilityContainer
 
 	protected PairList<String, String>	adds		= new PairVector<String, String>(0);
 
+
+	@Override
+	public CMObject copyOf()
+	{
+		final Prop_ItemSlotFiller pA = (Prop_ItemSlotFiller)super.copyOf();
+		if(skips != null)
+			pA.skips = new XVector<String>(skips);
+		if(adds != null)
+		{
+			pA.adds = new PairVector<String, String>();
+			pA.adds.addAll(adds);
+		}
+		if(affects != null)
+		{
+			pA.affects = new Ability[affects.length];
+			for(int i=0;i<affects.length;i++)
+			{
+				if(affects[i]!=null)
+					pA.affects[i] = (Ability)affects[i].copyOf();
+			}
+		}
+		return pA;
+	}
+
 	@Override
 	public String accountForYourself()
 	{
@@ -89,13 +115,22 @@ public class Prop_ItemSlotFiller extends Property implements AbilityContainer
 		if((P==this.affected)||(affected==null))
 		{
 			super.setAffectedOne(P);
+			for(final Ability A : getAffects())
+			{
+				if((A!=null)&&(!A.ID().startsWith("Prop_ItemSlot")))
+				{
+					final Physical oldP=A.affecting();
+					A.setAffectedOne(null); // helps reset the effect
+					A.setAffectedOne(oldP);
+				}
+			}
 		}
 		else
 		{
 			affected2 = P;
 			for(final Ability A : getAffects())
 			{
-				if((A!=null)&&(!A.ID().equals("Prop_ItemSlot")))
+				if((A!=null)&&(!A.ID().startsWith("Prop_ItemSlot")))
 					A.setAffectedOne(P);
 			}
 		}
@@ -140,6 +175,26 @@ public class Prop_ItemSlotFiller extends Property implements AbilityContainer
 			affects=newAffects.toArray(new Ability[0]);
 		}
 		return affects;
+	}
+
+	protected String newText()
+	{
+		final StringBuilder str = new StringBuilder("");
+		if(slotCount>1)
+			str.append("NUM="+slotCount+" ");
+		if(slotType.length()>0)
+			str.append("TYPE=\""+slotType+"\" ");
+		final StringBuilder skips = new StringBuilder("");
+		for(final String s : this.skips)
+			skips.append(","+CMStrings.escape(s));
+		if(skips.toString().trim().length()>0)
+			str.append("SKIPS=\""+skips.toString().substring(1).trim()+"\" ");
+		final StringBuilder adds = new StringBuilder("");
+		for(final Pair<String,String> p : this.adds)
+			adds.append(",").append(p.first).append("(").append(p.second).append(")");
+		if(adds.toString().trim().length()>0)
+			str.append("ADDS=\""+adds.toString().substring(1).trim()+"\" ");
+		return str.toString().trim();
 	}
 
 	@Override
@@ -234,7 +289,7 @@ public class Prop_ItemSlotFiller extends Property implements AbilityContainer
 			final Physical P=(affected2 != null)?affected2:(Physical)myHost;
 			for(final Ability A : getAffects())
 			{
-				if((A!=null)&&(!A.ID().equals("Prop_ItemSlot")))
+				if((A!=null)&&(!A.ID().startsWith("Prop_ItemSlot")))
 				{
 					if(!A.okMessage(P, msg))
 						return false;
@@ -253,10 +308,8 @@ public class Prop_ItemSlotFiller extends Property implements AbilityContainer
 			final Physical P=(affected2 != null)?affected2:(Physical)myHost;
 			for(final Ability A : getAffects())
 			{
-				if((A!=null)&&(!A.ID().equals("Prop_ItemSlot")))
-				{
+				if((A!=null)&&(!A.ID().startsWith("Prop_ItemSlot")))
 					A.executeMsg(P, msg);
-				}
 			}
 		}
 		super.executeMsg(myHost, msg);
@@ -267,12 +320,24 @@ public class Prop_ItemSlotFiller extends Property implements AbilityContainer
 	{
 		if(isSlotted())
 		{
-			final Physical P=(affected2 != null)?affected2:host;
-			for(final Ability A : getAffects())
+			if(host instanceof MOB)
 			{
-				if((A!=null)&&(!A.ID().equals("Prop_ItemSlot")))
+				for(final Ability A : getAffects())
 				{
-					A.affectPhyStats(P, affectableStats);
+					if((A!=null)
+					&&(A.bubbleAffect())
+					&&(!A.ID().startsWith("Prop_ItemSlot")))
+						A.affectPhyStats(host, affectableStats);
+				}
+			}
+			else
+			{
+				for(final Ability A : getAffects())
+				{
+					if((A!=null)
+					&&(!A.bubbleAffect())
+					&&(!A.ID().startsWith("Prop_ItemSlot")))
+						A.affectPhyStats(host, affectableStats);
 				}
 			}
 		}
@@ -286,10 +351,10 @@ public class Prop_ItemSlotFiller extends Property implements AbilityContainer
 		{
 			for(final Ability A : getAffects())
 			{
-				if((A!=null)&&(!A.ID().equals("Prop_ItemSlot")))
-				{
+				if((A!=null)
+				&&(A.bubbleAffect())
+				&&(!A.ID().startsWith("Prop_ItemSlot")))
 					A.affectCharStats(affectedMOB, affectedStats);
-				}
 			}
 		}
 		super.affectCharStats(affectedMOB,affectedStats);
@@ -302,10 +367,10 @@ public class Prop_ItemSlotFiller extends Property implements AbilityContainer
 		{
 			for(final Ability A : getAffects())
 			{
-				if((A!=null)&&(!A.ID().equals("Prop_ItemSlot")))
-				{
+				if((A!=null)
+				&&(A.bubbleAffect())
+				&&(!A.ID().startsWith("Prop_ItemSlot")))
 					A.affectCharState(affectedMOB, affectedState);
-				}
 			}
 		}
 		super.affectCharState(affectedMOB,affectedState);
@@ -314,13 +379,22 @@ public class Prop_ItemSlotFiller extends Property implements AbilityContainer
 	@Override
 	public void addAbility(final Ability to)
 	{
-		throw new java.lang.UnsupportedOperationException();
+		adds.add(new Pair<String,String>(to.ID(),to.text()));
+		super.miscText = newText();
+		this.affects = null;
 	}
 
 	@Override
 	public void delAbility(final Ability to)
 	{
-		throw new java.lang.UnsupportedOperationException();
+		for(final Iterator<Pair<String,String>> i=adds.iterator();i.hasNext();)
+		{
+			final Pair<String,String> p=i.next();
+			if(p.first.equalsIgnoreCase(to.ID()) && p.second.equalsIgnoreCase(to.text()))
+				i.remove();
+		}
+		super.miscText = newText();
+		this.affects = null;
 	}
 
 	@Override

@@ -12,6 +12,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.TimeClock.MoonPhase;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -19,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -173,7 +174,7 @@ public class SkyWatcher extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Chant_MuddyGrounds",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Chant_LightningWard",false);
-		if(CMLib.factions().isAlignmentLoaded(Faction.Align.LAWFUL)||CMLib.factions().isAlignmentLoaded(Faction.Align.CHAOTIC))
+		if(CMLib.factions().isAlignmentLoaded(Faction.Align.LAWFUL)||CMLib.factions().isAlignmentLoaded(Faction.Align.GOOD))
 			CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Chant_StarGazing",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Chant_Dehydrate",true);
@@ -190,6 +191,7 @@ public class SkyWatcher extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Chant_WarningWinds",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Chant_HealingMoon",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Chant_AcidWard",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Chant_BreathColor",false);
 
 		if(CMLib.factions().isAlignmentLoaded(Faction.Align.LAWFUL))
 			CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Prayer_DispelLaw",false);
@@ -237,8 +239,10 @@ public class SkyWatcher extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Chant_ChargeMetal",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Scrapping",false);
 
-		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Chant_Shapelessness",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Chant_Shapelessness",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Chant_SpellWard",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Chant_SummonFog",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"ImprovedHerbalism",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Skill_Meditation",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Chant_SummonLightning",true);
@@ -250,11 +254,18 @@ public class SkyWatcher extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Chant_CloudWalk",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Chant_DeathMoon",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Chant_SummonSquall",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Chant_SummonTornado",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Chant_MeteorStrike",true);
 
+		CMLib.ableMapper().addCharAbilityMapping(ID(),28,"Chant_PlanarAdaptation", 0, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
+
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Chant_MoveSky",true);
+
+		CMLib.ableMapper().addCharAbilityMapping(ID(),35,"Chant_PlanarLink", 0, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
 	}
 
 	@Override
@@ -388,7 +399,12 @@ public class SkyWatcher extends StdCharClass
 				if((A!=null)
 				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
-					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+				{
+					giveMobAbility(mob,A,
+								   CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),
+								   CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),
+								   isBorrowedClass);
+				}
 			}
 		}
 	}
@@ -403,6 +419,7 @@ public class SkyWatcher extends StdCharClass
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

@@ -5,7 +5,7 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -18,6 +18,10 @@ import java.util.NoSuchElementException;
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+ */
+/**
+ * An empty iterator implementation.
+ * @param <K> the type of object iterated over
  */
 public class EmptyIterator<K> implements Iterator<K>
 {
@@ -44,6 +48,12 @@ public class EmptyIterator<K> implements Iterator<K>
 	}
 
 	@SuppressWarnings("rawtypes")
-	public static final Iterator		INSTANCE	    = new EmptyIterator();
+	/**
+	 * A singleton instance of an empty iterator
+	 */
+	public static final Iterator		INSTANCE		= new EmptyIterator();
+	/**
+	 * A singleton instance of an empty string iterator
+	 */
 	public static final Iterator<String>STRINSTANCE	= new EmptyIterator<String>();
 }

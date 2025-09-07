@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -108,8 +108,9 @@ public class Fighter_CriticalShot extends FighterSkill
 		&&(msg.tool() instanceof Weapon)
 		&&((((Weapon)msg.tool()).weaponClassification()==Weapon.CLASS_RANGED)
 			||(((Weapon)msg.tool()).weaponClassification()==Weapon.CLASS_THROWN))
-		&&((mob.rangeToTarget()>0)||((((Weapon)msg.tool()).phyStats().sensesMask()&PhyStats.SENSE_ITEMNOMINRANGE)==PhyStats.SENSE_ITEMNOMINRANGE))
-		&&((mob.fetchAbility(ID())==null)||proficiencyCheck(null,(-75)+mob.charStats().getStat(CharStats.STAT_DEXTERITY)+(2*getXLEVELLevel(mob)),false)))
+		&&((mob.rangeToTarget()>0) || (((Weapon)msg.tool()).minRange()==0))
+		&&((mob.fetchAbility(ID())==null)
+			||proficiencyCheck(null,(-75)+mob.charStats().getStat(CharStats.STAT_DEXTERITY)+(2*getXLEVELLevel(mob)),false)))
 		{
 			final double pctRecovery=(CMath.div(proficiency(),100.0)*Math.random());
 			final int bonus=(int)Math.round(CMath.mul((msg.value()),pctRecovery));

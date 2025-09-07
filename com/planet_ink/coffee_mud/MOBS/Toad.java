@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Toad extends StdMOB
 	public Toad()
 	{
 		super();
-		username="a toad";
+		_name="a toad";
 		setDescription("A stubby little dry amphibian with short legs.");
 		setDisplayText("A toad is squatting here.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -53,7 +53,7 @@ public class Toad extends StdMOB
 
 		baseCharStats().setStat(CharStats.STAT_INTELLIGENCE,1);
 
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(1);
 		basePhyStats().setArmor(90);
 

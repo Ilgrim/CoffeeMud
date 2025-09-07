@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -83,19 +83,33 @@ public interface AmmunitionWeapon extends Weapon
 	public void setAmmoRemaining(int amount);
 
 	/**
-	 * The maximum amount of Units of ammunition which can be loaded into this weapon.
+	 * The current adjected maximum amount of Units of ammunition which can be loaded
+	 * into this weapon.
 	 * If this is, for example, a bow, or a gun, how many does the clip hold or can be
 	 * ready to shoot.
 	 * @see #setAmmoCapacity(int)
+	 * @see #rawAmmunitionCapacity()
 	 * @return the max number of units of ammunition that can be loaded
 	 */
 	public int ammunitionCapacity();
+
+	/**
+	 * The base unadjusted maximum amount of Units of ammunition which can be loaded
+	 * into this weapon.
+	 * If this is, for example, a bow, or a gun, how many does the clip hold or can be
+	 * ready to shoot.
+	 * @see #setAmmoCapacity(int)
+	 * @see #ammunitionCapacity()
+	 * @return the max number of units of ammunition that can be loaded
+	 */
+	public int rawAmmunitionCapacity();
 
 	/**
 	 * Sets the maximum amount of Units of ammunition which can be loaded into this weapon.
 	 * If this is, for example, a bow, or a gun, how many does the clip hold or can be
 	 * ready to shoot.
 	 * @see AmmunitionWeapon#ammunitionCapacity()
+	 * @see AmmunitionWeapon#rawAmmunitionCapacity()
 	 * @param amount the max number of units of ammunition that can be loaded
 	 */
 	public void setAmmoCapacity(int amount);

@@ -8,6 +8,7 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.Session.InputCallback;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.ExpertiseLibrary;
@@ -20,7 +21,7 @@ import java.util.*;
 import java.util.Map.Entry;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,7 +61,7 @@ public class Teach extends StdCommand
 		}
 		commands.remove(0);
 
-		final MOB student=mob.location().fetchInhabitant(commands.get(0));
+		final MOB student=getVisibleRoomTarget(mob,commands.get(0));
 		if((student==null)||(!CMLib.flags().canBeSeenBy(student,mob)))
 		{
 			CMLib.commands().postCommandFail(mob,origCmds,L("That person doesn't seem to be here."));
@@ -84,7 +85,11 @@ public class Teach extends StdCommand
 				final Pair<String,Integer> e=mob.fetchExpertise(exi.nextElement());
 				final List<String> codes = CMLib.expertises().getStageCodes(e.getKey());
 				if((codes==null)||(codes.size()==0))
-					V.add(CMLib.expertises().getDefinition(e.getKey()));
+				{
+					final ExpertiseLibrary.ExpertiseDefinition def=CMLib.expertises().getDefinition(e.getKey());
+					if(def != null)
+						V.add(def);
+				}
 				else
 				for(final String ID : codes)
 				{
@@ -111,13 +116,11 @@ public class Teach extends StdCommand
 				}
 			}
 			if(theExpertise!=null)
-			{
-				return CMLib.expertises().postTeach(mob,student,theExpertise);
-			}
+				return CMLib.expertises().confirmAndTeach(mob, student, theExpertise, null);
 			CMLib.commands().postCommandFail(mob,origCmds,L("You don't seem to know @x1.",abilityName));
 			return false;
 		}
-		return CMLib.expertises().postTeach(mob,student,myAbility);
+		return CMLib.expertises().confirmAndTeach(mob, student, myAbility, null);
 	}
 
 	@Override

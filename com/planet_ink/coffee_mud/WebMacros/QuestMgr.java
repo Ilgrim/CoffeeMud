@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -181,14 +181,14 @@ public class QuestMgr extends StdWebMacro
 			script=script.substring(0,x);
 		}
 		script=CMStrings.replaceAll(script,"'","`");
-		if(redirect)
-			script=CMStrings.replaceAll(script,";","\\;");
-		else
+		if(!redirect)
 		{
+			script=CMStrings.replaceAll(script,";","\\;");
+			script=CMStrings.replaceAll(script,"\r","\n");
+			while(script.indexOf("\n\n")>0)
+				script=CMStrings.replaceAll(script,"\n\n","\n");
 			script=CMStrings.replaceAll(script,"\n",";");
-			script=CMStrings.replaceAll(script,"\r",";");
-			script=CMStrings.replaceAll(script,";;",";");
-			script=CMStrings.replaceAll(script,";;",";");
+			postFix=CMStrings.replaceAll(postFix,";","\\;");
 		}
 		script=script.trim();
 		while(script.endsWith(";"))
@@ -196,6 +196,8 @@ public class QuestMgr extends StdWebMacro
 		script=script.trim();
 		if((script==null)||(script.trim().length()==0))
 			return "No script was specified.";
+		if(postFix.length()>0)
+			script+=(redirect?"\n":";");
 		if((redirect)&&(redirectF!=null))
 		{
 			redirectF.saveText(script+postFix);
@@ -203,7 +205,9 @@ public class QuestMgr extends StdWebMacro
 			Q.setScript(Q.script(),true);
 		}
 		else
+		{
 			Q.setScript(script+postFix,true);
+		}
 		if(Q.name().length()==0)
 			return "You must specify a VALID quest string.  This one contained no name.";
 		else

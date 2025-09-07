@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ public class Hills extends StdRoom
 	{
 		super();
 		name="the hills";
-		basePhyStats.setWeight(3);
+		setMovementCost(3);
 		recoverPhyStats();
 	}
 
@@ -63,6 +63,7 @@ public class Hills extends StdRoom
 		Integer.valueOf(RawMaterial.RESOURCE_RASPBERRIES),
 		Integer.valueOf(RawMaterial.RESOURCE_BOYSENBERRIES),
 		Integer.valueOf(RawMaterial.RESOURCE_GREENS),
+		Integer.valueOf(RawMaterial.RESOURCE_VEGETABLE),
 		Integer.valueOf(RawMaterial.RESOURCE_OLIVES),
 		Integer.valueOf(RawMaterial.RESOURCE_BEANS),
 		Integer.valueOf(RawMaterial.RESOURCE_RICE),
@@ -75,6 +76,8 @@ public class Hills extends StdRoom
 		Integer.valueOf(RawMaterial.RESOURCE_HERBS),
 		Integer.valueOf(RawMaterial.RESOURCE_FRESHWATER),
 		Integer.valueOf(RawMaterial.RESOURCE_DIRT),
+		Integer.valueOf(RawMaterial.RESOURCE_PALLADIUM),
+		Integer.valueOf(RawMaterial.RESOURCE_NICKEL),
 		Integer.valueOf(RawMaterial.RESOURCE_POTATOES)
 	};
 	public static final List<Integer> roomResources=new Vector<Integer>(Arrays.asList(resourceList));

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,6 +52,7 @@ public class Wand_Fire extends StdWand
 		baseGoldValue=20000;
 		basePhyStats().setLevel(12);
 		material=RawMaterial.RESOURCE_OAK;
+		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_BONUS);
 		recoverPhyStats();
 		secretWord="BLAZE, BURN";
 	}
@@ -74,15 +75,16 @@ public class Wand_Fire extends StdWand
 	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		final MOB mob=msg.source();
-		switch(msg.sourceMinor())
+		switch(msg.targetMinor())
 		{
 		case CMMsg.TYP_WAND_USE:
 			if((mob.isMine(this))
 			&&(amBeingWornProperly())
-			&&(msg.target() instanceof MOB)
-			&&(mob.location().isInhabitant((MOB)msg.target())))
+			&&(msg.tool() instanceof MOB)
+			&&(msg.target()==this)
+			&&(mob.location().isInhabitant((MOB)msg.tool())))
 			{
-				final MOB target=(MOB)msg.target();
+				final MOB target=(MOB)msg.tool();
 				int x=msg.targetMessage().toUpperCase().indexOf("BLAZE");
 				if(x>=0)
 				{

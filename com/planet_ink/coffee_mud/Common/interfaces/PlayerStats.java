@@ -24,7 +24,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,6 +48,11 @@ import java.util.*;
 public interface PlayerStats extends CMCommon, Modifiable, AccountStats, Contingent
 {
 	/**
+	 * Default word wrap position.
+	 */
+	public final static int	DEFAULT_WORDWRAP		= 78;
+
+	/**
 	 * The time, in milis since 1970, that the player was last saved.
 	 *
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#setLastUpdated(long)
@@ -70,7 +75,7 @@ public interface PlayerStats extends CMCommon, Modifiable, AccountStats, Conting
 	/**
 	 * The time, in milis since 1970, that the player gained the given level
 	 *
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#setLeveledDateTime(int, long, Room)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#recordLevelData(int, long, Room, int[])
 	 *
 	 * @param level the level to check for
 	 * @return the time, in milis since 1970, that the player gained the given level
@@ -80,7 +85,7 @@ public interface PlayerStats extends CMCommon, Modifiable, AccountStats, Conting
 	/**
 	 * The roomID that the player gained the given level
 	 *
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#setLeveledDateTime(int, long, Room)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#recordLevelData(int, long, Room, int[])
 	 *
 	 * @param level  the level to check for
 	 * @return roomID that the player gained the given level
@@ -90,12 +95,22 @@ public interface PlayerStats extends CMCommon, Modifiable, AccountStats, Conting
 	/**
 	 * The number of minutes played when the player gained the given level
 	 *
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#setLeveledDateTime(int, long, Room)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#recordLevelData(int, long, Room, int[])
 	 *
 	 * @param level the level to check for
 	 * @return the minutes played before the player gained the given level
 	 */
 	public long leveledMinutesPlayed(int level);
+
+	/**
+	 * The number of pracs gained when the player gained the given level
+	 *
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#recordLevelData(int, long, Room, int[])
+	 *
+	 * @param level the level to check for
+	 * @return the pracs gained before the player gained the given level
+	 */
+	public int[] leveledCostGains(final int level);
 
 	/**
 	 * Notifies the player records that, at the moment this method was called,
@@ -106,8 +121,9 @@ public interface PlayerStats extends CMCommon, Modifiable, AccountStats, Conting
 	 * @param level the level to set up
 	 * @param ageHours the hours played at this point
 	 * @param R the room in which the level was gained
+	 * @param costGains the number of CostType[] gains at the level
 	 */
-	public void setLeveledDateTime(int level, long ageHours, Room R);
+	public void recordLevelData(final int level, final long ageHours, final Room R, final int[] costGains);
 
 	/**
 	 * Returns a bitmask of channels turned on/off. (32 channels supported)
@@ -154,20 +170,32 @@ public interface PlayerStats extends CMCommon, Modifiable, AccountStats, Conting
 	/**
 	 * Gets the saved pose string for players.
 	 *
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#setSavedPose(String)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#setSavedPose(String, boolean)
 	 *
 	 * @return a saved pose string
 	 */
 	public String getSavedPose();
 
 	/**
+	 * Gets the saved pose string for players.
+	 *
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#setSavedPose(String, boolean)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#isPoseConstant()
+	 *
+	 * @return a saved pose string
+	 */
+	public boolean isPoseConstant();
+
+	/**
 	 * Sets the saved pose string for players.
 	 *
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#getSavedPose()
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#isPoseConstant()
 	 *
 	 * @param msg a saved pose string
+	 * @param constant true to set as constant
 	 */
-	public void setSavedPose(String msg);
+	public void setSavedPose(String msg, boolean constant);
 
 	/**
 	 * Returns the word wrap column number for this player, or 0.
@@ -226,20 +254,60 @@ public interface PlayerStats extends CMCommon, Modifiable, AccountStats, Conting
 	public void setPrompt(String prompt);
 
 	/**
-	 * Returns a list of modifiable title definitions.  These are things
+	 * Returns a read-only list of title definitions.  These are things
 	 * like *, the bunny slayer and such.
 	 *
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#getActiveTitle()
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#delTitle(String)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#addTitle(String)
 	 *
-	 * @return  a list of modifiable title definitions
+	 * @return a list of modifiable title definitions
 	 */
 	public List<String> getTitles();
+
+	/**
+	 * Adds a new title definition.  These are things like *, the bunny slayer
+	 * and such.  If the given title already exists, it is moved up to the top,
+	 * making it the active one.
+	 *
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#getActiveTitle()
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#getTitles()
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#delTitle(String)
+	 *
+	 * @param title the new title
+	 */
+	public void addTitle(String title);
+
+	/**
+	 * Gets or changes whether the given title is part
+	 * of the 'random' list.
+	 *
+	 * @param title the title to read or change
+	 * @param changeTF null to read, or a value to change
+	 * @return the new random flag for the title
+	 */
+	public boolean getTitleRandom(final String title, final Boolean changeTF);
+
+	/**
+	 * Removes new title definition.  These are things
+	 * like *, the bunny slayer and such.
+	 *
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#getActiveTitle()
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#getTitles()
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#addTitle(String)
+	 *
+	 * @param s the old title
+	 * @return  whether a title of the name was removed
+	 */
+	public boolean delTitle(String s);
 
 	/**
 	 * Returns which of the player available titles is currently being used by
 	 * this player.  Its a string like *, the bunny slayer
 	 *
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#getTitles()
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#addTitle(String)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#delTitle(String)
 	 *
 	 * @return a title being used by this player
 	 */
@@ -249,39 +317,68 @@ public interface PlayerStats extends CMCommon, Modifiable, AccountStats, Conting
 	 * Returns a List of the last few string messages sent and received to and
 	 * from this player.
 	 *
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#addTellStack(String)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#addTellStack(String, String, String)
 	 *
 	 * @return a List of strings, the last few tell messages
 	 */
-	public List<String> getTellStack();
+	public List<TellMsg> getTellStack();
 
 	/**
-	 * Adds a new string message to the tell stack.
+	 * Queries the Tell stack for messages matching given criteria.
+	 * Returns the found messages.
 	 *
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#getTellStack()
 	 *
-	 * @param msg the new message for the tell stack.
+	 * @param fromName null, or a from-name to match
+	 * @param toName null, or a to name to match
+	 * @param sinceTime null, or a time, in ms, since epoc
+	 * @return the found messages
 	 */
-	public void addTellStack(String msg);
+	public List<TellMsg> queryTellStack(final String fromName, final String toName, final Long sinceTime);
+
+	/**
+	 * Adds a new string message to the tell stack.
+	 * @param from who the message is from
+	 * @param to who the message is to
+	 * @param msg the new message for the tell stack.
+	 *
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#getTellStack()
+	 */
+	public void addTellStack(String from, String to, String msg);
 
 	/**
 	 * Returns a List of the last few string messages sent and received to and
 	 * from this players group.
 	 *
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#addGTellStack(String)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#addGTellStack(String, String, String)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#queryGTellStack(String, String, Long)
 	 *
 	 * @return a List of strings, the last few gtell messages
 	 */
-	public List<String> getGTellStack();
+	public List<TellMsg> getGTellStack();
 
 	/**
 	 * Adds a new string message to the gtell stack.
+	 * @param from who the message is from
+	 * @param to who the message is to
+	 * @param msg the new message for the gtell stack.
+	 *
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#getGTellStack()
+	 */
+	public void addGTellStack(String from, String to, String msg);
+
+	/**
+	 * Queries the GTell stack for messages matching given criteria.
+	 * Returns the found messages.
 	 *
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#getGTellStack()
 	 *
-	 * @param msg the new message for the gtell stack.
+	 * @param fromName null, or a from-name to match
+	 * @param toName null, or a to name to match
+	 * @param sinceTime null, or a time, in ms, since epoc
+	 * @return the found messages
 	 */
-	public void addGTellStack(String msg);
+	public List<TellMsg> queryGTellStack(final String fromName, final String toName, final Long sinceTime);
 
 	/**
 	 * For player with the GOTO command, this is the message seen by all when
@@ -458,6 +555,7 @@ public interface PlayerStats extends CMCommon, Modifiable, AccountStats, Conting
 	 * birthday based on the number of hours they've played.
 	 *
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#getBirthday()
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#getBirthdayClock(TimeClock)
 	 * @see com.planet_ink.coffee_mud.MOBS.interfaces.MOB#getAgeMinutes()
 	 * @see com.planet_ink.coffee_mud.Races.interfaces.Race
 	 *
@@ -469,12 +567,23 @@ public interface PlayerStats extends CMCommon, Modifiable, AccountStats, Conting
 	public int initializeBirthday(TimeClock clock, int ageHours, Race R);
 
 	/**
+	 * Returns the derived TimeClock of this players birthday.  Requires
+	 * that the actual birthday be initialized first.
+	 *
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#getBirthday()
+	 * @see com.planet_ink.coffee_mud.MOBS.interfaces.MOB#getAgeMinutes()
+	 *
+	 * @param clock the players start area clock
+	 * @return the derived birthday clock
+	 */
+	public TimeClock getBirthdayClock(final TimeClock clock);
+	/**
 	 * Returns a 2-dimensional integer array with the players birth
-	 * day and month (in mud calendar)
+	 * day and month and year and last year celebrated (in mud calendar)
 	 *
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#initializeBirthday(TimeClock, int, Race)
 	 *
-	 * @return a 2-dimensional integer array (day/month)
+	 * @return a 4-dimensional integer array (day/month/yr/ylc)
 	 */
 	public int[] getBirthday();
 
@@ -521,6 +630,7 @@ public interface PlayerStats extends CMCommon, Modifiable, AccountStats, Conting
 	 *
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#hasVisited(Area)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#percentVisited(MOB, Area)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#totalVisitedRooms(MOB, Area)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#addRoomVisit(Room)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#unVisit(Room)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#unVisit(Area)
@@ -535,6 +645,7 @@ public interface PlayerStats extends CMCommon, Modifiable, AccountStats, Conting
 	 * Returns whether this player has visited the given area.
 	 *
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#hasVisited(Room)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#totalVisitedRooms(MOB, Area)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#percentVisited(MOB, Area)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#addRoomVisit(Room)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#unVisit(Room)
@@ -549,6 +660,7 @@ public interface PlayerStats extends CMCommon, Modifiable, AccountStats, Conting
 	 * Returns the percentage (0-100) of the given area that the
 	 * given player has explored.
 	 *
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#totalVisitedRooms(MOB, Area)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#hasVisited(Room)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#hasVisited(Area)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#addRoomVisit(Room)
@@ -562,10 +674,29 @@ public interface PlayerStats extends CMCommon, Modifiable, AccountStats, Conting
 	public int percentVisited(MOB mob, Area A);
 
 	/**
+	 * Returns the number of rooms in the given area that the
+	 * given player has explored.
+	 *
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#percentVisited(MOB, Area)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#totalVisitedRooms(MOB, Area)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#hasVisited(Room)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#hasVisited(Area)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#addRoomVisit(Room)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#unVisit(Room)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#unVisit(Area)
+	 *
+	 * @param mob the player of these stats
+	 * @param A the Area to check
+	 * @return the percent of the area the player has explored
+	 */
+	public int totalVisitedRooms(MOB mob, Area A);
+
+	/**
 	 * Records the fact that this player has been to the given room.
 	 *
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#hasVisited(Room)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#hasVisited(Area)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#totalVisitedRooms(MOB, Area)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#percentVisited(MOB, Area)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#unVisit(Room)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PlayerStats#unVisit(Area)
@@ -952,6 +1083,15 @@ public interface PlayerStats extends CMCommon, Modifiable, AccountStats, Conting
 	public long getLastXPAwardMillis();
 
 	/**
+	 * Reads from and/or alters the internal deaths
+	 * counter for the number of character deaths.
+	 *
+	 * @param bump 0, or the number to change deaths by
+	 * @return the current death counter
+	 */
+	public int deathCounter(int bump);
+
+	/**
 	 * Sets the last time this player has been awarded
 	 * XP.  This is used for the guildmaster exception, where
 	 * XP is only awarded under certain conditions.
@@ -1030,6 +1170,41 @@ public interface PlayerStats extends CMCommon, Modifiable, AccountStats, Conting
 	 */
 	public long bumpLevelCombatStat(final PlayerCombatStat stat, final int level, final int amt);
 
+	/**
+	 * Interface for an archived Tell message to or from
+	 * this player.
+	 *
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public interface TellMsg
+	{
+		/**
+		 * Who the message was to
+		 * @return who the message was to
+		 */
+		public String to();
+
+		/**
+		 * Who the message was from
+		 * @return who the message was from
+		 */
+		public String from();
+
+		/**
+		 * When the message was sent/received
+		 * @return when the message was sent/received
+		 */
+		public long time();
+
+		/**
+		 * The message text itself
+		 * @return the message text itself
+		 */
+		public String message();
+	}
+
+
 	/** Constant for day of birthday, as from {@link PlayerStats#getBirthday()} */
 	public static final int BIRTHDEX_DAY = 0;
 	/** Constant for month of birthday, as from {@link PlayerStats#getBirthday()} */
@@ -1038,6 +1213,8 @@ public interface PlayerStats extends CMCommon, Modifiable, AccountStats, Conting
 	public static final int BIRTHDEX_YEAR = 2;
 	/** Constant for year of last known birthday, as from {@link PlayerStats#getBirthday()} */
 	public static final int BIRTHDEX_LASTYEARCELEBRATED = 3;
+	/** Constant for number of birday indexes, as from {@link PlayerStats#getBirthday()} */
+	public static final int BIRTHDEX_COUNT = 4;
 
 	/** Constant for private messenging, means the last private msg was a SAYTO */
 	public static final int REPLY_SAY=0;

@@ -4,7 +4,7 @@ import java.io.Serializable;
 import java.util.*;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -26,11 +26,29 @@ public class XVector<T> extends Vector<T>
 {
 	private static final long	serialVersionUID	= 6687178785122563992L;
 
-	public XVector(final List<? extends T> V)
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public static final ReadOnlyList empty = new ReadOnlyList(new ArrayList());
+	private String specialData = null;
+
+	public XVector(final Collection<? extends T> V)
 	{
 		super((V==null)?0:V.size());
 		if (V != null)
+		{
 			addAll(V);
+			setSpecialData(V);
+		}
+	}
+
+	public XVector(final List<? extends T> V, final int start)
+	{
+		super((V==null)?0:V.size());
+		if (V != null)
+		{
+			for(int i=start;i<V.size();i++)
+				add(V.get(i));
+			setSpecialData(V);
+		}
 	}
 
 	public XVector()
@@ -86,6 +104,13 @@ public class XVector<T> extends Vector<T>
 			add(E5);
 	}
 
+	public XVector(final T E, final T E2, final T E3, final T E4, final T E5, final T E6)
+	{
+		this(E, E2, E3, E4, E5);
+		if (E6 != null)
+			add(E6);
+	}
+
 	public XVector(final Set<T> E)
 	{
 		super((E==null)?0:E.size());
@@ -113,6 +138,18 @@ public class XVector<T> extends Vector<T>
 		{
 			for (; E.hasNext();)
 				add(E.next());
+		}
+	}
+
+	public void setSpecialData(final Object o)
+	{
+		if(o instanceof String)
+			specialData = (String)o;
+		if(o instanceof XVector)
+		{
+			@SuppressWarnings({"unchecked","rawtypes"})
+			final XVector<T> x = (XVector)o;
+			specialData = x.specialData;
 		}
 	}
 
@@ -183,32 +220,97 @@ public class XVector<T> extends Vector<T>
 		}
 	}
 
+	public void setComparator(final Comparator<T> comparator)
+	{
+		this.comparator = comparator;
+	}
+
+	/**
+	 * Called from a new version of the list, this will return a set of
+	 * two lists, the first being things that need adding, because they
+	 * are missing from the old one, and the second list being things that
+	 * need removing, because they are missing from this one.
+	 *
+	 * @param target the old version of the list
+	 * @param comp a comparator to use for the object,
+	 * @return the list pair
+	 */
+	public final List<T>[] makeDeltas(final List<T> target, final Comparator<T> comp)
+	{
+		@SuppressWarnings("unchecked")
+		final List<T>[] deltas = new List[]{ new ArrayList<T>(), new ArrayList<T>() };
+		final Set<T> matched = new HashSet<T>();
+		for(final T t : this)
+		{
+			boolean found=false;
+			for(final T tt : target)
+			{
+				if((comp.compare(t, tt)==0)
+				&&(!matched.contains(tt)))
+				{
+					matched.add(tt);
+					found=true;
+					break;
+				}
+			}
+			if(!found)
+				deltas[0].add(t);
+		}
+		matched.clear();
+		for(final T t : target)
+		{
+			boolean found=false;
+			for(final T tt : this)
+			{
+				if((comp.compare(t, tt)==0)
+				&&(!matched.contains(tt)))
+				{
+					matched.add(tt);
+					found=true;
+					break;
+				}
+			}
+			if(!found)
+				deltas[1].add(t);
+		}
+		return deltas;
+	}
+
+	public final Comparator<T> anyComparator = new Comparator<T>()
+	{
+		@SuppressWarnings({ "unchecked", "rawtypes" })
+		@Override
+		public int compare(final T arg0, final T arg1)
+		{
+			if (arg0 == null)
+			{
+				if (arg1 == null)
+					return 0;
+				return -1;
+			}
+			else
+			if (arg1 == null)
+			{
+				return 1;
+			}
+			else
+			if (arg0 instanceof Comparable)
+				return ((Comparable) arg0).compareTo(arg1);
+			else
+				return arg0.toString().compareTo(arg1.toString());
+		}
+
+	};
+
+	public String getSpecialData()
+	{
+		return specialData;
+	}
+
+	protected Comparator<T> comparator = anyComparator;
+
 	public synchronized void sort()
 	{
-		Collections.sort(this, new Comparator<T>()
-		{
-			@SuppressWarnings({ "unchecked", "rawtypes" })
-			@Override
-			public int compare(final T arg0, final T arg1)
-			{
-				if (arg0 == null)
-				{
-					if (arg1 == null)
-						return 0;
-					return -1;
-				}
-				else
-				if (arg1 == null)
-				{
-					return 1;
-				}
-				else
-				if (arg0 instanceof Comparable)
-					return ((Comparable) arg0).compareTo(arg1);
-				else
-					return arg0.toString().compareTo(arg1.toString());
-			}
-
-		});
+		Collections.sort(this, comparator);
 	}
 }

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -46,6 +46,13 @@ public class Power_WebSpinning extends SuperPower
 	public String name()
 	{
 		return localizedName;
+	}
+
+	private static final String[] triggerStrings =I(new String[] {"WEBSPIN"});
+	@Override
+	public String[] triggerStrings()
+	{
+		return triggerStrings;
 	}
 
 	private final static String localizedStaticDisplay = CMLib.lang().L("(Webbed)");
@@ -189,13 +196,16 @@ public class Power_WebSpinning extends SuperPower
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_NOISYMOVEMENT,L(auto?"":"^S<S-NAME> shoot(s) and spin(s) a web at <T-NAMESELF>!^?")+CMLib.protocol().msp("web.wav",40));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_NOISYMOVEMENT,
+					L(auto?"":"^S<S-NAME> shoot(s) and spin(s) a web at <T-NAMESELF>!^?")
+					+CMLib.protocol().msp("web.wav",40));
 			if((mob.location().okMessage(mob,msg))&&(target.fetchEffect(this.ID())==null))
 			{
 				mob.location().send(mob,msg);
 				if(msg.value()<=0)
 				{
 					amountRemaining=160;
+					amountRemaining=(int)Math.round(CMath.mul(amountRemaining, target.basePhyStats().speed()));
 					if(CMLib.map().roomLocation(target)==mob.location())
 					{
 						success=maliciousAffect(mob,target,asLevel,(adjustedLevel(mob,asLevel)*10),-1)!=null;

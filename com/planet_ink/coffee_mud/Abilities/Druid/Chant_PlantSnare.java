@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -153,7 +153,7 @@ public class Chant_PlantSnare extends Chant
 		if(mob!=null)
 		{
 			final Set<MOB> h=properTargets(mob,target,false);
-			if(h==null)
+			if((h==null)||(h.size()==0))
 				return Ability.QUALITY_INDIFFERENT;
 			final Room room=mob.location();
 			if(room!=null)
@@ -175,7 +175,7 @@ public class Chant_PlantSnare extends Chant
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		final Set<MOB> h=properTargets(mob,givenTarget,auto);
-		if(h==null)
+		if((h==null)||(h.size()==0))
 		{
 			mob.tell(L("There doesn't appear to be anyone here worth snaring."));
 			return false;
@@ -214,6 +214,7 @@ public class Chant_PlantSnare extends Chant
 						if(msg.value()<=0)
 						{
 							amountRemaining=400+(100*getXLEVELLevel(mob));
+							amountRemaining=(int)Math.round(CMath.mul(amountRemaining, target.basePhyStats().speed()));
 							if(troom==room)
 							{
 								success=maliciousAffect(mob,target,asLevel,(adjustedLevel(mob,asLevel)*10),-1)!=null;

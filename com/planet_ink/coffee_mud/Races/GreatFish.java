@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -155,6 +155,16 @@ public class GreatFish extends GiantFish
 	}
 
 	@Override
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
+	{
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.setStat(CharStats.STAT_INTELLIGENCE,affectedMOB.baseCharStats().getStat(CharStats.STAT_INTELLIGENCE));
+		affectableStats.setStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ,affectedMOB.baseCharStats().getStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ));
+		affectableStats.setStat(CharStats.STAT_DEXTERITY,affectedMOB.baseCharStats().getStat(CharStats.STAT_DEXTERITY));
+		affectableStats.setStat(CharStats.STAT_MAX_DEXTERITY_ADJ,affectedMOB.baseCharStats().getStat(CharStats.STAT_MAX_DEXTERITY_ADJ));
+	}
+
+	@Override
 	public String arriveStr()
 	{
 		return "swims in";
@@ -167,17 +177,18 @@ public class GreatFish extends GiantFish
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public Weapon[] getNaturalWeapons()
 	{
-		if(naturalWeapon==null)
+		if(this.naturalWeaponChoices.length==0)
 		{
-			naturalWeapon=CMClass.getWeapon("StdWeapon");
+			final Weapon naturalWeapon=CMClass.getWeapon("GenWeapon");
 			naturalWeapon.setName(L("a head butt"));
 			naturalWeapon.setMaterial(RawMaterial.RESOURCE_BONE);
 			naturalWeapon.setUsesRemaining(1000);
 			naturalWeapon.setWeaponDamageType(Weapon.TYPE_BASHING);
+			this.naturalWeaponChoices = new Weapon[] { naturalWeapon };
 		}
-		return naturalWeapon;
+		return super.getNaturalWeapons();
 	}
 
 	@Override
@@ -190,7 +201,7 @@ public class GreatFish extends GiantFish
 				for(int i=0;i<8;i++)
 				{
 					resources.addElement(makeResource
-					(L("some @x1",name().toLowerCase()),RawMaterial.RESOURCE_FISH));
+					(L("some @x1 meat",name().toLowerCase()),RawMaterial.RESOURCE_FISH));
 				}
 				for(int i=0;i<5;i++)
 				{

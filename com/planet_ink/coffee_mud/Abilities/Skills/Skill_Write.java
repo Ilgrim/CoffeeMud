@@ -1,5 +1,6 @@
 package com.planet_ink.coffee_mud.Abilities.Skills;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.Readable;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -144,7 +145,7 @@ public class Skill_Write extends StdSkill
 			return false;
 		}
 
-		if(CMParms.combine(commands,1).toUpperCase().startsWith("FILE="))
+		if(CMParms.combine(commands,1).toUpperCase().startsWith(Readable.FILE_PREFIX))
 		{
 			mob.tell(L("You can't write that."));
 			return false;

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -135,8 +135,11 @@ public class Spell_Clone extends Spell
 			if((!CMLib.flags().isInTheGame(invoker, false))
 			||(invoker.amDead())
 			||(invoker.amDestroyed())
-			||((affected!=null)&&(affected instanceof MOB)&&(invoker.location()!=((MOB)affected).location())))
+			||((affected instanceof MOB)
+				&&(invoker.location()!=((MOB)affected).location())))
+			{
 				unInvoke();
+			}
 		}
 		return super.tick(ticking, tickID);
 	}
@@ -217,50 +220,87 @@ public class Spell_Clone extends Spell
 			}
 		}
 		else
-			return beneficialWordsFizzle(mob,null,L("<S-NAME> attempt(s) to clone <S-HIM-HERSELF>, but fails."));
+			return beneficialWordsFizzle(mob,null,L("<S-NAME> attempt(s) to clone <S-HIM-HERSELF>, but fail(s)."));
 
 		// return whether it worked
 		return success;
 	}
 
+	public void cloneItems(final MOB caster, final MOB cloneM, final Container casterC, final Container cloneC)
+	{
+		for(int i=0;i<caster.numItems();i++)
+		{
+			Item I=caster.getItem(i);
+			if((I!=null)
+			&&(I.container()==casterC)
+			&&(!(I instanceof ArchonOnly)))
+			{
+				final Item ogI = I;
+				I=(Item)I.copyOf();
+				I.delAllEffects(false);
+				I.basePhyStats().setAbility(0);
+				if(I instanceof Potion)
+					((Potion)I).setSpellList("");
+				else
+				if(I instanceof Pill)
+					((Pill)I).setSpellList("");
+				else
+				if(I instanceof Scroll)
+					((Scroll)I).setSpellList("");
+				else
+				if(I instanceof Wand)
+				{
+					((Wand)I).setMaxCharges(0);
+					((Wand)I).setCharges(0);
+					((Wand)I).setSpell(null);
+				}
+				I.delEffect(I.fetchEffect("Prop_HaveZapper"));
+				Ability A=CMClass.getAbility("Prop_HaveZapper");
+				A.setMiscText("-NAMES");
+				I.addNonUninvokableEffect(A);
+				A=CMClass.getAbility("Prop_AbilityImmunity");
+				A.setMiscText("Spell_Disenchant;Prayer_Disenchant;Spell_Duplicate;Spell_Fabricate;Spell_PolymorphObject");
+				I.addNonUninvokableEffect(A);
+				I.setRawWornCode(ogI.rawWornCode());
+				I.setContainer(cloneC);
+				I.recoverPhyStats();
+				I.text();
+				cloneM.addItem(I);
+				if(I instanceof Container)
+					cloneItems(caster, cloneM, (Container)ogI, (Container)I);
+			}
+		}
+	}
+
 	public MOB determineMonster(final MOB caster)
 	{
-		final MOB newMOB=(MOB)caster.copyOf();
-		for(int i=0;i<newMOB.numItems();i++)
-		{
-			final Item I=newMOB.getItem(i);
-			I.delAllEffects(false);
-			I.basePhyStats().setAbility(0);
-			if(I instanceof Potion)
-				((Potion)I).setSpellList("");
-			else
-			if(I instanceof Pill)
-				((Pill)I).setSpellList("");
-			else
-			if(I instanceof Scroll)
-				((Scroll)I).setSpellList("");
-			else
-			if(I instanceof Wand)
-			{
-				((Wand)I).setMaxUses(0);
-				((Wand)I).setUsesRemaining(0);
-				((Wand)I).setSpell(null);
-			}
-			I.delEffect(I.fetchEffect("Prop_HaveZapper"));
-			final Ability A=CMClass.getAbility("Prop_HaveZapper");
-			A.setMiscText("-NAMES");
-			I.addNonUninvokableEffect(A);
-			I.recoverPhyStats();
-			I.text();
-		}
+		final MOB newMOB;
+		if(caster instanceof Rideable)
+			newMOB=CMClass.getMOB("GenRideable");
+		else
+			newMOB=CMClass.getMOB("GenMob");
+		final GenericBuilder builder = CMLib.coffeeMaker();
+		for(final String stat : builder.getAllGenStats(caster))
+			builder.setAnyGenStat(newMOB, stat, builder.getAnyGenStat(caster, stat));
+		cloneItems(caster,newMOB,null,null);
+		newMOB.setBaseCharStats((CharStats)caster.baseCharStats().copyOf());
+		newMOB.setBasePhyStats((PhyStats)caster.basePhyStats().copyOf());
+		newMOB.setBaseState((CharState)caster.baseState().copyOf());
+		newMOB.basePhyStats().setRejuv(PhyStats.NO_REJUV);
+		CMLib.beanCounter().clearZeroMoney(newMOB,null);
+		newMOB.setMoneyVariation(0);
+		newMOB.setStartRoom(null);
 		newMOB.recoverCharStats();
 		newMOB.recoverPhyStats();
 		newMOB.recoverMaxState();
 		newMOB.resetToMaxState();
-		newMOB.text();
+		newMOB.setMiscText(newMOB.text());
 		newMOB.setSession(null);
 		newMOB.delAllBehaviors();
 		newMOB.bringToLife(caster.location(),true);
+		newMOB.setBaseState((CharState)caster.baseState().copyOf());
+		newMOB.recoverMaxState();
+		newMOB.resetToMaxState();
 		CMLib.beanCounter().clearZeroMoney(newMOB,null);
 		newMOB.setMoneyVariation(0);
 		newMOB.location().showOthers(newMOB,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> appears!"));

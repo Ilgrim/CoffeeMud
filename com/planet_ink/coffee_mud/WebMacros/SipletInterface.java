@@ -45,7 +45,7 @@ import com.planet_ink.coffee_mud.core.exceptions.HTTPServerException;
 import com.planet_ink.siplet.applet.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -186,7 +186,7 @@ public class SipletInterface extends StdWebMacro
 				{
 					for(final MudHost h : CMLib.hosts())
 					{
-						if(h.getPort()==port)
+						if((h.getPort()==port)||(h.getPublicPort()==port))
 						{
 							try
 							{
@@ -336,7 +336,7 @@ public class SipletInterface extends StdWebMacro
 	@Override
 	public String runMacro(final HTTPRequest httpReq, final String parm, final HTTPResponse httpResp) throws HTTPServerException
 	{
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return "false;";
 		if(!initialized)
 		{

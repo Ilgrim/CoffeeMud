@@ -21,7 +21,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -222,13 +222,13 @@ public class Archon_CRecord extends ArchonSkill
 		final CMFile file=new CMFile(filename,null,CMFile.FLAG_LOGERRORS);
 		if(!file.canWrite())
 		{
-			mob.tell("Failed to start c-recording "+targetM.name()+": "+filename);
+			mob.tell(L("Failed to start c-recording @x1: @x2",targetM.name(),filename));
 			Log.sysOut("Failed to start c-recording "+targetM.name()+": "+filename);
 		}
 		else
 		{
 			Log.sysOut("C-recording started on "+targetM.name()+": "+filename);
-			mob.tell("C-recording started on "+targetM.name()+": "+filename);
+			mob.tell(L("C-recording started on @x1: @x2",targetM.name(),filename));
 			final Archon_CRecord A2=(Archon_CRecord)copyOf();
 			A2.setSavable(true);
 			targetM.addNonUninvokableEffect(A2);
@@ -290,7 +290,7 @@ public class Archon_CRecord extends ArchonSkill
 								final Archon_CRecord cA=(Archon_CRecord)arcM.fetchEffect(ID());
 								if(cA!=null)
 								{
-									arcM.tell("C-recording ended: "+msg.source().name());
+									arcM.tell(L("C-recording ended: @x1",msg.source().name()));
 									Log.sysOut("C-recording ended: "+msg.source().name());
 									cA.myPlayers.remove(msg.source().Name());
 
@@ -306,7 +306,7 @@ public class Archon_CRecord extends ArchonSkill
 				else
 				if(myPlayers.contains(msg.source().Name()))
 				{
-					mob.tell("C-recording ended: "+msg.source().name());
+					mob.tell(L("C-recording ended: @x1",msg.source().name()));
 					Log.sysOut("C-recording ended: "+msg.source().name());
 					final Archon_CRecord iA=(Archon_CRecord)mob.fetchEffect(ID());
 					if(iA!=null)

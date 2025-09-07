@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ public class Withdraw extends StdCommand
 		throws java.io.IOException
 	{
 		final Vector<String> origCmds=new XVector<String>(commands);
-		final Environmental shopkeeper=CMLib.english().parseShopkeeper(mob,commands,"Withdraw what or how much from whom?");
+		final Environmental shopkeeper=CMLib.english().parseShopkeeper(mob,commands,"from", "Withdraw what or how much from whom?");
 		if(shopkeeper==null)
 			return false;
 		final ShopKeeper SHOP=CMLib.coffeeShops().getShopKeeper(shopkeeper);
@@ -124,7 +124,7 @@ public class Withdraw extends StdCommand
 				final MOB mob2=CMLib.players().getPlayerAllHosts(mob.getLiegeID());
 				if(mob2!=null)
 				{
-					final String accountName2=((PostOffice)SHOP).getSenderName(mob, Clan.Function.WITHDRAW, false);
+					final String accountName2=((PostOffice)SHOP).getSenderName(mob2, Clan.Function.WITHDRAW, false);
 					thisThang=((PostOffice)SHOP).findBoxContents(accountName2,str);
 				}
 			}

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -67,6 +67,12 @@ public class Spell_TrueSight extends Spell
 	protected int canAffectCode()
 	{
 		return CAN_MOBS;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -181,7 +187,7 @@ public class Spell_TrueSight extends Spell
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> already <S-HAS-HAVE> true sight."));
+			failureTell(mob,target,auto,L("<S-NAME> already <S-HAS-HAVE> true sight."));
 			return false;
 		}
 

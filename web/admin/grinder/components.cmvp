@@ -3,17 +3,25 @@
 @if?!Authenticate@ @AddFile?/grinder/failedlogin.cmvp@ @else@
 @if?!CheckAuthCode?AUTH_COMPONENTS=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <html>
+	<META CHARSET="utf-8"/>
 <head>
     <link rel="grinder icon" href="/images/grinder.ico" >
+    <link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
     <title>Skill Components List</title>
     <script language=JavaScript>
     <!--
         function Component(action)
         {
-            var strFeatures="top=0,left=75,resizeable=no,scrollbars=yes,height=600,width=550,alwaysRaised=yes,dependent=yes";
+            var strFeatures="top=0,left=75,resizeable=no,scrollbars=yes,height=550,width=550,alwaysRaised=yes,dependent=yes";
             w=window.open("component.cmvp?AUTH=@Authenticate?AUTH@&COMPONENT="+action,
                 "Component for "+action,strFeatures, false);
         }
+	    function Social(action,newsoc)
+	    {
+	        var strFeatures="top=0,left=75,resizeable=no,scrollbars=yes,height=550,width=750,alwaysRaised=yes,dependent=yes";
+            w=window.open("social.cmvp?AUTH=@Authenticate?AUTH@&SOCIAL="+action+"&NEWSOCIAL="+newsoc+"&COMPONENT=true",
+                	"Component Social",strFeatures, false);
+	    }
         function Clicked(val)
         {
             document.RESOURCES.action=val;
@@ -38,8 +46,6 @@
         <TR><TD BGCOLOR=WHITE ALIGN=CENTER><FONT COLOR=BLACK SIZE=-1><B>Menu</B></FONT></TD></TR>
         <TR><TD><a href="javascript:Clicked('/grinder/loggedin.cmvp');"><FONT COLOR=WHITE SIZE=-1><B>MUDGrinder Menu</B></FONT></A></TD></TR>
         <TR><TD><a href="javascript:Clicked('/grinder/abilities.cmvp');"><FONT COLOR=WHITE SIZE=-1><B>Ability Manager</B></FONT></A></TD></TR>
-        <TR><TD><a href="javascript:Clicked('/grinder/recipes.cmvp');"><FONT COLOR=WHITE SIZE=-1><B>Skill Recipes</B></FONT></A></TD></TR>
-        <TR><TD><a href="javascript:Clicked('/grinder/allqualifys.cmvp');"><FONT COLOR=WHITE SIZE=-1><B>All-Qualifies List</B></FONT></A></TD></TR>
         <TR><TD><a href="javascript:Refresh();"><FONT COLOR=WHITE SIZE=-1><B>Refresh Page</B></FONT></A></TD></TR>
         </TABLE>
     </TD>
@@ -59,14 +65,19 @@
     @loop@
     @ComponentNext@
     <TR>
-    <TD><a href="javascript:Component('@ComponentID@')"><FONT COLOR=WHITE>@ComponentID@</FONT></a></TD>
+	    @if?ComponentData?ISSOCIAL@
+		    <TD><FONT COLOR=WHITE><B>Component Social:</B></FONT>&nbsp;
+		    <a href="javascript:Social('@ComponentID@','')"><FONT COLOR="#FFFF8F"><U>@ComponentID@</U></FONT><</a></TD>
+		@else@
+		    <TD><a href="javascript:Component('@ComponentID@')"><FONT COLOR="#FFFF8F"><U>@ComponentID@</U></FONT></a></TD>
+		@endif@
     <TD COLSPAN=5><FONT COLOR=WHITE>@ComponentData?DESC@</FONT></TD>
     </TR>
     @back@
     <TR>
         <TD COLSPAN=6>
                 <a href="javascript:Component(document.RESOURCES.NEW.options[document.RESOURCES.NEW.selectedIndex].value)">
-                <FONT COLOR=WHITE><B>Create New:</a>
+                <FONT COLOR=CYAN><B><U>Create New Component:</U></a>
                 <SELECT NAME=NEW>
                     @AbilityNext?RESET@
                     @loop@
@@ -74,6 +85,14 @@
                         <OPTION VALUE="@AbilityID@">@AbilityID@
                     @back@
                 </SELECT>
+                </B></FONT>
+        </TD>
+    </TR>
+    <TR>
+        <TD COLSPAN=6>
+                <a href="javascript:Social(document.RESOURCES.NEWSOCIAL.value,document.RESOURCES.NEWSOCIAL.value)">
+                <FONT COLOR=CYAN><B><U>Create New Comp. Social:</U></a>
+                <INPUT TYPE=TEXT NAME=NEWSOCIAL SIZE=20 VALUE="">
                 </B></FONT>
         </TD>
     </TR>

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ public class Prayer_HuntEvil extends Prayer
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_HOLY|Ability.FLAG_TRACKING;
+		return Ability.FLAG_HOLY|Ability.FLAG_TRACKING| Ability.FLAG_DIVINING;
 	}
 
 	private final static String localizedStaticDisplay = CMLib.lang().L("(Hunting Evil)");
@@ -186,14 +186,20 @@ public class Prayer_HuntEvil extends Prayer
 
 		final ArrayList<Room> rooms=new ArrayList<Room>();
 		final TrackingLibrary.TrackingFlags flags=CMLib.tracking().newFlags();
+		flags.plus(TrackingLibrary.TrackingFlag.PASSABLE);
 		final int range=50 + super.getXLEVELLevel(mob)+(2*super.getXMAXRANGELevel(mob));
-		final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,range);
-		for (final Room R : checkSet)
-		{
-			if(gameHere(R)!=null)
-				rooms.add(R);
-		}
-
+		final List<Room> trashRooms = new ArrayList<Room>();
+		if(CMLib.tracking().getRadiantRoomsToTarget(mob.location(), trashRooms, flags, new TrackingLibrary.RFilter() {
+			@Override
+			public boolean isFilteredOut(final Room hostR, Room R, final Exit E, final int dir)
+			{
+				R=CMLib.map().getRoom(R);
+				if(gameHere(R)!=null)
+					return false;
+				return true;
+			}
+		}, range))
+			rooms.add(trashRooms.get(trashRooms.size()-1));
 		if(rooms.size()>0)
 			theTrail=CMLib.tracking().findTrailToAnyRoom(mob.location(),rooms,flags,range);
 

@@ -13,6 +13,7 @@ import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.AbilityMapping;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Libraries.interfaces.ExpertiseLibrary.ExpertiseDefinition;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -21,7 +22,7 @@ import java.util.*;
 import java.util.Map.Entry;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -73,8 +74,7 @@ public class MOBTeacher extends CombatAbilities
 		&&(mob.baseCharStats().getMyClass(0).ID().equals("StdCharClass"))
 		&&(!C.ID().equals("StdCharClass")))
 		{
-			mob.baseCharStats().setMyClasses(C.ID());
-			mob.baseCharStats().setMyLevels(""+mob.phyStats().level());
+			mob.baseCharStats().setAllClassInfo(C.ID(), ""+mob.phyStats().level());
 			mob.recoverCharStats();
 			return;
 		}
@@ -95,15 +95,37 @@ public class MOBTeacher extends CombatAbilities
 		final boolean stdCharClass=mob.charStats().getCurrentClass().ID().equals("StdCharClass");
 		final String className=mob.charStats().getCurrentClass().ID();
 		Ability A=null;
+		final AbilityMapper ableMap = CMLib.ableMapper();
 		for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
 		{
 			A=a.nextElement();
-			if((A!=null)
-			&&((stdCharClass&&(CMLib.ableMapper().lowestQualifyingLevel(A.ID())>0)&&(!(A instanceof ArchonOnly)))
-				||(CMLib.ableMapper().qualifiesByLevel(mob,A)&&(!CMLib.ableMapper().getSecretSkill(className,true,A.ID()))))
-			&&((!noCommon)||((A.classificationCode()&Ability.ALL_ACODES)!=Ability.ACODE_COMMON_SKILL))
-			&&((!stdCharClass)||(CMLib.ableMapper().availableToTheme(A.ID(),Area.THEME_FANTASY,true))))
-				addAbility(mob,A,pct,myAbles);
+			if(A==null)
+				continue;
+			if((noCommon)
+			&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_COMMON_SKILL))
+				continue;
+			if(stdCharClass)
+			{
+				if(!ableMap.availableToTheme(A.ID(),Area.THEME_FANTASY,true))
+					continue;
+				if((ableMap.lowestQualifyingLevel(A.ID())<0)
+				||(A instanceof ArchonOnly))
+					continue;
+				final SecretFlag secret = ableMap.getSecretSkill(A.ID());
+				if(secret != SecretFlag.PUBLIC)
+					continue;
+			}
+			else
+			{
+				if(!ableMap.qualifiesByLevel(mob, A))
+					continue;
+				final SecretFlag secret = ableMap.getSecretSkill(className,true,A.ID());
+				if((secret==SecretFlag.SECRET)
+				||((secret==SecretFlag.MASKED)
+					&&(!CMLib.masking().maskCheck(CMLib.ableMapper().getExtraMask(className, true, A.ID()), mob, true))))
+					continue;
+			}
+			addAbility(mob,A,pct,myAbles);
 		}
 		for(final ClanGovernment G : CMLib.clans().getStockGovernments())
 		{
@@ -190,8 +212,7 @@ public class MOBTeacher extends CombatAbilities
 
 	protected void ensureCharClass()
 	{
-		myMOB.baseCharStats().setMyClasses("StdCharClass");
-		myMOB.baseCharStats().setMyLevels(""+myMOB.phyStats().level());
+		myMOB.baseCharStats().setAllClassInfo("StdCharClass", ""+myMOB.phyStats().level());
 		myMOB.recoverCharStats();
 
 		final Map<String,Ability> myAbles=new HashMap<String,Ability>();
@@ -414,8 +435,31 @@ public class MOBTeacher extends CombatAbilities
 					CMLib.commands().postSay(monster,student,L("You can't see me, so I can't teach you."),true,false);
 					return;
 				}
-				final Ability myAbility=CMClass.findAbility(s.trim().toUpperCase(),monster);
-				if(myAbility==null)
+				Ability possA=null;
+				final String calledThis = s.trim().toUpperCase();
+				final AbilityMapper ableMapper = CMLib.ableMapper();
+				final List<Ability> possAs=new LinkedList<Ability>();
+				for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
+				{
+					final Ability A1=a.nextElement();
+					final boolean qualifies = ableMapper.qualifiesByLevel(student,A1);
+					if(qualifies  && (student.fetchAbility(A1.ID())==null))
+						possAs.add(A1);
+					if((A1.name().equalsIgnoreCase(calledThis)||A1.ID().equalsIgnoreCase(calledThis))
+					&&(qualifies || (possA == null))
+					&&(qualifies || ableMapper.qualifiesByAnyCharClassOrRace(A1.ID())))
+						possA=A1;
+				}
+				if(possA==null)
+					possA=(Ability)CMLib.english().fetchEnvironmental(possAs,calledThis,true);
+				if(possA==null)
+					possA=(Ability)CMLib.english().fetchEnvironmental(possAs,calledThis,false);
+				Ability teachA=null;
+				if(possA != null)
+					teachA=monster.fetchAbility(possA.ID());
+				if(teachA == null)
+					teachA=CMClass.findAbility(calledThis,monster);
+				if(teachA==null)
 				{
 					ExpertiseLibrary.ExpertiseDefinition theExpertise=null;
 					if(trainableExpertises==null)
@@ -491,9 +535,11 @@ public class MOBTeacher extends CombatAbilities
 					monster.recoverCharStats();
 				}
 
-				final int prof75=(int)Math.round(CMath.mul(CMLib.ableMapper().getMaxProficiency(student,true,myAbility.ID()),0.75));
-				myAbility.setProficiency(prof75/2);
-				CMLib.expertises().postTeach(monster,student,myAbility);
+				teachA = (Ability)teachA.copyOf();
+				final double max75 =CMath.div(CMProps.getIntVar(CMProps.Int.PRACMAXPCT), 100.0);
+				final int prof75=(int)Math.round(CMath.mul(CMLib.ableMapper().getMaxProficiency(student,true,teachA.ID()),max75));
+				teachA.setProficiency(prof75/2);
+				CMLib.expertises().postTeach(monster,student,teachA);
 				monster.baseCharStats().setStat(CharStats.STAT_INTELLIGENCE,19);
 				monster.baseCharStats().setStat(CharStats.STAT_WISDOM,19);
 				monster.recoverCharStats();

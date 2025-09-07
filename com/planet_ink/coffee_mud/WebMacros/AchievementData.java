@@ -10,6 +10,7 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.Achievement;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.AchievementFlag;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.Award;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.AwardType;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.Event;
@@ -24,7 +25,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -72,7 +73,7 @@ public class AchievementData extends StdWebMacro
 	@Override
 	public String runMacro(final HTTPRequest httpReq, final String parm, final HTTPResponse httpResp)
 	{
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return CMProps.getVar(CMProps.Str.MUDSTATUS);
 		final java.util.Map<String,String> parms=parseParms(parm);
 		final String last=httpReq.getUrlParameter("ACHIEVEMENT");
@@ -98,10 +99,11 @@ public class AchievementData extends StdWebMacro
 
 			String row = "";
 
-			final String newTattoo=httpReq.getUrlParameter("TATTOO");
+			String newTattoo=httpReq.getUrlParameter("TATTOO");
 			if(newTattoo==null)
 				return "[missing TATTOO error]";
-			row=newTattoo.toUpperCase().trim()+"=";
+			row=newTattoo.trim()+"=";
+			newTattoo=newTattoo.toUpperCase();
 			if((last!=null)&&((last.length()==0)&&(CMLib.achievements().getAchievement(newTattoo)!=null)))
 			{
 				return "[new achievement tattoo already exists!]";
@@ -126,9 +128,28 @@ public class AchievementData extends StdWebMacro
 			if((newRewards != null)&&(newRewards.length()>0))
 				row+="REWARDS=\""+CMStrings.escape(newRewards)+"\" ";
 
+			final String newDuration=httpReq.getUrlParameter("DURATION");
+			if((newDuration != null)&&(newDuration.length()>0)&&(CMath.s_int(newDuration)>0))
+				row+="DURATION="+CMath.s_int(newDuration)+" ";
+
 			final String newVisiMask=httpReq.getUrlParameter("VISIBLEMASK");
 			if((newVisiMask != null)&&(newVisiMask.length()>0))
 				row+="VISIBLEMASK=\""+CMStrings.escape(newVisiMask)+"\" ";
+
+			final String newPlayMask=httpReq.getUrlParameter("PLAYERMASK");
+			if((newPlayMask != null)&&(newPlayMask.length()>0))
+				row+="PLAYERMASK=\""+CMStrings.escape(newPlayMask)+"\" ";
+
+			if(httpReq.isUrlParameter("FLAGS"))
+			{
+				String id="";
+				int num=0;
+				final List<String> V=new ArrayList<String>();
+				for(;httpReq.isUrlParameter("FLAGS"+id);id=""+(++num))
+					V.add(httpReq.getUrlParameter("FLAGS"+id));
+				if(V.size()>0)
+					row += "FLAGS=\""+CMParms.combine(V)+"\" ";
+			}
 
 			for(final String s : E.getParameters())
 			{
@@ -150,10 +171,20 @@ public class AchievementData extends StdWebMacro
 			{
 				if((last!=null)&&(CMLib.achievements().getAchievement(last)!=null))
 				{
-					final String err=deleteAchievement(last);
-					if((err!=null)&&(err.length()>0))
+					if(last.equalsIgnoreCase(newTattoo))
 					{
-						return err;
+						final Achievement A=CMLib.achievements().deleteAchievement(last);
+						if(A!=null)
+							rebuildTrackers(A.getTattoo());
+						// don't save in this case, just let it ride below.
+					}
+					else
+					{
+						final String err=deleteAchievement(last);
+						if((err!=null)&&(err.length()>0))
+						{
+							return err;
+						}
 					}
 				}
 			}
@@ -163,7 +194,7 @@ public class AchievementData extends StdWebMacro
 				return "[error: "+error+"]";
 			if(!parms.containsKey("CHECKONLY"))
 			{
-				CMLib.achievements().resaveAchievements(last);
+				CMLib.achievements().resaveAchievements(newTattoo);
 			}
 		}
 		else
@@ -249,6 +280,45 @@ public class AchievementData extends StdWebMacro
 			if(value!=null)
 				str.append(CMStrings.replaceAll(value,"\"","&quot;")+", ");
 		}
+		if(parms.containsKey("VISIBLEMASK"))
+		{
+			String value=httpReq.getUrlParameter("VISIBLEMASK");
+			if((value==null)&&(A!=null))
+				value=A.getRawParmVal("VISIBLEMASK");
+			if(value!=null)
+				str.append(CMStrings.replaceAll(value,"\"","&quot;")+", ");
+		}
+		if(parms.containsKey("FLAGS"))
+		{
+			final List<String> list=new ArrayList<String>();
+			if(httpReq.isUrlParameter("FLAGS"))
+			{
+				String id="";
+				int num=0;
+				for(;httpReq.isUrlParameter("FLAGS"+id);id=""+(++num))
+					list.add(httpReq.getUrlParameter("FLAGS"+id).toUpperCase().trim());
+			}
+			else
+			if(A!=null)
+			{
+				for(final AchievementFlag f : AchievementFlag.values())
+				{
+					if(A.isFlag(f))
+						list.add(f.name());
+				}
+			}
+			for(final AchievementFlag f : AchievementFlag.values())
+				str.append("<OPTION VALUE=\""+f.name()+"\""+(list.contains(f.name())?" SELECTED":"")+">"+f.name());
+			str.append(", ");
+		}
+		if(parms.containsKey("PLAYERMASK"))
+		{
+			String value=httpReq.getUrlParameter("PLAYERMASK");
+			if((value==null)&&(A!=null))
+				value=A.getRawParmVal("PLAYERMASK");
+			if(value!=null)
+				str.append(CMStrings.replaceAll(value,"\"","&quot;")+", ");
+		}
 		if(parms.containsKey("TITLE"))
 		{
 			String value=httpReq.getUrlParameter("TITLE");
@@ -283,6 +353,14 @@ public class AchievementData extends StdWebMacro
 			String value=httpReq.getUrlParameter("COUNT");
 			if((value==null)&&(A!=null))
 				value=""+A.getTargetCount();
+			if(value!=null)
+				str.append(CMStrings.replaceAll(value,"\"","&quot;")+", ");
+		}
+		if(parms.containsKey("DURATION"))
+		{
+			String value=httpReq.getUrlParameter("DURATION");
+			if((value==null)&&(A!=null))
+				value=""+A.getDuration();
 			if(value!=null)
 				str.append(CMStrings.replaceAll(value,"\"","&quot;")+", ");
 		}

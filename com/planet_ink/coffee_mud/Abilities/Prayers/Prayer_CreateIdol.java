@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Prayers;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMSecurity.DisFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -117,8 +118,12 @@ public class Prayer_CreateIdol extends Prayer
 		super.affectCharState(aff,affectableState);
 		if((affected instanceof Item)&&(((Item)affected).container()==null))
 		{
-			if(aff.maxState().getFatigue()>Long.MIN_VALUE/2)
-				aff.curState().setFatigue(CharState.FATIGUED_MILLIS+10);
+			if((!CMSecurity.isDisabled(DisFlag.FATIGUE))
+			&&(!aff.charStats().getMyRace().infatigueable()))
+			{
+				if(aff.maxState().getFatigue()>Long.MIN_VALUE/2)
+					aff.curState().setFatigue(CharState.FATIGUED_MILLIS+10);
+			}
 			affectableState.setMovement(20);
 		}
 	}
@@ -141,7 +146,7 @@ public class Prayer_CreateIdol extends Prayer
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		if((mob.getWorshipCharID().length()==0)||(CMLib.map().getDeity(mob.getWorshipCharID())==null))
+		if((mob.charStats().getWorshipCharID().length()==0)||(CMLib.map().getDeity(mob.charStats().getWorshipCharID())==null))
 		{
 			mob.tell(L("You must worship a god to use this prayer."));
 			return false;
@@ -185,7 +190,7 @@ public class Prayer_CreateIdol extends Prayer
 				mob.location().send(mob,msg);
 				final Item newItem=CMClass.getBasicItem("GenItem");
 				newItem.setBaseValue(1);
-				final String name=CMLib.english().startWithAorAn(RawMaterial.CODES.NAME(material).toLowerCase()+" idol of "+mob.getWorshipCharID());
+				final String name=CMLib.english().startWithAorAn(RawMaterial.CODES.NAME(material).toLowerCase()+" idol of "+mob.charStats().getWorshipCharID());
 				newItem.setName(name);
 				newItem.setDisplayText(L("@x1 sits here.",name));
 				newItem.basePhyStats().setDisposition(PhyStats.IS_EVIL);

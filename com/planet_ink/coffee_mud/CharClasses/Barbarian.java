@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
@@ -19,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -150,6 +151,7 @@ public class Barbarian extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Skill_TwoWeaponFighting",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Skill_Bash",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Fighter_BearHug",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Fighter_SmokeSignals",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Scalp",false);
@@ -166,32 +168,42 @@ public class Barbarian extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Skill_Attack2",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Fighter_ArmorTweaking",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Fighter_LegHold",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Fighter_Spring",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Apothecary",0,"ANTIDOTES",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Fighter_Headlock",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Skill_Dirt",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Fighter_JungleTactics",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Skill_ResistBuck",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Fighter_GracefulDismount",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Fighter_Intimidate",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Fighter_SwampTactics",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Fighter_MountedTactics",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Fighter_Warcry",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Fighter_DesertTactics",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Fighter_ClinchHold",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Fighter_ImprovedThrowing",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Fighter_MountainTactics",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Fighter_Breakout",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Skill_Climb",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Fighter_WeaponBreak",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Thief_Whiplash",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Fighter_Sweep",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Fighter_Rallycry",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Herding",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Skill_MountedCombat",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Fighter_HillsTactics",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Fighter_Endurance",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Skill_Trample",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Skill_IdentifyPoison",true,CMParms.parseSemicolons("Apothecary",true));
 
@@ -212,6 +224,8 @@ public class Barbarian extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Fighter_Shrug",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),35,"Fighter_MonkeyGrip",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),35,"Fighter_PlanarTactics", 0, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
 	}
 
 	@Override
@@ -293,7 +307,10 @@ public class Barbarian extends StdCharClass
 			}
 		}
 		if(doConan.booleanValue())
-			affectableStats.adjStat(CharStats.STAT_MAX_DEXTERITY_ADJ, 1+(int)Math.round(Math.floor(affectableStats.getClassLevel(this)/15)));
+		{
+			affectableStats.setStat(CharStats.STAT_MAX_DEXTERITY_ADJ,
+					affectableStats.getStat(CharStats.STAT_MAX_DEXTERITY_ADJ)+1+(int)Math.round(Math.floor(affectableStats.getClassLevel(this)/15)));
+		}
 	}
 
 	@Override
@@ -329,7 +346,8 @@ public class Barbarian extends StdCharClass
 			else
 			if((CMath.bset(msg.targetMajor(),CMMsg.MASK_MALICIOUS))
 			&&(msg.tool() instanceof Ability)
-			&&((((Ability)msg.tool()).classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_ENCHANTMENT))
+			&&((((Ability)msg.tool()).classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_ENCHANTMENT)
+			&&(msg.sourceMinor()!=CMMsg.TYP_TEACH))
 			{
 				if(CMLib.dice().rollPercentage()<=myChar.charStats().getClassLevel(this))
 				{
@@ -357,7 +375,11 @@ public class Barbarian extends StdCharClass
 				if((A!=null)
 				&&(!CMLib.ableMapper().getAllQualified(ID(),true,A.ID()))
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
-					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+				{
+					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),
+								   CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),
+								   isBorrowedClass);
+				}
 			}
 		}
 	}
@@ -372,10 +394,20 @@ public class Barbarian extends StdCharClass
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}
 
+
+	@Override
+	public String getOtherLimitsDesc()
+	{
+		final StringBuilder str = new StringBuilder(super.getOtherLimitsDesc());
+		if(CMLib.factions().isAlignmentLoaded(Faction.Align.CHAOTIC))
+			str.append(L("  Requires a Chaotic alignment to become a Barbarian."));
+		return str.toString().trim();
+	}
 
 	@Override
 	public boolean qualifiesForThisClass(final MOB mob, final boolean quiet)

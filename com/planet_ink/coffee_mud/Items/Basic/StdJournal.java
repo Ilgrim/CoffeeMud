@@ -14,6 +14,7 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.JournalsLibrary.CommandJournalFlags;
 import com.planet_ink.coffee_mud.Libraries.interfaces.JournalsLibrary.MsgMkrCallback;
 import com.planet_ink.coffee_mud.Libraries.interfaces.JournalsLibrary.MsgMkrResolution;
+import com.planet_ink.coffee_mud.Libraries.interfaces.PlayerLibrary.ThinPlayer;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -23,7 +24,7 @@ import java.util.*;
 import java.io.IOException;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -46,8 +47,9 @@ public class StdJournal extends StdItem implements Book
 		return "StdJournal";
 	}
 
-	protected MOB lastReadTo=null;
-	protected long[] lastDateRead={-1,0};
+	protected MOB					lastReadTo		= null;
+	protected long[]				lastDateRead	= { -1, 0 };
+	protected Map<String, String>	parmCache		= null;
 
 	public StdJournal()
 	{
@@ -58,6 +60,14 @@ public class StdJournal extends StdItem implements Book
 		material=RawMaterial.RESOURCE_PAPER;
 		basePhyStats().setSensesMask(PhyStats.SENSE_ITEMREADABLE);
 		recoverPhyStats();
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a journal");
 	}
 
 	@Override
@@ -174,7 +184,8 @@ public class StdJournal extends StdItem implements Book
 		return true;
 	}
 
-	protected boolean completeTransfer(final MOB mob, final CMMsg msg, final String journal, final JournalEntry entry2)
+	protected boolean completeTransfer(final MOB mob, final CMMsg msg, final String journal,
+									   final JournalEntry entry2, final boolean transfer)
 	{
 		String realName=null;
 		for(final Enumeration<JournalsLibrary.CommandJournal> e=CMLib.journals().commandJournals();e.hasMoreElements();)
@@ -193,7 +204,8 @@ public class StdJournal extends StdItem implements Book
 			realName=CMLib.database().DBGetRealJournalName(journal.toUpperCase());
 		if(realName!=null)
 		{
-			CMLib.database().DBDeleteJournal(Name(),entry2.key());
+			if(transfer)
+				CMLib.database().DBDeleteJournal(Name(),entry2.key());
 			CMLib.journals().notifyPosting(realName, entry2.from(), entry2.to(), entry2.subj());
 			CMLib.database().DBWriteJournal(realName,
 											  entry2.from(),
@@ -201,7 +213,10 @@ public class StdJournal extends StdItem implements Book
 											  entry2.subj(),
 											  entry2.msg());
 			msg.setValue(-1);
-			mob.tell(L("Message transferred."));
+			if(transfer)
+				mob.tell(L("Message transferred."));
+			else
+				mob.tell(L("Message copied."));
 			return true;
 		}
 		else
@@ -247,12 +262,26 @@ public class StdJournal extends StdItem implements Book
 			else
 			{
 				final MOB toM=CMLib.players().getPlayerAllHosts(realName);
-				if(toM != null)
-					toM.tell(L("A message in @x1 was transferred to you.",Name()));
-				entry2.to(realName);
-				CMLib.database().DBUpdateJournal(Name(), entry2);
-				msg.setValue(-1);
-				mob.tell(L("Message transferred."));
+				if(transfer)
+				{
+					if(toM != null)
+						toM.tell(L("A message in @x1 was transferred to you.",Name()));
+					entry2.to(realName);
+					CMLib.database().DBUpdateJournal(Name(), entry2);
+					msg.setValue(-1);
+					mob.tell(L("Message transferred."));
+				}
+				else
+				{
+					if(toM != null)
+						toM.tell(L("A message in @x1 was copied to you.",Name()));
+					CMLib.database().DBWriteJournal(Name(),
+													entry2.from(),
+													realName,
+													entry2.subj(),
+													entry2.msg());
+					mob.tell(L("Message copied."));
+				}
 				return true;
 			}
 		}
@@ -273,9 +302,21 @@ public class StdJournal extends StdItem implements Book
 	}
 
 	@Override
+	public void setReadableText(final String text)
+	{
+		super.setReadableText(text);
+		synchronized(this)
+		{
+			this.parmCache = null;
+		}
+	}
+
+	@Override
 	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		final MOB mob=msg.source();
+		if(this.parmCache == null)
+			getParm("");
 		if(msg.amITarget(this))
 		{
 			switch(msg.targetMinor())
@@ -382,6 +423,8 @@ public class StdJournal extends StdItem implements Book
 									{
 										prompt+="^<MENU^>T^</MENU^>)ransfer ";
 										cmds+="T";
+										prompt+="^<MENU^>C^</MENU^>)opy ";
+										cmds+="C";
 									}
 									prompt+="or RETURN: ";
 									final String s=mob.session().choose(prompt,cmds+"\n","\n");
@@ -410,20 +453,20 @@ public class StdJournal extends StdItem implements Book
 									else
 									if(s.equalsIgnoreCase("E"))
 									{
-										final MOB M=CMLib.players().getLoadPlayer(from);
-										if((M==null)||(M.playerStats()==null)||(M.playerStats().getEmail().indexOf('@')<0))
+										final ThinPlayer fromTP=CMLib.players().getThinPlayer(from);
+										if((fromTP==null)||(fromTP.email().indexOf('@')<0))
 										{
 											mob.tell(L("Player '@x1' does not exist, or has no email address.",from));
 											repeat=true;
 										}
 										else
-										if(!mob.session().choose(L("Send email to @x1 (Y/n)?",M.Name()),L("YN\n"),"Y").equalsIgnoreCase("N"))
+										if(!mob.session().choose(L("Send email to @x1 (Y/n)?",fromTP.name()),L("YN\n"),"Y").equalsIgnoreCase("N"))
 										{
 											final String replyMsg=mob.session().prompt(L("Enter your email response\n\r: "));
 											if((replyMsg.trim().length()>0) && (read != null))
 											{
 												CMLib.smtp().emailOrJournal(mob.Name(),
-																			 mob.Name(), M.Name(),
+																			 mob.Name(), fromTP.name(),
 																			 "RE: "+read.subj(),
 																			 replyMsg);
 												mob.tell(L("Email queued."));
@@ -453,9 +496,28 @@ public class StdJournal extends StdItem implements Book
 										journal=journal.trim();
 										if(journal.length()>0)
 										{
-											if(completeTransfer(mob,msg,journal,read))
+											if(completeTransfer(mob,msg,journal,read,true))
 												msg.setValue(-1);
 										}
+										else
+											mob.tell(L("Aborted."));
+									}
+									else
+									if(s.equalsIgnoreCase("C"))
+									{
+										String journal;
+										try {
+											journal=mob.session().prompt(L("Enter the journal or user to copy this msg to: "),"",30000);
+										}
+										catch(final IOException e)
+										{
+											mob.tell(L("Timed out."));
+											repeat=true;
+											continue;
+										}
+										journal=journal.trim();
+										if(journal.length()>0)
+											completeTransfer(mob,msg,journal,read,false);
 										else
 											mob.tell(L("Aborted."));
 									}
@@ -494,7 +556,7 @@ public class StdJournal extends StdItem implements Book
 														&&(cmJournalAlias.getFlag(CommandJournalFlags.REPLYSELF).length()>0))
 														{
 															final String journal=cmJournalAlias.getFlag(CommandJournalFlags.REPLYSELF);
-															completeTransfer(mob,msg,journal,read);
+															completeTransfer(mob,msg,journal,read,true);
 															megaRepeat=false;
 														}
 													}
@@ -506,7 +568,7 @@ public class StdJournal extends StdItem implements Book
 														&&(cmJournalAlias.getFlag(CommandJournalFlags.REPLYALL).length()>0))
 														{
 															final String journal=cmJournalAlias.getFlag(CommandJournalFlags.REPLYALL);
-															completeTransfer(mob,msg,journal,read);
+															completeTransfer(mob,msg,journal,read,true);
 															megaRepeat=false;
 														}
 													}
@@ -577,6 +639,10 @@ public class StdJournal extends StdItem implements Book
 					else
 						journal2=CMLib.database().DBReadJournalMsgsByCreateDate(Name(), true, 100000, tos);
 					final JournalEntry entry2=journal2.get(which-1);
+					final int charLimit = this.getMaxCharsPerPage();
+					if((charLimit > 0)
+					&&(messageStr.length()>charLimit))
+						messageStr = messageStr.substring(0, charLimit);
 					entry2.msg(messageStr);
 					CMLib.database().DBUpdateJournal(Name(), entry2);
 				}
@@ -599,7 +665,12 @@ public class StdJournal extends StdItem implements Book
 						{
 							if(res == MsgMkrResolution.SAVEFILE)
 							{
-								entry2.msg(CMParms.combineWith(vbuf,"\n"));
+								String newMsgTxt = CMParms.combineWith(vbuf,"\n");
+								final int charLimit = getMaxCharsPerPage();
+								if((charLimit > 0)
+								&&(newMsgTxt.length()>charLimit))
+									newMsgTxt = newMsgTxt.substring(0, charLimit);
+								entry2.msg(newMsgTxt);
 								CMLib.database().DBUpdateJournal(Name(), entry2);
 							}
 						}
@@ -628,7 +699,7 @@ public class StdJournal extends StdItem implements Book
 					{
 						String to="ALL";
 						String subject;
-						final String message;
+						String message;
 						if(msg.targetMessage().length()>1)
 						{
 							message=msg.targetMessage();
@@ -676,6 +747,10 @@ public class StdJournal extends StdItem implements Book
 							return;
 						}
 						CMLib.journals().notifyPosting(Name(), mob.Name(), to, subject);
+						final int charLimit = getMaxCharsPerPage();
+						if((charLimit > 0)
+						&&(message.length()>charLimit))
+							message = message.substring(0, charLimit);
 						CMLib.database().DBWriteJournal(Name(),mob.Name(),to,subject,message);
 						if((R!=null)&&(msg.targetMessage().length()<=1))
 							R.send(mob, ((CMMsg)msg.copyOf()).modify(CMMsg.MSG_WROTE, L("Journal entry added."), CMMsg.MSG_WROTE, subject+"\n\r"+message, -1, null));
@@ -740,6 +815,16 @@ public class StdJournal extends StdItem implements Book
 			journalEntries=CMLib.database().DBReadJournalMsgsByCreateDate(journal, true, 100000, tos);
 		else
 			journalEntries=CMLib.database().DBReadJournalMsgsByUpdateDate(journal, true, 100000, tos);
+		final int postLimit = this.getMaxPages();
+		if((postLimit > 0)
+		&&(journalEntries.size()>postLimit))
+		{
+			while(journalEntries.size()>postLimit)
+			{
+				final JournalEntry badEntry = journalEntries.remove(0);
+				CMLib.database().DBDeleteJournal(Name(), badEntry.key());
+			}
+		}
 		final StringBuffer buf=new StringBuffer("");
 		final boolean shortFormat=readableText().toUpperCase().indexOf("SHORTLIST")>=0;
 		if((which<0)||(journalEntries==null)||(which>=journalEntries.size()))
@@ -778,15 +863,20 @@ public class StdJournal extends StdItem implements Book
 			for(int j=journalEntries.size()-1;j>=0;j--)
 			{
 				final JournalEntry entry=journalEntries.get(j);
-				final String from=entry.from();
-				final String to=entry.to();
+				final String from=""+entry.from();
+				final String to=""+entry.to();
 				// message is 5, but dont matter.
 				final long compdate=entry.update();
-				boolean mayRead=(to.equals("ALL")
-								||to.equalsIgnoreCase(reader.Name())
-								||from.equalsIgnoreCase(reader.Name()));
-				if((to.toUpperCase().trim().startsWith("MASK="))&&(CMLib.masking().maskCheck(to.trim().substring(5),reader,true)))
-					mayRead=true;
+				boolean mayRead = to.equals("ALL");
+				if(reader != null)
+				{
+					mayRead = mayRead
+								|| to.equalsIgnoreCase(reader.Name())
+								|| from.equalsIgnoreCase(reader.Name());
+					if((to.toUpperCase().trim().startsWith("MASK="))
+					&&(CMLib.masking().maskCheck(to.trim().substring(5),reader,true)))
+						mayRead=true;
+				}
 				if(mayRead)
 				{
 					if((compdate<=lastTimeDate)&&(newOnly))
@@ -847,13 +937,17 @@ public class StdJournal extends StdItem implements Book
 			String message=entry.msg();
 
 			fakeEntry = entry.copyOf();
-
-			boolean allMine=(to.equalsIgnoreCase(reader.Name())
-							||from.equalsIgnoreCase(reader.Name()));
-			if((to.toUpperCase().trim().startsWith("MASK="))&&(CMLib.masking().maskCheck(to.trim().substring(5),reader,true)))
+			boolean allMine=false;
+			if(reader != null)
 			{
-				allMine=true;
-				to=CMLib.masking().maskDesc(to.trim().substring(5),true);
+				allMine=(to.equalsIgnoreCase(reader.Name())
+							||from.equalsIgnoreCase(reader.Name()));
+				if((to.toUpperCase().trim().startsWith("MASK="))
+				&&(CMLib.masking().maskCheck(to.trim().substring(5),reader,true)))
+				{
+					allMine=true;
+					to=CMLib.masking().maskDesc(to.trim().substring(5),true);
+				}
 			}
 			if(allMine)
 				buf.append("*");
@@ -882,29 +976,47 @@ public class StdJournal extends StdItem implements Book
 		return fakeEntry;
 	}
 
-	private static final String[] JOURNAL_PARMS_LIST=new String[]{"READ","WRITE","REPLY","ADMIN","PRIVATE","MAILBOX","SORTBY","FILTER"};
+	protected static final String[] JOURNAL_PARMS_LIST=new String[]{
+		"READ", "WRITE", "REPLY",
+		"ADMIN", "PRIVATE", "MAILBOX",
+		"SORTBY", "FILTER", "EXPIRE",
+		"LIMIT", "MAXCHARS"
+	};
 
 
-	private String getParm(final String parmName)
+	protected String getParm(final String parmName)
 	{
 		if(readableText().length()==0)
 			return "";
-		final Map<String,String> h;
-		h=CMParms.parseEQParms(readableText().toUpperCase(), JOURNAL_PARMS_LIST);
-		if((parmName.equals("FILTER"))&&(h.containsKey("FILTER")))
+		Map<String,String> useH;
+		useH = this.parmCache;
+		if(useH == null)
 		{
-			final Map<String,String> h2=CMParms.parseEQParms(readableText(), JOURNAL_PARMS_LIST);
-			for(final String key : h2.keySet())
+			synchronized(this)
 			{
-				if(key.equalsIgnoreCase("FILTER"))
+				useH = this.parmCache;
+				if(useH == null)
 				{
-					h.put("FILTER", h2.get(key));
+					useH=CMParms.parseEQParms(readableText().toUpperCase(), JOURNAL_PARMS_LIST);
+					if(useH.containsKey("FILTER"))
+					{
+						// looks the same as above, but its not, because case sensitivity.
+						final Map<String,String> h2=CMParms.parseEQParms(readableText(), JOURNAL_PARMS_LIST);
+						for(final String key : h2.keySet())
+						{
+							if(key.equalsIgnoreCase("FILTER"))
+								useH.put("FILTER", h2.get(key));
+						}
+					}
+					this.parmCache = useH;
 				}
 			}
+			if(useH.containsKey("EXPIRE"))
+				CMLib.journals().registerItemJournal(this);
 		}
-		String req=h.get(parmName.toUpperCase().trim());
+		final String req=useH.get(parmName.toUpperCase().trim());
 		if(req==null)
-			req="";
+			return "";
 		return req;
 	}
 
@@ -947,13 +1059,13 @@ public class StdJournal extends StdItem implements Book
 	@Override
 	public int getMaxPages()
 	{
-		return 0;
+		return CMath.s_int(getParm("LIMIT"));
 	}
 
 	@Override
 	public int getMaxCharsPerPage()
 	{
-		return 0;
+		return CMath.s_int(getParm("MAXCHARS"));
 	}
 
 	@Override

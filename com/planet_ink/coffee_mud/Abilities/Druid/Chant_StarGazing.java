@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -111,6 +111,7 @@ public class Chant_StarGazing extends Chant
 
 		if((msg.amISource(mob))
 		&&(msg.tool()!=this)
+		&&(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_ALWAYS)) // prevents endless loops
 		&&(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_CHANNEL))
 		&&((CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOVE))
 				||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_HANDS))
@@ -149,18 +150,18 @@ public class Chant_StarGazing extends Chant
 			if(CMLib.factions().getAlignPurity(myAlignment,Faction.Align.MODERATE)<99)
 			{
 				if(CMLib.factions().getAlignPurity(myAlignment,Faction.Align.EVIL)<CMLib.factions().getAlignPurity(myAlignment,Faction.Align.GOOD))
-					CMLib.factions().postFactionChange(mob,this, CMLib.factions().getAlignmentID(), ratePct);
+					CMLib.factions().postSkillFactionChange(mob,this, CMLib.factions().getAlignmentID(), ratePct);
 				else
-					CMLib.factions().postFactionChange(mob,this, CMLib.factions().getAlignmentID(), -ratePct);
+					CMLib.factions().postSkillFactionChange(mob,this, CMLib.factions().getAlignmentID(), -ratePct);
 				if(mob.fetchFaction(CMLib.factions().getInclinationID())!=Integer.MAX_VALUE)
 				{
 					final int myInclination=mob.fetchFaction(CMLib.factions().getInclinationID());
 					final int inclinationTotal=CMLib.factions().getTotal(CMLib.factions().getInclinationID());
 					final int inclinationRatePct=(int)Math.round(CMath.mul(inclinationTotal,.01));
 					if(CMLib.factions().getInclinationPurity(myInclination,Faction.Align.CHAOTIC)<CMLib.factions().getInclinationPurity(myInclination,Faction.Align.LAWFUL))
-						CMLib.factions().postFactionChange(mob,this, CMLib.factions().getInclinationID(), inclinationRatePct);
+						CMLib.factions().postSkillFactionChange(mob,this, CMLib.factions().getInclinationID(), inclinationRatePct);
 					else
-						CMLib.factions().postFactionChange(mob,this, CMLib.factions().getInclinationID(), -inclinationRatePct);
+						CMLib.factions().postSkillFactionChange(mob,this, CMLib.factions().getInclinationID(), -inclinationRatePct);
 				}
 				switch(CMLib.dice().roll(1,10,0))
 				{
@@ -234,7 +235,7 @@ public class Chant_StarGazing extends Chant
 		if(success)
 		{
 			invoker=mob;
-			final CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),L("^S<S-NAME> begin(s) to gaze at the stars...^?"));
+			final CMMsg msg=CMClass.getMsg(mob,null,this,somaticCastCode(mob,null,auto),L("^S<S-NAME> begin(s) to gaze at the stars...^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

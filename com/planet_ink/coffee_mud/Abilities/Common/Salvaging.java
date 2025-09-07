@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.CostDef;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,7 +58,7 @@ public class Salvaging extends CommonSkill
 	}
 
 	@Override
-	protected ExpertiseLibrary.SkillCostDefinition getRawTrainingCost()
+	protected CostDef getRawTrainingCost()
 	{
 		return CMProps.getNormalSkillGainCost(ID());
 	}
@@ -96,23 +97,53 @@ public class Salvaging extends CommonSkill
 		return super.tick(ticking,tickID);
 	}
 
-	protected void finishSalvage(final MOB mob, final Item found, final int amount)
+	protected void finishSalvage(final MOB mob, final Item found, int amount)
 	{
 		final CMMsg msg=CMClass.getMsg(mob,found,this,getCompletedActivityMessageType(),null);
 		msg.setValue(amount);
 		if(mob.location().okMessage(mob, msg))
 		{
-			String s="s";
-			if(msg.value()==1)
-				s="";
-			msg.modify(L("<S-NAME> manage(s) to salvage @x1 pound@x2 of @x3.",""+msg.value(),s,RawMaterial.CODES.NAME(found.material()).toLowerCase()));
+			final String foundShortName=RawMaterial.CODES.NAME(found.material()).toLowerCase();
+			if(msg.value()<2)
+				msg.modify(L("<S-NAME> manage(s) to salvage @x1.",found.name()));
+			else
+				msg.modify(L("<S-NAME> manage(s) to salvage @x1 pounds of @x2.",""+msg.value(),foundShortName));
 			mob.location().send(mob, msg);
-			for(int i=0;i<msg.value();i++)
+			amount=msg.value();
+			int extra=0;
+			int weight=1;
+			if((amount>=20)
+			&&(found instanceof RawMaterial))
+			{
+				weight=amount/10;
+				extra=amount-(weight*10);
+				amount=10;
+			}
+			for(int i=0;i<amount;i++)
 			{
 				final Item newFound=(Item)found.copyOf();
+				if(newFound.basePhyStats().weight()<weight)
+				{
+					newFound.basePhyStats().setWeight(weight);
+					newFound.phyStats().setWeight(weight);
+					CMLib.materials().adjustResourceName(newFound);
+				}
 				if(!dropAWinner(mob,newFound))
 					break;
 			}
+			for(int i=0;i<extra;i++)
+			{
+				final Item newFound=(Item)found.copyOf();
+				if(newFound.basePhyStats().weight()<extra)
+				{
+					newFound.basePhyStats().setWeight(extra);
+					newFound.phyStats().setWeight(extra);
+					CMLib.materials().adjustResourceName(newFound);
+				}
+				if(!dropAWinner(mob,newFound))
+					break;
+			}
+
 		}
 	}
 
@@ -127,7 +158,7 @@ public class Salvaging extends CommonSkill
 				if((found!=null)&&(!aborted)&&(mob.location()!=null))
 				{
 					if(messedUp)
-						commonTell(mob,L("You've messed up salvaging @x1!",oldItemName));
+						commonTelL(mob,"You've messed up salvaging @x1!",oldItemName);
 					else
 					{
 						final Item baseShip=found;
@@ -163,7 +194,7 @@ public class Salvaging extends CommonSkill
 		final Item I=mob.location().findItem(null,str);
 		if((I==null)||(!CMLib.flags().canBeSeenBy(I,mob)))
 		{
-			commonTell(mob,L("You don't see anything called '@x1' here.",str));
+			commonTelL(mob,"You don't see anything called '@x1' here.",str);
 			return false;
 		}
 		boolean okMaterial=true;
@@ -183,38 +214,39 @@ public class Salvaging extends CommonSkill
 		}
 		if(!okMaterial)
 		{
-			commonTell(mob,L("You don't know how to salvage @x1.",I.name(mob)));
+			commonTelL(mob,"You don't know how to salvage @x1.",I.name(mob));
 			return false;
 		}
 
 		if(I instanceof RawMaterial)
 		{
-			commonTell(mob,L("@x1 already looks like salvage.",I.name(mob)));
+			commonTelL(mob,"@x1 already looks like salvage.",I.name(mob));
 			return false;
 		}
 
 		if(CMLib.flags().isEnchanted(I))
 		{
-			commonTell(mob,L("@x1 is enchanted, and can't be salvaged.",I.name(mob)));
+			commonTelL(mob,"@x1 is enchanted, and can't be salvaged.",I.name(mob));
 			return false;
 		}
 
 		final LandTitle t=CMLib.law().getLandTitle(mob.location());
 		if((t!=null)&&(!CMLib.law().doesHavePriviledgesHere(mob,mob.location())))
 		{
-			mob.tell(L("You are not allowed to salvage anything here."));
+			commonTelL(mob,"You are not allowed to salvage anything here.");
 			return false;
 		}
 
-		if((!(I instanceof SailingShip))
-		||((((SailingShip)I).subjectToWearAndTear())&&(((SailingShip)I).usesRemaining()>0))
-		||(((SailingShip)I).getShipArea()==null))
+		if((!(I instanceof NavigableItem))
+		||(((NavigableItem)I).navBasis() != Rideable.Basis.WATER_BASED)
+		||((((NavigableItem)I).subjectToWearAndTear())&&(((NavigableItem)I).usesRemaining()>0))
+		||(((NavigableItem)I).getArea()==null))
 		{
-			mob.tell(L("You can only salvage large sunk sailing ships, which @x1 is not.",I.Name()));
+			commonTelL(mob,"You can only salvage large sunk sailing ships, which @x1 is not.",I.Name());
 			return false;
 		}
-		final SailingShip ship=(SailingShip)I;
-		final Area shipArea=ship.getShipArea();
+		final NavigableItem ship=(NavigableItem)I;
+		final Area shipArea=ship.getArea();
 
 		final int totalWeight=I.phyStats().weight();
 		final List<Item> itemsToMove=new ArrayList<Item>();
@@ -225,7 +257,7 @@ public class Salvaging extends CommonSkill
 			{
 				if(R.numInhabitants()>0)
 				{
-					mob.tell(L("There are still people aboard!"));
+					commonTelL(mob,"There are still people aboard!");
 					return false;
 				}
 				for(final Enumeration<Item> i=R.items();i.hasMoreElements();)
@@ -240,7 +272,14 @@ public class Salvaging extends CommonSkill
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 		int duration=getDuration(45,mob,1,10);
-		amount=I.phyStats().weight();
+		double pct = .1 +
+				CMath.mul(0.05, super.getXLEVELLevel(mob)) +
+				CMath.mul(CMath.div(adjustedLevel(mob,asLevel),15.0),0.05);
+		if(pct > 1)
+			pct = 1;
+		amount=(int)Math.round(CMath.mul(pct, I.phyStats().weight()));
+		if(amount < 1)
+			amount = 1;
 		messedUp=!proficiencyCheck(mob,0,auto);
 		found=CMLib.materials().makeItemResource(I.material());
 		playSound="ripping.wav";

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -143,12 +143,20 @@ public class Hobbit extends StdRace
 	public void affectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
 		super.affectCharStats(affectedMOB, affectableStats);
-		affectableStats.setStat(CharStats.STAT_DEXTERITY,affectableStats.getStat(CharStats.STAT_DEXTERITY)+1);
-		affectableStats.setStat(CharStats.STAT_MAX_DEXTERITY_ADJ,affectableStats.getStat(CharStats.STAT_MAX_DEXTERITY_ADJ)+1);
-		affectableStats.setStat(CharStats.STAT_STRENGTH,affectableStats.getStat(CharStats.STAT_STRENGTH)-1);
-		affectableStats.setStat(CharStats.STAT_MAX_STRENGTH_ADJ,affectableStats.getStat(CharStats.STAT_MAX_STRENGTH_ADJ)-1);
+		affectableStats.adjStat(CharStats.STAT_DEXTERITY,1);
+		affectableStats.adjStat(CharStats.STAT_STRENGTH,-1);
 		affectableStats.setStat(CharStats.STAT_SAVE_PARALYSIS,affectableStats.getStat(CharStats.STAT_SAVE_PARALYSIS)+10);
 		affectableStats.setStat(CharStats.STAT_SAVE_DETECTION,affectableStats.getStat(CharStats.STAT_SAVE_DETECTION)+10);
+	}
+
+	@Override
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
+	{
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.adjStat(CharStats.STAT_DEXTERITY,-1);
+		affectableStats.adjStat(CharStats.STAT_STRENGTH,+1);
+		affectableStats.setStat(CharStats.STAT_SAVE_PARALYSIS,affectableStats.getStat(CharStats.STAT_SAVE_PARALYSIS)-10);
+		affectableStats.setStat(CharStats.STAT_SAVE_DETECTION,affectableStats.getStat(CharStats.STAT_SAVE_DETECTION)-10);
 	}
 
 	@Override
@@ -174,14 +182,17 @@ public class Hobbit extends StdRace
 			outfitChoices.add(p1);
 			final Armor s3=CMClass.getArmor("GenBelt");
 			outfitChoices.add(s3);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public Weapon[] getNaturalWeapons()
 	{
-		return funHumanoidWeapon();
+		if(naturalWeaponChoices.length==0)
+			naturalWeaponChoices = getHumanoidWeapons();
+		return super.getNaturalWeapons();
 	}
 
 	@Override

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -68,6 +68,8 @@ public class Disembark extends StdCommand
 		final CMMsg msg=CMClass.getMsg(mob,mob.riding(),null,CMMsg.MSG_DISMOUNT,L("<S-NAME> @x1 <T-NAMESELF>.",mob.riding().dismountString(mob)));
 		if(mob.location().okMessage(mob,msg))
 			mob.location().send(mob,msg);
+		else
+			CMLib.commands().postCommandRejection(msg.source(),msg.target(), msg.tool(),origCmds);
 		return false;
 	}
 

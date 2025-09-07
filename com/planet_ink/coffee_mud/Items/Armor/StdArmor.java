@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -594,6 +594,8 @@ public class StdArmor extends StdContainer implements Armor
 				final MOB owner=(MOB)owner();
 				setUsesRemaining(100);
 				msg.addTrailerMsg(CMClass.getMsg(((MOB)owner()),null,null,CMMsg.MSG_OK_VISUAL,L("^I@x1 is destroyed!!^?",name()),CMMsg.NO_EFFECT,null,CMMsg.MSG_OK_VISUAL,L("^I@x1 being worn by <S-NAME> is destroyed!^?",name())));
+				if(this instanceof Container)
+					((Container)this).emptyPlease(false);
 				unWear();
 				destroy();
 				owner.recoverPhyStats();
@@ -606,9 +608,17 @@ public class StdArmor extends StdContainer implements Armor
 	}
 
 	@Override
+	protected boolean abilityImbuesMagic()
+	{
+		return true;
+	}
+
+	@Override
 	public void recoverPhyStats()
 	{
 		super.recoverPhyStats();
+		if((abilityImbuesMagic()&&(phyStats().ability()>0))||(this instanceof MiscMagic))
+			phyStats().setDisposition(phyStats().disposition()|PhyStats.IS_BONUS);
 		if((basePhyStats().height()==0)
 		&&(!amWearingAt(Wearable.IN_INVENTORY))
 		&&(owner() instanceof MOB))
@@ -625,13 +635,13 @@ public class StdArmor extends StdContainer implements Armor
 		&&((!amWearingAt(Wearable.WORN_HELD))||(this instanceof Shield)))
 		{
 			affectableStats.setArmor(affectableStats.armor()-phyStats().armor());
-			if(phyStats().armor()!=0)
+			if((phyStats().ability()>0)&&((layerAttributes&LAYERMASK_MULTIWEAR)==0))
 			{
 				final int ability=super.wornLogicalAnd ? (phyStats().ability()*CMath.numberOfSetBits(super.myWornCode)) : phyStats().ability();
 				if(amWearingAt(Wearable.WORN_TORSO))
 					affectableStats.setArmor(affectableStats.armor()-(ability*5));
 				else
-				if((amWearingAt(Wearable.WORN_HEAD))||(this.amWearingAt(Wearable.WORN_HELD)))
+				if((amWearingAt(Wearable.WORN_HEAD))||(amWearingAt(Wearable.WORN_HELD)))
 					affectableStats.setArmor(affectableStats.armor()-(ability*2));
 				else
 				if(!amWearingAt(Wearable.WORN_FLOATING_NEARBY))
@@ -708,6 +718,27 @@ public class StdArmor extends StdContainer implements Armor
 		final int timsLevel=CMLib.itemBuilder().timsLevelCalculator(this);
 		if(timsLevel != phyStats.level())
 			id += " (Power level: "+timsLevel+")";
-		return id+"\n\r"+L("Base Protection: @x1",""+phyStats().armor());
+		final PhyStats stats = (PhyStats)CMClass.getCommon("DefaultPhyStats");
+		stats.setAllValues(0);
+		if(amBeingWornProperly())
+			affectPhyStats(owner(),stats);
+		else
+		{
+			synchronized(this)
+			{
+				final long wornCode=rawWornCode();
+				try
+				{
+					setRawWornCode(rawProperLocationBitmap());
+					affectPhyStats(owner(),stats);
+				}
+				finally
+				{
+					setRawWornCode(wornCode);
+				}
+			}
+		}
+		id +="\n\r"+L("Base Protection: @x1",""+(phyStats().armor()-stats.armor()));
+		return id;
 	}
 }

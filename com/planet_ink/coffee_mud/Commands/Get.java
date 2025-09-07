@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -171,7 +171,9 @@ public class Get extends StdCommand
 				&&(((RawMaterial)getThis).container()==container))
 				{
 					final int weight=((RawMaterial)getThis).phyStats().weight();
-					if((weight>1) &&(weight>=maxToGet) &&(CMStrings.containsWordIgnoreCase(((RawMaterial)getThis).name(), "bundle")))
+					if((weight>1)
+					&&(weight>=maxToGet)
+					&&(CMStrings.containsWordIgnoreCase(((RawMaterial)getThis).name(), "bundle")))
 					{
 						if(weight>maxToGet)
 							getThis=CMLib.materials().splitBundle((RawMaterial)getThis, maxToGet,container);

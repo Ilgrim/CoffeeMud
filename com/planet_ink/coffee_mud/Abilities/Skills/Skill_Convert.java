@@ -1,7 +1,9 @@
 package com.planet_ink.coffee_mud.Abilities.Skills;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMProps.Str;
 import com.planet_ink.coffee_mud.core.collections.*;
+import com.planet_ink.coffee_mud.Abilities.StdAbility;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -20,7 +22,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -82,6 +84,8 @@ public class Skill_Convert extends StdSkill
 		return Ability.ACODE_SKILL | Ability.DOMAIN_EVANGELISM;
 	}
 
+	public static final long DOUBT_TIME=TimeManager.MILI_HOUR;
+
 	protected static PairVector<MOB, Long>	convertStack	= new PairVector<MOB, Long>();
 
 	@Override
@@ -96,8 +100,6 @@ public class Skill_Convert extends StdSkill
 		return "";
 	}
 
-	protected String	priorFaith	= "";
-
 	@Override
 	public void unInvoke()
 	{
@@ -105,23 +107,35 @@ public class Skill_Convert extends StdSkill
 		if(!(affected instanceof MOB))
 			return;
 		final MOB mob=(MOB)affected;
-
-		super.unInvoke();
-
 		if(canBeUninvoked())
 		{
 			if(text().length()>0)
+			{
 				mob.tell(L("You start to have doubts about @x1.",text()));
-			mob.setWorshipCharID(priorFaith);
+				if(mob.isMonster())
+				{
+					mob.baseCharStats().setWorshipCharID("");
+					mob.charStats().setWorshipCharID("");
+					final Room startRoom=mob.getStartRoom();
+					final Area startArea=(startRoom==null)?null:startRoom.getArea();
+					if(startArea!=null)
+						Resources.removeResource("PIETY_"+startArea.Name().toUpperCase());
+				}
+			}
 		}
+
+		super.unInvoke();
 	}
 
+
 	@Override
-	public boolean tick(final Tickable ticking, final int tickID)
+	public void affectCharStats(final MOB affected, final CharStats affectableStats)
 	{
-		if((text().length()>0)&&(affected instanceof MOB)&&(!text().equals(((MOB)affected).getWorshipCharID())))
-			((MOB)affected).setWorshipCharID(text());
-		return super.tick(ticking,tickID);
+		super.affectCharStats(affected,affectableStats);
+		if((text().length()>0)
+		&&(affected instanceof MOB)
+		&&(!text().equals(affectableStats.getWorshipCharID())))
+			affectableStats.setWorshipCharID(text());
 	}
 
 	@Override
@@ -137,10 +151,12 @@ public class Skill_Convert extends StdSkill
 		}
 
 		MOB target=mob;
-		Deity D=CMLib.map().getDeity(CMParms.combine(commands,0));
-		if(D==null)
+		Deity deityToConvertToM=CMLib.map().getDeity(CMParms.combine(commands,0));
+		if(deityToConvertToM==null)
 		{
-			D=mob.getMyDeity();
+			deityToConvertToM=mob.charStats().getMyDeity();
+			if(deityToConvertToM==null)
+				deityToConvertToM=mob.baseCharStats().getMyDeity();
 			target=getTarget(mob,commands,givenTarget,false,true);
 			if(target==null)
 			{
@@ -149,7 +165,7 @@ public class Skill_Convert extends StdSkill
 					CMLib.commands().postSay(mob,target,L("I've never heard of '@x1'.",CMParms.combine(commands,0)),false,false);
 				return false;
 			}
-			if(D==null)
+			if(deityToConvertToM==null)
 			{
 				mob.tell(L("A faithless one cannot convert @x1.",target.name(mob)));
 				if(mob.isMonster())
@@ -157,24 +173,24 @@ public class Skill_Convert extends StdSkill
 				return false;
 			}
 		}
-		if((CMLib.flags().isAnimalIntelligence(target))
-		||((target.isMonster())&&(target.phyStats().level()>mob.phyStats().level())))
+		if(CMLib.flags().isAnimalIntelligence(target))
 		{
 			mob.tell(L("You can't convert @x1.",target.name(mob)));
 			if(mob.isMonster())
 				CMLib.commands().postSay(mob,target,L("I can not convert you."),false,false);
 			return false;
 		}
-		if(target.getMyDeity()==D)
+		if((target.baseCharStats().getMyDeity()==deityToConvertToM)
+		||(target.charStats().getMyDeity()==deityToConvertToM))
 		{
-			mob.tell(L("@x1 already worships @x2.",target.name(mob),D.name()));
+			mob.tell(L("@x1 already worships @x2.",target.name(mob),deityToConvertToM.name()));
 			if(mob.isMonster())
-				CMLib.commands().postSay(mob,target,L("You already worship @x1.",D.Name()),false,false);
+				CMLib.commands().postSay(mob,target,L("You already worship @x1.",deityToConvertToM.Name()),false,false);
 			return false;
 		}
 		if(!auto)
 		{
-			convertStack.clear();
+			//convertStack.clear(); // W the actual F?! Oh, I bet this was for debugging or something.
 			if(convertStack.containsFirst(target))
 			{
 				final Long L=convertStack.getSecond(convertStack.indexOfFirst(target));
@@ -190,19 +206,73 @@ public class Skill_Convert extends StdSkill
 			}
 		}
 
-		final boolean success=proficiencyCheck(mob,0,auto);
-		boolean targetMadeSave=(givenTarget == target) || CMLib.dice().roll(1,100,0)>(target.charStats().getSave(CharStats.STAT_FAITH));
+		int levelDiff=0;
+		if((target.isMonster())&&(target.phyStats().level()>mob.phyStats().level()))
+		{
+			levelDiff=target.phyStats().level()-(mob.phyStats().level()+(2*getXLEVELLevel(mob)));
+			if(levelDiff<0)
+				levelDiff=0;
+		}
+
+		final boolean success=proficiencyCheck(mob,-(levelDiff*15),auto);
+		// when faith < 100, they have so much faith they can't be converted?
+		// when faith >= 100, the have so much doubt they CAN be converted.
+		boolean targetMadeSave=(givenTarget == target) || CMLib.dice().roll(1,100,0)>(target.charStats().getSave(CharStats.STAT_SAVE_DOUBT));
 		//if(CMSecurity.isASysOp(mob))
 		//	targetMadeSave=false;
 		if((!target.isMonster())
 		&&(success)
-		&&(targetMadeSave)
-		&&(target.getMyDeity()!=null))
+		&&(targetMadeSave))
 		{
-			mob.tell(L("@x1 is worshipping @x2.  @x3 must REBUKE @x4 first.",target.name(mob),target.getMyDeity().name(),target.charStats().HeShe(),target.getMyDeity().charStats().himher()));
-			if(mob.isMonster())
-				CMLib.commands().postSay(mob,target,L("You already worship @x1.",target.getMyDeity().Name()),false,false);
-			return false;
+			if((target.charStats().deityName().length()>0)
+			||(target.baseCharStats().getMyDeity()!=null))
+			{
+				final String requiredMask = CMParms.getParmStr(CMProps.getVar(Str.DEITYPOLICY), "REQUIREDMASK", "").trim();
+				if((requiredMask.length()==0)
+				||(CMLib.masking().maskCheck(requiredMask, mob, true)))
+				{
+					final boolean canConvertDeity=!CMParms.getParmBool(CMProps.getVar(Str.DEITYPOLICY), "NOCONVERT", false);
+					if(!canConvertDeity)
+					{
+						mob.tell(L("You are not able to convert @x1.",target.name(mob)));
+						return false;
+					}
+					final boolean canRebukeDeity=!CMParms.getParmBool(CMProps.getVar(Str.DEITYPOLICY), "NOREBUKE", false);
+					if((!canRebukeDeity) // we must auto-rebuke
+					&&(target.baseCharStats().getMyDeity()!=null))
+					{
+						CMMsg msg=null;
+						final Deity deity=target.baseCharStats().getMyDeity();
+						msg=CMClass.getMsg(target,deity,null,CMMsg.MSG_REBUKE,L("<S-NAME> rebuke(s) @x1.",deity.Name()));
+						if(target.location().okMessage(mob,msg))
+							target.location().send(mob,msg);
+					}
+				}
+			}
+			if(target.charStats().deityName().length()>0)
+			{
+				mob.tell(L("@x1 is worshipping @x2.  @x3 must REBUKE @x4 first.",
+						target.name(mob),
+						target.charStats().getWorshipCharID(),
+						target.charStats().HeShe(),
+						target.baseCharStats().getMyDeity().charStats().himher()));
+				if(mob.isMonster())
+					CMLib.commands().postSay(mob,target,L("You already worship @x1.",target.charStats().getWorshipCharID()),false,false);
+				return false;
+			}
+			else
+			if(target.baseCharStats().getMyDeity()!=null)
+			{
+				mob.tell(L("@x1 is worshipping @x2.  @x3 must REBUKE @x4 first.",
+						target.name(mob),
+						L(" a deity"),
+						target.charStats().HeShe(),
+						L("him")));
+				if(mob.isMonster())
+					CMLib.commands().postSay(mob,target,L("You already worship a deity."),false,false);
+				return false;
+			}
+
 		}
 		if((success)
 		&&(targetMadeSave)
@@ -216,16 +286,15 @@ public class Skill_Convert extends StdSkill
 				try
 				{
 					final Session tsess = target.session();
-					final Deity tD=D;
+					final Deity tD=deityToConvertToM;
 					final MOB t=target;
 					final Ability A=this;
 					tsess.prompt(new InputCallback(InputCallback.Type.CONFIRM, "N", 30000L)
 					{
-
-						final Session session = tsess;
-						final Deity D=tD;
-						final MOB target=t;
-						final Ability me=A;
+						final Session	session	= tsess;
+						final Deity		D		= tD;
+						final MOB		target	= t;
+						final Ability	me		= A;
 
 						@Override
 						public void showPrompt()
@@ -264,10 +333,11 @@ public class Skill_Convert extends StdSkill
 		if((success)
 		&&((!targetMadeSave)||(target==mob)))
 		{
-			Room dRoom=D.location();
+			Room dRoom=deityToConvertToM.location();
 			if(dRoom==mob.location())
 				dRoom=null;
-			if(target.getMyDeity()!=null)
+			final Deity rebukeDeityM=target.baseCharStats().getMyDeity() != null ? target.baseCharStats().getMyDeity() : target.charStats().getMyDeity();
+			if(rebukeDeityM!=null)
 			{
 				final Ability A=target.fetchEffect(ID());
 				if(A!=null)
@@ -275,7 +345,7 @@ public class Skill_Convert extends StdSkill
 					A.unInvoke();
 					target.delEffect(A);
 				}
-				final CMMsg msg2=CMClass.getMsg(target,D,this,CMMsg.MSG_REBUKE,null);
+				final CMMsg msg2=CMClass.getMsg(target,target.baseCharStats().getMyDeity(),this,CMMsg.MSG_REBUKE,null);
 				if((mob.location().okMessage(mob,msg2))&&((dRoom==null)||(dRoom.okMessage(mob,msg2))))
 				{
 					mob.location().send(target,msg2);
@@ -283,8 +353,8 @@ public class Skill_Convert extends StdSkill
 						dRoom.send(target,msg2);
 				}
 			}
-			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_SPEAK,auto?L("<T-NAME> <T-IS-ARE> converted!"):L("<S-NAME> convert(s) <T-NAMESELF> to the worship of @x1.",D.name()));
-			final CMMsg msg2=CMClass.getMsg(target,D,this,CMMsg.MSG_SERVE,null);
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_SPEAK,auto?L("<T-NAME> <T-IS-ARE> converted!"):L("<S-NAME> convert(s) <T-NAMESELF> to the worship of @x1.",deityToConvertToM.name()));
+			final CMMsg msg2=CMClass.getMsg(target,deityToConvertToM,this,target.isMonster()?CMMsg.MSG_OK_ACTION:CMMsg.MSG_SERVE,null);
 			if((mob.location().okMessage(mob,msg))
 			&&(mob.location().okMessage(mob,msg2))
 			&&((dRoom==null)||(dRoom.okMessage(mob,msg2))))
@@ -297,26 +367,77 @@ public class Skill_Convert extends StdSkill
 				if(mob!=target)
 				{
 					if(target.isMonster())
-						CMLib.leveler().postExperience(mob,null,null,1,false);
+						CMLib.leveler().postExperience(mob,"ABILITY:"+ID(),null,null,1, false);
 					else
-						CMLib.leveler().postExperience(mob,null,null,200,false);
+						CMLib.leveler().postExperience(mob,"ABILITY:"+ID(),null,null,200, false);
 				}
 				if(target.isMonster())
 				{
-					beneficialAffect(mob,target,asLevel,(int)(TimeManager.MILI_HOUR/CMProps.getTickMillis()));
-					final Skill_Convert A=(Skill_Convert)target.fetchEffect(ID());
-					if(A!=null)
-						A.priorFaith=target.getWorshipCharID();
+					beneficialAffect(mob,target,asLevel,(int)((TimeManager.MILI_HOUR * 3)/CMProps.getTickMillis()));
+					final Room startRoom=target.getStartRoom();
+					final Area startArea=(startRoom==null)?null:startRoom.getArea();
+					if(startArea!=null)
+						Resources.removeResource("PIETY_"+startArea.Name().toUpperCase());
 				}
+
 			}
 		}
 		else
 		{
-			if((target.isMonster())&&(target.fetchEffect("Prayer_ReligiousDoubt")==null))
+			StdAbility effA = (StdAbility)target.fetchEffect("Prayer_ReligiousDoubt");
+			if(target.isMonster() && (effA==null))
 			{
 				final Ability A=CMClass.getAbility("Prayer_ReligiousDoubt");
 				if(A!=null)
+				{
 					A.invoke(mob,target,true,asLevel);
+					effA=(StdAbility)target.fetchEffect(A.ID());
+					if((effA!=null)
+					&&(effA.canBeUninvoked())
+					&&(effA.expirationDate()>0))
+						effA.setExpirationDate(System.currentTimeMillis() + DOUBT_TIME);
+				}
+			}
+			else
+			if((effA != null)
+			&&(effA.invoker() == mob)
+			&&(mob != target))
+			{
+				final long durationRemaining = effA.getTickDownRemaining() * CMProps.getTickMillis();
+				final int hours = (int)(durationRemaining / CMProps.getMillisPerMudHour());
+				if(hours == 0)
+					mob.tell(L("<T-HE-SHE> seems to be on the verge of a clear mind."));
+				else
+				{
+					final String word;
+					if(hours != 1)
+						word = L("@x1 hours", ""+hours);
+					else
+						word = L("1 hour");
+					switch(CMLib.dice().roll(1, 5, 0))
+					{
+					case 1:
+						if(hours>1)
+						mob.tell(mob,target,null,L("<T-HE-SHE> seems to need @x1 more to think.",word));
+						break;
+					case 2:
+						if(hours>1)
+						mob.tell(mob,target,null,L("You think <T-HE-SHE> might think for another @x1.",word));
+						break;
+					case 3:
+						if(hours>1)
+						mob.tell(mob,target,null,L("Give <T-HIM-HER> another @x1.",word));
+						break;
+					case 4:
+						if(hours>1)
+						mob.tell(mob,target,null,L("A big decision like this will take <T-HIM-HER> another @x1.",word));
+						break;
+					case 5:
+						if(hours>1)
+						mob.tell(mob,target,null,L("<T-HE-SHE> seems to need @x1 to be convinced.",word));
+						break;
+					}
+				}
 			}
 			else
 				beneficialWordsFizzle(mob,target,L("<S-NAME> attempt(s) to convert <T-NAMESELF>, but <S-IS-ARE> unconvincing."));

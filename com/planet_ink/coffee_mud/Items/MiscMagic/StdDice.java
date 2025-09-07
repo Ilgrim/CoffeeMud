@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -56,6 +56,14 @@ public class StdDice extends StdItem implements MiscMagic
 		baseGoldValue=5;
 		recoverPhyStats();
 		material=RawMaterial.RESOURCE_BONE;
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a die");
 	}
 
 	protected boolean rollTheBones(final CMMsg msg, final List<String> commands)
@@ -181,10 +189,13 @@ public class StdDice extends StdItem implements MiscMagic
 			if(msg.tool() instanceof Social)
 			{
 				final Session sess=msg.source().session();
-				if(msg.source().session()!=null)
+				if((sess!=null)
+				&&(sess.getHistory().size()>0))
 				{
-					final List<String> prev = sess.getPreviousCMD();
-					if((prev!=null)&&(prev.size()>0)&&("ROLL".startsWith(prev.get(0).toUpperCase())))
+					final List<String> prev = sess.getHistory().getLast();
+					if((prev!=null)
+					&&(prev.size()>0)
+					&&("ROLL".startsWith(prev.get(0).toUpperCase())))
 						return rollTheBones(msg, new XVector<String>(prev));
 				}
 				return rollTheBones(msg, new XVector<String>(new String[]{"ROLL","$"+Name()+"$"}));

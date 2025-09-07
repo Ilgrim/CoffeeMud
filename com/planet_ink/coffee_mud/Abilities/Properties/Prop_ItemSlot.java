@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.Race;
 import java.util.*;
 
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -65,6 +65,31 @@ public class Prop_ItemSlot extends Property
 	protected int		levelDiff	= 0;
 
 	private boolean		setAffected = true;
+
+	@Override
+	public CMObject copyOf()
+	{
+		final Prop_ItemSlot pA = (Prop_ItemSlot)super.copyOf();
+		if(slots != null)
+		{
+			pA.slots = new Item[slots.length];
+			for(int i=0;i<slots.length;i++)
+			{
+				if(slots[i]!=null)
+					pA.slots[i] = (Item)slots[i].copyOf();
+			}
+		}
+		if(slotProps != null)
+		{
+			pA.slotProps = new Ability[slotProps.length];
+			for(int i=0;i<slotProps.length;i++)
+			{
+				if(slotProps[i]!=null)
+					pA.slotProps[i] = (Ability)slotProps[i].copyOf();
+			}
+		}
+		return pA;
+	}
 
 	protected int getNumberOfEmptySlots()
 	{
@@ -159,7 +184,7 @@ public class Prop_ItemSlot extends Property
 			if((I != null)&&(!items.contains(I)))
 				items.add(I);
 		}
-		str.append("<ITEMS>"+CMLib.coffeeMaker().getItemsXML(items, new Hashtable<String,List<Item>>(),new HashSet<String>(),null)+"</ITEMS>");
+		str.append("<ITEMS>"+CMLib.coffeeMaker().getUniqueItemsXML(items, new Hashtable<String,List<Item>>(),new HashSet<String>(),null)+"</ITEMS>");
 		return str.toString();
 	}
 
@@ -334,7 +359,8 @@ public class Prop_ItemSlot extends Property
 					x=V.size()-1;
 				final String fromWhat = CMParms.combine(V,x);
 				final String what=CMParms.combine(V,1,x);
-				if(CMLib.english().containsString(affected.name(), fromWhat)||CMLib.english().containsString(affected.displayText(), fromWhat))
+				if((CMLib.english().containsString(affected.name(), fromWhat)||CMLib.english().containsString(affected.displayText(), fromWhat))
+				&&((!(affected instanceof Item))||(((Item)affected).amWearingAt(Item.IN_INVENTORY))))
 				{
 					final List<Item> items=new ArrayList<Item>(slots.length);
 					for(final Item I : slots)
@@ -380,6 +406,9 @@ public class Prop_ItemSlot extends Property
 									levelDiff=slots[i].phyStats().level();
 							}
 						}
+						msg.source().recoverPhyStats();
+						msg.source().recoverCharStats();
+						msg.source().recoverMaxState();
 					}
 				}
 			}
@@ -508,15 +537,10 @@ public class Prop_ItemSlot extends Property
 				break;
 			}
 		}
-		else
+		for(final Ability A : slotProps)
 		{
-			for(final Ability A : slotProps)
-			{
-				if(A!=null)
-				{
-					A.affectPhyStats(A.affecting(), affectableStats);
-				}
-			}
+			if(A!=null)
+				A.affectPhyStats(host, affectableStats);
 		}
 		super.affectPhyStats(host,affectableStats);
 	}

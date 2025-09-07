@@ -3,7 +3,7 @@ import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -17,6 +17,13 @@ import java.util.NoSuchElementException;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+/**
+ * An iterator wrapper for an enumeration.
+ *
+ * @param <K> the type of object being enumerated
+ * @author Bo Zimmerman
+ *
+ */
 public class EnumerationIterator<K> implements Iterator<K>
 {
 	private final Enumeration<K> e;
@@ -43,6 +50,9 @@ public class EnumerationIterator<K> implements Iterator<K>
 		return e.nextElement();
 	}
 
+	/**
+	 * Unsupported operation
+	 */
 	@Override
 	public void remove()
 	{

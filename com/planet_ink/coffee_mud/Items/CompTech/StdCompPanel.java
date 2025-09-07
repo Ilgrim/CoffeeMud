@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -103,23 +103,6 @@ public class StdCompPanel extends StdElecCompContainer implements ElecPanel, Tec
 			circuitKey=null;
 		}
 		super.destroy();
-	}
-
-	@Override
-	public void setOwner(final ItemPossessor newOwner)
-	{
-		final ItemPossessor prevOwner=super.owner;
-		super.setOwner(newOwner);
-		if(prevOwner != newOwner)
-		{
-			if(newOwner instanceof Room)
-				circuitKey=CMLib.tech().registerElectrics(this,circuitKey);
-			else
-			{
-				CMLib.tech().unregisterElectronics(this,circuitKey);
-				circuitKey=null;
-			}
-		}
 	}
 
 	@Override
@@ -213,6 +196,7 @@ public class StdCompPanel extends StdElecCompContainer implements ElecPanel, Tec
 			}
 			case CMMsg.TYP_POWERCURRENT:
 			{
+
 				final Room R=CMLib.map().roomLocation(this);
 				int powerRemaining=msg.value();
 				final List<Item> contents=getDeepContents();
@@ -221,18 +205,26 @@ public class StdCompPanel extends StdElecCompContainer implements ElecPanel, Tec
 				for(int i=contents.size()-1;i>=0;i--)
 				{
 					final Item I=contents.get(i);
-					if((I instanceof Electronics)&&(!(I instanceof PowerSource))&&(!(I instanceof PowerGenerator)))
-						totalPowerReq+=((((Electronics)I).powerNeeds()<=0)?1.0:((Electronics)I).powerNeeds());
+					if((I instanceof Electronics)
+					&&(!(I instanceof PowerSource))
+					&&(!(I instanceof PowerGenerator)))
+					{
+						final double needs = ((Electronics)I).powerNeeds();
+						totalPowerReq+=(needs<=0)?1.0:needs;
+					}
 				}
 				for(int i=contents.size()-1;i>=0;i--)
 				{
 					final Item I=contents.get(i);
-					if((I instanceof Electronics)&&(!(I instanceof PowerSource))&&(!(I instanceof PowerGenerator)))
+					if((I instanceof Electronics)
+					&&(!(I instanceof PowerSource))
+					&&(!(I instanceof PowerGenerator)))
 					{
 						int powerToTake=0;
 						if(powerRemaining>0)
 						{
-							final double pctToTake=CMath.div(((((Electronics)I).powerNeeds()<=0)?1:((Electronics)I).powerNeeds()),totalPowerReq);
+							final double needs = ((Electronics)I).powerNeeds();
+							final double pctToTake=CMath.div(((needs<=0)?1:needs),totalPowerReq);
 							powerToTake=(int)Math.round(pctToTake * powerRemaining);
 							if(powerToTake<1)
 								powerToTake=1;

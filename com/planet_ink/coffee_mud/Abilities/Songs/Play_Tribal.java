@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -95,9 +95,18 @@ public class Play_Tribal extends Play
 				if((A!=null)
 				&&(A instanceof StdAbility)
 				&&(A.abstractQuality()!=Ability.QUALITY_MALICIOUS)
-				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)
-				&&(((StdAbility)A).getTickDownRemaining()==1))
-					((StdAbility)A).setTickDownRemaining(2);
+				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT))
+				{
+					switch(((StdAbility)A).getTickDownRemaining())
+					{
+					case 1:
+						((StdAbility)A).setTickDownRemaining(2);
+						break;
+					case 2:
+						((StdAbility)A).setTickDownRemaining(3);
+						break;
+					}
+				}
 			}
 		}
 		return true;

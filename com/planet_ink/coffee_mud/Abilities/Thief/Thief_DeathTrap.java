@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -323,7 +323,7 @@ public class Thief_DeathTrap extends ThiefSkill implements Trap
 			resource=CMLib.materials().findMostOfMaterial(mob.location(),RawMaterial.MATERIAL_MITHRIL);
 		int amount=0;
 		if(resource!=null)
-			amount=CMLib.materials().findNumberOfResource(mob.location(),resource);
+			amount=CMLib.materials().findNumberOfResourceLike(mob.location(),resource);
 		if((amount<100)||(resource==null))
 		{
 			mob.tell(L("You need 100 pounds of raw metal to build this trap."));

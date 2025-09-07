@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -114,13 +114,28 @@ public class Spell_Grow extends Spell
 	}
 
 	@Override
+	public void executeMsg(final Environmental host, final CMMsg msg)
+	{
+		super.executeMsg(host,msg);
+		if(super.canBeUninvoked())
+		{
+			if((msg.source()==affected)
+			&&(msg.sourceMinor()==CMMsg.TYP_QUIT))
+				unInvoke();
+			else
+			if(msg.sourceMinor()==CMMsg.TYP_SHUTDOWN)
+				unInvoke();
+		}
+	}
+
+	@Override
 	public void unInvoke()
 	{
 		if((affected instanceof MOB)&&(super.canBeUninvoked()))
 		{
 			final MOB mob=(MOB)affected;
 			if(getOldWeight()<1)
-				mob.baseCharStats().getMyRace().setHeightWeight(mob.basePhyStats(),(char)mob.baseCharStats().getStat(CharStats.STAT_GENDER));
+				mob.baseCharStats().getMyRace().setHeightWeight(mob.basePhyStats(),mob.baseCharStats().reproductiveCode());
 			else
 				mob.basePhyStats().setWeight(getOldWeight());
 			if((mob.location()!=null)&&(!mob.amDead()))
@@ -156,7 +171,7 @@ public class Spell_Grow extends Spell
 		if(success)
 		{
 			final int malicious = maliciousFlag ? CMMsg.MASK_MALICIOUS : 0;
-			final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto)|malicious,
+			final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto)|malicious,
 					auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAMESELF>, incanting.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{

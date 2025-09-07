@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Prop_ItemNoRuin extends Property
 	@Override
 	public String name()
 	{
-		return "Prevents deletion/corruption from corpses";
+		return "Manages Deletion/corruption from corpses";
 	}
 
 	@Override
@@ -55,7 +55,7 @@ public class Prop_ItemNoRuin extends Property
 	@Override
 	public String accountForYourself()
 	{
-		return "A Prize";
+		return "";
 	}
 
 	@Override
@@ -64,9 +64,21 @@ public class Prop_ItemNoRuin extends Property
 		return Ability.FLAG_ADJUSTER;
 	}
 
+	private boolean nevermind = false;
+
+	@Override
+	public void setMiscText(final String newMiscText)
+	{
+		super.setMiscText(newMiscText);
+		nevermind = newMiscText.equalsIgnoreCase("NEVERMIND");
+	}
+
 	@Override
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
-		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.SENSE_ITEMNORUIN);
+		if(nevermind)
+			affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.SENSE_ALWAYSRUIN);
+		else
+			affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.SENSE_ITEMNORUIN);
 	}
 }

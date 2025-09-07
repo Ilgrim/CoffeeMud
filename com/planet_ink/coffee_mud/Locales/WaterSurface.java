@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ public class WaterSurface extends StdRoom implements Drink
 		super();
 		name="the water";
 		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_SWIMMING);
-		basePhyStats.setWeight(2);
+		setMovementCost(2);
 		recoverPhyStats();
 		climask=Places.CLIMASK_WET;
 	}
@@ -288,13 +288,13 @@ public class WaterSurface extends StdRoom implements Drink
 	}
 
 	@Override
-	public boolean containsDrink()
+	public boolean containsLiquid()
 	{
 		return true;
 	}
 
 	@Override
-	public int amountTakenToFillMe(final Drink theSource)
+	public int amountTakenToFillMe(final LiquidHolder theSource)
 	{
 		return 0;
 	}

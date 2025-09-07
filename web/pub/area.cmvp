@@ -1,7 +1,9 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
 <HTML>
 <HEAD>
+	<META CHARSET="utf-8"/>
 	<link rel="coffeemud icon" href="images/coffeemud.ico" >
+	<link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="coffeemud.css">
 <meta name="robots" content="noindex,nofollow">
 <TITLE>@AreaName@</TITLE>
 </HEAD>

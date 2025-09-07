@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -97,23 +97,6 @@ public class Familiarity_Armor extends StdAbility
 		return Ability.ACODE_SKILL | Ability.DOMAIN_ARMORUSE;
 	}
 
-	protected String getBrand(final Item buildingI)
-	{
-		if(buildingI != null)
-		{
-			final int x=buildingI.secretIdentity().indexOf(ItemCraftor.CRAFTING_BRAND_STR_PREFIX);
-			if(x>=0)
-			{
-				final int y=buildingI.secretIdentity().indexOf('.',x+ItemCraftor.CRAFTING_BRAND_STR_PREFIX.length());
-				if(y>=0)
-				{
-					return buildingI.secretIdentity().substring(x,y);
-				}
-			}
-		}
-		return "";
-	}
-
 	private void recalculateBonus(final MOB mob)
 	{
 		bonus=0;
@@ -128,7 +111,7 @@ public class Familiarity_Armor extends StdAbility
 				&&(!I.amWearingAt(Wearable.WORN_HELD))
 				&&(!I.amWearingAt(Wearable.WORN_FLOATING_NEARBY))
 				&&(CMath.banyset(I.rawProperLocationBitmap(), WORN_ARMOR))
-				&&(this.getBrand(I).equalsIgnoreCase(mob.Name())))
+				&&(CMLib.ableParms().getCraftingBrand(I).equalsIgnoreCase(mob.Name())))
 				{
 					bonus+=0.3;
 				}

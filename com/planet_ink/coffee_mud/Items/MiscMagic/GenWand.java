@@ -18,7 +18,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -107,15 +107,17 @@ public class GenWand extends StdWand
 	}
 
 	@Override
-	public int maxUses()
+	public int getMaxCharges()
 	{
 		return maxUses;
 	}
 
 	@Override
-	public void setMaxUses(final int newMaxUses)
+	public void setMaxCharges(final int newMaxUses)
 	{
 		maxUses = newMaxUses;
+		if(newMaxUses < super.usesRemaining() && (newMaxUses > 0))
+			super.setUsesRemaining(newMaxUses);
 	}
 
 	@Override
@@ -133,14 +135,14 @@ public class GenWand extends StdWand
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this,false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 	}
 
 	@Override
 	public void setMiscText(final String newText)
 	{
 		miscText="";
-		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this,newText,false);
 		recoverPhyStats();
 	}
 
@@ -151,19 +153,19 @@ public class GenWand extends StdWand
 	{
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			return CMLib.coffeeMaker().getGenItemStat(this,code);
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
-			if((getEnchantType()<0)||(getEnchantType()>=Ability.ACODE_DESCS_.length))
+			if((getEnchantType()<0)||(getEnchantType()>=Ability.ACODE.DESCS_.size()))
 				return "ANY";
-			return Ability.ACODE_DESCS_[getEnchantType()];
+			return Ability.ACODE.DESCS_.get(getEnchantType());
 		case 1:
 		{
 			final Ability A = getSpell();
 			return (A!=null) ? A.ID() : "";
 		}
 		case 2:
-			return ""+maxUses();
+			return ""+getMaxCharges();
 		default:
 			return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
 		}
@@ -175,10 +177,10 @@ public class GenWand extends StdWand
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			CMLib.coffeeMaker().setGenItemStat(this,code,val);
 		else
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
-			setEnchantType(CMParms.indexOf(Ability.ACODE_DESCS_, val.toUpperCase().trim()));
+			setEnchantType(CMParms.indexOf(Ability.ACODE.DESCS_, val.toUpperCase().trim()));
 			break;
 		case 1:
 		{
@@ -190,7 +192,7 @@ public class GenWand extends StdWand
 		case 2:
 		{
 			if(CMath.isMathExpression(val))
-				this.setMaxUses(CMath.parseIntExpression(val));
+				this.setMaxCharges(CMath.parseIntExpression(val));
 			break;
 		}
 		default:
@@ -199,8 +201,7 @@ public class GenWand extends StdWand
 		}
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<MYCODES.length;i++)
 		{

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ public class Prayer_SenseLaw extends Prayer
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_CHAOS;
+		return Ability.FLAG_CHAOS | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -99,7 +99,7 @@ public class Prayer_SenseLaw extends Prayer
 		if(invoker==null)
 			return;
 
-		affectableStats.addAmbiance("@LAW");
+		affectableStats.addAmbiance(PhyStats.Ambiance.CAN_SEE_LAW.code());
 	}
 
 	@Override

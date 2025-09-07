@@ -22,7 +22,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -39,6 +39,8 @@ import java.util.regex.Pattern;
 public class GRaceLoader
 {
 	protected DBConnector DB=null;
+
+	protected Set<String> updateQue = Collections.synchronizedSet(new TreeSet<String>());
 
 	public GRaceLoader(final DBConnector newDB)
 	{
@@ -71,7 +73,7 @@ public class GRaceLoader
 		try
 		{
 			D=DB.DBFetch();
-			D.update("UPDATE CMGRAC SET CMRCDT="+System.currentTimeMillis()+" WHERE CMRCID='"+raceID+"';", 0);
+			D.update("UPDATE CMGRAC SET CMRCDT="+System.currentTimeMillis()+" WHERE CMRCID='"+raceID+"'", 0);
 		}
 		catch(final Exception sqle)
 		{
@@ -90,7 +92,7 @@ public class GRaceLoader
 		try
 		{
 			D=DB.DBFetch();
-			final ResultSet R=D.query("SELECT * FROM CMGRAC WHERE CMRCID='"+raceID+"';");
+			final ResultSet R=D.query("SELECT * FROM CMGRAC WHERE CMRCID='"+raceID+"'");
 			if(R.next())
 			{
 				final long oneHour = (60L * 60L * 1000L);
@@ -114,7 +116,39 @@ public class GRaceLoader
 		return false;
 	}
 
-	public void DBPruneOldRaces()
+	public void registerRaceUsed(final Race R)
+	{
+		if((R!=null)&&(R.isGeneric()))
+			updateQue.add(R.ID());
+	}
+
+	public int updateAllRaceDates()
+	{
+		final List<String> que = new LinkedList<String>(updateQue);
+		final List<String> updates = new ArrayList<String>(que.size());
+		updateQue.clear();
+		final long cDate = System.currentTimeMillis();
+		for(final String id : que)
+		{
+			if(!id.equalsIgnoreCase("GenRace"))
+				updates.add("UPDATE CMGRAC SET CMRCDT="+cDate+" WHERE CMRCID='"+id+"'");
+		}
+		if(updates.size()>0)
+		{
+			try
+			{
+				DB.update(updates.toArray(new String[0]));
+			}
+			catch(final Exception sqle)
+			{
+				Log.errOut("GRaceLoader",sqle);
+			}
+			return updates.size();
+		}
+		return 0;
+	}
+
+	public int DBPruneOldRaces()
 	{
 		final List<String> updates = new ArrayList<String>(1);
 		final long oneHour = (60L * 60L * 1000L);
@@ -132,7 +166,7 @@ public class GRaceLoader
 				{
 					if(stat.creationDate() < oldestDate)
 					{
-						updates.add("DELETE FROM CMGRAC WHERE CMRCID='"+stat.ID()+"';");
+						updates.add("DELETE FROM CMGRAC WHERE CMRCID='"+stat.ID()+"'");
 						CMClass.delRace(R);
 						Log.sysOut("Expiring race '"+R.ID()+": "+R.name()+": "+CMLib.time().date2String(stat.creationDate()));
 					}
@@ -141,7 +175,7 @@ public class GRaceLoader
 			else
 			{
 				final long cDate = CMLib.dice().rollInRange(oldestDate, oldestHour);
-				updates.add("UPDATE CMGRAC SET CMRCDT="+cDate+" WHERE CMRCID='"+stat.ID()+"';");
+				updates.add("UPDATE CMGRAC SET CMRCDT="+cDate+" WHERE CMRCID='"+stat.ID()+"'");
 			}
 		}
 		if(updates.size()>0)
@@ -155,6 +189,7 @@ public class GRaceLoader
 				Log.errOut("GRaceLoader",sqle);
 			}
 		}
+		return updates.size();
 	}
 
 	protected List<DatabaseEngine.AckStats> DBReadRaceStats()

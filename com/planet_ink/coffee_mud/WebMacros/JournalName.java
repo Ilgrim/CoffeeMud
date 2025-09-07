@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,11 +52,14 @@ public class JournalName extends StdWebMacro
 		{
 			final boolean webify=parms.containsKey("WEBCOLOR");
 			final boolean decolor=parms.containsKey("NOCOLOR");
+			final int limit = parms.containsKey("LIMIT")?CMath.s_int(parms.get("LIMIT")):0;
 			StringBuffer lastBuf=new StringBuffer(last);
 			if(webify)
 				lastBuf=super.colorwebifyOnly(lastBuf);
 			if(decolor)
 				lastBuf=new StringBuffer(CMStrings.removeColors(lastBuf.toString()));
+			if(limit>0)
+				return clearWebMacros(CMStrings.ellipse(lastBuf.toString(),limit));
 			return clearWebMacros(lastBuf.toString());
 		}
 		return "";

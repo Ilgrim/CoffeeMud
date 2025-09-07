@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary;
+import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary.TrailFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -46,7 +47,7 @@ public class TrailTo extends StdCommand
 		return access;
 	}
 
-	public String trailTo(final Room R1, final List<String> commands)
+	public String trailTo(final Room R1, final List<String> commands, final Session sess)
 	{
 		int radius=Integer.MAX_VALUE;
 		HashSet<Room> ignoreRooms=null;
@@ -54,6 +55,9 @@ public class TrailTo extends StdCommand
 		int minSize = 0;
 		boolean fallback=false;
 		final List<TrackingLibrary.TrackingFlag> removeOrder = new ArrayList<TrackingLibrary.TrackingFlag>();
+		final Set<TrailFlag> trailFlags = new HashSet<TrailFlag>();
+		boolean justTheFacts=false;
+		boolean roomids = false;
 		for(int c=commands.size()-1;c>=1;c--)
 		{
 			String s=commands.get(c).toUpperCase();
@@ -70,6 +74,12 @@ public class TrailTo extends StdCommand
 			if(s.startsWith("FALLBACK"))
 			{
 				fallback=true;
+				commands.remove(c);
+			}
+			else
+			if(s.startsWith("ROOMIDS"))
+			{
+				roomids=true;
 				commands.remove(c);
 			}
 			else
@@ -101,7 +111,20 @@ public class TrailTo extends StdCommand
 				flags.plus(TrackingLibrary.TrackingFlag.NOHOMES);
 			}
 			else
+			if(s.equals("JUSTTHEFACTS"))
 			{
+				commands.remove(c);
+				justTheFacts=true;
+			}
+			else
+			{
+				final TrailFlag tflag = (TrailFlag)CMath.s_valueOf(TrailFlag.class, s);
+				if(tflag != null)
+				{
+					trailFlags.add(tflag);
+					commands.remove(c);
+				}
+				else
 				for(final TrackingLibrary.TrackingFlag flag : TrackingLibrary.TrackingFlag.values())
 				{
 					if(s.equals(flag.toString()))
@@ -114,30 +137,12 @@ public class TrailTo extends StdCommand
 				}
 			}
 		}
-		String where=CMParms.combine(commands,1);
+		final String where=CMParms.combine(commands,1);
 		if(where.length()==0)
 			return "Trail to where? Try a Room ID, 'everyroom', or 'everyarea'.  You can also end the areas with 'areanames', 'ignorerooms=', and 'confirm!' flags.  You can also include one of these flags: "+CMParms.toListString(TrackingLibrary.TrackingFlag.values())+", FALLBACK, RADIUS=X, or MINSIZE=X";
 		if(R1==null)
 			return "Where are you?";
-		boolean confirm=false;
-		boolean areaNames=false;
-		boolean justTheFacts=false;
-		if(where.toUpperCase().endsWith(" AREANAMES"))
-		{
-			where=where.substring(0,where.length()-10).trim();
-			areaNames=true;
-		}
-		if(where.toUpperCase().endsWith(" JUSTTHEFACTS"))
-		{
-			where=where.substring(0,where.length()-13).trim();
-			justTheFacts=true;
-		}
-		if(where.toUpperCase().endsWith(" CONFIRM!"))
-		{
-			where=where.substring(0,where.length()-9).trim();
-			confirm=true;
-		}
-		final Vector<Room> set=new Vector<Room>();
+		final ArrayList<Room> set=new ArrayList<Room>();
 		CMLib.tracking().getRadiantRooms(R1,set,flags,null,radius,ignoreRooms);
 		if(where.equalsIgnoreCase("everyarea"))
 		{
@@ -146,25 +151,29 @@ public class TrailTo extends StdCommand
 			{
 				final Area A=a.nextElement();
 				if((!(A instanceof SpaceObject))
+				&&((sess==null)||(!sess.isStopped()))
 				&&(A.properSize() > minSize))
 				{
-					String trail = CMLib.tracking().getTrailToDescription(R1,set,A.name(),areaNames,confirm,radius,ignoreRooms,5);
-					if(fallback && trail.startsWith("Unable to determine"))
+					String trail = CMLib.tracking().getTrailToDescription(R1,set,A.name(),trailFlags,radius,ignoreRooms," ",300);
+					if(fallback && (trail.startsWith("Unable to determine")||trail.startsWith("You can't")))
 					{
 						final TrackingLibrary.TrackingFlags workFlags = flags.copyOf();
-						final Vector<TrackingLibrary.TrackingFlag> removables=new XVector<TrackingLibrary.TrackingFlag>(removeOrder);
-						while(trail.startsWith("Unable to determine") && (removables.size()>0) && (workFlags.size()>0))
+						final ArrayList<TrackingLibrary.TrackingFlag> removables=new XArrayList<TrackingLibrary.TrackingFlag>(removeOrder);
+						while((trail.startsWith("Unable to determine") ||trail.startsWith("You can't"))
+						&& (removables.size()>0) && (workFlags.size()>0))
 						{
-							final Vector<Room> set2=new Vector<Room>(set.size());
+							final ArrayList<Room> set2=new ArrayList<Room>(set.size());
 							workFlags.minus(removables.remove(0));
 							CMLib.tracking().getRadiantRooms(R1,set2,workFlags,null,radius,ignoreRooms);
-							trail = CMLib.tracking().getTrailToDescription(R1,set2,A.name(),areaNames,confirm,radius,ignoreRooms,5);
+							trail = CMLib.tracking().getTrailToDescription(R1,set2,A.name(),trailFlags,radius,ignoreRooms," ",300);
 						}
+						if(trail.startsWith("Unable to determine") ||trail.startsWith("You can't"))
+							continue;
 					}
 					str.append(CMStrings.padRightPreserve(A.name(),30)+": "+trail+"\n\r");
 				}
 			}
-			if(confirm)
+			if(trailFlags.contains(TrailFlag.CONFIRM))
 				Log.rawSysOut(str.toString());
 			return str.toString();
 		}
@@ -177,19 +186,21 @@ public class TrailTo extends StdCommand
 				for(final Enumeration<Room> r=CMLib.map().rooms();r.hasMoreElements();)
 				{
 					final Room R=r.nextElement();
-					if((R!=R1)&&(R.roomID().length()>0))
+					if((R!=R1)
+					&&(R.roomID().length()>0)
+					&&((sess==null)||(!sess.isStopped())))
 					{
-						String trail = CMLib.tracking().getTrailToDescription(R1,set,R.roomID(),areaNames,confirm,radius,ignoreRooms,5);
+						String trail = CMLib.tracking().getTrailToDescription(R1,set,R.roomID(),trailFlags,radius,ignoreRooms," ",5);
 						if(fallback && trail.startsWith("Unable to determine"))
 						{
 							final TrackingLibrary.TrackingFlags workFlags = flags.copyOf();
-							final Vector<TrackingLibrary.TrackingFlag> removables=new XVector<TrackingLibrary.TrackingFlag>(removeOrder);
+							final ArrayList<TrackingLibrary.TrackingFlag> removables=new XArrayList<TrackingLibrary.TrackingFlag>(removeOrder);
 							while(trail.startsWith("Unable to determine") && (removables.size()>0) && (workFlags.size()>0))
 							{
-								final Vector<Room> set2=new Vector<Room>(set.size());
+								final ArrayList<Room> set2=new ArrayList<Room>(set.size());
 								workFlags.minus(removables.remove(0));
 								CMLib.tracking().getRadiantRooms(R1,set2,workFlags,null,radius,ignoreRooms);
-								trail = CMLib.tracking().getTrailToDescription(R1,set2,R.roomID(),areaNames,confirm,radius,ignoreRooms,5);
+								trail = CMLib.tracking().getTrailToDescription(R1,set2,R.roomID(),trailFlags,radius,ignoreRooms," ",5);
 							}
 						}
 						str.append(CMStrings.padRightPreserve(R.roomID(),30)+": "+trail+"\n\r");
@@ -199,30 +210,54 @@ public class TrailTo extends StdCommand
 			catch (final NoSuchElementException nse)
 			{
 			}
-			if(confirm)
+			if(trailFlags.contains(TrailFlag.CONFIRM))
 				Log.rawSysOut(str.toString());
 			return str.toString();
 		}
 		else
+		if(roomids)
 		{
-			String str=CMLib.tracking().getTrailToDescription(R1,set,where,areaNames,confirm,radius,ignoreRooms,5);
+			final Room R2 = CMLib.map().getRoom(where);
+			final StringBuilder str = new StringBuilder("");
+			final List<Room> trail = CMLib.tracking().findTrailToRoom(R1, R2, flags, radius);
+			if (trail == null)
+				str.append("No trail found to any room from here.");
+			else
+			{
+				Collections.reverse(trail);
+				for (final Room R : trail)
+				{
+					if (R != null)
+						str.append(CMLib.map().getExtendedRoomID(R)).append(", ");
+				}
+				if (str.length() > 2)
+					str.setLength(str.length() - 2); // remove trailing comma
+				if (trailFlags.contains(TrailFlag.CONFIRM))
+					Log.rawSysOut(str.toString());
+			}
+			return str.toString();
+		}
+		else
+		{
+			String str=CMLib.tracking().getTrailToDescription(R1,set,where,trailFlags,radius,ignoreRooms," ",5);
 			if(!justTheFacts)
 			{
 				if(fallback && str.startsWith("Unable to determine"))
 				{
 					final TrackingLibrary.TrackingFlags workFlags = flags.copyOf();
-					final Vector<TrackingLibrary.TrackingFlag> removables=new XVector<TrackingLibrary.TrackingFlag>(removeOrder);
+					final ArrayList<TrackingLibrary.TrackingFlag> removables=new XArrayList<TrackingLibrary.TrackingFlag>(removeOrder);
 					while(str.startsWith("Unable to determine") && (removables.size()>0) && (workFlags.size()>0))
 					{
-						final Vector<Room> set2=new Vector<Room>(set.size());
+						final ArrayList<Room> set2=new ArrayList<Room>(set.size());
 						workFlags.minus(removables.remove(0));
 						CMLib.tracking().getRadiantRooms(R1,set2,workFlags,null,radius,ignoreRooms);
-						str = CMLib.tracking().getTrailToDescription(R1,set2,where,areaNames,confirm,radius,ignoreRooms,5);
+						str = CMLib.tracking().getTrailToDescription(R1,set2,where,trailFlags,radius,ignoreRooms," ",5);
 					}
 				}
+
 				str=CMStrings.padRightPreserve(where,30)+": "+str;
 			}
-			if(confirm)
+			if(trailFlags.contains(TrailFlag.CONFIRM))
 				Log.rawSysOut(str);
 			return str;
 		}
@@ -235,11 +270,11 @@ public class TrailTo extends StdCommand
 		if((commands.size()>0)&&(commands.get(commands.size()-1).equalsIgnoreCase("QUIETLY")))
 		{
 			commands.remove(commands.size()-1);
-			commands.set(0,trailTo(mob.location(),commands));
+			commands.set(0,trailTo(mob.location(),commands,mob.session()));
 		}
 		else
 		if(!mob.isMonster())
-			mob.session().safeRawPrintln(trailTo(mob.location(),commands));
+			mob.session().safeRawPrintln(trailTo(mob.location(),commands,mob.session()));
 		return false;
 	}
 

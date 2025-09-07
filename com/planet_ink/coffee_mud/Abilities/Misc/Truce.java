@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -202,7 +202,7 @@ public class Truce extends StdAbility
 			}
 		}
 		else
-			return maliciousFizzle(mob,target,auto?"":L("^S<S-NAME> tr(ys) to make <T-NAMESELF> fall asleep, but fails.^?"));
+			return maliciousFizzle(mob,target,auto?"":L("^S<S-NAME> tr(ys) to make <T-NAMESELF> fall asleep, but fail(s).^?"));
 
 		// return whether it worked
 		return success;

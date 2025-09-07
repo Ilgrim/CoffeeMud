@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -105,9 +105,15 @@ public class Chant_SpeakWithAnimals extends Chant implements Language
 		return false;
 	}
 
+	@Override
+	public boolean isANaturalLanguage()
+	{
+		return true;
+	}
+
 	protected boolean canSpeakWithThis(final MOB mob)
 	{
-		if(CMLib.flags().isAnimalIntelligence(mob))
+		if(CMLib.flags().isAnAnimal(mob))
 			return true;
 		if(mob != null)
 		{
@@ -174,7 +180,8 @@ public class Chant_SpeakWithAnimals extends Chant implements Language
 			for(Ability A : r.racialAbilities(M))
 			{
 				if(((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_LANGUAGE)
-				&&(A instanceof Language))
+				&&(A instanceof Language)
+				&&(!((Language)A).isANaturalLanguage()))
 				{
 					final Ability effectA=M.fetchEffect(A.ID());
 					if(effectA==null)
@@ -253,6 +260,18 @@ public class Chant_SpeakWithAnimals extends Chant implements Language
 	}
 
 	@Override
+	public String getVerb()
+	{
+		return "";
+	}
+
+	@Override
+	public String getTranslationVerb()
+	{
+		return "";
+	}
+
+	@Override
 	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
@@ -276,24 +295,38 @@ public class Chant_SpeakWithAnimals extends Chant implements Language
 					if(str!=null)
 					{
 						if(CMath.bset(msg.sourceMajor(),CMMsg.MASK_CHANNEL))
-							msg.addTrailerMsg(CMClass.getMsg(msg.source(),null,null,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,msg.othersCode(),L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(msg.othersMessage(),str),msg.tool().name())));
+						{
+							final ChannelsLibrary.CMChannel C = CMLib.channels().getChannelFromMsg(msg);
+							if((C==null)||(!C.flags().contains(ChannelsLibrary.ChannelFlag.NOLANGUAGE)))
+							{
+								msg.addTrailerMsg(CMClass.getMsg(msg.source(),null,null,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,msg.othersCode(),
+										L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(msg.othersMessage(),str),msg.tool().name())));
+							}
+						}
 						else
 						if(msg.amITarget(affected)&&(msg.targetMessage()!=null))
-							msg.addTrailerMsg(CMClass.getMsg(msg.source(),affected,null,CMMsg.NO_EFFECT,msg.targetCode(),CMMsg.NO_EFFECT,L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(msg.targetMessage(),str),msg.tool().name())));
+						{
+							msg.addTrailerMsg(CMClass.getMsg(msg.source(),affected,null,CMMsg.NO_EFFECT,msg.targetCode(),CMMsg.NO_EFFECT,
+									L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(msg.targetMessage(),str),msg.tool().name())));
+						}
 						else
 						if((msg.othersMessage()!=null)&&(msg.othersMessage().indexOf('\'')>0))
 						{
 							String otherMes=msg.othersMessage();
 							if(msg.target()!=null)
 								otherMes=CMLib.coffeeFilter().fullOutFilter((mob).session(),mob,msg.source(),msg.target(),msg.tool(),otherMes,false);
-							msg.addTrailerMsg(CMClass.getMsg(msg.source(),affected,null,CMMsg.NO_EFFECT,msg.othersCode(),CMMsg.NO_EFFECT,L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(otherMes,str),msg.tool().name())));
+							msg.addTrailerMsg(CMClass.getMsg(msg.source(),affected,null,CMMsg.NO_EFFECT,msg.othersCode(),CMMsg.NO_EFFECT,
+									L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(otherMes,str),msg.tool().name())));
 						}
 					}
 				}
 				else
 				if(msg.amISource(mob)
 				&&(msg.target() instanceof MOB)
-				&&((msg.tool()==null) || (!(msg.tool() instanceof Language)) ||(((MOB)msg.target()).charStats().getMyRace().racialAbilities((MOB)msg.target()).find(msg.tool().ID())==null)))
+				&&((msg.tool()==null)
+					|| (!(msg.tool() instanceof Language))
+					|| (((Language)msg.tool()).isANaturalLanguage())
+					||(((MOB)msg.target()).charStats().getMyRace().racialAbilities((MOB)msg.target()).find(msg.tool().ID())==null)))
 				{
 					Language lA=this.getAnimalSpeak((MOB)msg.target());
 					if((lA!=null)&&(canSpeakWithThis((MOB)msg.target(),lA)))
@@ -343,6 +376,7 @@ public class Chant_SpeakWithAnimals extends Chant implements Language
 					&&(canSpeakWithThis((MOB)msg.target()))
 					&&((msg.tool()==null)
 						|| (!(msg.tool() instanceof Language))
+						|| (((Language)msg.tool()).isANaturalLanguage())
 						||(((MOB)msg.target()).charStats().getMyRace().racialAbilities((MOB)msg.target()).find(msg.tool().ID())==null)))
 					{
 						Language lA=this.getAnimalSpeak((MOB)msg.target());
@@ -371,12 +405,12 @@ public class Chant_SpeakWithAnimals extends Chant implements Language
 
 	protected String canSpeakWithWhat()
 	{
-		return "speak with animals";
+		return L("speak with animals");
 	}
 
 	protected String canSpeakWithWhatNoun()
 	{
-		return "speech of animals";
+		return L("speech of animals");
 	}
 
 	@Override
@@ -388,7 +422,7 @@ public class Chant_SpeakWithAnimals extends Chant implements Language
 
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-YOUPOSS> can already "+canSpeakWithWhat()+"."));
+			failureTell(mob,target,auto,L("<S-YOUPOSS> can already @x1.",canSpeakWithWhat()));
 			return false;
 		}
 
@@ -400,7 +434,9 @@ public class Chant_SpeakWithAnimals extends Chant implements Language
 		if(success)
 		{
 			invoker=mob;
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,null,auto),auto?L("<T-NAME> attain(s) the ability to "+canSpeakWithWhat()+"!"):L("^S<S-NAME> chant(s) to <S-NAMESELF>, becoming one with the "+canSpeakWithWhatNoun()+"!^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,null,auto),
+					auto?L("<T-NAME> attain(s) the ability to @x1!",canSpeakWithWhat()):
+						L("^S<S-NAME> chant(s) to <S-NAMESELF>, becoming one with the @x1!^?",canSpeakWithWhatNoun()));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -422,13 +458,13 @@ public class Chant_SpeakWithAnimals extends Chant implements Language
 	}
 
 	@Override
-	public List<String> languagesSupported()
+	public Set<String> languagesSupported()
 	{
-		return new LinkedList<String>();
+		return myLanguages.keySet();
 	}
 
 	@Override
-	public boolean translatesLanguage(final String language)
+	public boolean translatesLanguage(final String language, final String words)
 	{
 		return myLanguages.containsKey(language);
 	}

@@ -19,7 +19,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,6 +59,14 @@ public class GenCoins extends GenItem implements Coins
 		setCurrency("");
 		setDenomination(CMLib.beanCounter().getLowestDenomination(""));
 		setDescription("");
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("some money");
 	}
 
 	@Override
@@ -173,55 +181,50 @@ public class GenCoins extends GenItem implements Coins
 	}
 
 	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if(!super.okMessage(myHost, msg))
+			return false;
+		switch(msg.targetMinor())
+		{
+		case CMMsg.TYP_DROP:
+			if(msg.target()==this)
+			{
+				final MoneyLibrary.MoneyDefinition def=CMLib.beanCounter().getCurrencySet(currency);
+				if(((def != null) && (!def.canTrade()))
+				&&(!CMSecurity.isAllowed(msg.source(), msg.source().location(), CMSecurity.SecFlag.CMDPLAYERS)))
+				{
+					msg.source().tell(L("You can't seem to let go of @x1.",name()));
+					return false;
+				}
+			}
+			break;
+		case CMMsg.TYP_GIVE:
+		case CMMsg.TYP_PUT:
+		case CMMsg.TYP_DEPOSIT:
+			if(msg.tool()==this)
+			{
+				final MoneyLibrary.MoneyDefinition def=CMLib.beanCounter().getCurrencySet(currency);
+				if(((def != null) && (!def.canTrade()))
+				&&(!CMSecurity.isAllowed(msg.source(), msg.source().location(), CMSecurity.SecFlag.CMDPLAYERS)))
+				{
+					msg.source().tell(L("You can't seem to do that with @x1.",name()));
+					return false;
+				}
+			}
+			break;
+		default:
+			break;
+		}
+		return true;
+	}
+
+	@Override
 	public boolean putCoinsBack()
 	{
 		if(amDestroyed())
 			return false;
-		Coins alternative=null;
-		if(owner() instanceof Room)
-		{
-			final Room R=(Room)owner();
-			for(int i=0;i<R.numItems();i++)
-			{
-				final Item I=R.getItem(i);
-				if((I!=null)
-				&&(I!=this)
-				&&(I instanceof Coins)
-				&&(((Coins)I).getDenomination()==getDenomination())
-				&&((Coins)I).getCurrency().equals(getCurrency())
-				&&(I.container()==container()))
-				{
-					alternative=(Coins)I;
-					break;
-				}
-			}
-		}
-		else
-		if(owner() instanceof MOB)
-		{
-			final MOB M=(MOB)owner();
-			for(int i=0;i<M.numItems();i++)
-			{
-				final Item I=M.getItem(i);
-				if((I!=null)
-				&&(I!=this)
-				&&(I instanceof Coins)
-				&&(((Coins)I).getDenomination()==getDenomination())
-				&&((Coins)I).getCurrency().equals(getCurrency())
-				&&(I.container()==container()))
-				{
-					alternative=(Coins)I;
-					break;
-				}
-			}
-		}
-		if((alternative!=null)&&(alternative!=this))
-		{
-			alternative.setNumberOfCoins(alternative.getNumberOfCoins()+getNumberOfCoins());
-			destroy();
-			return true;
-		}
-		return false;
+		return CMLib.beanCounter().putCoinsBack(this, owner());
 	}
 
 	private final static String[] MYCODES={"NUMCOINS","CURRENCY","DENOM"};
@@ -230,7 +233,7 @@ public class GenCoins extends GenItem implements Coins
 	{
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			return CMLib.coffeeMaker().getGenItemStat(this,code);
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return "" + getNumberOfCoins();
@@ -249,7 +252,7 @@ public class GenCoins extends GenItem implements Coins
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			CMLib.coffeeMaker().setGenItemStat(this,code,val);
 		else
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			setNumberOfCoins(CMath.s_parseIntExpression(val));
@@ -266,8 +269,7 @@ public class GenCoins extends GenItem implements Coins
 		}
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<MYCODES.length;i++)
 		{

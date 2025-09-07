@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -66,6 +66,7 @@ public class Emote extends StdCommand
 		final Room R=mob.location();
 		if(R==null)
 			return false;
+		final List<String> origCmds = new XVector<String>(commands);
 		if(commands.size()<2)
 		{
 			if((commands.size()>0)&&(commands.get(0).equalsIgnoreCase(",")))
@@ -85,7 +86,8 @@ public class Emote extends StdCommand
 				if(social!=null)
 					commands.set(0,social.baseName());
 			}
-			if(social==null)
+			if((social==null)
+			||(!social.meetsCriteriaToUse(mob)))
 				commands.add(0,",");
 			else
 			{
@@ -141,21 +143,23 @@ public class Emote extends StdCommand
 			if(mob.isPlayer() && R.numPCInhabitants() > 1)
 			{
 				if((CMProps.getIntVar(CMProps.Int.RP_EMOTE_PC)!=0)&&(awardRPXP(mob)))
-					CMLib.leveler().postRPExperience(mob, null, "", CMProps.getIntVar(CMProps.Int.RP_EMOTE_PC), false);
+					CMLib.leveler().postRPExperience(mob, "COMMAND:"+ID(), null, "", CMProps.getIntVar(CMProps.Int.RP_EMOTE_PC), false);
 			}
 			else
 			if(R.numInhabitants() > 1)
 			{
 				if((CMProps.getIntVar(CMProps.Int.RP_EMOTE_NPC)!=0)&&(awardRPXP(mob)))
-					CMLib.leveler().postRPExperience(mob, null, "", CMProps.getIntVar(CMProps.Int.RP_EMOTE_NPC), false);
+					CMLib.leveler().postRPExperience(mob, "COMMAND:"+ID(), null, "", CMProps.getIntVar(CMProps.Int.RP_EMOTE_NPC), false);
 			}
 			else
 			{
 				if((CMProps.getIntVar(CMProps.Int.RP_EMOTE_OTH)!=0)&&(awardRPXP(mob)))
-					CMLib.leveler().postRPExperience(mob, null, "", CMProps.getIntVar(CMProps.Int.RP_EMOTE_OTH), false);
+					CMLib.leveler().postRPExperience(mob, "COMMAND:"+ID(), null, "", CMProps.getIntVar(CMProps.Int.RP_EMOTE_OTH), false);
 			}
 
 		}
+		else
+			CMLib.commands().postCommandRejection(msg.source(),msg.target(), msg.tool(),origCmds);
 		return false;
 	}
 

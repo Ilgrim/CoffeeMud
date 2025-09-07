@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ public class Bed extends GenRideable
 		baseGoldValue=5;
 		basePhyStats().setLevel(1);
 		setMaterial(RawMaterial.RESOURCE_COTTON);
-		setRideBasis(Rideable.RIDEABLE_SLEEP);
+		setRideBasis(Rideable.Basis.FURNITURE_SLEEP);
 		setRiderCapacity(2);
 		recoverPhyStats();
 	}

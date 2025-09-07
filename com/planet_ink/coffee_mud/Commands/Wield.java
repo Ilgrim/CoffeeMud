@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -64,15 +64,18 @@ public class Wield extends StdCommand
 		return false;
 	}
 
-	protected boolean wield(final List<Item> items, final MOB mob)
+	protected boolean wield(final List<Item> items, final MOB mob, final boolean quietly, final List<String> origCmds)
 	{
 		for(int i=0;i<items.size();i++)
 		{
 			if((items.size()==1)||(items.get(i).canWear(mob,Wearable.WORN_WIELD)))
 			{
 				final Item item=items.get(i);
-				if(wield(mob, item, false))
+				if(wield(mob, item, quietly))
 					return true;
+				else
+				if(items.size()==1)
+					CMLib.commands().postCommandRejection(mob, item, null,origCmds);
 			}
 		}
 		return false;
@@ -93,7 +96,7 @@ public class Wield extends StdCommand
 		if(items.size()==0)
 			CMLib.commands().postCommandFail(mob,origCmds,L("You don't seem to be carrying that."));
 		else
-			wield(items,mob);
+			wield(items,mob,CMath.bset(metaFlags, MUDCmdProcessor.METAFLAG_QUIETLY),origCmds);
 		return false;
 	}
 
@@ -103,7 +106,7 @@ public class Wield extends StdCommand
 		if(!super.checkArguments(internalParameters, args))
 			return Boolean.FALSE;
 		final Item targetWearI = (Item)args[0];
-		boolean quietly = false;
+		boolean quietly = (CMath.bset(metaFlags, MUDCmdProcessor.METAFLAG_QUIETLY));
 		for(int i=1;i<args.length;i++)
 		{
 			if(args[i] instanceof Boolean)

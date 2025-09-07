@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -73,6 +73,12 @@ public class Chant_SiftWrecks extends Chant
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		if(!auto && !CMLib.flags().isWateryRoom(mob.location()))
@@ -114,6 +120,7 @@ public class Chant_SiftWrecks extends Chant
 				final int radius = (adjustedLevel(mob,asLevel))+(10*super.getXMAXRANGELevel(mob))+super.getXLEVELLevel(mob);
 				final TrackingLibrary.TrackingFlags filters=CMLib.tracking().newFlags()
 						.plus(TrackingLibrary.TrackingFlag.AREAONLY)
+						.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 						.plus(TrackingLibrary.TrackingFlag.UNDERWATERONLY);
 				final List<Room> siftables = CMLib.tracking().getRadiantRooms(mob.location(), filters, radius);
 				final StringBuilder msgStr=new StringBuilder("");

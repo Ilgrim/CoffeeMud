@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -169,6 +169,27 @@ public class Prayer_SnakeStaff extends Prayer
 		}
 	}
 
+	protected void addToSet(final Set<Integer> set, final Item I)
+	{
+		if(I instanceof Weapon)
+			set.add(Integer.valueOf(((Weapon)I).weaponClassification()));
+	}
+
+	protected Set<Integer> getWeaponClasses(final MOB mob)
+	{
+		final Set<Integer> set=new HashSet<Integer>();
+		set.add(Integer.valueOf(Weapon.CLASS_STAFF));
+		final Deity D = mob.charStats().getMyDeity();
+		if(D != null)
+		{
+			addToSet(set, D.fetchWieldedItem());
+			addToSet(set, D.fetchHeldItem());
+			for(final Enumeration<Item> i=D.items();i.hasMoreElements();)
+				addToSet(set,i.nextElement());
+		}
+		return set;
+	}
+
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
@@ -177,7 +198,7 @@ public class Prayer_SnakeStaff extends Prayer
 			target=(Item)givenTarget;
 		if(target == null)
 		{
-			mob.tell(L("You aren't wielding a staff!"));
+			mob.tell(L("You aren't wielding anything!"));
 			return false;
 		}
 		if(target.fetchEffect(this.ID())!=null)
@@ -186,9 +207,10 @@ public class Prayer_SnakeStaff extends Prayer
 			return false;
 		}
 
-		if((!(target instanceof Weapon))||(((Weapon)target).weaponClassification()!=Weapon.CLASS_STAFF))
+		if((!(target instanceof Weapon))
+		||(!getWeaponClasses(mob).contains(Integer.valueOf(((Weapon)target).weaponClassification()))))
 		{
-			mob.tell(L("@x1 is not a staff!",target.name()));
+			mob.tell(L("@x1 is not a holy weapon!",target.name()));
 			return false;
 		}
 
@@ -232,7 +254,7 @@ public class Prayer_SnakeStaff extends Prayer
 	{
 
 		final MOB newMOB=CMClass.getMOB("GenMob");
-		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase());
+		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase());//normal
 		newMOB.basePhyStats().setLevel(level);
 		newMOB.basePhyStats().setWeight(500);
 		newMOB.basePhyStats().setRejuv(PhyStats.NO_REJUV);
@@ -248,7 +270,9 @@ public class Prayer_SnakeStaff extends Prayer
 		newMOB.basePhyStats().setAttackAdjustment(CMLib.leveler().getLevelAttack(newMOB));
 		newMOB.basePhyStats().setDamage(CMLib.leveler().getLevelMOBDamage(newMOB));
 		newMOB.basePhyStats().setSpeed(CMLib.leveler().getLevelMOBSpeed(newMOB));
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		newMOB.addBehavior(CMClass.getBehavior("CombatAbilities"));
 		final Ability A=CMClass.getAbility("Poison");
 		if(A!=null)
@@ -257,11 +281,12 @@ public class Prayer_SnakeStaff extends Prayer
 			newMOB.addAbility(A);
 		}
 		CMLib.factions().setAlignment(newMOB,Faction.Align.NEUTRAL);
+		newMOB.basePhyStats().setRejuv(PhyStats.NO_REJUV);
 		newMOB.recoverCharStats();
 		newMOB.recoverPhyStats();
 		newMOB.recoverMaxState();
 		newMOB.resetToMaxState();
-		newMOB.text();
+		newMOB.setMiscText(newMOB.text());
 		newMOB.bringToLife(caster.location(),true);
 		CMLib.beanCounter().clearZeroMoney(newMOB,null);
 		newMOB.setMoneyVariation(0);

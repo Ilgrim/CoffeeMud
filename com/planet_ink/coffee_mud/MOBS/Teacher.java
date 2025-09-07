@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Teacher extends StdMOB
 	public Teacher()
 	{
 		super();
-		username="Cornelius, Knower of All Things";
+		_name="Cornelius, Knower of All Things";
 		setDescription("He looks wise beyond his years.");
 		setDisplayText("Cornelius is standing here contemplating your ignorance.");
 		CMLib.factions().setAlignment(this,Faction.Align.GOOD);
@@ -66,7 +66,7 @@ public class Teacher extends StdMOB
 		baseCharStats().setMyRace(CMClass.getRace("Human"));
 		baseCharStats().getMyRace().startRacing(this,false);
 
-		basePhyStats().setAbility(10);
+		basePhyStats().setAbility(50);
 		basePhyStats().setLevel(25);
 		basePhyStats().setArmor(-500);
 		setAttribute(MOB.Attrib.NOTEACH,false);

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -221,7 +221,9 @@ public class Prayer_Bless extends Prayer implements MendingSkill
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L(auto?"<T-NAME> appear(s) blessed!":"^S<S-NAME> bless(es) <T-NAMESELF>"+inTheNameOf(mob)+".^?")+CMLib.protocol().msp("bless.wav",10));
+			final String msgStr = auto?L("<T-NAME> appear(s) blessed!")
+									: L("^S<S-NAME> bless(es) <T-NAMESELF>@x1.^?",inTheNameOf(mob));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),msgStr+CMLib.protocol().msp("bless.wav",10));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -230,10 +232,15 @@ public class Prayer_Bless extends Prayer implements MendingSkill
 				while((I!=null)&&(!alreadyDone.contains(I)))
 				{
 					alreadyDone.add(I);
-					final CMMsg msg2=CMClass.getMsg(target,I,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_DROP,L("<S-NAME> release(s) <T-NAME>."));
-					target.location().send(target,msg2);
-					endLowerCurses(I,CMLib.ableMapper().lowestQualifyingLevel(ID()));
-					I.recoverPhyStats();
+					final CMMsg msgb=CMClass.getMsg(mob,I,this,verbalCastCode(mob,target,auto), null);
+					if(target.location().okMessage(target, msgb))
+					{
+						target.location().send(target,msgb);
+						final CMMsg msg2=CMClass.getMsg(target,I,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_DROP,L("<S-NAME> release(s) <T-NAME>."));
+						target.location().send(target,msg2);
+						endLowerCurses(I,CMLib.ableMapper().lowestQualifyingLevel(ID()));
+						I.recoverPhyStats();
+					}
 					I=getSomething(target,true);
 				}
 				Prayer_Bless.endAllOtherBlessings(mob,target,CMLib.ableMapper().lowestQualifyingLevel(ID()));

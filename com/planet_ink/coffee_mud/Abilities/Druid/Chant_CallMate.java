@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -174,8 +174,7 @@ public class Chant_CallMate extends Chant
 			return false;
 		}
 
-		if((mob.location().domainType()==Room.DOMAIN_OUTDOORS_CITY)
-		||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT))
+		if(!CMLib.flags().isInWilderness(mob))
 		{
 			mob.tell(L("You must be in the wild to call a mate."));
 			return false;
@@ -212,7 +211,7 @@ public class Chant_CallMate extends Chant
 		if(success)
 		{
 			invoker=mob;
-			final CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),auto?"":L("^S<S-NAME> chant(s), calling for <S-HIS-HER> mate.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,null,this,somaticCastCode(mob,null,auto),auto?"":L("^S<S-NAME> chant(s), calling for <S-HIS-HER> mate.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -243,7 +242,7 @@ public class Chant_CallMate extends Chant
 			level=1;
 		newMOB.basePhyStats().setLevel(level);
 		newMOB.baseCharStats().setMyRace(R);
-		final char casterGender = (char)caster.charStats().getStat(CharStats.STAT_GENDER);
+		final char casterGender = caster.charStats().reproductiveCode();
 		final char mobGender = casterGender == 'M' ? 'F' : 'M';
 		final int oldCat=caster.baseCharStats().ageCategory();
 		String name=R.makeMobName(mobGender, R.getAgingChart()[oldCat]);
@@ -258,12 +257,14 @@ public class Chant_CallMate extends Chant
 		newMOB.setVictim(victim);
 		newMOB.recoverPhyStats();
 		newMOB.recoverCharStats();
-		newMOB.basePhyStats().setAbility(newMOB.basePhyStats().ability()*2);
+		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase()*2);
 		newMOB.basePhyStats().setArmor(CMLib.leveler().getLevelMOBArmor(newMOB));
 		newMOB.basePhyStats().setAttackAdjustment((int)CMath.mul(CMLib.leveler().getLevelAttack(newMOB),0.8));
 		newMOB.basePhyStats().setDamage((int)CMath.mul(CMLib.leveler().getLevelMOBDamage(newMOB),0.9));
 		newMOB.basePhyStats().setSpeed((int)CMath.mul(CMLib.leveler().getLevelMOBSpeed(newMOB),0.9));
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		newMOB.baseCharStats().setStat(CharStats.STAT_GENDER, mobGender);
 		newMOB.basePhyStats().setSensesMask(newMOB.basePhyStats().sensesMask()|PhyStats.CAN_SEE_DARK);
 		newMOB.setLocation(caster.location());

@@ -23,7 +23,7 @@ import com.planet_ink.coffee_mud.WebMacros.AreaScriptNext.AreaScriptInstance;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -346,10 +346,13 @@ public class JournalInfo extends StdWebMacro
 				return clearWebMacros(entry.from());
 			else
 			if(parms.containsKey("ISSTICKY")||parms.containsKey("ISSTUCKY"))
-				return String.valueOf(CMath.bset(entry.attributes(), JournalEntry.ATTRIBUTE_STUCKY));
+				return String.valueOf(CMath.bset(entry.attributes(), JournalEntry.JournalAttrib.STUCKY.bit));
 			else
 			if(parms.containsKey("ISPROTECTED"))
-				return String.valueOf(CMath.bset(entry.attributes(), JournalEntry.ATTRIBUTE_PROTECTED));
+				return String.valueOf(CMath.bset(entry.attributes(), JournalEntry.JournalAttrib.PROTECTED.bit));
+			else
+			if(parms.containsKey("ISATTACHMENT"))
+				return String.valueOf(CMath.bset(entry.attributes(), JournalEntry.JournalAttrib.ATTACHMENT.bit));
 			else
 			if(parms.containsKey("MSGICON"))
 				return clearWebMacros(entry.msgIcon());
@@ -358,10 +361,12 @@ public class JournalInfo extends StdWebMacro
 			{
 				if(entry.attributes()==0)
 					return "doc.gif";
-				if(CMath.bset(entry.attributes(), JournalEntry.ATTRIBUTE_STUCKY))
+				if(CMath.bset(entry.attributes(), JournalEntry.JournalAttrib.STUCKY.bit))
 					return "doclocked.gif";
-				if(CMath.bset(entry.attributes(), JournalEntry.ATTRIBUTE_PROTECTED))
+				if(CMath.bset(entry.attributes(), JournalEntry.JournalAttrib.PROTECTED.bit))
 					return "docstar.gif";
+				if(CMath.bset(entry.attributes(), JournalEntry.JournalAttrib.ATTACHMENT.bit))
+					return "docclip.gif";
 				return "docunknown.gif";
 			}
 			else
@@ -429,6 +434,44 @@ public class JournalInfo extends StdWebMacro
 				return String.valueOf(entry.update());
 			}
 			else
+			if(parms.containsKey("ATTACHNEXT"))
+			{
+				final String last=httpReq.getUrlParameter("ATTACHID");
+				if(parms.containsKey("RESET"))
+				{
+					if(last!=null)
+						httpReq.removeUrlParameter("ATTACHID");
+					return "";
+				}
+				String lastID="";
+				for(int i=0;i<entry.attachmentKeys().size();i++)
+				{
+					final String id = entry.attachmentKeys().get(i);
+					if((last==null)||((last.length()>0)&&(last.equals(lastID))&&(!id.equals(lastID))))
+					{
+						httpReq.addFakeUrlParameter("ATTACHID",id);
+						String anam = id;
+						if(anam.startsWith(entry.key()+"/"))
+						{
+							anam=anam.substring(entry.key().length()+1);
+							final int x = anam.indexOf('/');
+							if(x > 0)
+							{
+								httpReq.addFakeUrlParameter("ATTACHPATH",id.substring(0,x+entry.key().length()+1));
+								anam=anam.substring(x+1);
+							}
+						}
+						httpReq.addFakeUrlParameter("ATTACHNAME",anam);
+						return "";
+					}
+					lastID=id;
+				}
+				httpReq.addFakeUrlParameter("ATTACHID","");
+				if(parms.containsKey("EMPTYOK"))
+					return "<!--EMPTY-->";
+				return " @break@";
+			}
+			else
 			if(parms.containsKey("TO"))
 			{
 				if(to.toUpperCase().trim().startsWith("MASK="))
@@ -442,6 +485,18 @@ public class JournalInfo extends StdWebMacro
 			if(parms.containsKey("MESSAGE"))
 			{
 				String s=entry.msg();
+				if(parms.containsKey("SMARTTAGS"))
+				{
+					final boolean forum = CMLib.journals().getForumJournal(journalName) != null;
+					if(!forum)
+					{
+						s=CMStrings.replaceAll(s,"&","&amp;");
+						s=CMStrings.replaceAll(s,"<","&lt;");
+						s=CMStrings.replaceAll(s,">","&gt;");
+						s=CMStrings.replaceAll(s,JournalsLibrary.JOURNAL_BOUNDARY,"\n<HR>");
+						s=CMStrings.replaceAll(s,"%0D","<BR>");
+					}
+				}
 				if(parms.containsKey("NOREPLIES"))
 				{
 					final int x=s.indexOf(JournalsLibrary.JOURNAL_BOUNDARY);
@@ -453,6 +508,52 @@ public class JournalInfo extends StdWebMacro
 					s=CMStrings.replaceAll(s,"%0D","\n");
 					s=CMStrings.replaceAll(s,"<BR>","\n");
 					s=CMStrings.removeColors(s);
+				}
+				else
+				if(parms.containsKey("EDIT"))
+				{
+					//s=CMStrings.replaceAll(s,JournalsLibrary.JOURNAL_BOUNDARY,"\n<HR>");
+					//s=CMStrings.replaceAll(s,"%0D","\n");
+					s=CMStrings.replaceAll(s,"<BR>","\n");
+					//s=CMStrings.replaceAll(s,"&","&amp;");
+					//s=CMStrings.replaceAll(s,"<","&lt;");
+					//s=CMStrings.replaceAll(s,">","&gt;");
+					//s=CMStrings.removeColors(s);
+				}
+				else
+				if(parms.containsKey("SHOWTAGS"))
+				{
+					int x=0;
+					int y=s.indexOf(JournalsLibrary.JOURNAL_BOUNDARY,x+1);
+					if(y<0)
+						y=s.length();
+					while((x>=0)&&(y>x))
+					{
+						final boolean done=y==s.length();
+						s=s.substring(0,x)
+							+CMStrings.replaceAll(s.substring(x, y), "<","&lt;")
+							+s.substring(y);
+						y=s.indexOf(JournalsLibrary.JOURNAL_BOUNDARY,x+1);
+						if(y<0)
+							y=s.length();
+						if(done)
+							break;
+						else
+						{
+							x=y;
+							if(s.substring(x).startsWith(JournalsLibrary.JOURNAL_BOUNDARY))
+								x+=JournalsLibrary.JOURNAL_BOUNDARY.length();
+							y=s.indexOf(JournalsLibrary.JOURNAL_BOUNDARY,x+1);
+							if(y<0)
+								y=s.length();
+						}
+					}
+					s=CMStrings.replaceAll(s,JournalsLibrary.JOURNAL_BOUNDARY,"<HR>");
+					s=CMStrings.replaceAll(s,"%0D","<BR>");
+					s=CMStrings.replaceAll(s,"\n","<BR>");
+					s=CMStrings.replaceAll(s,"\r","");
+					s=colorwebifyOnly(new StringBuffer(s)).toString();
+					s=clearWebMacros(s);
 				}
 				else
 				{

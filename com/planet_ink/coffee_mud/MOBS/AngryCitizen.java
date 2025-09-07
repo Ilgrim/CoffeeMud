@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2020 Lee H. Fox
+   Copyright 2000-2025 Lee H. Fox
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class AngryCitizen extends StdMOB
 	public AngryCitizen()
 	{
 		super();
-		username="an angry citizen";
+		_name="an angry citizen";
 		setDescription("He\\`s dirty, cranky, and very hickish.");
 		setDisplayText("An angry citizen stands here shouting.");
 		CMLib.factions().setAlignment(this,Faction.Align.EVIL);
@@ -63,7 +63,7 @@ public class AngryCitizen extends StdMOB
 		baseCharStats().setMyRace(CMClass.getRace("Human"));
 		baseCharStats().getMyRace().startRacing(this,false);
 
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(1);
 		basePhyStats().setArmor(90);
 

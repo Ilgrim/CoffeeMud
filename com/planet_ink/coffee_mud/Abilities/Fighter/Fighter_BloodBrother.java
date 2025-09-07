@@ -19,7 +19,7 @@ import java.io.IOException;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -144,6 +144,8 @@ public class Fighter_BloodBrother extends FighterSkill
 				R.send(mob,msg);
 				mob.addTattoo("BROTHER:"+target.Name());
 				target.addTattoo("BROTHER:"+mob.Name());
+				mob.setDescription(mob.description()+"  "+L("@x1 is the blood brother of @x2.",mob.Name(),target.Name()));
+				target.setDescription(target.description()+"  "+L("@x1 is the blood brother of @x2.",target.Name(),mob.Name()));
 			}
 		}
 		else

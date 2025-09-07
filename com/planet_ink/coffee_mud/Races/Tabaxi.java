@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -150,20 +150,26 @@ public class Tabaxi extends GreatCat
 	{
 		super.affectPhyStats(affected,affectableStats);
 			affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_SEE_INFRARED); //would like to turn this darkvison if it is okay with Zac.
-		affectableStats.setSpeed(affectableStats.speed() * 2.0);
+		affectableStats.setSpeed(affectableStats.speed() + CMProps.getSpeedAdjustment());
 	}
 
 	@Override
 	public void affectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
-		affectableStats.setStat(CharStats.STAT_DEXTERITY,affectableStats.getStat(CharStats.STAT_DEXTERITY)+3);
-		affectableStats.setStat(CharStats.STAT_MAX_DEXTERITY_ADJ,affectableStats.getStat(CharStats.STAT_MAX_DEXTERITY_ADJ)+3);
-		affectableStats.setStat(CharStats.STAT_STRENGTH,affectableStats.getStat(CharStats.STAT_STRENGTH)+3);
-		affectableStats.setStat(CharStats.STAT_MAX_STRENGTH_ADJ,affectableStats.getStat(CharStats.STAT_MAX_STRENGTH_ADJ)+3);
-		affectableStats.setStat(CharStats.STAT_INTELLIGENCE,affectableStats.getStat(CharStats.STAT_INTELLIGENCE)-4);
-		affectableStats.setStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ,affectableStats.getStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ)-4);
-		affectableStats.setStat(CharStats.STAT_WISDOM,affectableStats.getStat(CharStats.STAT_WISDOM)-2);
-		affectableStats.setStat(CharStats.STAT_MAX_WISDOM_ADJ,affectableStats.getStat(CharStats.STAT_MAX_WISDOM_ADJ)-2);
+		affectableStats.adjStat(CharStats.STAT_DEXTERITY,3);
+		affectableStats.adjStat(CharStats.STAT_STRENGTH,3);
+		affectableStats.adjStat(CharStats.STAT_INTELLIGENCE,-4);
+		affectableStats.adjStat(CharStats.STAT_WISDOM,-2);
+	}
+
+	@Override
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
+	{
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.adjStat(CharStats.STAT_DEXTERITY,-3);
+		affectableStats.adjStat(CharStats.STAT_STRENGTH,-3);
+		affectableStats.adjStat(CharStats.STAT_INTELLIGENCE,+4);
+		affectableStats.adjStat(CharStats.STAT_WISDOM,+2);
 	}
 
 	@Override

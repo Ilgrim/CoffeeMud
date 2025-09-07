@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -73,15 +73,35 @@ public class GenStaff extends GenWeapon implements Wand
 	protected int maxUses=Integer.MAX_VALUE;
 
 	@Override
-	public int maxUses()
+	public boolean subjectToWearAndTear()
+	{
+		return false; // can't give uses remaining double-duty.
+	}
+
+	@Override
+	public int getCharges()
+	{
+		return usesRemaining();
+	}
+
+	@Override
+	public void setCharges(final int newCharges)
+	{
+		this.setUsesRemaining(newCharges);
+	}
+
+	@Override
+	public int getMaxCharges()
 	{
 		return maxUses;
 	}
 
 	@Override
-	public void setMaxUses(final int newMaxUses)
+	public void setMaxCharges(final int num)
 	{
-		maxUses = newMaxUses;
+		maxUses = num;
+		if(num < getCharges() && (num > 0))
+			setCharges(num);
 	}
 
 	@Override
@@ -156,11 +176,16 @@ public class GenStaff extends GenWeapon implements Wand
 	{
 		String id=super.secretIdentity();
 		final Ability A=getSpell();
-		String uses;
-		if(this.maxUses() < 999999)
-			uses=""+usesRemaining()+"/"+maxUses();
+		final String uses;
+		if(this.getCharges() < 999999)
+		{
+			if(this.getMaxCharges() < 999999)
+				uses=""+getCharges()+"/"+getMaxCharges();
+			else
+				uses = ""+getCharges();
+		}
 		else
-			uses = ""+usesRemaining();
+			uses="unlimited";
 		if(A!=null)
 			id="'A staff of "+A.name()+"' Charges: "+uses+"\n\r"+id;
 		return id+"\n\rSay the magic word :`"+secretWord+"` to the target.";
@@ -209,8 +234,15 @@ public class GenStaff extends GenWeapon implements Wand
 					}
 				}
 				final String said=CMStrings.getSayFromMessage(msg.sourceMessage());
-				if((!alreadyWanding)&&(said!=null)&&(checkWave(mob,said)))
-					msg.addTrailerMsg(CMClass.getMsg(msg.source(),this,msg.target(),CMMsg.NO_EFFECT,null,CMMsg.MASK_ALWAYS|CMMsg.TYP_WAND_USE,said,CMMsg.NO_EFFECT,null));
+				if((!alreadyWanding)
+				&&(said!=null)
+				&&(checkWave(mob,said)))
+				{
+					msg.addTrailerMsg(CMClass.getMsg(msg.source(),this,msg.target(),
+							CMMsg.NO_EFFECT,null,
+							CMMsg.MASK_ALWAYS|CMMsg.TYP_WAND_USE,said,
+							CMMsg.NO_EFFECT,null));
+				}
 			}
 			break;
 		default:
@@ -227,19 +259,21 @@ public class GenStaff extends GenWeapon implements Wand
 	{
 		if(GenWeapon.getGenWeaponCodeNum(code)>=0)
 			return super.getStat(code);
-		switch(getCodeNum(code))
+		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
+			return CMLib.coffeeMaker().getGenItemStat(this,code);
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
-			if((getEnchantType()<0)||(getEnchantType()>=Ability.ACODE_DESCS_.length))
+			if((getEnchantType()<0)||(getEnchantType()>=Ability.ACODE.DESCS_.size()))
 				return "ANY";
-			return Ability.ACODE_DESCS_[getEnchantType()];
+			return Ability.ACODE.DESCS_.get(getEnchantType());
 		case 1:
 		{
 			final Ability A = getSpell();
 			return (A!=null) ? A.ID() : "";
 		}
 		case 2:
-			return ""+maxUses();
+			return ""+getMaxCharges();
 		default:
 			return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
 		}
@@ -251,10 +285,13 @@ public class GenStaff extends GenWeapon implements Wand
 		if(GenWeapon.getGenWeaponCodeNum(code)>=0)
 			super.setStat(code, val);
 		else
-		switch(getCodeNum(code))
+		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
+			super.setStat(code, val);
+		else
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
-			setEnchantType(CMParms.indexOf(Ability.ACODE_DESCS_, val.toUpperCase().trim()));
+			setEnchantType(CMParms.indexOf(Ability.ACODE.DESCS_, val.toUpperCase().trim()));
 			break;
 		case 1:
 		{
@@ -266,7 +303,7 @@ public class GenStaff extends GenWeapon implements Wand
 		case 2:
 		{
 			if(CMath.isMathExpression(val))
-				this.setMaxUses(CMath.parseIntExpression(val));
+				this.setMaxCharges(CMath.parseIntExpression(val));
 			break;
 		}
 		default:
@@ -275,8 +312,7 @@ public class GenStaff extends GenWeapon implements Wand
 		}
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<MYCODES.length;i++)
 		{

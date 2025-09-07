@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class Prayer_InfuseBalance extends Prayer
+public class Prayer_InfuseBalance extends Prayer implements Deity.DeityWorshipper
 {
 	@Override
 	public String ID()
@@ -86,6 +86,12 @@ public class Prayer_InfuseBalance extends Prayer
 		return Ability.CAN_MOBS|Ability.CAN_ITEMS|Ability.CAN_ROOMS|Ability.CAN_EXITS;
 	}
 
+	@Override
+	public String accountForYourself()
+	{
+		return name()+": "+deityName();
+	}
+
 	protected int serviceRunning=0;
 
 	@Override
@@ -100,6 +106,78 @@ public class Prayer_InfuseBalance extends Prayer
 		serviceRunning=newCode;
 	}
 
+	protected volatile String deityName=null;
+
+	@Override
+	public String getWorshipCharID()
+	{
+		return text();
+	}
+
+	@Override
+	public void setWorshipCharID(final String newVal)
+	{
+		setMiscText((newVal == null)?"":newVal);
+	}
+
+	@Override
+	public void setDeityName(final String newDeityName)
+	{
+		deityName=newDeityName;
+	}
+
+	@Override
+	public String deityName()
+	{
+		if(deityName!=null)
+			return deityName;
+		return getWorshipCharID();
+	}
+
+	@Override
+	public Deity getMyDeity()
+	{
+		if (text().length() == 0)
+			return null;
+		return CMLib.map().getDeity(text());
+	}
+
+	@Override
+	public void finalize() throws Throwable
+	{
+		final Physical affected=this.affected;
+		if((affected instanceof Places)&&(text().length()>0))
+			CMLib.city().deregisterHolyPlace(text(),(Places)affected);
+		this.affected=null;
+		super.finalize();
+	}
+
+	protected void alterHolyPlaceRegistration(final Physical affected)
+	{
+		if(text().length()>0)
+		{
+			if((affected == null)&&(this.affected instanceof Places))
+				CMLib.city().deregisterHolyPlace(text(),(Places)this.affected);
+			else
+			if(affected instanceof Places)
+				CMLib.city().registerHolyPlace(text(),(Places)affected);
+		}
+	}
+
+	@Override
+	public void setAffectedOne(final Physical affected)
+	{
+		alterHolyPlaceRegistration(affected);
+		super.setAffectedOne(affected);
+	}
+
+	@Override
+	public void setMiscText(final String newMiscText)
+	{
+		super.setMiscText(newMiscText);
+		alterHolyPlaceRegistration(this.affected);
+	}
+
 	@Override
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
@@ -108,6 +186,8 @@ public class Prayer_InfuseBalance extends Prayer
 			affectableStats.setDisposition(affectableStats.disposition()-PhyStats.IS_GOOD);
 		if(CMath.bset(affectableStats.disposition(),PhyStats.IS_EVIL))
 			affectableStats.setDisposition(affectableStats.disposition()-PhyStats.IS_EVIL);
+		affectableStats.addAmbiance(PhyStats.Ambiance.SEEMS_GOOD.code());
+		affectableStats.addAmbiance(PhyStats.Ambiance.SEEMS_EVIL.code());
 	}
 
 	@Override
@@ -123,7 +203,6 @@ public class Prayer_InfuseBalance extends Prayer
 		}
 
 		super.unInvoke();
-
 	}
 
 	@Override
@@ -134,7 +213,7 @@ public class Prayer_InfuseBalance extends Prayer
 		if(((msg.targetMajor() & CMMsg.MASK_MALICIOUS)==CMMsg.MASK_MALICIOUS)
 		&&(msg.target() instanceof MOB))
 		{
-			if(msg.source().getWorshipCharID().equalsIgnoreCase(((MOB)msg.target()).getWorshipCharID()))
+			if(msg.source().charStats().getWorshipCharID().equalsIgnoreCase(((MOB)msg.target()).charStats().getWorshipCharID()))
 			{
 				msg.source().tell(L("Not right now -- you're in a service."));
 				msg.source().makePeace(true);
@@ -151,6 +230,34 @@ public class Prayer_InfuseBalance extends Prayer
 	}
 
 	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
+	{
+		super.executeMsg(myHost, msg);
+		if((affected instanceof Room)
+		&&(msg.targetMinor()==CMMsg.TYP_CAST_SPELL)
+		&&(msg.target() instanceof MOB)
+		&&(msg.tool() instanceof Ability)
+		&&((((Ability)msg.tool()).classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_PRAYER)
+		&&(text().length()>0)
+		&&(msg.source().Name().equalsIgnoreCase(text())||msg.source().charStats().getWorshipCharID().equalsIgnoreCase(text()))
+		&&(((MOB)msg.target()).fetchEffect(msg.tool().ID())==null))
+		{
+			CMLib.threads().scheduleRunnable(new Runnable()
+			{
+				private final Ability able = (Ability)msg.tool();
+				private final MOB mob=(MOB)msg.target();
+				@Override
+				public void run()
+				{
+					final Ability A=mob.fetchEffect(able.ID());
+					if(A!=null)
+						A.setExpirationDate(System.currentTimeMillis() + A.expirationDate() + Math.round(CMath.mul(A.expirationDate(), 0.5)));
+				}
+			}, 1000);
+		}
+	}
+
+	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		Physical target;
@@ -162,23 +269,23 @@ public class Prayer_InfuseBalance extends Prayer
 		if(target==null)
 			return false;
 
-		Deity D=null;
+		String deityName=null;
 		if(CMLib.law().getClericInfusion(target)!=null)
 		{
 
 			if(target instanceof Room)
-				D=CMLib.law().getClericInfused((Room)target);
-			if(D!=null)
-				mob.tell(L("There is already an infused aura of @x1 around @x2.",D.Name(),target.name(mob)));
+				deityName=CMLib.law().getClericInfused(target);
+			if(deityName!=null)
+				mob.tell(L("There is already an infused aura of @x1 around @x2.",deityName,target.name(mob)));
 			else
 				mob.tell(L("There is already an infused aura around @x1.",target.name(mob)));
 			return false;
 		}
 
-		D=mob.getMyDeity();
+		deityName=mob.baseCharStats().getWorshipCharID();
 		if(target instanceof Room)
 		{
-			if(D==null)
+			if(deityName.length()==0)
 			{
 				mob.tell(L("The faithless may not infuse balance in a room."));
 				return false;
@@ -188,9 +295,9 @@ public class Prayer_InfuseBalance extends Prayer
 			for(final Enumeration<Room> e=A.getMetroMap();e.hasMoreElements();)
 			{
 				R=e.nextElement();
-				if(CMLib.law().getClericInfused((Room)target)==D)
+				if(deityName.equalsIgnoreCase(CMLib.law().getClericInfused(target)))
 				{
-					mob.tell(L("There is already a balanced place of @x1 in this area at @x2.",D.Name(),R.displayText(mob)));
+					mob.tell(L("There is already a balanced place of @x1 in this area at @x2.",deityName,R.displayText(mob)));
 					return false;
 				}
 			}
@@ -202,12 +309,13 @@ public class Prayer_InfuseBalance extends Prayer
 		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("A holy balanced aura appears around <T-NAME>."):L("^S<S-NAME> @x1 to infuse a holy balanced aura around <T-NAMESELF>.^?",prayForWord(mob)));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					auto?L("A holy balanced aura appears around <T-NAME>."):L("^S<S-NAME> @x1 to infuse a holy balanced aura around <T-NAMESELF>.^?",prayForWord(mob)));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				if(D!=null)
-					setMiscText(D.Name());
+				if((deityName!=null)&&(deityName.length()>0))
+					setMiscText(deityName);
 				if((target instanceof Room)
 				&&(CMLib.law().doesOwnThisLand(mob,((Room)target))))
 				{

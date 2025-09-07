@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -105,6 +105,13 @@ public class Thief_Search extends ThiefSkill
 	}
 
 	@Override
+	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
+	{
+		super.affectPhyStats(affected,affectableStats);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_SEE_HIDDEN);
+	}
+
+	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
 		if(affected instanceof MOB)
@@ -128,13 +135,6 @@ public class Thief_Search extends ThiefSkill
 			}
 		}
 		return true;
-	}
-
-	@Override
-	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
-	{
-		super.affectPhyStats(affected,affectableStats);
-		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_SEE_HIDDEN);
 	}
 
 	@Override
@@ -167,7 +167,7 @@ public class Thief_Search extends ThiefSkill
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already aware of hidden things."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already aware of hidden things."));
 			return false;
 		}
 

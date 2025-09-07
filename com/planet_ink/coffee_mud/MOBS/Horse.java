@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class Horse extends StdRideable
 		super();
 		final Random randomizer = new Random(System.currentTimeMillis());
 
-		username="a horse";
+		_name="a horse";
 		setDescription("It\\`s a beautiful brown steed.");
 		setDisplayText("A horse stands here.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -54,12 +54,12 @@ public class Horse extends StdRideable
 		setWimpHitPoint(2);
 
 		basePhyStats().setDamage(4);
-		setRideBasis(Rideable.RIDEABLE_LAND);
+		setRideBasis(Rideable.Basis.LAND_BASED);
 		setRiderCapacity(2);
 
 		baseCharStats().setStat(CharStats.STAT_INTELLIGENCE,1);
 
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(1);
 		basePhyStats().setArmor(90);
 

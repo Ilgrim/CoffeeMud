@@ -22,7 +22,7 @@ import com.planet_ink.coffee_mud.WebMacros.MUDGrinder;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -121,7 +121,7 @@ public class GrinderClans
 			if(C!=null)
 			{
 				String str=null;
-				str=httpReq.getUrlParameter("PREMISE");
+				str=CMStrings.fixMudCRLF(httpReq.getUrlParameter("PREMISE"));
 				if(str!=null)
 					C.setPremise(str);
 				str=httpReq.getUrlParameter("RECALLID");
@@ -151,6 +151,9 @@ public class GrinderClans
 				str=httpReq.getUrlParameter("TAX");
 				if(str!=null)
 					C.setTaxes(CMath.s_pct(str));
+				str=httpReq.getUrlParameter("DUES");
+				if(str!=null)
+					C.setDues(CMath.s_double(str));
 				str=httpReq.getUrlParameter("CCLASSID");
 				if(str!=null)
 				{

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -77,15 +77,14 @@ public class Recollecting extends CommonSkill
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			final MOB mob=(MOB)affected;
 			if(tickUp==6)
 			{
 				if(success==false)
 				{
-					final StringBuffer str=new StringBuffer(L("Your recollection attempt failed.\n\r"));
-					commonTell(mob,str.toString());
+					commonTelL(mob,"Your recollection attempt failed.\n\r");
 					unInvoke();
 				}
 
@@ -117,7 +116,7 @@ public class Recollecting extends CommonSkill
 			final Item I=i.nextElement();
 			if((I != null)
 			&&(I.isReadable())
-			&&(this.getBrand(I).equals(mob.Name())||isMyProperty)
+			&&(CMLib.ableParms().getCraftingBrand(I).equalsIgnoreCase(mob.Name())||isMyProperty)
 			&&((I.material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_PAPER)
 			&&(!(I instanceof Scroll)))
 				list.add(I);
@@ -196,9 +195,9 @@ public class Recollecting extends CommonSkill
 							}
 						}
 						if(founds.size() == 0)
-							commonTell(mob,L("You are pretty sure there is nothing here that mentions that."));
+							commonTelL(mob,"You are pretty sure there is nothing here that mentions that.");
 						else
-							commonTell(mob,L("You seem to recall reading that in @x1.",CMLib.english().toEnglishStringList(founds)));
+							commonTelL(mob,"You seem to recall reading that in @x1.",CMLib.english().toEnglishStringList(founds));
 					}
 					finally
 					{
@@ -219,12 +218,12 @@ public class Recollecting extends CommonSkill
 		success=false;
 		if(this.getApplicableItems(mob).size()==0)
 		{
-			commonTell(mob,L("There are no writings here!"));
+			commonTelL(mob,"There are no writings here!");
 			return false;
 		}
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Recollect something about what?"));
+			commonTelL(mob,"Recollect something about what?");
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))

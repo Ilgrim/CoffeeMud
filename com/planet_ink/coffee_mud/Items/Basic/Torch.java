@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -40,11 +40,19 @@ public class Torch extends LightSource
 		return "Torch";
 	}
 
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a torch");
+	}
+
 	public Torch()
 	{
 		super();
 		setName("a torch");
-		setDisplayText("a small straw torch sits here.");
+		setDisplayText("a small torch sits here.");
 		setDescription("It looks like it is lightly covered in oil near the end.");
 		durationTicks=200;
 

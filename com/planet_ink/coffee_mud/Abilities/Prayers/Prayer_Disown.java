@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -215,7 +215,7 @@ public class Prayer_Disown extends Prayer
 					target.basePhyStats().setAbility(0);
 					target.phyStats().setAbility(0);
 				}
-				CMLib.leveler().postExperience(mob,null,null,5,false);
+				CMLib.leveler().postExperience(mob,"ABILITY:"+ID(),null,null,5, false);
 			}
 		}
 		else

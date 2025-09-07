@@ -19,7 +19,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ public class GenDeity extends StdDeity
 	public GenDeity()
 	{
 		super();
-		username="a generic deity";
+		_name="a generic deity";
 		setDescription("He is a run-of-the-mill deity.");
 		setDisplayText("A generic deity stands here.");
 		basePhyStats().setAbility(CMProps.getMobHPBase()); // his only off-default
@@ -64,9 +64,9 @@ public class GenDeity extends StdDeity
 	public String text()
 	{
 		if(CMProps.getBoolVar(CMProps.Bool.MOBCOMPRESS))
-			miscText=CMLib.encoder().compressString(CMLib.coffeeMaker().getPropertiesStr(this,false));
+			miscText=CMLib.encoder().compressString(CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false));
 		else
-			miscText=CMLib.coffeeMaker().getPropertiesStr(this,false);
+			miscText=CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 		return super.text();
 	}
 

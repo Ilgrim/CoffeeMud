@@ -20,7 +20,7 @@ import java.util.*;
 import java.net.URLEncoder;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,7 +60,12 @@ public class AddRequestParameter extends StdWebMacro
 				else
 				if((val.equals("--")&&(httpReq.isUrlParameter(key))))
 					val=""+(CMath.s_int(httpReq.getUrlParameter(key))-1);
-
+				else
+				if((val.equals("**")&&(httpReq.isUrlParameter(key))))
+					val=""+(CMath.s_int(httpReq.getUrlParameter(key))*2);
+				else
+				if(val.startsWith("##(")&&(val.endsWith(")")))
+					val=""+CMath.parseIntExpression(val.substring(3,val.length()-1),null);
 				httpReq.addFakeUrlParameter(key,val);
 			}
 		}

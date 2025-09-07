@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -247,14 +247,14 @@ public class Thief_Articles extends ThiefSkill
 		final Room R=mob.location();
 		if(R==null)
 			return false;
-		if(!(R.getArea() instanceof BoardableShip))
+		if(!(R.getArea() instanceof Boardable))
 		{
 			mob.tell(L("You must be on a sailing ship."));
 			return false;
 		}
-		final BoardableShip myShip=(BoardableShip)R.getArea();
-		final Item myShipItem=myShip.getShipItem();
-		final Area myShipArea=myShip.getShipArea();
+		final Boardable myShip=(Boardable)R.getArea();
+		final Item myShipItem=myShip.getBoardableItem();
+		final Area myShipArea=myShip.getArea();
 		if((myShipItem==null)
 		||(myShipArea==null)
 		||(!(myShipItem.owner() instanceof Room)))
@@ -270,7 +270,7 @@ public class Thief_Articles extends ThiefSkill
 			return false;
 		}
 
-		final MOB target=this.getTarget(mob,commands,givenTarget);
+		MOB target=this.getTarget(mob,commands,givenTarget);
 		if(target==null)
 			return false;
 
@@ -410,6 +410,38 @@ public class Thief_Articles extends ThiefSkill
 					A=(Ability)copyOf();
 					A.setMiscText(myShipItem.Name()+";"+nextType.name());
 					A.setAbilityCode(super.getXLEVELLevel(mob));
+					if(target.isMonster()
+					&& (target.getStartRoom()!=null)
+					&& (target.getStartRoom()!=R)
+					&& (CMLib.flags().validCheck(target.getStartRoom())==null)
+					&& (target.databaseID()!=null)
+					&& (target.databaseID().length()>0))
+					{
+						final Room startR=target.getStartRoom();
+						final MOB folM = target.amFollowing();
+						if(folM!=null)
+							target.setFollowing(null);
+						while(target.numFollowers()>0)
+							target.fetchFollower(0).setFollowing(null);
+						final MOB oldTarget = target;
+						target=(MOB)target.copyOf();
+						R.delInhabitant(oldTarget);
+						oldTarget.bringToLife(startR, true);
+						target.setFollowing(folM);
+						target.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+						target.addTattoo("SYSTEM_SUMMONED");
+						target.addTattoo("SUMMONED_BY:"+mob.name());
+						target.setMiscText(target.text());
+						target.recoverCharStats();
+						target.recoverPhyStats();
+						target.recoverMaxState();
+						target.resetToMaxState();
+						target.bringToLife(R, false);
+						CMLib.beanCounter().clearZeroMoney(target,null);
+						target.setMoneyVariation(0);
+						target.setStartRoom(null);
+
+					}
 					target.addNonUninvokableEffect(A);
 				}
 			}

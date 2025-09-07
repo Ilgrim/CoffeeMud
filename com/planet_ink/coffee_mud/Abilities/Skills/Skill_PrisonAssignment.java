@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -221,7 +221,7 @@ public class Skill_PrisonAssignment extends StdSkill
 			return false;
 		}
 
-		if(!B.isElligibleOfficer(legalA, target))
+		if(!B.isEligibleOfficer(legalA, target))
 		{
 			mob.tell(L("@x1 is too busy to talk to you right now.",target.name(mob)));
 			return false;
@@ -242,12 +242,13 @@ public class Skill_PrisonAssignment extends StdSkill
 		final Room jailR=CMLib.map().getRoom(text());
 		final TrackingLibrary.TrackingFlags flags=
 			CMLib.tracking().newFlags()
+			.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 			.plus(TrackingLibrary.TrackingFlag.NOAIR)
 			.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
 			.plus(TrackingLibrary.TrackingFlag.NOWATER);
 		if((jailR == null)
 		||(jailR.amDestroyed())
-		||(!CMLib.tracking().getRadiantRooms(R, flags, 50).contains(jailR)))
+		||(!CMLib.tracking().findTrailToRoom(R, jailR, flags, 50).contains(jailR)))
 		{
 			mob.tell(L("@x1 doesn't know how to get to your jail.",target.name(mob)));
 			return false;
@@ -280,7 +281,7 @@ public class Skill_PrisonAssignment extends StdSkill
 						oldA.unInvoke();
 						target.delEffect(oldA);
 					}
-					final int duration = (int)(CMProps.getTicksPerMudHour() * CMLib.time().globalClock().getHoursInDay() * (1+super.getXLEVELLevel(mob)));
+					final int duration = (int)(CMProps.getTicksPerMudHour() * CMLib.time().localClock(mob).getHoursInDay() * (1+super.getXLEVELLevel(mob)));
 					final Ability A=beneficialAffect(mob, target, asLevel, duration);
 					if(A!=null)
 					{

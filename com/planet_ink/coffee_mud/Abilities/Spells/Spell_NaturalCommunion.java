@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -65,6 +65,12 @@ public class Spell_NaturalCommunion extends Spell
 	protected int canAffectCode()
 	{
 		return 0;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -131,7 +137,7 @@ public class Spell_NaturalCommunion extends Spell
 		final boolean success=proficiencyCheck(mob,chance,auto);
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,targetR,this,somanticCastCode(mob,targetR,auto),auto?"":L("^S<S-NAME> commune(s) with <S-HIS-HER> natural surroundings.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,targetR,this,somaticCastCode(mob,targetR,auto),auto?"":L("^S<S-NAME> commune(s) with <S-HIS-HER> natural surroundings.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -141,7 +147,8 @@ public class Spell_NaturalCommunion extends Spell
 				communeWithThisRoom(mob,mob.location(),stuff);
 				for(final Room R : rooms)
 					communeWithThisRoom(mob,R,stuff);
-				mob.tell(L("Your surroundings show the following natural signs: @x1.",CMLib.english().toEnglishStringList(stuff.toArray(new String[0]))));
+				commonTelL(mob,"Your surroundings show the following natural signs: @x1.",
+						CMLib.english().toEnglishStringList(stuff.toArray(new String[0]),true));
 			}
 		}
 		else

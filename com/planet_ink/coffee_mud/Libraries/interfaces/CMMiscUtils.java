@@ -1,5 +1,7 @@
 package com.planet_ink.coffee_mud.Libraries.interfaces;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.CostDef.Cost;
+import com.planet_ink.coffee_mud.core.interfaces.CostDef.CostType;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -20,7 +22,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.io.IOException;
 import java.util.*;
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -65,13 +67,48 @@ public interface CMMiscUtils extends CMLibrary
 	public String getFormattedDate(Environmental E);
 
 	/**
-	 * Returns a rediculous best guess on the amount of memory used
+	 * Parses a DataDriven recipe file into a list of rows
+	 * which is a list of column data.
+	 *
+	 * @see CMMiscUtils#addExtRecipes(MOB, String, List)
+	 *
+	 * @param str the unparsed data
+	 * @param tabs require recipe lines to be tab delimited
+	 * @return the parsed data
+	 */
+	public List<List<String>> loadRecipeList(final String str, final boolean tabs);
+
+	/**
+	 * Adds any custom recipes known to the given mob to the given existing
+	 * recipe list, for the given skill ID.
+	 *
+	 * @see CMMiscUtils#loadRecipeList(String, boolean)
+	 *
+	 * @param mob the mob who might have more recipes
+	 * @param ID the Ability ID of the RecipeDriven object
+	 * @param recipes the existing recipes
+	 * @return the new fuller recipes
+	 */
+	public List<List<String>> addExtRecipes(final MOB mob, final String ID, List<List<String>> recipes);
+
+	/**
+	 * Returns a ridiculous best guess on the amount of memory used
 	 * by the given environmental.
 	 * @param E the object to check for a footprint of
 	 * @param number the accuracy -- higher is better
 	 * @return the amount of memory used, very approximately
 	 */
 	public double memoryUse ( Environmental E, int number );
+
+	/**
+	 * Returns a ridiculous best guess on the amount of memory used
+	 * by the given object.
+	 * @param obj the object to check for a footprint of
+	 * @param shallowFields fields to treat as shallow, and not recurse into
+	 * @param visited a set of objects already visited, to prevent loops
+	 * @return the amount of memory used, very approximately
+	 */
+	public long memoryUsage(final Object obj, final List<String> shallowFields, Set<Object> visited);
 
 	/**
 	 * Nice english comma-delimited list, with oxford commas
@@ -89,11 +126,11 @@ public interface CMMiscUtils extends CMLibrary
 	 * This would include anything it is mounted to, or that
 	 * is mounted to it.  A discount is given for pulling
 	 * a wagon.
-	 * @param P the item to get the pull weight of. 
+	 * @param P the item to get the pull weight of.
 	 * @return the calculated pull weight.
 	 */
 	public int getPullWeight(final Physical P);
-	
+
 	/**
 	 * This strange method takes a list of space-delimited expressions of the
 	 * form [CONDITION]number number number number, etc. E.G.: &gt;1 3 2 5 3 2.
@@ -108,6 +145,31 @@ public interface CMMiscUtils extends CMLibrary
 	 * @return the list of number lists
 	 */
 	public long[][] compileConditionalRange(List<String> condV, int numDigits, final int startOfRange, final int endOfRange);
+
+	/**
+	 * This strange method takes a list of space-delimited expressions of the
+	 * form [CONDITION]number number type number type , etc. E.G.: &gt;1 3 trains 5 pracs.
+	 * Each list must contain at least the given num of digits. If the condition falls
+	 * within the given start of range and end of range, then the condition
+	 * range of entries in the returned array is populated with the values on
+	 * that row.  Each digit represents a single cost.
+	 * @param condV the list of fully expressions
+	 * @param numDigits the min number of digits in each expression
+	 * @param startOfRange the starting range to return
+	 * @param endOfRange the ending range to return &gt; startOfRange
+	 * @return the list of number lists
+	 */
+	public Cost[][] compileConditionalCosts(final List<String> condV, final int numDigits, final int startOfRange, final int endOfRange);
+
+	/**
+	 * Compiles a cost object based on the amount, and the given possible
+	 * train, practice, or a currency, or any other type.
+	 *
+	 * @param amt the given amount
+	 * @param poss string describing an amount
+	 * @return null, or a cost object
+	 */
+	public Cost compileCost(double amt, final String poss);
 
 	/**
 	 * Outfits the given mob with the list of given items.  If the mob
@@ -277,6 +339,16 @@ public interface CMMiscUtils extends CMLibrary
 	public List<DeadBody> getDeadBodies(Environmental container);
 
 	/**
+	 * Returns any favored mounts, usually based on cavalier skills,
+	 * but returns a horse otherwise.  The pairs are the racial
+	 * category, followed by the race proper.
+	 *
+	 * @param M the mob to find favored mounts for
+	 * @return the favored mounts, at least 1
+	 */
+	public PairList<String,Race> getFavoredMounts(final MOB M);
+
+	/**
 	 * Resurrects the given body according to all system rules.
 	 *
 	 * @param tellMob if the corpse could not be resurrected, tell this mob.
@@ -291,6 +363,10 @@ public interface CMMiscUtils extends CMLibrary
 	 * This method parses the item ruinning rules and possibly ruins the given item
 	 * by returning the ruined version.  Or it might do nothing
 	 * and just return the item.
+	 *
+	 * @see CMMiscUtils#canBeRuined(Item)
+	 * @see CMMiscUtils#ruinItem(Item)
+	 *
 	 * @param mob the mob to get ruin policies for
 	 * @param I the item to potentially ruin
 	 * @return the ruined item, or the original item, depending
@@ -298,12 +374,40 @@ public interface CMMiscUtils extends CMLibrary
 	public Item isRuinedLoot(MOB mob, Item I);
 
 	/**
-	 * Always converts the given item into the Ruined version
+	 * Returns whether the given item is allowed to be ruined
+	 * by anything.
+	 *
 	 * @see CMMiscUtils#isRuinedLoot(MOB, Item)
+	 * @see CMMiscUtils#ruinItem(Item)
+	 *
+	 * @param I the item to check
+	 * @return true if it is ruinable, false otherwise
+	 */
+	public boolean canBeRuined(final Item I);
+
+	/**
+	 * Always converts the given item into the Ruined version
+	 *
+	 * @see CMMiscUtils#isRuinedLoot(MOB, Item)
+	 * @see CMMiscUtils#canBeRuined(Item)
+	 *
 	 * @param I the item to ruin
 	 * @return the new, ruined version
 	 */
 	public Item ruinItem(Item I);
+
+	/**
+	 * Parses a given raw alias definition, putting the resulting
+	 * commands into the executeable commands, and returning whether
+	 * they should be echoed.
+	 *
+	 * @param rawAliasDefinition the raw alias definition
+	 * @param parsedInput the original user input, parsed
+	 * @param executableCommands the resulting list of commands
+	 * @param doEcho 1 dim array to put whether echo is on or off
+	 */
+	public void deAlias(final String rawAliasDefinition, final List<String> parsedInput,
+						final List<List<String>> executableCommands, final boolean[] doEcho);
 
 	/**
 	 * Iterates through every mob and player in the game, replacing the old race
@@ -360,12 +464,12 @@ public interface CMMiscUtils extends CMLibrary
 	 * Absolutely returns the correct race when mixing races of the
 	 * two given IDs.  Applies system rules to the generation.
 	 *
-	 * @param race1 the mother race
-	 * @param race2 the father race
+	 * @param motherRaceID the mother race
+	 * @param fatherRaceID the father race
 	 * @param ignoreRules ignore the ini file override rules
 	 * @return the mixed race
 	 */
-	public Race getMixedRace(String race1, String race2, boolean ignoreRules);
+	public Race getMixedRace(String motherRaceID, String fatherRaceID, boolean ignoreRules);
 
 	/**
 	 * Breaks apart a given generic mixed race ID to figure
@@ -394,4 +498,56 @@ public interface CMMiscUtils extends CMLibrary
 	 * @return the full web url with http and everything
 	 */
 	public String getUnsubscribeURL(final String name);
+
+
+	/**
+	 * Creates a new CostManager object reflecting the given type and value.
+	 * @see CMMiscUtils#createCostManager(Cost)
+	 *
+	 * @param costType the type of code
+	 * @param value the amount of the type
+	 * @return the CostManager object
+	 */
+	public CostManager createCostManager(final CostType costType, final Double value);
+
+	/**
+	 * Creates a new CostManager object reflecting the given cost object.
+	 * @see CMMiscUtils#createCostManager(Cost)
+	 *
+	 * @param cost the cost
+	 * @return the CostManager object
+	 */
+	public CostManager createCostManager(final Cost cost);
+
+	/**
+	 * A enum for item state flags
+	 *
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public enum ItemState
+	{
+		HAVE_ANY,
+		HAVE_UNCONTAINED,
+		HAVE_CONTAINED,
+		WORN,
+		ROOM_ANY,
+		ROOM_UNCONTAINED,
+		ROOM_CONTAINED,
+		PRESENT_ANY,
+		PRESENT_UNCONTAINED,
+		PRESENT_CONTAINED
+	}
+
+	/**
+	 * Returns whether the given item is in the given state
+	 *
+	 * @param R the room container
+	 * @param mob the mob container
+	 * @param state the item state
+	 * @param I the item to check
+	 * @return true if the state is correct
+	 */
+	public boolean isItemInState(final Room R, final MOB mob, final ItemState state, final Item I);
+
 }

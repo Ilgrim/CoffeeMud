@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -58,9 +58,17 @@ public class StdTub extends StdRideable implements Drink
 		setDescription("A porcelin bath tub.");
 		baseGoldValue=500;
 		material=RawMaterial.RESOURCE_CLAY;
-		rideBasis=Rideable.RIDEABLE_SIT;
+		rideBasis=Rideable.Basis.FURNITURE_SIT;
 		riderCapacity=4;
 		recoverPhyStats();
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a tub");
 	}
 
 	@Override
@@ -142,7 +150,7 @@ public class StdTub extends StdRideable implements Drink
 	}
 
 	@Override
-	public boolean containsDrink()
+	public boolean containsLiquid()
 	{
 		if((!CMLib.flags().isGettable(this))
 		&&(owner()!=null)
@@ -162,17 +170,19 @@ public class StdTub extends StdRideable implements Drink
 		{
 			switch(rideBasis)
 			{
-			case Rideable.RIDEABLE_AIR:
-			case Rideable.RIDEABLE_LAND:
-			case Rideable.RIDEABLE_WAGON:
-			case Rideable.RIDEABLE_WATER:
+			case AIR_FLYING:
+			case LAND_BASED:
+			case WAGON:
+			case WATER_BASED:
 				return "riding in";
-			case Rideable.RIDEABLE_ENTERIN:
-			case Rideable.RIDEABLE_SIT:
-			case Rideable.RIDEABLE_TABLE:
-			case Rideable.RIDEABLE_LADDER:
-			case Rideable.RIDEABLE_SLEEP:
+			case ENTER_IN:
+			case FURNITURE_SIT:
+			case FURNITURE_TABLE:
+			case LADDER:
+			case FURNITURE_SLEEP:
 				return "in";
+			case FURNITURE_HOOK:
+				return "on";
 			}
 			return "riding in";
 		}
@@ -194,17 +204,18 @@ public class StdTub extends StdRideable implements Drink
 		{
 			switch(rideBasis)
 			{
-			case Rideable.RIDEABLE_AIR:
-			case Rideable.RIDEABLE_LAND:
-			case Rideable.RIDEABLE_WAGON:
-			case Rideable.RIDEABLE_WATER:
+			case AIR_FLYING:
+			case LAND_BASED:
+			case WAGON:
+			case WATER_BASED:
 				return "board(s)";
-			case Rideable.RIDEABLE_SIT:
-			case Rideable.RIDEABLE_TABLE:
-			case Rideable.RIDEABLE_ENTERIN:
-			case Rideable.RIDEABLE_SLEEP:
+			case FURNITURE_SIT:
+			case FURNITURE_TABLE:
+			case ENTER_IN:
+			case FURNITURE_SLEEP:
 				return "get(s) into";
-			case Rideable.RIDEABLE_LADDER:
+			case LADDER:
+			case FURNITURE_HOOK:
 				return "climb(s) into";
 			}
 			return "board(s)";
@@ -219,17 +230,19 @@ public class StdTub extends StdRideable implements Drink
 		{
 			switch(rideBasis)
 			{
-			case Rideable.RIDEABLE_AIR:
-			case Rideable.RIDEABLE_LAND:
-			case Rideable.RIDEABLE_WATER:
+			case AIR_FLYING:
+			case LAND_BASED:
+			case WATER_BASED:
 				return "disembark(s) from";
-			case Rideable.RIDEABLE_TABLE:
-			case Rideable.RIDEABLE_SIT:
-			case Rideable.RIDEABLE_SLEEP:
-			case Rideable.RIDEABLE_WAGON:
-			case Rideable.RIDEABLE_LADDER:
-			case Rideable.RIDEABLE_ENTERIN:
+			case FURNITURE_TABLE:
+			case FURNITURE_SIT:
+			case FURNITURE_SLEEP:
+			case WAGON:
+			case LADDER:
+			case ENTER_IN:
 				return "get(s) out of";
+			case FURNITURE_HOOK:
+				return "get(s) off of";
 			}
 			return "disembark(s) from";
 		}
@@ -243,17 +256,19 @@ public class StdTub extends StdRideable implements Drink
 		{
 			switch(rideBasis)
 			{
-			case Rideable.RIDEABLE_AIR:
-			case Rideable.RIDEABLE_LAND:
-			case Rideable.RIDEABLE_WATER:
-			case Rideable.RIDEABLE_WAGON:
+			case AIR_FLYING:
+			case LAND_BASED:
+			case WATER_BASED:
+			case WAGON:
 				return "being ridden by";
-			case Rideable.RIDEABLE_TABLE:
-			case Rideable.RIDEABLE_SIT:
-			case Rideable.RIDEABLE_SLEEP:
-			case Rideable.RIDEABLE_ENTERIN:
-			case Rideable.RIDEABLE_LADDER:
+			case FURNITURE_TABLE:
+			case FURNITURE_SIT:
+			case FURNITURE_SLEEP:
+			case ENTER_IN:
+			case LADDER:
 				return "occupied by";
+			case FURNITURE_HOOK:
+				return "holding";
 			}
 			return "";
 		}
@@ -273,7 +288,7 @@ public class StdTub extends StdRideable implements Drink
 			case CMMsg.TYP_DRINK:
 				if((mob.isMine(this))||(phyStats().weight()>1000)||(!CMLib.flags().isGettable(this)))
 				{
-					if(!containsDrink())
+					if(!containsLiquid())
 					{
 						mob.tell(L("@x1 is empty.",name()));
 						return false;
@@ -299,7 +314,7 @@ public class StdTub extends StdRideable implements Drink
 				&&(msg.tool() instanceof Drink))
 				{
 					final Drink thePuddle=(Drink)msg.tool();
-					if(!thePuddle.containsDrink())
+					if(!thePuddle.containsLiquid())
 					{
 						mob.tell(L("@x1 is empty.",thePuddle.name()));
 						return false;
@@ -322,7 +337,7 @@ public class StdTub extends StdRideable implements Drink
 	}
 
 	@Override
-	public int amountTakenToFillMe(final Drink theSource)
+	public int amountTakenToFillMe(final LiquidHolder theSource)
 	{
 		int amountToTake=amountOfLiquidHeld-amountOfLiquidRemaining;
 		if(amountOfLiquidHeld>=500000)

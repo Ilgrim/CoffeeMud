@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Alligator extends StdMOB
 	public Alligator()
 	{
 		super();
-		username="a alligator";
+		_name="a alligator";
 		setDescription("It\\`s a large lizard-like creature with tough skin and a large toothy mouth.");
 		setDisplayText("An alligator is here.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -54,7 +54,7 @@ public class Alligator extends StdMOB
 
 		baseCharStats().setStat(CharStats.STAT_INTELLIGENCE,1);
 
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(1);
 		basePhyStats().setArmor(90);
 

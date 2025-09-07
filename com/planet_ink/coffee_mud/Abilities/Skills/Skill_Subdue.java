@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,7 +51,14 @@ public class Skill_Subdue extends StdSkill
 	@Override
 	public String displayText()
 	{
-		return L("(Subdueing "+whom+")");
+		final MOB whom=this.whom;
+		if(whom == null)
+			return L("(Subdueing)");
+		else
+		if(affected instanceof MOB)
+			return L("(Subdueing @x1)",whom.name((MOB)affected));
+		else
+			return L("(Subdueing @x1)",whom.name());
 	}
 
 	@Override
@@ -94,6 +101,7 @@ public class Skill_Subdue extends StdSkill
 	protected MOB whom=null;
 	protected int whomDamage=0;
 	protected int asLevel=0;
+	protected final Set<MOB> lastKills = new LimitedTreeSet<MOB>(TimeManager.MILI_DAY,250,false);
 
 	@Override
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
@@ -108,6 +116,7 @@ public class Skill_Subdue extends StdSkill
 		if(affected instanceof MOB)
 		{
 			final MOB M=(MOB)affected;
+			final MOB whom = (this.whom==null)?M.getVictim():this.whom;
 			if(canBeUninvoked()&&
 			(M.amDead()||(!CMLib.flags().isInTheGame(M, false))||(!M.amActive())||M.amDestroyed()||(M.getVictim()!=whom)))
 			{
@@ -131,6 +140,7 @@ public class Skill_Subdue extends StdSkill
 	{
 		if(affected instanceof MOB)
 		{
+			final MOB whom = (this.whom==null)?((MOB)affected).getVictim():this.whom;
 			if((msg.source()==affected)
 			&&(msg.target()==whom)
 			&&(msg.targetMinor()==CMMsg.TYP_EXAMINE)
@@ -151,6 +161,12 @@ public class Skill_Subdue extends StdSkill
 					sap.invoke(whom,new XVector<String>("SAFELY",Integer.toString(adjustedLevel(msg.source(),asLevel))),whom,true,0);
 				whom.makePeace(true);
 				msg.source().makePeace(true);
+				final Skill_Subdue skillA = (Skill_Subdue)msg.source().fetchAbility(ID());
+				if((skillA!=null)
+				&&(!skillA.lastKills.contains(whom)))
+				{
+					skillA.lastKills.add(whom);
+				}
 				unInvoke();
 			}
 		}
@@ -159,8 +175,11 @@ public class Skill_Subdue extends StdSkill
 	@Override
 	public void unInvoke()
 	{
-		if((canBeUninvoked())&&(affected instanceof MOB))
-			((MOB)affected).tell(L("You are no longer trying to subdue @x1",whom.name()));
+		final Physical P=affected;
+		if((canBeUninvoked())
+		&&(P instanceof MOB)
+		&&(whom!=null))
+			((MOB)P).tell(L("You are no longer trying to subdue @x1",whom.name()));
 		super.unInvoke();
 	}
 
@@ -202,7 +221,7 @@ public class Skill_Subdue extends StdSkill
 			}
 		}
 		else
-			return maliciousFizzle(mob,target,L("<S-NAME> attempt(s) to subdue <T-NAMESELF>, but fails."));
+			return maliciousFizzle(mob,target,L("<S-NAME> attempt(s) to subdue <T-NAMESELF>, but fail(s)."));
 		return success;
 	}
 }

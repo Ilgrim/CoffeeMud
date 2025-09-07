@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ public class Dance_Foxtrot extends Dance
 
 		mob.curState().adjMovement((invokerManaCost/15)+increment,mob.maxState());
 		mob.curState().adjMana(increment,mob.maxState());
-		if(increment<=1+(int)Math.round(CMath.div(adjustedLevel(invoker(),0),3)))
+		if(increment<=1+(int)Math.round(CMath.div(adjustedLevel(invoker(),0),2)))
 		{
 			if((++ticks)>2)
 			{

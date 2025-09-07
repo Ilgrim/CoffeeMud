@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -159,7 +159,7 @@ public class Skill_QuickChange extends BardSkill
 		for(final PackedItem I : items)
 			itemList.add(I.I);
 		final StringBuilder str=new StringBuilder("<ITEMS>");
-		str.append(CMLib.coffeeMaker().getItemsXML(itemList, new Hashtable<String,List<Item>>(), new HashSet<String>(), null));
+		str.append(CMLib.coffeeMaker().getUniqueItemsXML(itemList, new Hashtable<String,List<Item>>(), new HashSet<String>(), null));
 		str.append("</ITEMS>");
 		str.append(locationsDelim);
 		for(final PackedItem I : items)

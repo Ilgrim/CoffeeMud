@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ public class Chant_GiveLife extends Chant
 		final MOB target=this.getTarget(mob,commands,givenTarget);
 		if(target==null)
 			return false;
-		if((!CMLib.flags().isAnimalIntelligence(target))||(!target.isMonster())||(!mob.getGroupMembers(new HashSet<MOB>()).contains(target)))
+		if((!CMLib.flags().isAnAnimal(target))||(!target.isMonster())||(!mob.getGroupMembers(new HashSet<MOB>()).contains(target)))
 		{
 			mob.tell(L("This chant only works on non-player animals in your group."));
 			return false;
@@ -121,17 +121,19 @@ public class Chant_GiveLife extends Chant
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L(auto?"<T-NAME> gain(s) life experience!":"^S<S-NAME> chant(s) to <T-NAMESELF>, feeding <T-HIM-HER> <S-HIS-HER> life experience.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					auto?L("<T-NAME> gain(s) life experience!"):
+					L("^S<S-NAME> chant(s) to <T-NAMESELF>, feeding <T-HIM-HER> <S-HIS-HER> life experience.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				amount=-CMLib.leveler().postExperience(mob,null,null,-amount,false);
+				amount=-CMLib.leveler().postExperience(mob,"ABILITY:"+ID(),null,null,-amount, false);
 				if((mob.phyStats().level()>target.phyStats().level())&&(target.isMonster()))
 				{
 					amount+=(mob.phyStats().level()-target.phyStats().level())
 						  *(mob.phyStats().level()/10);
 				}
-				amount=CMLib.leveler().postExperience(target,null,null,amount,false);
+				amount=CMLib.leveler().postExperience(target,"ABILITY:"+ID(),null,null,amount, false);
 				if((CMLib.dice().rollPercentage() < amount)
 				&&(target.isMonster())
 				&&(target.fetchEffect("Loyalty")==null)

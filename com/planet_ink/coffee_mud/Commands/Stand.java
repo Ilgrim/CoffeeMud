@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -49,8 +49,9 @@ public class Stand extends StdCommand
 	public boolean execute(final MOB mob, final List<String> commands, final int metaFlags)
 		throws java.io.IOException
 	{
+		final List<String> origCmds = new XVector<String>(commands);
 		boolean ifnecessary=false;
-		boolean quietly=false;
+		boolean quietly=(CMath.bset(metaFlags, MUDCmdProcessor.METAFLAG_QUIETLY));
 		for(int i=1;i<commands.size();i++)
 		{
 			final String s=commands.get(i).toUpperCase();
@@ -69,9 +70,20 @@ public class Stand extends StdCommand
 		else
 		if(room!=null)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,null,null,CMMsg.MSG_STAND,(quietly || mob.amDead())?null:L("<S-NAME> stand(s) up."));
+			final String standMsg;
+			if(quietly || mob.amDead())
+				standMsg = null;
+			else
+			if(CMLib.flags().isFlying(mob) && CMLib.flags().isSleeping(mob))
+				standMsg = L("<S-NAME> wake(s) up.");
+			else
+				standMsg = L("<S-NAME> stand(s) up.");
+
+			final CMMsg msg=CMClass.getMsg(mob,null,null,CMMsg.MSG_STAND,standMsg);
 			if(room.okMessage(mob,msg))
 				room.send(mob,msg);
+			else
+				CMLib.commands().postCommandRejection(msg.source(),msg.target(),msg.tool(),origCmds);
 		}
 		return false;
 	}

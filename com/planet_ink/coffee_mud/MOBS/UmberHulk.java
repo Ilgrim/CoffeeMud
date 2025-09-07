@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ public class UmberHulk extends StdMOB
 	{
 		super();
 
-		username="an Umber Hulk";
+		_name="an Umber Hulk";
 		setDescription("An 8 foot tall, 5 foot wide mass of meanness just waiting to eat....");
 		setDisplayText("A huge Umber Hulk eyes you.");
 		CMLib.factions().setAlignment(this,Faction.Align.EVIL);
@@ -59,7 +59,7 @@ public class UmberHulk extends StdMOB
 		baseCharStats().setMyRace(CMClass.getRace("UmberHulk"));
 		baseCharStats().getMyRace().startRacing(this,false);
 
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(8);
 		basePhyStats().setAttackAdjustment(basePhyStats().attackAdjustment()+20);
 		basePhyStats().setDamage(basePhyStats().damage()+12);

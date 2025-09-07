@@ -18,7 +18,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class GenHorse extends GenRideable
 	public GenHorse()
 	{
 		super();
-		username="a horse";
+		_name="a horse";
 		setDisplayText("A horse stands here.");
 	}
 }

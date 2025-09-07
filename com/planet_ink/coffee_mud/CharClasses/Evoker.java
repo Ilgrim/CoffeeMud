@@ -11,12 +11,13 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -86,8 +87,10 @@ public class Evoker extends SpecialistMage
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Spell_Shove",25,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Spell_Blademouth",25,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Spell_PortalOther",25,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Spell_LimbRack",0,"",false,true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Spell_LimbRack",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),26,"Spell_GreaterLevitate",25,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),27,"Spell_Lighthouse",25,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Spell_MassDisintegrate",25,true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),35,"Spell_PlanarBurst", 25, "", false, SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
 	}
 }

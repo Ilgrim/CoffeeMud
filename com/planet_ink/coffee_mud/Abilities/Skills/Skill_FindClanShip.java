@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -90,6 +90,12 @@ public class Skill_FindClanShip extends StdAbility
 	}
 
 	@Override
+	public int usageType()
+	{
+		return USAGE_MOVEMENT;
+	}
+
+	@Override
 	public long flags()
 	{
 		return Ability.FLAG_TRACKING;
@@ -133,14 +139,14 @@ public class Skill_FindClanShip extends StdAbility
 			if(nextDirection==-1)
 			{
 				if(clanShipHere(mob,mob.location(),null).length()==0)
-					mob.tell(L("The trail to your clan ship dries up here."));
+					commonTelL(mob,"The trail to your clan ship dries up here.");
 				nextDirection=-999;
 				unInvoke();
 			}
 			else
 			if(nextDirection>=0)
 			{
-				mob.tell(L("The way to your clan ship seems to continue @x1.",CMLib.directions().getDirectionName(nextDirection)));
+				commonTelL(mob,"The way to your clan ship seems to continue @x1.",CMLib.directions().getDirectionName(nextDirection));
 				if(mob.isMonster())
 				{
 					final Room nextRoom=mob.location().getRoomInDir(nextDirection);
@@ -203,7 +209,8 @@ public class Skill_FindClanShip extends StdAbility
 	{
 		if(I==null)
 			return "";
-		if(I instanceof SailingShip)
+		if((I instanceof NavigableItem)
+		&&(((NavigableItem)I).navBasis() == Rideable.Basis.WATER_BASED))
 		{
 			final PrivateProperty prop=CMLib.law().getPropertyRecord(I);
 			if(((prop != null)
@@ -254,7 +261,7 @@ public class Skill_FindClanShip extends StdAbility
 		for(final Ability A : V) A.unInvoke();
 		if(V.size()>0)
 		{
-			mob.tell(L("You stop tracking."));
+			commonTelL(mob,"You stop tracking.");
 			if(commands.size()==0)
 				return true;
 		}
@@ -274,6 +281,7 @@ public class Skill_FindClanShip extends StdAbility
 		final ArrayList<Room> rooms=new ArrayList<Room>();
 		TrackingLibrary.TrackingFlags flags;
 		flags = CMLib.tracking().newFlags()
+				.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 				.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
 				.plus(TrackingLibrary.TrackingFlag.NOAIR);
 		final int range=60 + (2*super.getXLEVELLevel(mob))+(10*super.getXMAXRANGELevel(mob));

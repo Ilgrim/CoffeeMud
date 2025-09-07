@@ -5,6 +5,7 @@ import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftParms;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftingActivity;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftorType;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
@@ -24,7 +25,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -63,13 +64,19 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 	}
 
 	@Override
-	public String supportedResourceString()
+	public CraftorType getCraftorType()
 	{
-		return "ROCK-BONE|STONE";
+		return CraftorType.General;
 	}
 
 	@Override
-	public String parametersFormat()
+	public String supportedResourceString()
+	{
+		return "ROCK-BONE-DUST-IVORY-DIRT-SALT-SAND|STONE";
+	}
+
+	@Override
+	public String getRecipeFormat()
 	{
 		return
 		"ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\tMATERIALS_REQUIRED\tITEM_BASE_VALUE\t"
@@ -80,7 +87,7 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 
 	//protected static final int RCP_FINALNAME=0;
 	//protected static final int RCP_LEVEL=1;
-	//protected static final int RCP_TICKS=2;
+	protected static final int	RCP_TICKS		= 2;
 	protected static final int	RCP_WOOD		= 3;
 	protected static final int	RCP_VALUE		= 4;
 	protected static final int	RCP_CLASSTYPE	= 5;
@@ -94,7 +101,7 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			if(buildingI==null)
 				unInvoke();
@@ -103,7 +110,7 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 	}
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return "sculpting.txt";
 	}
@@ -111,7 +118,7 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 	@Override
 	protected List<List<String>> loadRecipes()
 	{
-		return super.loadRecipes(parametersFile());
+		return super.loadRecipes(getRecipeFilename());
 	}
 
 	@Override
@@ -132,17 +139,21 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 						if(activity == CraftingActivity.LEARNING)
 						{
 							commonEmote(mob,L("<S-NAME> fail(s) to learn how to make @x1.",buildingI.name()));
+							dropALoser(mob,buildingI);
 							buildingI.destroy();
 						}
 						else
-							commonTell(mob,L("<S-NAME> mess(es) up sculpting @x1.",buildingI.name(mob)));
+						{
+							commonTelL(mob,"<S-NAME> mess(es) up sculpting @x1.",buildingI.name(mob));
+							dropALoser(mob,buildingI);
+						}
 					}
 					else
 					{
 						if(activity == CraftingActivity.MENDING)
 						{
 							buildingI.setUsesRemaining(100);
-							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.MENDER, 1, this);
+							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.MENDER, 1, this, buildingI);
 						}
 						else
 						if(activity==CraftingActivity.LEARNING)
@@ -153,7 +164,7 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 						else
 						{
 							dropAWinner(mob,buildingI);
-							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this);
+							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this, buildingI);
 							if(key!=null)
 							{
 								dropAWinner(mob,key);
@@ -204,7 +215,7 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 		if((IE.material()&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_ROCK)
 		{
 			if(!quiet)
-				commonTell(mob,L("That's not made of stone.  That can't be mended."));
+				commonTelL(mob,"That's not made of stone.  That can't be mended.");
 			return false;
 		}
 		return true;
@@ -219,12 +230,12 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new Vector<Item>(0));
+		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new ArrayList<CraftedItem>(0));
 	}
 
 	@Override
 	protected boolean autoGenInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto,
-								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<Item> crafted)
+								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<CraftedItem> crafted)
 	{
 		final List<String> originalCommands = new XVector<String>(commands);
 		if(super.checkStop(mob, commands))
@@ -238,8 +249,8 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 		randomRecipeFix(mob,addRecipes(mob,loadRecipes()),commands,autoGenerate);
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Sculpt what? Enter \"sculpt list\" for a list, \"sculpt info <item>\", \"sculpt scan\","
-						+ " \"sculpt learn <item>\", \"sculpt mend <item>\", or \"sculpt stop\" to cancel."));
+			commonTelL(mob,"Sculpt what? Enter \"sculpt list\" for a list, \"sculpt info <item>\", \"sculpt scan\","
+						+ " \"sculpt learn <item>\", \"sculpt mend <item>\", or \"sculpt stop\" to cancel.");
 			return false;
 		}
 		if((!auto)
@@ -256,7 +267,7 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 		String startStr=null;
 		int duration=4;
 		bundling=false;
-		if(str.equalsIgnoreCase("list"))
+		if(str.equalsIgnoreCase("list") && (autoGenerate <= 0))
 		{
 			String mask=CMParms.combine(commands,1);
 			boolean allFlag=false;
@@ -269,8 +280,8 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 				CMLib.lister().fixColWidth(20,mob.session()),
 				CMLib.lister().fixColWidth(3,mob.session())
 			};
-			final StringBuffer buf=new StringBuffer(L("@x1 @x2 Stone required\n\r",CMStrings.padRight(L("Item"),cols[0]),CMStrings.padRight(L("Lvl"),cols[1])));
-			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipeNames(recipes, mask, true);
+			final StringBuffer buf=new StringBuffer(L("^H@x1 @x2 Stone required^N\n\r",CMStrings.padRight(L("Item"),cols[0]),CMStrings.padRight(L("Lvl"),cols[1])));
+			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipes(recipes, mask, true);
 			for(int r=0;r<listRecipes.size();r++)
 			{
 				final List<String> V=listRecipes.get(r);
@@ -280,7 +291,7 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 					final int level=CMath.s_int(V.get(RCP_LEVEL));
 					final String wood=getComponentDescription(mob,V,RCP_WOOD);
 					if((level<=xlevel(mob))||allFlag)
-						buf.append(CMStrings.padRight(item,cols[0])+" "+CMStrings.padRight(""+level,cols[1])+" "+wood+"\n\r");
+						buf.append("^w"+CMStrings.padRight(item,cols[0])+"^N "+CMStrings.padRight(""+level,cols[1])+" "+wood+"\n\r");
 				}
 			}
 			commonTell(mob,buf.toString());
@@ -338,13 +349,16 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 				amount=CMath.s_int(commands.get(commands.size()-1));
 				commands.remove(commands.size()-1);
 			}
+			final int[] pm=checkMaterialFrom(mob,commands,super.allSupportedResources());
+			if(pm==null)
+				return false;
 			String recipeName=CMParms.combine(commands,0);
 			String rest="";
 			List<String> foundRecipe=null;
-			List<List<String>> matches=matchingRecipeNames(recipes,recipeName,true);
+			List<List<String>> matches=matchingRecipes(recipes,recipeName,false);
 			if(matches.size()==0)
 			{
-				matches=matchingRecipeNames(recipes,commands.get(0),true);
+				matches=matchingRecipes(recipes,commands.get(0),true);
 				if(matches.size()>0)
 				{
 					recipeName=commands.get(0);
@@ -367,7 +381,7 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 			}
 			if(foundRecipe==null)
 			{
-				commonTell(mob,L("You don't know how to sculpt a '@x1'.  Try \"sculpt list\" for a list.",recipeName));
+				commonTelL(mob,"You don't know how to sculpt a '@x1'.  Try \"sculpt list\" for a list.",recipeName);
 				return false;
 			}
 
@@ -384,7 +398,6 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 				woodRequired=amount;
 			final String misctype=foundRecipe.get(RCP_MISCTYPE);
 			bundling=misctype.equalsIgnoreCase("BUNDLE");
-			final int[] pm={RawMaterial.MATERIAL_ROCK};
 			final int[][] data=fetchFoundResourceData(mob,
 													woodRequired,"stone",pm,
 													0,null,null,
@@ -399,14 +412,14 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 			final Item buildingI=this.buildingI;
 			if(buildingI==null)
 			{
-				commonTell(mob,L("There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE)));
+				commonTelL(mob,"There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE));
 				return false;
 			}
 			duration=getDuration(CMath.s_int(foundRecipe.get(RCP_TICKS)),mob,CMath.s_int(foundRecipe.get(RCP_LEVEL)),4);
 			buildingI.setMaterial(super.getBuildingMaterial(woodRequired, data, compData));
 			String itemName=determineFinalName(foundRecipe.get(RCP_FINALNAME),buildingI.material(),null,null);
 			if(bundling)
-				itemName="a "+woodRequired+"# "+itemName;
+				itemName=CMLib.english().startWithAorAn(woodRequired+"# "+itemName);
 			else
 				itemName=CMLib.english().startWithAorAn(itemName);
 			buildingI.setName(itemName);
@@ -476,6 +489,9 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 			else
 			if(buildingI instanceof Container)
 			{
+				if(buildingI instanceof Light)
+					((Light)buildingI).setDuration(capacity);
+				final String[] allTypes=CMParms.parseAny(misctype, "|", true).toArray(new String[0]);
 				if(buildingI instanceof Drink)
 				{
 					if(CMLib.flags().isGettable(buildingI))
@@ -492,10 +508,10 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 					((Container)buildingI).setCapacity(capacity+woodRequired);
 					((Container)buildingI).setContainTypes(canContain);
 				}
-				if(misctype.equalsIgnoreCase("LID"))
+				if(CMParms.contains(allTypes, "LID"))
 					((Container)buildingI).setDoorsNLocks(true,false,true,false,false,false);
 				else
-				if(misctype.equalsIgnoreCase("LOCK"))
+				if(CMParms.contains(allTypes, "LOCK"))
 				{
 					((Container)buildingI).setDoorsNLocks(true,false,true,true,false,true);
 					((Container)buildingI).setKeyName(Double.toString(Math.random()));
@@ -513,7 +529,7 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 			{
 				setRideBasis((Rideable)buildingI,misctype);
 			}
-			if(buildingI instanceof Light)
+			if((buildingI instanceof Light)&&(!(buildingI instanceof FuelConsumer)))
 			{
 				((Light)buildingI).setDuration(capacity);
 				if(buildingI instanceof Container)
@@ -525,6 +541,11 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 						((Container)buildingI).setCapacity(0);
 				}
 			}
+			if(buildingI instanceof Wand)
+			{
+				((Wand)buildingI).setMaxCharges(capacity);
+				((Wand)buildingI).setCharges(capacity);
+			}
 			if(buildingI.ID().endsWith("Dice"))
 			{
 				buildingI.basePhyStats().setAbility(capacity);
@@ -534,22 +555,22 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 			&&(!CMLib.law().doesOwnThisProperty(mob,mob.location()))
 			&&((autoGenerate==0)||(!mob.isAttributeSet(Attrib.SYSOPMSGS))))
 			{
-				commonTell(mob,L("You are not allowed to build that here."));
+				commonTelL(mob,"You are not allowed to build that here.");
 				return false;
 			}
 			if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 				return false;
 			final MaterialLibrary.DeadResourceRecord deadMats;
 			if((componentsFoundList.size() > 0)||(autoGenerate>0))
-				deadMats = new MaterialLibrary.DeadResourceRecord();
+				deadMats = deadRecord;
 			else
 			{
 				deadMats = CMLib.materials().destroyResources(mob.location(),woodRequired,
 						data[0][FOUND_CODE],data[0][FOUND_SUB],data[1][FOUND_CODE],data[1][FOUND_SUB]);
 			}
 			final MaterialLibrary.DeadResourceRecord deadComps = CMLib.ableComponents().destroyAbilityComponents(componentsFoundList);
-			addSpells(buildingI,spell,deadMats.lostProps,deadComps.lostProps);
-			final int lostValue=autoGenerate>0?0:(deadMats.lostValue + deadComps.lostValue);
+			addSpellsOrBehaviors(buildingI,spell,deadMats.getLostProps(),deadComps.getLostProps());
+			final int lostValue=autoGenerate>0?0:(deadMats.getLostValue() + deadComps.getLostValue());
 			if(bundling)
 				buildingI.setBaseValue(lostValue);
 			buildingI.text();
@@ -570,7 +591,7 @@ public class Sculpting extends EnhancedCraftingSkill implements ItemCraftor, Men
 
 		if(autoGenerate>0)
 		{
-			crafted.add(buildingI);
+			crafted.add(new CraftedItem(buildingI,null,duration));
 			return true;
 		}
 

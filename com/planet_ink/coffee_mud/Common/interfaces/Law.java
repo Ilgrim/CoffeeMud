@@ -16,10 +16,9 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
-import java.util.Map;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -156,6 +155,12 @@ public interface Law extends CMCommon
 	public boolean lawIsActivated();
 
 	/**
+	 * Returns last time the law was reset, for observers to update.
+	 * @return time in milliseconds that this law object was last reset.
+	 */
+	public long lastResetTime();
+
+	/**
 	 * Returns a warrant if the given mob or player mob object
 	 * represents someone accused of killing an officer.
 	 *
@@ -239,39 +244,19 @@ public interface Law extends CMCommon
 	public List<String[]> otherBits();
 
 	/**
-	 * Combined with bannedBits, this method returns the
-	 * definition of "illegal substance carrying" crimes.
-	 * This method in particular returns a list of raw
-	 * resource names or item names which, when encountered
-	 * in a player or mobs activity, denote the commission of an
-	 * "substance" crime.  This Vectors entries match one for one with
-	 * the list returned by bannedBits()
-	 *
-	 * @see com.planet_ink.coffee_mud.Items.interfaces.RawMaterial
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.Law#bannedBits()
-	 *
-	 * @return a list of item or resource names
-	 */
-	public List<List<String>> bannedSubstances();
-
-	/**
-	 * Combined with bannedSubstances, this method returns the
-	 * definition of "substance" crimes involving manipulating
-	 * an illegal substance in public.  This method in particular
-	 * returns a list of String[] array objects definitioning
-	 * the various limitations, flags, and consequences of committing
-	 * each "substance" crime.  This Vectors entries match one for one with
-	 * the list returned by bannedSubstances()
-	 *
-	 * The entries in each String[] array are indexed by the
-	 * constants BIT_*
+	 * This method returns the definition of "illegal substance carrying"
+	 * crimes.  It returns a list of raw resource names or item names
+	 * which, when encountered in a player or mobs activity, denote the
+	 * commission of an "substance" crime.  This Vectors entries match
+	 * one for one with the String array bits. The entries in each
+	 * String[] array are indexed by the constants BIT_*
 	 *
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Law#BIT_CRIMENAME
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.Law#bannedSubstances()
+	 * @see com.planet_ink.coffee_mud.Items.interfaces.RawMaterial
 	 *
-	 * @return a list of String[] array bits of substance crime info
+	 * @return a list of item or resource crimes
 	 */
-	public List<String[]> bannedBits();
+	public List<Pair<List<String>, String[]>> bannedItems();
 
 	/**
 	 * Method for accessing the crimes, flags, and consequences
@@ -364,6 +349,15 @@ public interface Law extends CMCommon
 	 * @return a list of strings denoting jail rooms
 	 */
 	public List<String> jailRooms();
+
+	/**
+	 * A list of strings denoting which rooms are considered
+	 * locations to be charged with trespassing.  An empty
+	 * list means the entire area is.
+	 *
+	 * @return a list of strings denoting trespass rooms
+	 */
+	public List<String> trespassRooms();
 
 	/**
 	 * A list of strings denoting which rooms are considered release
@@ -754,6 +748,7 @@ public interface Law extends CMCommon
 		"JUDGE=@\n"+
 		"JAIL=@\n"+
 		"RELEASEROOM=@\n"+
+		"TRESPASSROOM=@\n"+
 		"WARNINGMSG="+CMLib.lang().L("Your behavior is unacceptable.  Do not repeat this offense.  You may go.")+"\n"+
 		"THREATMSG="+CMLib.lang().L("That behavior is NOT tolerated here.  Keep your nose clean, or next time I may not be so lenient.  You may go.")+"\n"+
 		"JAIL1MSG="+CMLib.lang().L("You are hereby sentenced to minimum jail time.  Take away the prisoner!")+"\n"+
@@ -816,5 +811,9 @@ public interface Law extends CMCommon
 		"INEBRIATION=!home !pub !tavern !inn !bar;!recently;"+CMLib.lang().L("public intoxication")+";parole1 punishcap=jail4;"+CMLib.lang().L("Drunkenness is a demeaning and intolerable state.")+"\n"+
 		"POISON_ALCOHOL=!home !pub !tavern !inn !bar;!recently;"+CMLib.lang().L("public intoxication")+";parole1 punishcap=jail4;"+CMLib.lang().L("Drunkenness is a demeaning and intolerable state.")+"\n"+
 		"POISON_FIREBREATHER=!home !pub !tavern !inn !bar;!recently;"+CMLib.lang().L("public intoxication")+";parole1 punishcap=jail4;"+CMLib.lang().L("Drunkenness is a demeaning and intolerable state.")+"\n"+
-		"POISON_LIQUOR=!home !pub !tavern !inn !bar;!recently;"+CMLib.lang().L("public intoxication")+";parole1 punishcap=jail4;"+CMLib.lang().L("Drunkenness is a demeaning and intolerable state.")+"\n";
+		"POISON_LIQUOR=!home !pub !tavern !inn !bar;!recently;"+CMLib.lang().L("public intoxication")+";parole1 punishcap=jail4;"+CMLib.lang().L("Drunkenness is a demeaning and intolerable state.")+"\n"+
+		"PRAYER_MALIGNEDPORTAL=;;"+CMLib.lang().L("invoking dangerous magic")+";jail4;"+CMLib.lang().L("People could be hurt by such behavior!")+
+		"PRAYER_BENIGNEDPORTAL=;;"+CMLib.lang().L("invoking dangerous magic")+";jail4;"+CMLib.lang().L("People could be hurt by such behavior!")+
+		"PRAYER_ELEMENTALPORTAL=;;"+CMLib.lang().L("invoking dangerous magic")+";jail4;"+CMLib.lang().L("People could be hurt by such behavior!")+
+		"THIEF_KIDNAPPING=;;"+CMLib.lang().L("kidnapping <T-NAME>")+";jail3;"+CMLib.lang().L("Kidnapping is an inhuman crime against an innocent child.");
 }

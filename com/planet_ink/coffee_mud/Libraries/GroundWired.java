@@ -1,6 +1,5 @@
 package com.planet_ink.coffee_mud.Libraries;
 import com.planet_ink.coffee_mud.core.interfaces.*;
-import com.planet_ink.coffee_mud.core.interfaces.BoundedObject.BoundedCube;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.CMSecurity.DbgFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
@@ -12,7 +11,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
-import com.planet_ink.coffee_mud.Items.interfaces.TechComponent.ShipDir;
+import com.planet_ink.coffee_mud.Items.interfaces.ShipDirectional.ShipDir;
 import com.planet_ink.coffee_mud.Items.interfaces.Technical.TechCommand;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
@@ -28,7 +27,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 import java.util.concurrent.atomic.*;
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,13 +49,25 @@ public class GroundWired extends StdLibrary implements TechLibrary
 		return "GroundWired";
 	}
 
+	protected final static class ElecList extends LinkedList<WeakReference<Electronics>>
+	{
+		private static final long serialVersionUID = -8313278188033918238L;
+
+	}
+
+	protected final static class WireHookups
+	{
+		ElecList set = new ElecList();
+		Map<TechCommand, ElecList> listeners = new Hashtable<TechCommand, ElecList>();
+	}
+
 	protected Manufacturer defaultManufacturer=null; // must always be DefaultManufacturer, w/o changes.
 
 	protected final Map<String,Manufacturer> manufacturers = new SHashtable<String,Manufacturer>();
 
-	protected final Map<String,LinkedList<WeakReference<Electronics>>> sets=new Hashtable<String,LinkedList<WeakReference<Electronics>>>();
+	protected final Map<String,WireHookups> sets=new Hashtable<String,WireHookups>();
 
-	protected final Map<PowerGenerator,Pair<List<PowerSource>,List<Electronics>>> currents	= new STreeMap<PowerGenerator,Pair<List<PowerSource>,List<Electronics>>>();
+	//protected final Map<PowerGenerator,Pair<List<PowerSource>,List<Electronics>>> currents	= new STreeMap<PowerGenerator,Pair<List<PowerSource>,List<Electronics>>>();
 
 	protected final static List<PowerGenerator> emptyGeneratorList=new ArrayList<PowerGenerator>();
 
@@ -96,9 +107,10 @@ public class GroundWired extends StdLibrary implements TechLibrary
 	}
 
 	@Override
-	public void fixItemTechLevel(final Electronics I, final int newTechLevel)
+	public void fixItemTechLevel(final Technical I, final int newTechLevel)
 	{
-		if((!CMSecurity.isDisabled(CMSecurity.DisFlag.TECHLEVEL)) && (I.getManufacturerName().equalsIgnoreCase("RANDOM")))
+		if((!CMSecurity.isDisabled(CMSecurity.DisFlag.TECHLEVEL))
+		&& (I.getManufacturerName().equalsIgnoreCase("RANDOM")))
 		{
 			I.setManufacturerName(I.getFinalManufacturer().name());
 			if(newTechLevel >= 0)
@@ -121,10 +133,11 @@ public class GroundWired extends StdLibrary implements TechLibrary
 	@Override
 	public String getElectronicsKey(final CMObject o)
 	{
+		if((o instanceof SpaceShip)&&(o instanceof Item))
+			return getElectronicsKey(((SpaceShip)o).getArea());
+		else
 		if(o instanceof Electronics)
-		{
 			return getElectronicsKey(((Electronics)o).owner());
-		}
 		else
 		if(o instanceof Area)
 		{
@@ -153,6 +166,13 @@ public class GroundWired extends StdLibrary implements TechLibrary
 	@Override
 	public synchronized String registerElectrics(final Electronics E, final String oldKey)
 	{
+		return registerElectrics(E, oldKey, null);
+	}
+
+	@Override
+	public String registerElectrics(final Electronics E, final String oldKey, final TechCommand[] listenFors)
+	{
+		final boolean debugging = CMSecurity.isDebugging(DbgFlag.ELECTRICTHREAD);
 		final ItemPossessor possessor=(E==null)?null:E.owner();
 		if((E != null) && (possessor instanceof Room))
 		{
@@ -173,15 +193,44 @@ public class GroundWired extends StdLibrary implements TechLibrary
 					return oldKey.toLowerCase();
 				unregisterElectronics(E,oldKey);
 			}
-			LinkedList<WeakReference<Electronics>> set=sets.get(newKey);
-			if(set==null)
+			WireHookups hookups;
+			final WeakReference<Electronics> ref;
+			synchronized(this)
 			{
-				set=new LinkedList<WeakReference<Electronics>>();
-				sets.put(newKey, set);
+				hookups = sets.get(newKey);
+				if(hookups==null)
+				{
+					hookups=new WireHookups();
+					sets.put(newKey, hookups);
+				}
+				ref = new WeakReference<Electronics>(E);
+				if(!hookups.set.contains(ref))
+					hookups.set.add(ref);
 			}
-			set.add(new WeakReference<Electronics>(E));
+			if(listenFors != null)
+			{
+				for(final TechCommand command : listenFors)
+				{
+					ElecList refs = hookups.listeners.get(command);
+					if(refs == null)
+					{
+						refs = new ElecList();
+						hookups.listeners.put(command, refs);
+					}
+					synchronized(refs)
+					{
+						if(!refs.contains(ref))
+							refs.add(ref);
+					}
+				}
+			}
+			if(debugging)
+				Log.debugOut("GroundWired","Registered: "+E.Name()+": "+newKey+", was: "+oldKey);
 			return newKey;
 		}
+		else
+		if(debugging)
+			Log.debugOut("GroundWired","Not registered: "+((E==null)?"null":E.Name())+": "+oldKey);
 		return null;
 	}
 
@@ -191,10 +240,10 @@ public class GroundWired extends StdLibrary implements TechLibrary
 		final LinkedList<Electronics> list=new LinkedList<Electronics>();
 		if(key == null)
 			return list;
-		final LinkedList<WeakReference<Electronics>> set=sets.get(key.toLowerCase());
+		final WireHookups set=sets.get(key.toLowerCase());
 		if(set==null)
 			return list;
-		for(final WeakReference<Electronics> e : set)
+		for(final WeakReference<Electronics> e : set.set)
 		{
 			if(e.get()!=null)
 				list.add(e.get());
@@ -211,24 +260,106 @@ public class GroundWired extends StdLibrary implements TechLibrary
 	}
 
 	@Override
-	public synchronized void unregisterElectronics(final Electronics E, final String oldKey)
+	public boolean okMessage(final String oldKey, final TechCommand command, final Environmental myHost, final CMMsg msg)
+	{
+		if((oldKey!=null)&&(command!=null))
+		{
+			ElecList refs = null;
+			synchronized(this)
+			{
+				final WireHookups oldSet=sets.get(oldKey.toLowerCase());
+				if(oldSet!=null)
+					refs = oldSet.listeners.get(command);
+			}
+			if(refs != null)
+			{
+				synchronized(refs)
+				{
+					for(final WeakReference<Electronics> ref : refs)
+					{
+						final Electronics E = ref.get();
+						if((E != null) && (!E.okMessage(myHost, msg)))
+							return false;
+					}
+				}
+			}
+		}
+		return true;
+	}
+
+	@Override
+	public void executeMsg(final String oldKey, final TechCommand command, final Environmental myHost, final CMMsg msg)
+	{
+		if((oldKey!=null)&&(command!=null))
+		{
+			ElecList refs = null;
+			synchronized(this)
+			{
+				final WireHookups oldSet=sets.get(oldKey.toLowerCase());
+				if(oldSet!=null)
+					refs = oldSet.listeners.get(command);
+			}
+			if(refs != null)
+			{
+				synchronized(refs)
+				{
+					for(final WeakReference<Electronics> ref : refs)
+					{
+						final Electronics E = ref.get();
+						if(E != null)
+							E.executeMsg(myHost, msg);
+					}
+				}
+			}
+		}
+	}
+
+	@Override
+	public void unregisterElectronics(final Electronics E, final String oldKey)
 	{
 		if((oldKey!=null)&&(E!=null))
 		{
-			final LinkedList<WeakReference<Electronics>> oldSet=sets.get(oldKey.toLowerCase());
-			if(oldSet!=null)
+			final WireHookups oldSet;
+			WeakReference<Electronics> ref = null;
+			synchronized(this)
 			{
-				for(final Iterator<WeakReference<Electronics>> e=oldSet.iterator();e.hasNext();)
+				oldSet=sets.get(oldKey.toLowerCase());
+				if(oldSet!=null)
 				{
-					final WeakReference<Electronics> w=e.next();
-					if(w.get()==E)
+					for(final Iterator<WeakReference<Electronics>> e=oldSet.set.iterator();e.hasNext();)
 					{
-						e.remove();
-						break;
+						final WeakReference<Electronics> w=e.next();
+						if(w.get()==E)
+						{
+							ref = w;
+							if(CMSecurity.isDebugging(DbgFlag.ELECTRICTHREAD))
+								Log.debugOut("GroundWired","Unegistered: "+E.Name());
+							e.remove();
+							break;
+						}
+					}
+					if(oldSet.set.size()==0)
+					{
+						if(CMSecurity.isDebugging(DbgFlag.ELECTRICTHREAD))
+							Log.debugOut("GroundWired","Unegistered: "+oldKey);
+						sets.remove(oldKey);
+						ref = null;
 					}
 				}
-				if(oldSet.size()==0)
-					sets.remove(oldKey);
+			}
+			if((ref != null) && (oldSet != null))
+			{
+				for(final Iterator<TechCommand> e=oldSet.listeners.keySet().iterator();e.hasNext();)
+				{
+					final ElecList refs = oldSet.listeners.get(e.next());
+					if(refs != null)
+					{
+						synchronized(refs)
+						{
+							refs.remove(ref);
+						}
+					}
+				}
 			}
 		}
 	}
@@ -238,9 +369,13 @@ public class GroundWired extends StdLibrary implements TechLibrary
 	{
 		if(oldKey!=null)
 		{
-			final LinkedList<WeakReference<Electronics>> oldSet=sets.get(oldKey.toLowerCase());
+			final WireHookups oldSet=sets.get(oldKey.toLowerCase());
 			if(oldSet!=null)
-				sets.remove(oldKey);
+			{
+				sets.remove(oldKey.toLowerCase());
+				if(CMSecurity.isDebugging(DbgFlag.ELECTRICTHREAD))
+					Log.debugOut("GroundWired","Unegistered: "+oldKey);
+			}
 		}
 	}
 
@@ -269,6 +404,7 @@ public class GroundWired extends StdLibrary implements TechLibrary
 		{
 		}
 	};
+
 	protected final static Iterator<Room> emptyComputerRoomIterator= new Iterator<Room>()
 	{
 		@Override
@@ -319,10 +455,11 @@ public class GroundWired extends StdLibrary implements TechLibrary
 	@Override
 	public synchronized Iterator<Computer> getComputers(final String key)
 	{
-		final LinkedList<WeakReference<Electronics>> oldSet=sets.get(key.toLowerCase());
+		final WireHookups oldSet=sets.get(key.toLowerCase());
 		if(oldSet==null)
 			return emptyComputerIterator;
-		return new ConvertingIterator<WeakReference<Electronics>,Computer>(new FilteredIterator<WeakReference<Electronics>>(oldSet.iterator(), computerFilterer),computerConverter);
+		return new ConvertingIterator<WeakReference<Electronics>,Computer>(
+				new FilteredIterator<WeakReference<Electronics>>(oldSet.set.iterator(), computerFilterer),computerConverter);
 	}
 
 	@Override
@@ -350,7 +487,11 @@ public class GroundWired extends StdLibrary implements TechLibrary
 			final MOB powerMOB=CMClass.getMOB("StdMOB");
 			powerMOB.baseCharStats().setMyRace(CMClass.getRace("ElectricityElemental"));
 			powerMOB.setSavable(false);
-			powerMOB.setLocation(CMLib.map().getRandomRoom());
+			final Room R=CMClass.getLocale("StdRoom");
+			final Area A=CMClass.getAreaType("StdArea");
+			A.setTheme(Area.THEME_TECHNOLOGY);
+			R.setArea(A);
+			powerMOB.setLocation(R);
 			powerMOB.recoverCharStats();
 			powerMsg=CMClass.getMsg(powerMOB, CMMsg.MSG_POWERCURRENT, null);
 		}
@@ -361,139 +502,14 @@ public class GroundWired extends StdLibrary implements TechLibrary
 	@Override
 	public boolean activate()
 	{
+		if(!super.activate())
+			return false;
 		if(serviceClient==null)
 		{
 			name="THWired"+Thread.currentThread().getThreadGroup().getName().charAt(0);
 			serviceClient=CMLib.threads().startTickDown(this, Tickable.TICKID_SUPPORT|Tickable.TICKID_SOLITARYMASK, CMProps.getTickMillis(), 1);
 		}
 		return true;
-	}
-
-	@Override
-	public ShipDir[] getCurrentBattleCoveredDirections(final ShipWarComponent comp)
-	{
-		final ShipDir[] currCoverage;
-		final ShipDir[] permitted = comp.getPermittedDirections();
-		final int numDirs = comp.getPermittedNumDirections();
-		if(numDirs >= permitted.length)
-			currCoverage = comp.getPermittedDirections();
-		else
-		{
-			final int centralIndex = CMLib.dice().roll(1, numDirs, -1);
-			final List<ShipDir> theDirs = new ArrayList<ShipDir>(numDirs);
-			int offset = 0;
-			final List<ShipDir> permittedDirs = new XVector<ShipDir>(permitted);
-			permittedDirs.addAll(Arrays.asList(permitted));
-			permittedDirs.addAll(Arrays.asList(permitted));
-			while(theDirs.size() < numDirs)
-			{
-				if(!theDirs.contains(permittedDirs.get(centralIndex+offset)))
-					theDirs.add(permittedDirs.get(centralIndex+offset));
-				if(!theDirs.contains(permittedDirs.get(centralIndex-offset)))
-					theDirs.add(permittedDirs.get(centralIndex-offset));
-				offset+=1;
-			}
-			currCoverage = theDirs.toArray(new ShipDir[theDirs.size()]);
-		}
-		return currCoverage;
-	}
-
-	@Override
-	public double getGravityForce(final SpaceObject S, final SpaceObject cO)
-	{
-		final WorldMap map=CMLib.map();
-		final long distance=map.getDistanceFrom(S.coordinates(), cO.coordinates()) - cO.radius();
-		final long oMass = S.getMass();
-		if(((cO instanceof Area)||(cO.getMass() >= SpaceObject.ASTEROID_MASS))
-		&&(distance > 0)
-		&&(oMass < SpaceObject.MOONLET_MASS))
-		{
-			final double graviRadiusMax=(cO.radius()*(SpaceObject.MULTIPLIER_GRAVITY_EFFECT_RADIUS-1.0));
-			if(distance<graviRadiusMax)
-			{
-				return 1.0-(distance/graviRadiusMax);
-			}
-		}
-		return 0;
-	}
-
-	public void runSpace()
-	{
-		final WorldMap map = CMLib.map();
-		final boolean isDebugging=CMSecurity.isDebugging(DbgFlag.SPACESHIP);
-		for(final Enumeration<SpaceObject> o = map.getSpaceObjects(); o.hasMoreElements(); )
-		{
-			final SpaceObject O=o.nextElement();
-			if(!(O instanceof Area))
-			{
-				final SpaceShip S=(O instanceof SpaceShip)?(SpaceShip)O:null;
-				if((S!=null)
-				&&(S.getShipArea()!=null)
-				&&(S.getShipArea().getAreaState()!=Area.State.ACTIVE))
-					continue;
-				BoundedCube cube=O.getBounds();
-				final double speed=O.speed();
-				final long[] startCoords=Arrays.copyOf(O.coordinates(),3);
-				if(speed>=1)
-				{
-					cube=cube.expand(O.direction(),(long)speed);
-					map.moveSpaceObject(O);
-				}
-				boolean inAirFlag = false;
-				final List<SpaceObject> cOs=map.getSpaceObjectsWithin(O, 0, Math.max(4*SpaceObject.Distance.LightSecond.dm,Math.round(speed)));
-				final long oMass = O.getMass();
-				for(final SpaceObject cO : cOs)
-				{
-					if((cO != O)
-					&&(!cO.amDestroyed())
-					&&(!O.amDestroyed()))
-					{
-						final double minDistance=map.getMinDistanceFrom(startCoords, O.coordinates(), cO.coordinates());
-						final double gravitationalMove=getGravityForce(O, cO);
-						if(gravitationalMove > 0)
-						{
-							if(isDebugging)
-								Log.debugOut("SpaceShip "+O.name()+" is gravitating "+gravitationalMove+" towards " +cO.Name());
-							final double[] directionTo=map.getDirection(O, cO);
-							map.moveSpaceObject(O, directionTo, gravitationalMove);
-							inAirFlag = true;
-						}
-						if ((minDistance<(O.radius()+cO.radius()))
-						&&((speed>0)||(cO.speed()>0))
-						&&((oMass < SpaceObject.MOONLET_MASS)||(cO.getMass() < SpaceObject.MOONLET_MASS)))
-						{
-							//System.out.println(O.name()+"->"+cO.Name()+": speed="+speed+", dir="+((CMath.div((double)Math.round(O.direction()[0]*100.0),100)))+","+((CMath.div((double)Math.round(O.direction()[1]*100.0),100))));
-							//System.out.println("From:   ("+CMParms.toListString(startCoords)+"  to  "+CMParms.toListString(cO.coordinates())+")");
-							//final double[] exactDir=CMLib.map().getDirection(startCoords, cO.coordinates());
-							//System.out.println(minDistance+" to  ("+CMParms.toListString(O.coordinates())+"): Exact dir="+((CMath.div((double)Math.round(exactDir[0]*100.0),100)))+","+((CMath.div((double)Math.round(exactDir[1]*100.0),100))));
-							final MOB host=map.deity();
-							CMMsg msg;
-							if((O instanceof Weapon)||(cO instanceof Weapon))
-							{
-								msg=CMClass.getMsg(host, O, cO, CMMsg.MSG_COLLISION,CMMsg.MSG_DAMAGE,CMMsg.MSG_COLLISION,null);
-								if(O instanceof Weapon)
-									msg.setValue(((Weapon)O).phyStats().damage());
-								else
-									msg.setValue(((Weapon)cO).phyStats().damage());
-							}
-							else
-								msg=CMClass.getMsg(host, O, cO, CMMsg.MSG_COLLISION,null);
-							if(O.okMessage(host, msg))
-								O.executeMsg(host, msg);
-							msg=(CMMsg)msg.copyOf();
-							msg.setTarget(cO);
-							msg.setTool(O);
-							if(cO.okMessage(host, msg))
-								cO.executeMsg(host, msg);
-						}
-					}
-				}
-				if(S!=null)
-				{
-					S.setShipFlag(SpaceShip.ShipFlag.IN_THE_AIR,inAirFlag);
-				}
-			}
-		}
 	}
 
 	@Override
@@ -505,14 +521,7 @@ public class GroundWired extends StdLibrary implements TechLibrary
 			{
 				isDebugging=CMSecurity.isDebugging(DbgFlag.UTILITHREAD);
 				tickStatus=Tickable.STATUS_ALIVE;
-				try
-				{
-					runElectricCurrents();
-				}
-				finally
-				{
-					runSpace();
-				}
+				runElectricCurrents();
 			}
 		}
 		finally
@@ -545,8 +554,12 @@ public class GroundWired extends StdLibrary implements TechLibrary
 			powerMsg.setTarget(E);
 			powerMsg.setValue(0);
 			final Room R=CMLib.map().roomLocation(E);
-			if((R!=null)&&(R.okMessage(powerMsg.source(), powerMsg)))
-				R.send(powerMsg.source(), powerMsg);
+			if(R!=null)
+			{
+				powerMsg.source().setLocation(R);
+				if(R.okMessage(powerMsg.source(), powerMsg))
+					R.send(powerMsg.source(), powerMsg);
+			}
 		}
 		long remainingPowerToDistribute=0;
 		long availablePowerToDistribute=0;
@@ -579,11 +592,15 @@ public class GroundWired extends StdLibrary implements TechLibrary
 				powerMsg.setTarget(E);
 				powerMsg.setValue(0);
 				final Room R=CMLib.map().roomLocation(E);
-				if((R!=null)&&(R.okMessage(powerMsg.source(), powerMsg)))
+				if(R!=null)
 				{
-					R.send(powerMsg.source(), powerMsg);
-					if(debugging)
-						Log.debugOut("Current "+key+": Panel: "+E.Name()+" emer current "+powerMsg.value());
+					powerMsg.source().setLocation(R);
+					if(R.okMessage(powerMsg.source(), powerMsg))
+					{
+						R.send(powerMsg.source(), powerMsg);
+						if(debugging)
+							Log.debugOut("Current "+key+": Panel: "+E.Name()+" emer current "+powerMsg.value());
+					}
 				}
 			}
 			for(final PowerSource E : batteries)
@@ -591,11 +608,15 @@ public class GroundWired extends StdLibrary implements TechLibrary
 				powerMsg.setTarget(E);
 				powerMsg.setValue(0);
 				final Room R=CMLib.map().roomLocation(E);
-				if((R!=null)&&(R.okMessage(powerMsg.source(), powerMsg)))
+				if(R!=null)
 				{
-					R.send(powerMsg.source(), powerMsg);
-					if(debugging)
-						Log.debugOut("Current "+key+": PowerSource: "+E.Name()+" emer current "+powerMsg.value());
+					powerMsg.source().setLocation(R);
+					if(R.okMessage(powerMsg.source(), powerMsg))
+					{
+						R.send(powerMsg.source(), powerMsg);
+						if(debugging)
+							Log.debugOut("Current "+key+": PowerSource: "+E.Name()+" emer current "+powerMsg.value());
+					}
 				}
 			}
 		}
@@ -622,11 +643,15 @@ public class GroundWired extends StdLibrary implements TechLibrary
 					}
 					powerMsg.setValue(powerToTake);
 					final Room R=CMLib.map().roomLocation(E);
-					if((R!=null)&&(R.okMessage(powerMsg.source(), powerMsg)))
+					if(R!=null)
 					{
-						R.send(powerMsg.source(), powerMsg);
-						if(debugging)
-							Log.debugOut("Current "+key+": Panel: "+E.Name()+": Power taken: "+(powerToTake -powerMsg.value()));
+						powerMsg.source().setLocation(R);
+						if(R.okMessage(powerMsg.source(), powerMsg))
+						{
+							R.send(powerMsg.source(), powerMsg);
+							if(debugging)
+								Log.debugOut("Current "+key+": Panel: "+E.Name()+": Power taken: "+(powerToTake -powerMsg.value()));
+						}
 					}
 					remainingPowerToDistribute-=(powerMsg.value()<0)?powerToTake:(powerToTake-powerMsg.value());
 				}
@@ -678,11 +703,15 @@ public class GroundWired extends StdLibrary implements TechLibrary
 				final int amountToDistribute=(int)(remainingPowerToDistribute/batteriesLeft);
 				powerMsg.setValue(amountToDistribute<0?0:amountToDistribute);
 				final Room R=CMLib.map().roomLocation(E);
-				if((R!=null)&&(R.okMessage(powerMsg.source(), powerMsg)))
+				if(R!=null)
 				{
-					R.send(powerMsg.source(), powerMsg);
-					if(debugging)
-						Log.debugOut("Current "+key+": Battery: "+E.Name()+": Power charged: "+amountToDistribute+": "+powerMsg.value()+", now="+E.powerRemaining());
+					powerMsg.source().setLocation(R);
+					if(R.okMessage(powerMsg.source(), powerMsg))
+					{
+						R.send(powerMsg.source(), powerMsg);
+						if(debugging)
+							Log.debugOut("Current "+key+": Battery: "+E.Name()+": Power charged: "+amountToDistribute+": "+powerMsg.value()+", now="+E.powerRemaining());
+					}
 				}
 				batteriesLeft--;
 				remainingPowerToDistribute-=(powerMsg.value()<0)?amountToDistribute:(amountToDistribute-powerMsg.value());
@@ -709,11 +738,11 @@ public class GroundWired extends StdLibrary implements TechLibrary
 		Area areaLocation=null;
 		synchronized(this)
 		{
-			final LinkedList<WeakReference<Electronics>> rawSet=sets.get(key.toLowerCase());
+			final WireHookups rawSet=sets.get(key.toLowerCase());
 			if(rawSet!=null)
 			{
 				final Set<Electronics> rawSetSet = new HashSet<Electronics>();
-				for(final Iterator<WeakReference<Electronics>> w=rawSet.iterator(); w.hasNext(); )
+				for(final Iterator<WeakReference<Electronics>> w=rawSet.set.iterator(); w.hasNext(); )
 				{
 					final WeakReference<Electronics> W=w.next();
 					final Electronics E=W.get();
@@ -722,7 +751,7 @@ public class GroundWired extends StdLibrary implements TechLibrary
 					else
 						rawSetSet.add(E);
 				}
-				for(final Iterator<WeakReference<Electronics>> w=rawSet.iterator(); w.hasNext(); )
+				for(final Iterator<WeakReference<Electronics>> w=rawSet.set.iterator(); w.hasNext(); )
 				{
 					final WeakReference<Electronics> W=w.next();
 					final Electronics E=W.get();
@@ -755,7 +784,7 @@ public class GroundWired extends StdLibrary implements TechLibrary
 							areaLocation=CMLib.map().areaLocation(E);
 					}
 				}
-				if(rawSet.size()==0)
+				if(rawSet.set.size()==0)
 					sets.remove(key);
 			}
 		}
@@ -769,10 +798,10 @@ public class GroundWired extends StdLibrary implements TechLibrary
 		{
 			synchronized(this)
 			{
-				final LinkedList<WeakReference<Electronics>> rawSet=sets.get(key.toLowerCase());
+				final WireHookups rawSet=sets.get(key.toLowerCase());
 				if(rawSet!=null)
 				{
-					for(final Iterator<WeakReference<Electronics>> w=rawSet.iterator(); w.hasNext(); )
+					for(final Iterator<WeakReference<Electronics>> w=rawSet.set.iterator(); w.hasNext(); )
 					{
 						final WeakReference<Electronics> W=w.next();
 						final Electronics E=W.get();
@@ -785,7 +814,7 @@ public class GroundWired extends StdLibrary implements TechLibrary
 								return A.getAreaState()==Area.State.ACTIVE;
 						}
 					}
-					if(rawSet.size()==0)
+					if(rawSet.set.size()==0)
 						sets.remove(key);
 				}
 			}
@@ -845,19 +874,26 @@ public class GroundWired extends StdLibrary implements TechLibrary
 					{
 						synchronized(this)
 						{
-							final LinkedList<WeakReference<Electronics>> rawSet=sets.get(key.toLowerCase());
-							if((rawSet!=null) && (rawSet.size()>0) && (rawSet.getLast().get() != S))
+							final WireHookups rawSet=sets.get(key.toLowerCase());
+							if((rawSet!=null)
+							&& (rawSet.set.size()>0)
+							&& (rawSet.set.getLast().get() != S))
 							{
-								for(final Iterator<WeakReference<Electronics>> w=rawSet.iterator(); w.hasNext(); )
+								WeakReference<Electronics> ref = null;
+								for(final Iterator<WeakReference<Electronics>> w=rawSet.set.iterator(); w.hasNext(); )
 								{
 									final WeakReference<Electronics> W=w.next();
 									if(W.get()==S)
 									{
+										ref = W;
 										w.remove();
 										break;
 									}
 								}
-								rawSet.addLast(new WeakReference<Electronics>(S));
+								if(ref != null)
+									rawSet.set.addLast(ref);
+								else
+									rawSet.set.addLast(new WeakReference<Electronics>(S));
 							}
 						}
 					}
@@ -958,7 +994,7 @@ public class GroundWired extends StdLibrary implements TechLibrary
 	}
 
 	@Override
-	public Manufacturer getManufacturerOf(final Electronics E, final String name)
+	public Manufacturer getManufacturerOf(final Technical E, final String name)
 	{
 		if(name==null)
 			return null;
@@ -1009,7 +1045,7 @@ public class GroundWired extends StdLibrary implements TechLibrary
 		for(final Manufacturer man : manufacturers.values())
 		{
 			if(man != defaultManufacturer)
-				xmlStr.append("<MANUFACTURER>").append(man.getXml()).append("</MANUFACTURER>");
+				xmlStr.append("<MANUFACTURER>").append(man.getXML()).append("</MANUFACTURER>");
 		}
 		xmlStr.append("</MANUFACTURERS>");
 		xmlFile.saveText(xmlStr.toString());
@@ -1037,7 +1073,7 @@ public class GroundWired extends StdLibrary implements TechLibrary
 			for(final XMLTag x : xMans)
 			{
 				final Manufacturer man =(Manufacturer)CMClass.getCommon("DefaultManufacturer");
-				man.setXml(x.value());
+				man.setXML(x.value());
 				addManufacturer(man);
 			}
 		}

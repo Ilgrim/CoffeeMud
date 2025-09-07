@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -112,10 +112,46 @@ public class Spell_SummonMonster extends Spell
 	}
 
 	@Override
+	public boolean tick(final Tickable ticking, final int tickID)
+	{
+		if((affected instanceof MOB)
+		&&((((MOB)affected).amFollowing()!=invoker())||(invoker()==null)))
+		{
+			final MOB M = (MOB)affected;
+			if((M!=null)
+			&&(!M.isPlayer())
+			&&(M.fetchEffect("WanderHomeLater")==null))
+			{
+				final Ability A = CMClass.getAbility("WanderHomeLater");
+				if(A != null)
+				{
+					A.setMiscText("IGNOREPCS=true RESPECTFOLLOW=true ONCE=true MINTICKS=4 MAXTICKS=10 DESTROY=true");
+					M.addEffect(A);
+					A.setSavable(false);
+					A.makeLongLasting();
+				}
+			}
+		}
+		return super.tick(ticking, tickID);
+	}
+
+	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
+
+		for(int i=0;i<mob.numFollowers();i++)
+		{
+			final MOB M = mob.fetchFollower(i);
+			if(M!=null)
+			{
+				final Spell_SummonMonster sA = (Spell_SummonMonster)M.fetchEffect(ID());
+				if((sA != null)
+				&&(sA.invoker()==mob))
+					sA.unInvoke();
+			}
+		}
 
 		final boolean success=proficiencyCheck(mob,0,auto);
 
@@ -213,12 +249,12 @@ public class Spell_SummonMonster extends Spell
 			newMOB=CMClass.getMOB("GenMOB");
 			newMOB.basePhyStats().setLevel(level);
 			newMOB.charStats().setMyRace(CMClass.getRace("Unique"));
-			newMOB.setName(L("a wierd extra-planar monster"));
-			newMOB.setDisplayText(L("a wierd extra-planar monster stands here"));
+			newMOB.setName(L("a weird extra-planar monster"));
+			newMOB.setDisplayText(L("a weird extra-planar monster stands here"));
 			newMOB.setDescription(L("It's too difficult to describe what this thing looks like, but he/she/it is definitely angry!"));
 			CMLib.factions().setAlignment(newMOB,Faction.Align.NEUTRAL);
 			newMOB.baseCharStats().getMyRace().startRacing(newMOB,false);
-			newMOB.baseState().setHitPoints(CMLib.dice().rollHP(level, 20));
+			newMOB.baseState().setHitPoints(CMLib.dice().rollHP(level, CMProps.getMobHPBase()*2));
 			newMOB.recoverMaxState();
 			newMOB.resetToMaxState();
 			newMOB.recoverPhyStats();
@@ -233,7 +269,10 @@ public class Spell_SummonMonster extends Spell
 		newMOB.setMoneyVariation(0);
 		newMOB.setLocation(R);
 		newMOB.basePhyStats().setRejuv(PhyStats.NO_REJUV);
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
+		newMOB.setMiscText(newMOB.text());
 		newMOB.recoverCharStats();
 		newMOB.recoverPhyStats();
 		newMOB.recoverMaxState();

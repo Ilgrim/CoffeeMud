@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -301,7 +301,7 @@ public class Chant_HowlersMoon extends Chant
 	public MOB determineMonster(final MOB caster, final int level)
 	{
 		final MOB newMOB=CMClass.getMOB("GenMob");
-		newMOB.basePhyStats().setAbility(0);
+		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase());
 		newMOB.basePhyStats().setLevel(level);
 		CMLib.factions().setAlignment(newMOB,Faction.Align.NEUTRAL);
 		newMOB.basePhyStats().setWeight(350);
@@ -318,7 +318,9 @@ public class Chant_HowlersMoon extends Chant
 		newMOB.setName(L("a ferocious wolf"));
 		newMOB.setDisplayText(L("a huge, ferocious wolf is here"));
 		newMOB.setDescription(L("Dark black fur, always standing on end surrounds its muscular body.  The eyes are deep red, and his teeth are bared, snarling at you."));
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		Behavior B=CMClass.getBehavior("CorpseEater");
 		if(B!=null)
 			newMOB.addBehavior(B);

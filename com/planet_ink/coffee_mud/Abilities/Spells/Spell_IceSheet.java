@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -199,12 +199,22 @@ public class Spell_IceSheet extends Spell
 		if(success)
 		{
 
-			String msgStr=L("the ground becomes covered in ice!");
-			if(CMLib.flags().isWateryRoom(mob.location()))
-				msgStr=L("the water freezes over!");
+			String msgStr;
 			if(auto)
-				msgStr=Character.toUpperCase(msgStr.charAt(0))+msgStr.substring(1);
-			final CMMsg msg = CMClass.getMsg(mob, target, this, somanticCastCode(mob,target,auto),L(auto?"":"^S<S-NAME> speak(s) and gesture(s) and ")+msgStr+"^?");
+			{
+				if(CMLib.flags().isWateryRoom(mob.location()))
+					msgStr=L("The water freezes over!");
+				else
+					msgStr=L("The ground becomes covered in ice!");
+			}
+			else
+			{
+				if(CMLib.flags().isWateryRoom(mob.location()))
+					msgStr=L("^S<S-NAME> speak(s) and gesture(s) and the water freezes over!");
+				else
+					msgStr=L("^S<S-NAME> speak(s) and gesture(s) and the ground becomes covered in ice!");
+			}
+			final CMMsg msg = CMClass.getMsg(mob, target, this, somaticCastCode(mob,target,auto),msgStr);
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -212,8 +222,8 @@ public class Spell_IceSheet extends Spell
 				if(sheet != null)
 				{
 					sheet.theSheet = CMClass.getBasicItem("StdItem");
-					sheet.theSheet.setName("an ice sheet");
-					sheet.theSheet.setDisplayText("an enormous ice sheet covers the ground here");
+					sheet.theSheet.setName(L("an ice sheet"));
+					sheet.theSheet.setDisplayText(L("an enormous ice sheet covers the ground here"));
 					CMLib.flags().setGettable(sheet.theSheet, false);
 					mob.location().addItem(sheet.theSheet);
 				}

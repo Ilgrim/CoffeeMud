@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -156,13 +157,14 @@ public class Ranger extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Fighter_ArmorTweaking",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Chant_RepelVermin",false);
 
-		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Spell_ReadMagic",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Chant_ReadRunes",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Chant_PredictWeather",false);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Skill_WandUse",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Skill_ShardUse",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Chant_LocatePlants",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Skill_Revoke",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Ranger_FierceCompanions",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Fighter_Pistolwhip",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Skill_Dodge",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Skill_IdentifyPoison",false,CMParms.parseSemicolons("Apothecary",true));
@@ -182,6 +184,7 @@ public class Ranger extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Ranger_Sneak",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Fighter_Cleave",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Chant_CalmAnimal",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Fighter_Headlock",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Skill_MountedCombat",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Chant_Hunger",false);
@@ -194,6 +197,7 @@ public class Ranger extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Ranger_Enemy2",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Chant_AnimalFriendship",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Chant_ReadRunes",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Fighter_ClinchHold",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Chant_SummonPeace",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Chant_VenomWard",false);
@@ -216,6 +220,7 @@ public class Ranger extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Skill_Trip",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Chant_Bury",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Fighter_FarShot",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Fighter_AutoPistolwhip",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Ranger_Enemy3",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Fighter_Sweep",false);
@@ -231,6 +236,7 @@ public class Ranger extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Chant_GasWard",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Ranger_Camouflage",false,CMParms.parseSemicolons("Ranger_Hide",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Thief_ConcealPathway",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Chant_SummonAnimal",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Chant_Sunray",false);
@@ -249,6 +255,9 @@ public class Ranger extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Chant_NeutralizePoison",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Ranger_AnimalFrenzy",true);
+
+		CMLib.ableMapper().addCharAbilityMapping(ID(),35,"Ranger_PlanarEnemy", 0, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
 	}
 
 	@Override
@@ -345,7 +354,12 @@ public class Ranger extends StdCharClass
 				if((A!=null)
 				&&(!CMLib.ableMapper().getAllQualified(ID(),true,A.ID()))
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
-					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+				{
+					giveMobAbility(mob,A,
+								   CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),
+								   CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),
+								   isBorrowedClass);
+				}
 			}
 		}
 	}
@@ -356,7 +370,7 @@ public class Ranger extends StdCharClass
 		if((mob!=null)
 		&&(mob!=killed)
 		&&(!mob.amDead())
-		&&((!mob.isMonster())||(!CMLib.flags().isAnimalIntelligence(mob)))
+		&&((!mob.isMonster())||(!CMLib.flags().isAnAnimal(mob)))
 		&&((mob.getVictim()==killed)
 		 ||(followers.contains(mob))
 		 ||(mob==killer)))
@@ -374,6 +388,7 @@ public class Ranger extends StdCharClass
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

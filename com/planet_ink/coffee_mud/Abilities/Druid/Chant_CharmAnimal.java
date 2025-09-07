@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -194,7 +194,10 @@ public class Chant_CharmAnimal extends Chant
 
 		super.unInvoke();
 
-		if((canBeUninvoked()&&(!mob.amDead())))
+		if((canBeUninvoked())
+		&&(mob!=null)
+		&&(!mob.amDead())
+		&&(mob.location()!=null))
 		{
 			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-YOUPOSS> natural-will returns."));
 			if(mob.amFollowing()!=null)
@@ -222,7 +225,7 @@ public class Chant_CharmAnimal extends Chant
 		{
 			if(target instanceof MOB)
 			{
-				if(!CMLib.flags().isAnimalIntelligence((MOB)target))
+				if(!CMLib.flags().isAnAnimal((MOB)target))
 					return Ability.QUALITY_INDIFFERENT;
 			}
 		}
@@ -239,7 +242,7 @@ public class Chant_CharmAnimal extends Chant
 		if(R==null)
 			R=mob.location();
 
-		if(!CMLib.flags().isAnimalIntelligence(target))
+		if(!CMLib.flags().isAnAnimal(target))
 		{
 			mob.tell(L("@x1 is not an animal!",target.name(mob)));
 			return false;

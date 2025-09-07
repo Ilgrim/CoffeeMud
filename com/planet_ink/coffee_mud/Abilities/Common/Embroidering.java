@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -81,11 +81,11 @@ public class Embroidering extends CommonSkill
 	{
 		if(canBeUninvoked())
 		{
-			if((affected!=null)&&(affected instanceof MOB)&&(!aborted)&&(!helping))
+			if((affected instanceof MOB)&&(!aborted)&&(!helping))
 			{
 				final MOB mob=(MOB)affected;
 				if(writing.length()==0)
-					commonTell(mob,L("You mess up your embroidery."));
+					commonTelL(mob,"You mess up your embroidery.");
 				else
 				{
 					String desc=found.description();
@@ -107,13 +107,13 @@ public class Embroidering extends CommonSkill
 			return true;
 		if(commands.size()<2)
 		{
-			commonTell(mob,L("You must specify what you want to embroider onto, and what words to embroider on it."));
+			commonTelL(mob,"You must specify what you want to embroider onto, and what words to embroider on it.");
 			return false;
 		}
 		final Item target=mob.fetchItem(null,Wearable.FILTER_UNWORNONLY,commands.get(0));
 		if((target==null)||(!CMLib.flags().canBeSeenBy(target,mob)))
 		{
-			commonTell(mob,L("You don't seem to have a '@x1'.",(commands.get(0))));
+			commonTelL(mob,"You don't seem to have a '@x1'.",(commands.get(0)));
 			return false;
 		}
 		commands.remove(commands.get(0));
@@ -121,7 +121,7 @@ public class Embroidering extends CommonSkill
 		final Ability write=mob.fetchAbility("Skill_Write");
 		if(write==null)
 		{
-			commonTell(mob,L("You must know how to write to embroider."));
+			commonTelL(mob,"You must know how to write to embroider.");
 			return false;
 		}
 
@@ -129,7 +129,7 @@ public class Embroidering extends CommonSkill
 			&&((target.material()&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_LEATHER))
 		||(!target.isGeneric()))
 		{
-			commonTell(mob,L("You can't embroider onto that material."));
+			commonTelL(mob,"You can't embroider onto that material.");
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))

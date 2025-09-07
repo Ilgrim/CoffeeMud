@@ -6,7 +6,8 @@ import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftParms;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftingActivity;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.EnhancedExpertise;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
-import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.ItemKeyPair;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftorType;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftedItem;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
@@ -25,7 +26,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -64,13 +65,19 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 	}
 
 	@Override
+	public CraftorType getCraftorType()
+	{
+		return CraftorType.General;
+	}
+
+	@Override
 	public String supportedResourceString()
 	{
 		return "_CLAY|_CHINA";
 	}
 
 	@Override
-	public String parametersFormat()
+	public String getRecipeFormat()
 	{
 		return
 		"ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\tMATERIALS_REQUIRED\t"
@@ -80,13 +87,15 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 
 	//protected static final int RCP_FINALNAME=0;
 	//protected static final int RCP_LEVEL=1;
-	//protected static final int RCP_TICKS=2;
+	protected static final int	RCP_TICKS		= 2;
 	protected static final int	RCP_WOOD		= 3;
 	protected static final int	RCP_VALUE		= 4;
 	protected static final int	RCP_CLASSTYPE	= 5;
 	protected static final int	RCP_MISCTYPE	= 6;
 	protected static final int	RCP_CAPACITY	= 7;
 	protected static final int	RCP_SPELL		= 8;
+
+	protected DoorKey key=null;
 
 	@Override
 	public List<List<String>> fetchMyRecipes(final MOB mob)
@@ -97,11 +106,12 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			final MOB mob=(MOB)affected;
 			if((buildingI==null)
-			||(getRequiredFire(mob,0)==null))
+			||((getRequiredFire(mob,0)==null)
+				&&(mob.location()==activityRoom)))
 			{
 				messedUp=true;
 				unInvoke();
@@ -111,7 +121,7 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 	}
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return "pottery.txt";
 	}
@@ -119,7 +129,7 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 	@Override
 	protected List<List<String>> loadRecipes()
 	{
-		return super.loadRecipes(parametersFile());
+		return super.loadRecipes(getRecipeFilename());
 	}
 
 	@Override
@@ -145,6 +155,7 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 							commonEmote(mob,L("<S-NAME> fail(s) to learn how to make @x1.",buildingI.name()));
 						else
 							commonEmote(mob,L("<S-NAME> mess(es) up @x1.",buildingI.name()));
+						dropALoser(mob,buildingI);
 						buildingI.destroy();
 					}
 					else
@@ -156,10 +167,17 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 					else
 					{
 						dropAWinner(mob,buildingI);
-						CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this);
+						CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this, buildingI);
+						if(key!=null)
+						{
+							dropAWinner(mob,key);
+							if(buildingI instanceof Container)
+								key.setContainer((Container)buildingI);
+						}
 					}
 				}
 				buildingI=null;
+				key=null;
 			}
 		}
 		super.unInvoke();
@@ -185,12 +203,13 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 		if(I instanceof Rideable)
 		{
 			final Rideable R=(Rideable)I;
-			final int rideType=R.rideBasis();
+			final Rideable.Basis rideType=R.rideBasis();
 			switch(rideType)
 			{
-			case Rideable.RIDEABLE_SLEEP:
-			case Rideable.RIDEABLE_SIT:
-			case Rideable.RIDEABLE_TABLE:
+			case FURNITURE_SLEEP:
+			case FURNITURE_SIT:
+			case FURNITURE_TABLE:
+			case FURNITURE_HOOK:
 				return true;
 			default:
 				return false;
@@ -226,12 +245,12 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new Vector<Item>(0));
+		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new ArrayList<CraftedItem>(0));
 	}
 
 	@Override
 	protected boolean autoGenInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto,
-								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<Item> crafted)
+								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<CraftedItem> crafted)
 	{
 		final List<String> originalCommands = new XVector<String>(commands);
 		if(super.checkStop(mob, commands))
@@ -248,8 +267,8 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 		randomRecipeFix(mob,addRecipes(mob,loadRecipes()),commands,autoGenerate);
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Make what? Enter \"pot list\" for a list, \"pot info <item>\", \"pot learn <item>\" to gain recipes,"
-							+ " or \"pot stop\" to cancel."));
+			commonTelL(mob,"Make what? Enter \"pot list\" for a list, \"pot info <item>\", \"pot learn <item>\" to gain recipes,"
+							+ " or \"pot stop\" to cancel.");
 			return false;
 		}
 		if((!auto)
@@ -275,7 +294,7 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 			else
 				commands.remove(commands.size()-1);
 		}
-		if(str.equalsIgnoreCase("list"))
+		if(str.equalsIgnoreCase("list") && (autoGenerate <= 0))
 		{
 			String mask=CMParms.combine(commands,1);
 			boolean allFlag=false;
@@ -284,12 +303,18 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 				allFlag=true;
 				mask="";
 			}
+			final StringBuffer buf=new StringBuffer("");
 			final int[] cols={
-				CMLib.lister().fixColWidth(26,mob.session()),
+				CMLib.lister().fixColWidth(29,mob.session()),
+				CMLib.lister().fixColWidth(3,mob.session()),
 				CMLib.lister().fixColWidth(3,mob.session())
 			};
-			final StringBuffer buf=new StringBuffer(L("@x1 @x2 Clay required\n\r",CMStrings.padRight(L("Item"),cols[0]),CMStrings.padRight(L("Lvl"),cols[1])));
-			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipeNames(recipes, mask, true);
+			int toggler=1;
+			final int toggleTop=2;
+			for(int i=0;i<toggleTop;i++)
+				buf.append(L("^H@x1 @x2 Amt ",CMStrings.padRight(L("Item"),cols[0]),CMStrings.padRight(L("Lvl"),cols[1])));
+			buf.append("^N\n\r");
+			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipes(recipes, mask, true);
 			for(int r=0;r<listRecipes.size();r++)
 			{
 				final List<String> V=listRecipes.get(r);
@@ -299,7 +324,17 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 					final int level=CMath.s_int(V.get(RCP_LEVEL));
 					final String wood=getComponentDescription(mob,V,RCP_WOOD);
 					if((level<=xlevel(mob))||allFlag)
-						buf.append(CMStrings.padRight(item,cols[0])+" "+CMStrings.padRight(""+level,cols[1])+" "+wood+"\n\r");
+					{
+						if(wood.length()>5)
+						{
+							if(toggler>1)
+								buf.append("\n\r");
+							toggler=toggleTop;
+						}
+						buf.append("^w"+CMStrings.padRight(item,cols[0])+"^N "+CMStrings.padRight(""+level,cols[1])+" "+CMStrings.padRightPreserve(""+wood,cols[2])+((toggler!=toggleTop)?" ":"\n\r"));
+						if(++toggler>toggleTop)
+							toggler=1;
+					}
 				}
 			}
 			commonTell(mob,buf.toString());
@@ -316,6 +351,7 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 			return false;
 		activity = CraftingActivity.CRAFTING;
 		buildingI=null;
+		key=null;
 		messedUp=false;
 		int amount=-1;
 		if((commands.size()>1)&&(CMath.isNumber(commands.get(commands.size()-1))))
@@ -325,7 +361,9 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 		}
 		final String recipeName=CMParms.combine(commands,0);
 		List<String> foundRecipe=null;
-		final List<List<String>> matches=matchingRecipeNames(recipes,recipeName,true);
+		final List<List<String>> matches=matchingRecipes(recipes,recipeName,false);
+		if(matches.size()==0)
+			matches.addAll(matchingRecipes(recipes,recipeName,true));
 		for(int r=0;r<matches.size();r++)
 		{
 			final List<String> V=matches.get(r);
@@ -342,7 +380,7 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 		}
 		if(foundRecipe==null)
 		{
-			commonTell(mob,L("You don't know how to make a '@x1'.  Try \"pot list\" for a list.",recipeName));
+			commonTelL(mob,"You don't know how to make a '@x1'.  Try \"pot list\" for a list.",recipeName);
 			return false;
 		}
 
@@ -410,26 +448,26 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 			return false;
 		final MaterialLibrary.DeadResourceRecord deadMats;
 		if((componentsFoundList.size() > 0)||(autoGenerate>0))
-			deadMats = new MaterialLibrary.DeadResourceRecord();
+			deadMats = deadRecord;
 		else
 		{
 			deadMats = CMLib.materials().destroyResources(mob.location(),woodRequired,
 					data[0][FOUND_CODE],data[0][FOUND_SUB],data[1][FOUND_CODE],data[1][FOUND_SUB]);
 		}
 		final MaterialLibrary.DeadResourceRecord deadComps = CMLib.ableComponents().destroyAbilityComponents(componentsFoundList);
-		final int lostValue=autoGenerate>0?0:(deadMats.lostValue + deadComps.lostValue);
+		final int lostValue=autoGenerate>0?0:(deadMats.getLostValue() + deadComps.getLostValue());
 		buildingI=CMClass.getItem(foundRecipe.get(RCP_CLASSTYPE));
 		final Item buildingI=this.buildingI;
 		if(buildingI==null)
 		{
-			commonTell(mob,L("There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE)));
+			commonTelL(mob,"There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE));
 			return false;
 		}
 		duration=getDuration(CMath.s_int(foundRecipe.get(RCP_TICKS)),mob,CMath.s_int(foundRecipe.get(RCP_LEVEL)),4);
 		buildingI.setMaterial(super.getBuildingMaterial(woodRequired, data, compData));
 		String itemName=determineFinalName(foundRecipe.get(RCP_FINALNAME),buildingI.material(),deadMats,deadComps);
 		if(bundling)
-			itemName="a "+woodRequired+"# "+itemName;
+			itemName=CMLib.english().startWithAorAn(woodRequired+"# "+itemName);
 		else
 			itemName=CMLib.english().startWithAorAn(itemName);
 		buildingI.setName(itemName);
@@ -443,10 +481,11 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 		if(buildingI.name().toUpperCase().indexOf("CHINA ")>=0)
 			buildingI.setMaterial(RawMaterial.RESOURCE_CHINA);
 		buildingI.basePhyStats().setLevel(CMath.s_int(foundRecipe.get(RCP_LEVEL)));
+		key=null;
 		setBrand(mob, buildingI);
 		final int capacity=CMath.s_int(foundRecipe.get(RCP_CAPACITY));
 		final String spell=(foundRecipe.size()>RCP_SPELL)?foundRecipe.get(RCP_SPELL).trim():"";
-		addSpells(buildingI,spell,deadMats.lostProps,deadComps.lostProps);
+		addSpellsOrBehaviors(buildingI,spell,deadMats.getLostProps(),deadComps.getLostProps());
 		if((misctype.equalsIgnoreCase("statue"))
 		&&(statue!=null)
 		&&(statue.trim().length()>0))
@@ -477,6 +516,14 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 			{
 				((Container)buildingI).setDoorsNLocks(true,false,true,true,false,true);
 				((Container)buildingI).setKeyName(Double.toString(Math.random()));
+				key=(DoorKey)CMClass.getItem("GenKey");
+				key.setKey(((Container)buildingI).keyName());
+				key.setName(L("a key"));
+				key.setDisplayText(L("a small key sits here"));
+				key.setDescription(L("looks like a key to @x1",buildingI.name()));
+				key.recoverPhyStats();
+				setBrand(mob, key);
+				key.text();
 			}
 			if(!(buildingI instanceof Armor))
 				((Container)buildingI).setContainTypes(getContainerType(misctype));
@@ -495,7 +542,7 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 		if((buildingI instanceof Wand)
 		&&(foundRecipe.get(RCP_CAPACITY).trim().length()>0))
 		{
-			((Wand)buildingI).setMaxUses(capacity);
+			((Wand)buildingI).setMaxCharges(capacity);
 		}
 		if(bundling)
 			buildingI.setBaseValue(lostValue);
@@ -518,7 +565,7 @@ public class Pottery extends EnhancedCraftingSkill implements ItemCraftor
 
 		if(autoGenerate>0)
 		{
-			crafted.add(buildingI);
+			crafted.add(new CraftedItem(buildingI,key,duration));
 			return true;
 		}
 

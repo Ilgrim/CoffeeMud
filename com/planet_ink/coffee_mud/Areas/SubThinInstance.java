@@ -4,7 +4,6 @@ import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
-import com.planet_ink.coffee_mud.Areas.interfaces.Area.AreaInstanceChild;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
@@ -21,7 +20,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -35,7 +34,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class SubThinInstance extends StdThinInstance
+public class SubThinInstance extends StdThinInstance implements SubArea
 {
 	@Override
 	public String ID()
@@ -67,11 +66,11 @@ public class SubThinInstance extends StdThinInstance
 	}
 
 	@Override
-	protected Area getParentArea()
+	public Area getSuperArea()
 	{
 		if((parentArea!=null)&&(parentArea.get()!=null))
 			return parentArea.get();
-		final Area A=super.getParentArea();
+		final Area A=super.getSuperArea();
 		if(A!=null)
 			return A;
 		int x=Name().indexOf('_');
@@ -88,17 +87,26 @@ public class SubThinInstance extends StdThinInstance
 	}
 
 	@Override
-	public int[] getAreaIStats()
+	protected AreaIStats getAreaIStats()
 	{
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return emptyStats;
-		final Area parentArea=getParentArea();
-		final String areaName = (parentArea==null)?Name():parentArea.Name();
-		final int[] statData=(int[])Resources.getResource("STATS_"+areaName.toUpperCase());
+		AreaIStats statData=(AreaIStats)Resources.getResource("STATS_"+Name().toUpperCase());
 		if(statData!=null)
 			return statData;
-		if((parentArea!=null)&&(parentArea!=this))
-			return parentArea.getAreaIStats();
+		final Area parentArea=getSuperArea();
+		final String areaName = (parentArea==null)?Name():parentArea.Name();
+		statData=(AreaIStats)Resources.getResource("STATS_"+areaName.toUpperCase());
+		if(statData!=null)
+			return statData;
+		if((parentArea!=null)
+		&&(parentArea!=this))
+		{
+			parentArea.getIStat(Stats.AVG_ALIGNMENT); // force a build
+			statData=(AreaIStats)Resources.getResource("STATS_"+parentArea.Name().toUpperCase());
+			if(statData!=null)
+				return statData;
+		}
 		return super.getAreaIStats();
 	}
 
@@ -107,7 +115,7 @@ public class SubThinInstance extends StdThinInstance
 	{
 		if(instanceChildren.size()==0)
 		{
-			final Area oldArea = this.getParentArea();
+			final Area oldArea = this.getSuperArea();
 			if(oldArea == null)
 				return null;
 			properRooms=new STreeMap<String, Room>(new Area.RoomIDComparator());

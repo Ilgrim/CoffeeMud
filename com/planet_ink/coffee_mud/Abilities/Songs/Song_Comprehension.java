@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -80,17 +80,28 @@ public class Song_Comprehension extends Song
 			if(str!=null)
 			{
 				if(CMath.bset(msg.sourceMajor(),CMMsg.MASK_CHANNEL))
-					msg.addTrailerMsg(CMClass.getMsg(msg.source(),null,null,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,msg.othersCode(),L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(msg.othersMessage(),str),name())));
+				{
+					final ChannelsLibrary.CMChannel C = CMLib.channels().getChannelFromMsg(msg);
+					if((C==null)||(!C.flags().contains(ChannelsLibrary.ChannelFlag.NOLANGUAGE)))
+					{
+						msg.addTrailerMsg(CMClass.getMsg(msg.source(),null,null,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,msg.othersCode(),
+							L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(msg.othersMessage(),str),name())));
+					}
+				}
 				else
 				if(msg.amITarget(affected)&&(msg.targetMessage()!=null))
-					msg.addTrailerMsg(CMClass.getMsg(msg.source(),affected,null,CMMsg.NO_EFFECT,msg.targetCode(),CMMsg.NO_EFFECT,L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(msg.targetMessage(),str),((Ability)msg.tool()).name())));
+				{
+					msg.addTrailerMsg(CMClass.getMsg(msg.source(),affected,null,CMMsg.NO_EFFECT,msg.targetCode(),CMMsg.NO_EFFECT,
+						L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(msg.targetMessage(),str),((Ability)msg.tool()).name())));
+				}
 				else
 				if((msg.othersMessage()!=null)&&(msg.othersMessage().indexOf('\'')>0))
 				{
 					String otherMes=msg.othersMessage();
 					if(msg.target()!=null)
 						otherMes=CMLib.coffeeFilter().fullOutFilter(((MOB)affected).session(),(MOB)affected,msg.source(),msg.target(),msg.tool(),otherMes,false);
-					msg.addTrailerMsg(CMClass.getMsg(msg.source(),affected,null,CMMsg.NO_EFFECT,msg.othersCode(),CMMsg.NO_EFFECT,L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(otherMes,str),name())));
+					msg.addTrailerMsg(CMClass.getMsg(msg.source(),affected,null,CMMsg.NO_EFFECT,msg.othersCode(),CMMsg.NO_EFFECT,
+						L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(otherMes,str),name())));
 				}
 			}
 		}

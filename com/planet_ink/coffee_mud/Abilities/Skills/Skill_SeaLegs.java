@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -107,7 +107,7 @@ public class Skill_SeaLegs extends StdSkill
 			if((((Ability)msg.tool()).abstractQuality()==Ability.QUALITY_MALICIOUS)
 			&&(CMath.bset(((Ability)msg.tool()).flags(),Ability.FLAG_MOVING))
 			&&(mob.location()!=null)
-			&&(mob.location().getArea() instanceof BoardableShip)
+			&&(mob.location().getArea() instanceof Boardable)
 			&&((mob.fetchAbility(ID())==null)||proficiencyCheck(null,-40+(2*getXLEVELLevel(mob)),false)))
 			{
 				Room roomS=null;

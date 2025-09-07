@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,8 +45,8 @@ public class Wolverine extends StdMOB
 		super();
 		final Random randomizer = new Random(System.currentTimeMillis());
 
-		username="a wolverine";
-		setDescription("A powerful muscular carnivote with brown fur and mean eyes.");
+		_name="a wolverine";
+		setDescription("A powerful muscular carnivore with brown fur and mean eyes.");
 		setDisplayText("A wolverine growls at you.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
 		setMoney(0);
@@ -62,7 +62,7 @@ public class Wolverine extends StdMOB
 
 		basePhyStats().setDamage(6);
 		basePhyStats().setSpeed(1.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(4);
 		basePhyStats().setArmor(80);
 

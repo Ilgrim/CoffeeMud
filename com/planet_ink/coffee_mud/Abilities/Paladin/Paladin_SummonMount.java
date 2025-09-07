@@ -16,10 +16,11 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
+import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -33,7 +34,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class Paladin_SummonMount extends StdAbility
+public class Paladin_SummonMount extends StdAbility implements PrivateProperty
 {
 	@Override
 	public String ID()
@@ -82,6 +83,12 @@ public class Paladin_SummonMount extends StdAbility
 	}
 
 	@Override
+	public long flags()
+	{
+		return Ability.FLAG_SUMMONING;
+	}
+
+	@Override
 	protected int canTargetCode()
 	{
 		return 0;
@@ -114,7 +121,7 @@ public class Paladin_SummonMount extends StdAbility
 	{
 		if(tickID==Tickable.TICKID_MOB)
 		{
-			if((affected!=null)&&(affected instanceof MOB)&&(invoker!=null))
+			if((affected instanceof MOB)&&(invoker!=null))
 			{
 				final MOB mob=(MOB)affected;
 				if((mob.amFollowing()==null)
@@ -160,6 +167,18 @@ public class Paladin_SummonMount extends StdAbility
 		}
 		if(!PaladinSkill.paladinAlignmentCheck(this, mob, auto))
 			return false;
+
+		if(lastHorse != null)
+		{
+			final MOB M = lastHorse.get();
+			if((M != null)
+			&&(CMLib.flags().isInTheGame(M, true))
+			&&(!M.amDead()))
+			{
+				mob.tell(L("Your holy mount is already in the world."));
+				return false;
+			}
+		}
 
 		final List<Integer> choices=new ArrayList<Integer>();
 		int fromDir=-1;
@@ -214,7 +233,10 @@ public class Paladin_SummonMount extends StdAbility
 						mob.tell(L("@x1 seems unwilling to follow you.",target.name(mob)));
 				}
 				invoker=mob;
-				target.addNonUninvokableEffect((Ability)copyOf());
+				final Paladin_SummonMount pmA = (Paladin_SummonMount)copyOf();
+				pmA.setOwnerName(mob.Name());
+				target.addNonUninvokableEffect(pmA);
+				this.lastHorse = new WeakReference<MOB>(target);
 			}
 		}
 		else
@@ -224,27 +246,45 @@ public class Paladin_SummonMount extends StdAbility
 		return success;
 	}
 
+	protected WeakReference<MOB> lastHorse = null;
+
 	public MOB determineMonster(final MOB caster, final int level)
 	{
-
 		final MOB newMOB=CMClass.getMOB("GenRideable");
 		final Rideable ride=(Rideable)newMOB;
-		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase());
+		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase());//normal
 		newMOB.basePhyStats().setLevel(level);
 		newMOB.basePhyStats().setWeight(500);
 		CMLib.factions().setAlignment(newMOB,Faction.Align.GOOD);
 		newMOB.basePhyStats().setRejuv(PhyStats.NO_REJUV);
-		newMOB.baseCharStats().setMyRace(CMClass.getRace("Horse"));
+		final Deity deity = caster.charStats().getMyDeity();
+		final PairList<String, Race> steeds = CMLib.utensils().getFavoredMounts(deity);
+		final Pair<String,Race> steed = steeds.get(CMLib.dice().roll(1, steeds.size(), -1));
+		final Race steedR = steed.second;
+		newMOB.baseCharStats().setMyRace(steedR);
 		newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'M');
 		newMOB.baseCharStats().getMyRace().startRacing(newMOB,false);
 		newMOB.basePhyStats().setArmor(CMLib.leveler().getLevelMOBArmor(newMOB));
 		newMOB.basePhyStats().setAttackAdjustment(CMLib.leveler().getLevelAttack(newMOB));
 		newMOB.basePhyStats().setSpeed(CMLib.leveler().getLevelMOBSpeed(newMOB));
 		newMOB.basePhyStats().setDamage(CMLib.leveler().getLevelMOBDamage(newMOB));
-		newMOB.setName(L("a white horse"));
-		newMOB.setDisplayText(L("a proud white horse stands here"));
-		newMOB.setDescription(L("A proud and noble steed; albino white and immaculate."));
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		if(!CMLib.flags().isEvil(caster))
+		{
+			newMOB.setName(L("a white @x1",steedR.name().toLowerCase()));
+			newMOB.setDisplayText(L("a proud white @x1 stands here",steedR.name().toLowerCase()));
+			if(steedR.name().equalsIgnoreCase("Horse"))
+				newMOB.setDescription(L("A proud and noble steed; albino white and immaculate."));
+		}
+		else
+		{
+			newMOB.setName(L("a black @x1",steedR.name().toLowerCase()));
+			newMOB.setDisplayText(L("a treacherous black @x1 stands here",steedR.name().toLowerCase()));
+			if(steedR.name().equalsIgnoreCase("Horse"))
+				newMOB.setDescription(L("A cold and ignoble steed; jet black and untrustworthy."));
+		}
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0 RIDEOK"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		ride.setRiderCapacity(4);
 		newMOB.recoverCharStats();
 		newMOB.recoverPhyStats();
@@ -252,5 +292,40 @@ public class Paladin_SummonMount extends StdAbility
 		newMOB.resetToMaxState();
 		newMOB.text();
 		return(newMOB);
+	}
+
+	@Override
+	public int getPrice()
+	{
+		return 0;
+	}
+
+	@Override
+	public void setPrice(final int price)
+	{
+	}
+
+	@Override
+	public String getOwnerName()
+	{
+		return text();
+	}
+
+	@Override
+	public void setOwnerName(final String owner)
+	{
+		setMiscText(owner);
+	}
+
+	@Override
+	public boolean isProperlyOwned()
+	{
+		return getOwnerName().length()>0;
+	}
+
+	@Override
+	public String getTitleID()
+	{
+		return "PALADIN_MOUNT_FOR_"+text();
 	}
 }

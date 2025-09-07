@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,15 +59,30 @@ public class SocialNext extends StdWebMacro
 			return "";
 		}
 		String lastID="";
-		for(int s=0;s<CMLib.socials().getSocialsList().size();s++)
+		for(int s=0;s<CMLib.socials().getSocialsBaseList().size();s++)
 		{
-			final String name=CMLib.socials().getSocialsList().get(s);
+			final String name=CMLib.socials().getSocialsBaseList().get(s);
 			if((last==null)||((last.length()>0)&&(last.equals(lastID))&&(!name.equalsIgnoreCase(lastID))))
 			{
 				httpReq.addFakeUrlParameter("SOCIAL",name);
 				return "";
 			}
 			lastID=name;
+		}
+		if(parms.containsKey("COMPONENT"))
+		{
+			final Map<String,List<Social>> compSoc = CMLib.ableComponents().getComponentSocials();
+			final List<String> list = new XVector<String>(compSoc.keySet());
+			for(int s=0;s<list.size();s++)
+			{
+				final String name=list.get(s);
+				if((last==null)||((last.length()>0)&&(last.equals(lastID))&&(!name.equalsIgnoreCase(lastID))))
+				{
+					httpReq.addFakeUrlParameter("SOCIAL",name);
+					return "";
+				}
+				lastID=name;
+			}
 		}
 		httpReq.addFakeUrlParameter("SOCIAL","");
 		if(parms.containsKey("EMPTYOK"))

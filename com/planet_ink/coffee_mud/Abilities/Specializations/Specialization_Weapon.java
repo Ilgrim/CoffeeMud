@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -183,7 +183,10 @@ public class Specialization_Weapon extends StdAbility
 		&&((msg.targetMinor()==CMMsg.TYP_HOLD)||(msg.targetMinor()==CMMsg.TYP_WIELD))
 		&&(isWearableItem((Item)msg.target()))
 		&&(((Item)msg.target()).phyStats().level()>msg.source().phyStats().level()))
+		{
+			((Item)msg.target()).recoverPhyStats();
 			((Item)msg.target()).phyStats().setLevel(((Item)msg.target()).phyStats().level()-((1+getX4Level(msg.source()))/2));
+		}
 		return true;
 	}
 

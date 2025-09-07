@@ -7,9 +7,10 @@ import java.util.regex.*;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ScriptableObject;
 
+import com.planet_ink.coffee_mud.Common.interfaces.Session;
 import com.planet_ink.coffee_mud.core.CMStrings;
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -30,15 +31,22 @@ import com.planet_ink.coffee_mud.core.CMStrings;
  */
 public class AutoPlayTester
 {
-	private Socket 				sock=null;
-	private BufferedReader 		in = null;
-	private BufferedWriter		out = null;
-	private final LinkedList<String> 	inbuffer = new LinkedList<String>();
-	private final LinkedList<String> 	outbuffer = new LinkedList<String>();
-	private String 				name="boobie";
-	private String 				host="localhost";
-	private int 				port = 5555;
-	private String				filename="resources/autoplayer/autoplay.js";
+	private Socket						sock			= null;
+	private BufferedReader				in				= null;
+	private BufferedWriter				out				= null;
+	private final LinkedList<String>	inbuffer		= new LinkedList<String>();
+	private final LinkedList<String>	outbuffer		= new LinkedList<String>();
+	private final LinkedList<String>	gmcpMessages	= new LinkedList<String>();
+	private String						name			= "boobie";
+	private String						host			= "localhost";
+	private int							port			= 5555;
+	private String						filename		= "resources/autoplayer/autoplay.js";
+	private int							lastc			= 0;
+	private int							telnetState		= 0;
+	private int							telnetCommand	= -1;
+	private int							telnetOption	= -1;
+
+	private static final PrintStream	outStream = System.out;
 
 	public AutoPlayTester(final String host, final int port, final String charName, final String script)
 	{
@@ -52,38 +60,162 @@ public class AutoPlayTester
 	{
 		int c;
 		final StringBuffer buf=new StringBuffer("");
-		int lastc=0;
-
+		final StringBuffer telnetSubBuf = new StringBuffer("");
 		try
 		{
 			while((c=in.read()) >=0)
 			{
-				if(c==13 || c==10)
+				switch(telnetState)
 				{
-					if((c==13 && lastc != 10)
-					||(c==10 && lastc != 13))
+				case 0:
+					if(c==Session.TELNET_IAC)
+						telnetState=1;
+					else
 					{
-						inbuffer.add(globalReactionary(buf.toString()));
-						buf.setLength(0);
+						if(c==13 || c==10)
+						{
+							if((c==13 && lastc != 10)
+							||(c==10 && lastc != 13))
+							{
+								inbuffer.add(globalReactionary(buf.toString()));
+								buf.setLength(0);
+							}
+						}
+						else
+							buf.append((char)c);
+						lastc=c;
 					}
+					break;
+				case 1: // IAC seen
+					switch(c)
+					{
+					case Session.TELNET_IAC:
+						{
+							buf.append((char)Session.TELNET_IAC);
+							lastc=Session.TELNET_IAC;
+							telnetState=0;
+							break;
+						}
+					case Session.TELNET_WILL:
+					case Session.TELNET_WONT:
+					case Session.TELNET_DO:
+					case Session.TELNET_DONT:
+						{
+							telnetCommand=c;
+							telnetState=2;
+							break;
+						}
+					case Session.TELNET_SB:
+						telnetState=3;
+						break;
+					case Session.TELNET_GA:
+					case Session.TELNET_AYT:
+					case Session.TELNET_EC:
+					case Session.TELNET_NOP:
+					default:
+						telnetState=0;
+						break;
+					}
+					break;
+				case 2: // after WILL/WONT/DO/DONT, option received
+					telnetOption=c;
+					switch(telnetCommand)
+					{
+					case Session.TELNET_WILL:
+						switch(telnetOption)
+						{
+						case Session.TELNET_GMCP:
+							{
+								byte[] response= {(byte)Session.TELNET_IAC,(byte)Session.TELNET_DO,(byte)Session.TELNET_GMCP};
+								sock.getOutputStream().write(response);
+								sock.getOutputStream().flush();
+								response= new byte[]{(byte)Session.TELNET_IAC,(byte)Session.TELNET_SB,(byte)Session.TELNET_GMCP};
+								sock.getOutputStream().write(response);
+								sock.getOutputStream().write("Core.Hello {\"client\":\"CoffeeMud AutoPlayer\",\"version\":\"1.0\"}".getBytes());
+								response= new byte[]{(byte)Session.TELNET_IAC,(byte)Session.TELNET_SE};
+								sock.getOutputStream().write(response);
+								sock.getOutputStream().flush();
+								response= new byte[]{(byte)Session.TELNET_IAC,(byte)Session.TELNET_SB,(byte)Session.TELNET_GMCP};
+								sock.getOutputStream().write(response);
+								sock.getOutputStream().write("Core.Supports.Set [\"Core 1\", \"Char 1\", \"Room 1\", \"Group 1\", \"Comm 1\", \"Room.Info 1\", \"Char.Login 1\"]".getBytes());
+								response= new byte[]{(byte)Session.TELNET_IAC,(byte)Session.TELNET_SE};
+								sock.getOutputStream().write(response);
+								sock.getOutputStream().flush();
+								break;
+							}
+						}
+						break;
+					case Session.TELNET_WONT:
+						switch(telnetOption)
+						{
+						case Session.TELNET_GMCP:
+							break;
+						}
+						break;
+					case Session.TELNET_DO:
+						switch(telnetOption)
+						{
+						case Session.TELNET_GMCP:
+							break;
+						}
+						break;
+					case Session.TELNET_DONT:
+						switch(telnetOption)
+						{
+						case Session.TELNET_GMCP:
+							break;
+						}
+						break;
+					}
+					telnetState=0;
+					break;
+				case 3: // after SB, option received
+					telnetOption=c;
+					telnetSubBuf.setLength(0);
+					telnetState=4;
+					break;
+				case 4: // subnegotiation data
+					if(c==Session.TELNET_IAC)
+						telnetState=5;
+					else
+						telnetSubBuf.append((char)c);
+					break;
+				case 5: // IAC in subnegotiation
+					if(c==Session.TELNET_SE)
+					{
+						switch(telnetOption)
+						{
+						case Session.TELNET_GMCP:
+							gmcpMessages.add(telnetSubBuf.toString());
+							break;
+						case Session.TELNET_MPCP:
+							break;
+						}
+						telnetState=0;
+					}
+					else
+					if(c==Session.TELNET_IAC)
+					{
+						telnetSubBuf.append((char)Session.TELNET_IAC);
+						telnetState=4;
+					}
+					else
+						telnetState=0;
+					break;
 				}
-				else
-					buf.append((char)c);
-				lastc=c;
 			}
 		}
 		catch(final Exception e)
-		{
-
-		}
+		{}
 		if(buf.length()>0)
 			inbuffer.add(globalReactionary(buf.toString()));
 		return inbuffer;
 	}
 
+
 	public String globalReactionary(final String s)
 	{
-		System.out.println(s);
+		outStream.println(s);
 		return s;
 	}
 
@@ -107,9 +239,7 @@ public class AutoPlayTester
 		{
 			bufferFill();
 			if(inbuffer.size()==0)
-			{
 				s_sleep(100);
-			}
 			else
 			{
 				final String s=inbuffer.removeFirst();
@@ -140,7 +270,7 @@ public class AutoPlayTester
 
 	public void writeln(final String s) throws IOException
 	{
-		System.out.println(s);
+		outStream.println(s);
 		s_sleep(500);
 		out.write(s+"\n");
 		out.flush();
@@ -191,7 +321,7 @@ public class AutoPlayTester
 
 	public void run()
 	{
-		System.out.println("Executing: "+filename);
+		outStream.println("Executing: "+filename);
 		final String js=getJavaScript(filename);
 
 		final Context cx = Context.enter();
@@ -222,7 +352,8 @@ public class AutoPlayTester
 		protected AutoPlayTester testObj;
 		public static final String[] functions={ "tester", "toJavaString", "writeLine", "login", "stdout",
 												 "stderr", "waitFor", "waitForOptions","waitForMultiMatch", "startsWith",
-												 "name","rand","sleep","clearOutbuffer","getAccumulated"};
+												 "name","rand","sleep","clearOutbuffer","getAccumulated", "pollGMCP",
+												 "sendGMCP"};
 
 		public AutoPlayTester tester()
 		{
@@ -269,11 +400,35 @@ public class AutoPlayTester
 			return str.toString();
 		}
 
+		public String pollGMCP()
+		{
+			if (testObj.gmcpMessages.size() == 0)
+				return "";
+			return testObj.gmcpMessages.removeFirst();
+		}
+
+		public void sendGMCP(final String json)
+		{
+			try
+			{
+				byte[] response;
+				response= new byte[]{(byte)Session.TELNET_IAC,(byte)Session.TELNET_SB,(byte)Session.TELNET_GMCP};
+				testObj.sock.getOutputStream().write(response);
+				testObj.sock.getOutputStream().write(json.getBytes());
+				response= new byte[]{(byte)Session.TELNET_IAC,(byte)Session.TELNET_SE};
+				testObj.sock.getOutputStream().write(response);
+				testObj.sock.getOutputStream().flush();
+			}
+			catch (final IOException e)
+			{
+			}
+		}
+
 		public void stdout(final Object O)
 		{
 			try
 			{
-				System.out.println(toJavaString(O));
+				outStream.println(toJavaString(O));
 			}
 			catch (final Exception e)
 			{
@@ -381,8 +536,8 @@ public class AutoPlayTester
 	{
 		if(args.length<4)
 		{
-			System.out.println("AutoPlayTester");
-			System.out.println("AutoPlayTester [host] [port] [character name] [script path]");
+			outStream.println("AutoPlayTester (** Not Sufficiently Implemented**)");
+			outStream.println("AutoPlayTester [host] [port] [character name] [script path]");
 			System.exit(-1);
 		}
 		final StringBuilder path=new StringBuilder(args[3]);

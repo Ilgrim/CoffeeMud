@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -290,7 +290,7 @@ public class Chant_SummonDustdevil extends Chant
 		newMOB.setDisplayText(L("@x1 whirls around here",name));
 		newMOB.setDescription("");
 		CMLib.factions().setAlignment(newMOB,Faction.Align.NEUTRAL);
-		newMOB.basePhyStats().setAbility(25);
+		newMOB.basePhyStats().setAbility(3+(CMProps.getMobHPBase()*2));
 		newMOB.basePhyStats().setWeight(caster.phyStats().level()*(caster.phyStats().level()+(2*getXLEVELLevel(caster))));
 		newMOB.baseCharStats().setStat(CharStats.STAT_STRENGTH,caster.phyStats().level()+(2*getXLEVELLevel(caster)));
 		newMOB.basePhyStats().setSensesMask(newMOB.basePhyStats().sensesMask()|PhyStats.CAN_SEE_DARK);
@@ -302,7 +302,9 @@ public class Chant_SummonDustdevil extends Chant
 		newMOB.basePhyStats().setAttackAdjustment(0);
 		newMOB.basePhyStats().setArmor(100);
 		newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'N');
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		newMOB.setMiscText(newMOB.text());
 		newMOB.recoverCharStats();
 		newMOB.recoverPhyStats();

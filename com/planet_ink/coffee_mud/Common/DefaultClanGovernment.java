@@ -16,6 +16,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.Clan.MemberRecord;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Libraries.interfaces.DatabaseEngine.PlayerData;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
@@ -25,7 +26,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.lang.ref.WeakReference;
 import java.util.*;
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -136,7 +137,7 @@ public class DefaultClanGovernment implements ClanGovernment
 	{
 		try
 		{
-			return getClass().newInstance();
+			return getClass().getDeclaredConstructor().newInstance();
 		}
 		catch (final Exception e)
 		{
@@ -824,11 +825,8 @@ public class DefaultClanGovernment implements ClanGovernment
 			code=code.substring(0,numDex);
 		}
 		final GOVT_STAT_CODES stat = getStatIndex(code);
-		final boolean isNull = (stat == null);
-		if (isNull)
-		{
+		if (stat == null)
 			return;
-		}
 		switch(stat)
 		{
 		case NAME:
@@ -1077,9 +1075,9 @@ public class DefaultClanGovernment implements ClanGovernment
 			return null;
 		if(helpStr==null)
 		{
-			final StringBuilder str=new StringBuilder(CMLib.lang().L("\n\rOrganization type: "+getName()+"\n\r\n\r"));
+			final StringBuilder str=new StringBuilder(CMLib.lang().L("\n\r^HOrganization type: ^N@x1\n\r\n\r",getName()));
 			str.append(getLongDesc()).append("\n\r");
-			str.append(CMLib.lang().L("\n\rAuthority Chart:\n\r\n\r"));
+			str.append(CMLib.lang().L("\n\r^HAuthority Chart:\n\r\n\r"));
 			final List<ClanPosition> showablePositions=new Vector<ClanPosition>();
 			for(final ClanPosition P : getPositions())
 			{
@@ -1142,14 +1140,14 @@ public class DefaultClanGovernment implements ClanGovernment
 			}
 
 			final int commandColLen = funcMaxLen;
-			str.append(CMStrings.padRight(CMLib.lang().L("Command"),commandColLen-1)).append("!");
+			str.append("^w"+CMStrings.padRight(CMLib.lang().L("Command"),commandColLen-1)).append("|");
 			for(int p=0;p<posses.length;p++)
 			{
 				final ClanPosition pos = sortedPositions.get(p);
 				final String name=CMStrings.capitalizeAllFirstLettersAndLower(pos.getName().replace('_',' '));
 				str.append(CMStrings.padRight(name,posses[p]-1));
 				if(p<posses.length-1)
-					str.append("!");
+					str.append("|");
 			}
 			str.append("\n\r");
 			final Object lineDraw = new Object()
@@ -1163,39 +1161,45 @@ public class DefaultClanGovernment implements ClanGovernment
 					s.append(line.substring(0,commandColLen-1)).append("+");
 					for(int p=0;p<posses.length;p++)
 					{
-						s.append(CMStrings.padRight(line,posses[p]-1));
+						if((p==posses.length-1)&&(posses[p]>2))
+							s.append(CMStrings.padRight(line,posses[p]-2));
+						else
+							s.append(CMStrings.padRight(line,posses[p]-1));
 						if(p<posses.length-1)
 							s.append("+");
 					}
-					return s.toString();
+					return "^w"+s.toString()+"^N";
 				}
 			};
 			str.append(lineDraw.toString()).append("\n\r");
 			for(final Clan.Function func : Clan.Function.values())
 			{
 				final String fname=CMStrings.capitalizeAndLower(func.toString().replace('_', ' '));
-				str.append(CMStrings.padRight(fname,commandColLen-1)).append("!");
+				str.append("^w"+CMStrings.padRight(fname,commandColLen-1)).append("|");
 				for(int p=0;p<sortedPositions.size();p++)
 				{
 					final ClanPosition pos = sortedPositions.get(p);
 					final Authority auth = pos.getFunctionChart()[func.ordinal()];
 					String x = "";
 					if(auth==Authority.CAN_DO)
-						x="X";
+						x="^gX";
 					else
 					if(auth==Authority.MUST_VOTE_ON)
-						x="v";
-					str.append(CMStrings.padCenter(x,posses[p]-1));
+						x="^yv";
+					if(p==sortedPositions.size()-1)
+						str.append(CMStrings.padLeft(x,(posses[p]-1)/2));
+					else
+						str.append(CMStrings.padCenter(x,posses[p]-1));
 					if(p<posses.length-1)
-						str.append("!");
+						str.append("^w|");
 				}
-				str.append("\n\r").append(lineDraw.toString()).append("\n\r");
+				str.append("^N\n\r").append(lineDraw.toString()).append("\n\r");
 			}
 
 			if((clanAbilityLevels!=null)&&(clanEffectLevels!=null)
 			&&(clanAbilityLevels.length>0)&&(clanEffectLevels.length>0))
 			{
-				str.append(CMLib.lang().L("\n\rBenefits per Clan Level:\n\r"));
+				str.append(CMLib.lang().L("\n\r^HBenefits per Clan Level:^N\n\r"));
 				int maxLevel=-1;
 				for(final int x : clanEffectLevels)
 				{
@@ -1270,7 +1274,7 @@ public class DefaultClanGovernment implements ClanGovernment
 						}
 					}
 					for(final String bene : levelBenefits)
-						str.append(CMLib.lang().L("Level @x1: @x2\n\r",""+l,bene));
+						str.append(CMLib.lang().L("^wLevel @x1: ^N@x2\n\r",CMStrings.padRightPreserve(""+l,2),bene));
 				}
 			}
 			helpStr=str.toString();
@@ -1314,14 +1318,14 @@ public class DefaultClanGovernment implements ClanGovernment
 						extraMask="";
 
 					final AbilityMapper.AbilityMapping ableMap=
-					CMLib.ableMapper().addDynaAbilityMapping(clanGvtID,
-															 clanAbilityLevels[i],
-															 A.ID(),
-															 clanAbilityProficiencies[i],
-															 clanAbilityParms[i],
-															 !clanAbilityQuals[i],
-															 false,
-															 extraMask);
+						CMLib.ableMapper().addDynaAbilityMapping(clanGvtID,
+																 clanAbilityLevels[i],
+																 A.ID(),
+																 clanAbilityProficiencies[i],
+																 clanAbilityParms[i],
+																 !clanAbilityQuals[i],
+																 SecretFlag.PUBLIC,
+																 extraMask);
 					if(ableMap != null)
 					{
 						for(final Integer I : clanAbilityRoles[i])
@@ -1487,6 +1491,7 @@ public class DefaultClanGovernment implements ClanGovernment
 			finalA.makeNonUninvokable();
 			finalA.setSavable(false); // must come AFTER the above
 			finalA.setAffectedOne(mob);
+			finalA.setMiscText(A.text());
 			finalV.add(finalA);
 		}
 		final ChameleonList<Ability> finalFinalV;

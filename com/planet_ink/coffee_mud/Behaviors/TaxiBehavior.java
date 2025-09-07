@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -77,8 +77,8 @@ public class TaxiBehavior extends Concierge
 	protected void giveMerchandise(final MOB whoM, final Room destR, final Environmental observer, final Room room, final TrackingFlags trackingFlags)
 	{
 		final MOB fromM=getTalker(observer,room);
-		final ArrayList<Room> set=new ArrayList<Room>();
-		CMLib.tracking().getRadiantRooms(fromM.location(),set,roomRadiusFlags,null,maxRange,null);
+		//final ArrayList<Room> set=new ArrayList<Room>();
+		//CMLib.tracking().getRadiantRooms(fromM.location(),set,roomRadiusFlags,null,maxRange,null);
 		trailTo=CMLib.tracking().findTrailToRoom(fromM.location(), destR, trackingFlags, maxRange);
 		thingsToSay.addElement(whoM,L("OK, we're now on our way to @x1.",getDestinationName(whoM,destR)));
 		this.returnToRoom=fromM.location();

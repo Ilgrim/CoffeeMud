@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ public class WizList extends StdCommand
 		final java.util.List<PlayerLibrary.ThinPlayer> allUsers=CMLib.database().getExtendedUserList();
 		String mask=CMProps.getVar(CMProps.Str.WIZLISTMASK);
 		if(mask.length()==0)
-			mask="-ANYCLASS +Archon";
+			mask=CMProps.instance().getProperty("SYSOPMASK");
 		final MaskingLibrary.CompiledZMask compiledMask=CMLib.masking().maskCompile(mask);
 		for(final PlayerLibrary.ThinPlayer U : allUsers)
 		{

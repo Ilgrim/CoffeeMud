@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -68,6 +68,12 @@ public class Spell_DetectSentience extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	public int classificationCode()
 	{
 		return Ability.ACODE_SPELL | Ability.DOMAIN_DIVINATION;
@@ -92,6 +98,7 @@ public class Spell_DetectSentience extends Spell
 				lines.append(CMStrings.padRight(L("Location"),17)+"^.^N\n\r");
 				TrackingLibrary.TrackingFlags flags;
 				flags = CMLib.tracking().newFlags()
+						.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 						.plus(TrackingLibrary.TrackingFlag.AREAONLY);
 				final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,35+this.getXMAXRANGELevel(mob));
 				if(!checkSet.contains(mob.location()))
@@ -121,7 +128,7 @@ public class Spell_DetectSentience extends Spell
 						}
 					}
 				}
-				mob.tell(lines.toString()+"^.");
+				commonTell(mob,lines.toString()+"^.");
 			}
 		}
 		else

@@ -5,6 +5,7 @@ import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftParms;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftingActivity;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftorType;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
@@ -21,7 +22,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -54,6 +55,12 @@ public class Rodsmithing extends StaffMaking implements ItemCraftor
 	private static final String[]	triggerStrings	= I(new String[] { "RODSMITH", "RODSMITHING" });
 
 	@Override
+	public CraftorType getCraftorType()
+	{
+		return CraftorType.Magic;
+	}
+
+	@Override
 	public String[] triggerStrings()
 	{
 		return triggerStrings;
@@ -66,7 +73,7 @@ public class Rodsmithing extends StaffMaking implements ItemCraftor
 	}
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return "rodsmithing.txt";
 	}
@@ -74,13 +81,13 @@ public class Rodsmithing extends StaffMaking implements ItemCraftor
 	@Override
 	protected String getActivePresentTenseVerb()
 	{
-		return "smithing";
+		return L("smithing");
 	}
 
 	@Override
 	protected String getActiveVerb()
 	{
-		return "smith";
+		return L("smith");
 	}
 
 	@Override

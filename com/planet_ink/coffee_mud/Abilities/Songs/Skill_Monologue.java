@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ public class Skill_Monologue extends BardSkill
 	@Override
 	public String displayText()
 	{
-		return L("(Listening to "+(invoker()==null?"an actor":invoker().name())+"'s monologue)");
+		return L("(Listening to @x1's monologue)",(invoker()==null?L("an actor"):invoker().name()));
 	}
 
 	@Override

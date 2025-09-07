@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -41,17 +41,17 @@ public interface ShipEngine extends TechComponent
 {
 	/**
 	 * Gets set of available thrust ports on this engine.
-	 * @see ShipEngine#setAvailPorts(com.planet_ink.coffee_mud.Items.interfaces.TechComponent.ShipDir[])
+	 * @see ShipEngine#setAvailPorts(com.planet_ink.coffee_mud.Items.interfaces.ShipDirectional.ShipDir[])
 	 * @return the set of available thrust ports.
 	 */
-	public TechComponent.ShipDir[] getAvailPorts();
+	public ShipDirectional.ShipDir[] getAvailPorts();
 
 	/**
 	 * Sets set of available thrust ports on this engine.
 	 * @see ShipEngine#getAvailPorts()
 	 * @param ports the set of available thrust ports.
 	 */
-	public void setAvailPorts(TechComponent.ShipDir[] ports);
+	public void setAvailPorts(ShipDirectional.ShipDir[] ports);
 
 	/**
 	 * Gets the maximum amount of thrust that this engine can put out.
@@ -85,19 +85,19 @@ public interface ShipEngine extends TechComponent
 	 * Gets whether this engine, once thrust is engaged, will continue
 	 * to thrust at that speed, thus accelerating.  True if it does,
 	 * and false if whatever speed you get out of it is all you get.
-	 * @see ShipEngine#setConstantThruster(boolean)
+	 * @see ShipEngine#setReactionEngine(boolean)
 	 * @return true for an accelerator, false for one shot
 	 */
-	public boolean isConstantThruster();
+	public boolean isReactionEngine();
 
 	/**
 	 * Sets whether this engine, once thrust is engaged, will continue
 	 * to thrust at that speed, thus accelerating.  True if it does,
 	 * and false if whatever speed you get out of it is all you get.
-	 * @see ShipEngine#isConstantThruster()
+	 * @see ShipEngine#isReactionEngine()
 	 * @param isConstant true for an accelerator, false for one shot
 	 */
-	public void setConstantThruster(boolean isConstant);
+	public void setReactionEngine(boolean isConstant);
 
 	/**
 	 * Gets the current amount of thrust being emitted by this ShipEngine,

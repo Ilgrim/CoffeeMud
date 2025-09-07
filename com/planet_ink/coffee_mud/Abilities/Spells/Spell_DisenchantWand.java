@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ public class Spell_DisenchantWand extends Spell
 
 		if((success)
 		&&(target instanceof Wand)
-		&&(((Wand)target).usesRemaining()>0)
+		&&(((Wand)target).getCharges()>0)
 		&&(((Wand)target).getSpell()!=null))
 		{
 			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> hold(s) <T-NAMESELF> and cast(s) a spell.^?"));
@@ -89,7 +89,7 @@ public class Spell_DisenchantWand extends Spell
 			{
 				mob.location().send(mob,msg);
 				((Wand)target).setSpell(null);
-				((Wand)target).setUsesRemaining(0);
+				((Wand)target).setCharges(0);
 				mob.location().show(mob,target,CMMsg.MSG_OK_VISUAL,L("<T-NAME> fades and becomes dull!"));
 				if((target.basePhyStats().disposition()&PhyStats.IS_BONUS)==PhyStats.IS_BONUS)
 					target.basePhyStats().setDisposition(target.basePhyStats().disposition()-PhyStats.IS_BONUS);

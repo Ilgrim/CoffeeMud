@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ public class BehaviorData extends StdWebMacro
 				final StringBuffer str=new StringBuffer("");
 				if(parms.containsKey("HELP"))
 				{
-					StringBuilder s=CMLib.help().getHelpText("BEHAVIOR_"+B.ID(),null,true);
+					String s=CMLib.help().getHelpText("BEHAVIOR_"+B.ID(),null,true);
 					if(s==null)
 						s=CMLib.help().getHelpText(B.ID(),null,true);
 					int limit=78;

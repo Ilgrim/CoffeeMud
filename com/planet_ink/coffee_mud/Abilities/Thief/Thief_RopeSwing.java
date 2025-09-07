@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -115,7 +115,7 @@ public class Thief_RopeSwing extends ThiefSkill
 	{
 		super.affectPhyStats(affected,affectableStats);
 		affectableStats.addAmbiance("swinging on ropes");
-		affectableStats.setArmor(affectableStats.armor()+10+adjustedLevel(invoker,0));
+		affectableStats.setArmor(affectableStats.armor()+10+adjustedLevel((MOB)affected,0));
 	}
 
 	@Override
@@ -188,7 +188,7 @@ public class Thief_RopeSwing extends ThiefSkill
 		if(R==null)
 			return false;
 
-		if((R.getArea() instanceof BoardableShip)
+		if((R.getArea() instanceof Boardable)
 		&&(R.domainType()==Room.DOMAIN_OUTDOORS_CITY))
 		{
 			// this is good

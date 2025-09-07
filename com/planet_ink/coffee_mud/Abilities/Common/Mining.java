@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -98,21 +98,20 @@ public class Mining extends GatheringSkill
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			final MOB mob=(MOB)affected;
 			if(tickUp==6)
 			{
 				if(found!=null)
 				{
-					commonTell(mob,L("You have found a vein of @x1!",foundShortName));
+					commonTelL(mob,"You have found a vein of @x1!",foundShortName);
 					displayText=L("You are mining @x1",foundShortName);
 					verb=L("mining @x1",foundShortName);
 				}
 				else
 				{
-					final StringBuffer str=new StringBuffer(L("You can't seem to find anything worth mining here.\n\r"));
-					commonTell(mob,str.toString());
+					commonTelL(mob,"You can't seem to find anything worth mining here.\n\r");
 					unInvoke();
 				}
 
@@ -145,10 +144,10 @@ public class Mining extends GatheringSkill
 					msg.setValue(amount);
 					if(mob.location().okMessage(mob, msg))
 					{
-						String s="s";
 						if(msg.value()==1)
-							s="";
-						msg.modify(L("<S-NAME> manage(s) to mine @x1 pound@x2 of @x3.",""+msg.value(),s,foundShortName));
+							msg.modify(L("<S-NAME> manage(s) to mine @x1.",found.name()));
+						else
+							msg.modify(L("<S-NAME> manage(s) to mine @x1 pounds of @x2.",""+msg.value(),foundShortName));
 						mob.location().send(mob, msg);
 						for(int i=0;i<msg.value();i++)
 						{
@@ -188,7 +187,7 @@ public class Mining extends GatheringSkill
 		&&(!confirmPossibleMaterialLocation(RawMaterial.MATERIAL_METAL,mob.location()))
 		&&(!confirmPossibleMaterialLocation(RawMaterial.MATERIAL_MITHRIL,mob.location())))
 		{
-			commonTell(mob,L("You don't think this is a good place to mine."));
+			commonTelL(mob,"You don't think this is a good place to mine.");
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
@@ -200,8 +199,8 @@ public class Mining extends GatheringSkill
 		   &&((resourceType&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_GLASS)
 		   &&(resourceType!=RawMaterial.RESOURCE_SAND)
 		   &&(((resourceType&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_ROCK)
-		     ||((resourceType&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_METAL)
-		     ||((resourceType&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_MITHRIL)))
+			 ||((resourceType&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_METAL)
+			 ||((resourceType&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_MITHRIL)))
 		{
 			found=(Item)CMLib.materials().makeResource(resourceType,Integer.toString(mob.location().domainType()),false,null, "");
 			foundShortName="nothing";
@@ -209,11 +208,14 @@ public class Mining extends GatheringSkill
 				foundShortName=RawMaterial.CODES.NAME(found.material()).toLowerCase();
 		}
 		final int duration=getDuration(mob,1);
+		final String oldFoundName = (found==null)?"":found.Name();
 		final CMMsg msg=CMClass.getMsg(mob,found,this,getActivityMessageType(),L("<S-NAME> start(s) mining."));
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);
 			found=(Item)msg.target();
+			if((found!=null)&&(!found.Name().equals(oldFoundName)))
+				foundShortName=CMLib.english().removeArticleLead(found.Name());
 			beneficialAffect(mob,mob,asLevel,duration);
 		}
 		return true;

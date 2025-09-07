@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -72,19 +72,34 @@ public class Chant_MuddyGrounds extends Chant
 		return Ability.CAN_ROOMS;
 	}
 
+	protected Item mudI = null;
+
 	@Override
 	public void unInvoke()
 	{
-		if((canBeUninvoked())&&(affected instanceof Room))
+		if((canBeUninvoked())
+		&&(affected instanceof Room))
+		{
 			((Room)affected).showHappens(CMMsg.MSG_OK_VISUAL,L("The mud in '@x1' dries up.",((Room)affected).displayText()));
+			if(mudI!=null)
+			{
+				mudI.basePhyStats().setSensesMask(0);
+				mudI.phyStats().setSensesMask(0);
+				mudI.destroy();
+				mudI=null;
+			}
+		}
 		super.unInvoke();
 	}
 
 	@Override
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
-		if((affected!=null)&&(affected instanceof Room))
+		if((affected instanceof Room))
+		{
 			affectableStats.setWeight((affectableStats.weight()*2)+1);
+			affectableStats.addAmbiance("^Ymuddy^?");
+		}
 	}
 
 	@Override
@@ -93,8 +108,7 @@ public class Chant_MuddyGrounds extends Chant
 		if(!canBeUninvoked()
 		&&(!hasTicked))
 		{
-			if((msg.source() != null)
-			&&(msg.targetMinor()==CMMsg.TYP_ENTER)
+			if((msg.targetMinor()==CMMsg.TYP_ENTER)
 			&&(msg.target() == affected)
 			&&(affected instanceof Room))
 			{
@@ -106,6 +120,24 @@ public class Chant_MuddyGrounds extends Chant
 					&&(!CMLib.threads().isTicking(R, -1)))
 						CMLib.threads().startTickDown(this, Tickable.TICKID_SPELL_AFFECT, 3);
 				}
+			}
+		}
+		else
+		if((!msg.source().isMonster())
+		&&(!CMLib.flags().isFlying(msg.source())))
+		{
+			switch(msg.sourceMinor())
+			{
+			case CMMsg.TYP_ADVANCE:
+			case CMMsg.TYP_RETREAT:
+			case CMMsg.TYP_ENTER:
+				msg.source().tell(L("^YYou are slogging through the mud...^?\n\r"));
+				break;
+			case CMMsg.TYP_LEAVE:
+				msg.source().tell(L("^YYou slog your way out of the mud...^?\n\r"));
+				break;
+			default:
+				break;
 			}
 		}
 	}
@@ -139,11 +171,11 @@ public class Chant_MuddyGrounds extends Chant
 			final Room R=mob.location();
 			if(R!=null)
 			{
+				if(CMLib.flags().isACityRoom(R))
+					return Ability.QUALITY_INDIFFERENT;
 				final int type=R.domainType();
 				if(((type&Room.INDOORS)>0)
 				||(type==Room.DOMAIN_OUTDOORS_AIR)
-				||(type==Room.DOMAIN_OUTDOORS_CITY)
-				||(type==Room.DOMAIN_OUTDOORS_SPACEPORT)
 				||(type==Room.DOMAIN_OUTDOORS_UNDERWATER)
 				||(type==Room.DOMAIN_OUTDOORS_WATERSURFACE))
 					return Ability.QUALITY_INDIFFERENT;
@@ -159,8 +191,7 @@ public class Chant_MuddyGrounds extends Chant
 		final int type=mob.location().domainType();
 		if(((type&Room.INDOORS)>0)
 			||(type==Room.DOMAIN_OUTDOORS_AIR)
-			||(type==Room.DOMAIN_OUTDOORS_CITY)
-			||(type==Room.DOMAIN_OUTDOORS_SPACEPORT)
+			||(CMLib.flags().isACityRoom(mob.location()))
 			||(type==Room.DOMAIN_OUTDOORS_UNDERWATER)
 			||(type==Room.DOMAIN_OUTDOORS_WATERSURFACE))
 		{
@@ -186,15 +217,35 @@ public class Chant_MuddyGrounds extends Chant
 			{
 				mob.location().send(mob,msg);
 				mob.location().showHappens(CMMsg.MSG_OK_VISUAL,L("The ground here turns to MUD!"));
-				if(CMLib.law().doesOwnThisLand(mob,mob.location()))
+				final Chant_MuddyGrounds cmA;
+				final Item mudI=CMClass.getItem("GenItem");
+				mudI.setDisplayText(L("^YThe ground here is covered in sludgy mud.^N"));
+				mudI.setName(L("^Ythe mud^N"));
+				final boolean saving=CMLib.law().doesOwnThisLand(mob,mob.location());
+				mudI.basePhyStats().setDisposition(mudI.basePhyStats().disposition()|
+					(saving?0:PhyStats.IS_UNSAVABLE)
+				);
+				mudI.setMaterial(RawMaterial.RESOURCE_DIRT);
+				mudI.basePhyStats().setSensesMask(PhyStats.SENSE_ITEMNOSCRAP
+												|PhyStats.SENSE_ITEMNOTGET
+												|PhyStats.SENSE_ALWAYSCOMPRESSED
+												|PhyStats.SENSE_UNDESTROYABLE
+												|mudI.basePhyStats().sensesMask());
+				mudI.recoverPhyStats();
+				mob.location().addItem(mudI);
+				if(saving)
 				{
-					mob.location().addNonUninvokableEffect((Ability)copyOf());
+					cmA=(Chant_MuddyGrounds)copyOf();
+					mob.location().addNonUninvokableEffect(cmA);
 					CMLib.database().DBUpdateRoom(mob.location());
+					if(mob.location().roomID().length()>0)
+						CMLib.database().DBUpdateItem(mob.location().roomID(), mudI);
 				}
 				else
-					beneficialAffect(mob,mob.location(),asLevel,0);
+					cmA=(Chant_MuddyGrounds)beneficialAffect(mob,mob.location(),asLevel,0);
+				if(cmA!=null)
+					cmA.mudI=mudI;
 			}
-
 		}
 		else
 			beneficialWordsFizzle(mob,null,L("<S-NAME> chant(s) to the ground, but nothing happens."));

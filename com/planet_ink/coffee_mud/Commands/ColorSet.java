@@ -18,10 +18,11 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
+import java.io.IOException;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -69,9 +70,9 @@ public class ColorSet extends StdCommand
 				buf.append(L("^N=background, foreground="));
 			}
 			else
-			if(what.indexOf('~')>0)
+			if(what.indexOf(ColorLibrary.COLORCODE_BACKGROUND)>0)
 			{
-				what=what.substring(what.indexOf('~')).toUpperCase();
+				what=what.substring(what.indexOf(ColorLibrary.COLORCODE_BACKGROUND)).toUpperCase();
 				buf.append(L("^N=foreground, background="));
 			}
 			else
@@ -130,12 +131,16 @@ public class ColorSet extends StdCommand
 			final int c=element.second.intValue();
 			if(c<128)
 			{
-				if(!clookup[0][c].equals(common[c]))
+				if((clookup[0]==null)
+				||(clookup[0][c]==null)
+				||(!clookup[0][c].equals(common[c])))
 					newChanges+=((char)c)+CMLib.color().translateANSItoCMCode(clookup[0][c])+"#";
 			}
 			else
 			{
-				if(!clookup[0][c].equals(common['Q']))
+				if((clookup[0]==null)
+				||(clookup[0][c]==null)
+				||(!clookup[0][c].equals(common['Q'])))
 					newChanges+="("+c+")"+CMLib.color().translateANSItoCMCode(clookup[0][c])+"#";
 			}
 		}
@@ -160,6 +165,71 @@ public class ColorSet extends StdCommand
 			pstats.setColorStr("");
 			mob.tell(L("Your colors have been changed back to default."));
 			return false;
+		}
+		if((commands.size()>2)
+		&&("COPY".equals(commands.get(1).toUpperCase())))
+		{
+			final String whomName=(commands.size()>2)?CMParms.combine(commands,2):"";
+			if(whomName.length()==0)
+				mob.tell(L("Copy whose color settings?"));
+			else
+			if(!CMLib.players().playerExists(whomName))
+				mob.tell(L("Player '@x1' doesn't exist.",whomName));
+			else
+			{
+				final boolean unloadAfter = !CMLib.players().isLoadedPlayer(whomName);
+				final MOB M=CMLib.players().getLoadPlayer(whomName);
+				final Session sess = mob.session();
+				if((M!=null)
+				&&(M!=mob)
+				&&(sess!=null))
+				{
+					try
+					{
+						final MOB M1=mob;
+						final MOB M2=M;
+						if(M.playerStats().getColorStr().equals(mob.playerStats().getColorStr()))
+							mob.tell(L("Your colors already match @x1`s.",M.name()));
+						else
+						sess.prompt(new InputCallback(InputCallback.Type.CONFIRM,"N",0)
+						{
+							final Session S=sess;
+							final MOB mob=M1;
+							final MOB M=M2;
+							@Override
+							public void showPrompt()
+							{
+								S.promptPrint(L("\n\rCopy the color settings from player @x1 (y/N)? ", M.name()));
+							}
+							@Override
+							public void timedOut()
+							{
+							}
+							@Override
+							public void callBack()
+							{
+								if(this.input.equals("Y")
+								&&(mob != null)
+								&&(M != null)
+								&&(mob.playerStats()!=null)
+								&&(M.playerStats() != null))
+								{
+									mob.playerStats().setColorStr(M.playerStats().getColorStr());
+									mob.tell(L("Color settings copied and active."));
+								}
+							}
+						});
+					}
+					finally
+					{
+						if(unloadAfter
+						&&(M!=null)
+						&&((M.session()==null)||(M.session().isStopped())))
+							CMLib.players().unloadOfflinePlayer(M);
+					}
+				}
+			}
+			return true;
 		}
 
 		final List<String> allBackgroundColorsList = new ArrayList<String>();
@@ -206,7 +276,10 @@ public class ColorSet extends StdCommand
 		theSet.add(new Pair<String,Integer>("Room Titles",Integer.valueOf('O')));
 		theSet.add(new Pair<String,Integer>("Room Descriptions",Integer.valueOf('L')));
 		theSet.add(new Pair<String,Integer>("Weather",Integer.valueOf('J')));
-		theSet.add(new Pair<String,Integer>("Doors",Integer.valueOf('d')));
+		theSet.add(new Pair<String,Integer>("Exits (explored)",Integer.valueOf('D')));
+		theSet.add(new Pair<String,Integer>("Doors (explored)",Integer.valueOf('d')));
+		theSet.add(new Pair<String,Integer>("Exits (unexplored)",Integer.valueOf('U')));
+		theSet.add(new Pair<String,Integer>("Doors (unexplored)",Integer.valueOf('u')));
 		theSet.add(new Pair<String,Integer>("Items",Integer.valueOf('I')));
 		theSet.add(new Pair<String,Integer>("MOBs",Integer.valueOf('M')));
 		theSet.add(new Pair<String,Integer>("Channel Colors",Integer.valueOf('Q')));
@@ -257,7 +330,7 @@ public class ColorSet extends StdCommand
 							for(int x=0;x<theSet.size();x++)
 							{
 								final Pair<String,Integer> entry = theSet.get(x);
-								if(entry.first.equals(potChannelName) || L(entry.first).equals(potChannelName))
+								if(entry.first.equals(potChannelName))
 								{
 									newEntry = entry;
 									input = ""+(x+1);

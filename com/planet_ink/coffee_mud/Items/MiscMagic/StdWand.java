@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -55,20 +55,49 @@ public class StdWand extends StdItem implements Wand
 		secretIdentity="";
 		baseGoldValue=200;
 		material=RawMaterial.RESOURCE_OAK;
-		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_BONUS);
 		setUsesRemaining(0);
 		recoverPhyStats();
 	}
 
 	@Override
-	public int maxUses()
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a wand");
+	}
+
+	@Override
+	public int getCharges()
+	{
+		return usesRemaining();
+	}
+
+	@Override
+	public void setCharges(final int newCharges)
+	{
+		this.setUsesRemaining(newCharges);
+	}
+
+	@Override
+	public int getMaxCharges()
 	{
 		return Integer.MAX_VALUE;
 	}
 
 	@Override
-	public void setMaxUses(final int newMaxUses)
+	public void setMaxCharges(final int num)
 	{
+	}
+
+	@Override
+	public void recoverPhyStats()
+	{
+		super.recoverPhyStats();
+		if(((phyStats().disposition()&PhyStats.IS_BONUS)==0)
+		&&(usesRemaining()>0)
+		&&(getSpell()!=null))
+			phyStats().setDisposition(phyStats().disposition()|PhyStats.IS_BONUS);
 	}
 
 	public static boolean useTheWand(final Ability A, final MOB mob, final int level)
@@ -142,13 +171,33 @@ public class StdWand extends StdItem implements Wand
 	{
 		String id=super.secretIdentity();
 		final Ability A=getSpell();
-		String uses;
-		if(this.maxUses() < 999999)
-			uses=""+usesRemaining()+"/"+maxUses();
+		final String uses;
+		if(this.getCharges() < 999999)
+		{
+			if(this.getMaxCharges() < 999999)
+				uses=""+getCharges()+"/"+getMaxCharges();
+			else
+				uses = ""+getCharges();
+		}
 		else
-			uses = ""+usesRemaining();
+			uses="unlimited";
+		final String plus = ((phyStats().ability()>0)&&(phyStats.ability()<10))?("+"+phyStats.ability()):"";
 		if(A!=null)
-			id="'A wand of "+A.name()+"' Charges: "+uses+"\n\r"+id;
+		{
+			switch(A.classificationCode()&Ability.ALL_ACODES)
+			{
+			case Ability.ACODE_PRAYER:
+				id="'A relic of "+A.name()+plus+" Charges: "+uses+"\n\r"+id;
+				break;
+			case Ability.ACODE_CHANT:
+				id="'A shard of "+A.name()+plus+" Charges: "+uses+"\n\r"+id;
+				break;
+			case Ability.ACODE_SPELL:
+			default:
+				id="'A wand of "+A.name()+plus+" Charges: "+uses+"\n\r"+id;
+				break;
+			}
+		}
 		return id+"\n\rSay the magic word :`"+secretWord+"` to the target.";
 	}
 
@@ -187,6 +236,7 @@ public class StdWand extends StdItem implements Wand
 				if(y>=0)
 					message=message.substring(0,y);
 				message=message.trim();
+				Ability spellA=me.getSpell();
 				Ability wandUse = null;
 				final boolean pickFirstOne = me.getEnchantType() < 0;
 				for(final Enumeration<Ability> e=mob.abilities();e.hasMoreElements();)
@@ -198,15 +248,21 @@ public class StdWand extends StdItem implements Wand
 						||(((WandUsage)A).getEnchantType()==me.getEnchantType())))
 					{
 						wandUse = A;
-						break;
+						if((pickFirstOne)
+						&&(spellA != null)
+						&&(((WandUsage)A).getEnchantType()>0)
+						&&(((WandUsage)A).getEnchantType()<WandUsage.WAND_OPTIONS.length))
+						{
+							if(WandUsage.WAND_OPTIONS[((WandUsage)A).getEnchantType()][0].equals(Ability.ACODE.DESCS_.get(spellA.classificationCode()&Ability.ALL_ACODES)))
+								break;
+						}
 					}
 				}
 				if((wandUse==null)||(!wandUse.proficiencyCheck(null,0,false)))
 					mob.tell(CMLib.lang().L("@x1 glows faintly for a moment, then fades.",me.name()));
 				else
 				{
-					Ability A=me.getSpell();
-					if(A==null)
+					if(spellA==null)
 						mob.tell(CMLib.lang().L("Something seems wrong with @x1.",me.name()));
 					else
 					if(me.usesRemaining()<=0)
@@ -214,8 +270,8 @@ public class StdWand extends StdItem implements Wand
 					else
 					{
 						wandUse.setInvoker(mob);
-						A=(Ability)A.newInstance();
-						if(useTheWand(A,mob,wandUse.abilityCode()))
+						spellA=(Ability)spellA.newInstance();
+						if(useTheWand(spellA,mob,wandUse.abilityCode()))
 						{
 							final Vector<String> V=new Vector<String>();
 							if(target!=null)
@@ -224,11 +280,12 @@ public class StdWand extends StdItem implements Wand
 							mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,CMLib.lang().L("@x1 glows brightly.",me.name()));
 							me.setUsesRemaining(me.usesRemaining()-1);
 							int level=me.phyStats().level()
-									+ CMLib.expertises().getExpertiseLevel(mob, wandUse.ID(), ExpertiseLibrary.Flag.LEVEL);
-							final int lowest=CMLib.ableMapper().lowestQualifyingLevel(A.ID());
+									+ Math.min(me.phyStats().ability(),10)
+									+ CMLib.expertises().getExpertiseLevelCached(mob, wandUse.ID(), ExpertiseLibrary.XType.LEVEL);
+							final int lowest=CMLib.ableMapper().lowestQualifyingLevel(spellA.ID());
 							if(level<lowest)
 								level=lowest;
-							A.invoke(mob, V, target, true, level);
+							spellA.invoke(mob, V, target, true, level);
 							wandUse.helpProficiency(mob, 0);
 							return;
 						}
@@ -299,14 +356,14 @@ public class StdWand extends StdItem implements Wand
 	@Override
 	public String getStat(final String code)
 	{
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return ID();
 		case 1:
-			return "" + basePhyStats().ability();
-		case 2:
 			return "" + basePhyStats().level();
+		case 2:
+			return "" + basePhyStats().ability();
 		case 3:
 			return text();
 		}
@@ -316,7 +373,7 @@ public class StdWand extends StdItem implements Wand
 	@Override
 	public void setStat(final String code, final String val)
 	{
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return;
@@ -338,8 +395,7 @@ public class StdWand extends StdItem implements Wand
 		return CODES;
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<CODES.length;i++)
 		{

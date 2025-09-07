@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -92,20 +92,23 @@ public class Prayer_MassHeal extends Prayer implements MendingSkill
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
+		final Set<MOB> h=properTargets(mob,givenTarget,auto);
+		if((h==null)||(h.size()==0))
+			return false;
+		
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
 		final boolean success=proficiencyCheck(mob,0,auto);
-		final Set<MOB> h=properTargets(mob,givenTarget,auto);
-		if(h==null)
-			return false;
 		for (final Object element : h)
 		{
 			final MOB target=(MOB)element;
 			final boolean undead=CMLib.flags().isUndead(target);
 			if(success)
 			{
-				final CMMsg msg=CMClass.getMsg(mob,target,this,(!undead?0:CMMsg.MASK_MALICIOUS)|verbalCastCode(mob,target,auto),auto?L("<T-NAME> become(s) surrounded by a white light."):L("^S<S-NAME> sweep(s) <S-HIS-HER> hands over <T-NAMESELF>.^?"));
+				final CMMsg msg=CMClass.getMsg(mob,target,this,(!undead?0:CMMsg.MASK_MALICIOUS)|verbalCastCode(mob,target,auto),
+						auto?L("<T-NAME> become(s) surrounded by a white light."):
+							L("^S<S-NAME> sweep(s) <S-HIS-HER> hands over <T-NAMESELF>.^?"));
 				if(mob.location().okMessage(mob,msg))
 				{
 					mob.location().send(mob,msg);

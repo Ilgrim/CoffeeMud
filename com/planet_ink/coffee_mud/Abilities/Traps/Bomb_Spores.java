@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,10 +48,10 @@ public class Bomb_Spores extends StdBomb
 		return localizedName;
 	}
 
-	@Override
-	protected int trapLevel()
+	public Bomb_Spores()
 	{
-		return 15;
+		super();
+		trapLevel = 15;
 	}
 
 	@Override
@@ -101,6 +101,18 @@ public class Bomb_Spores extends StdBomb
 	}
 
 	@Override
+	protected boolean canExplodeOutOf(final int material)
+	{
+		switch(material&RawMaterial.MATERIAL_MASK)
+		{
+		case RawMaterial.MATERIAL_ENERGY:
+		case RawMaterial.MATERIAL_GAS:
+			return false;
+		}
+		return true;
+	}
+
+	@Override
 	public Trap setTrap(final MOB mob, final Physical P, final int trapBonus, final int qualifyingClassLevel, final boolean perm)
 	{
 		if(P==null)
@@ -121,16 +133,22 @@ public class Bomb_Spores extends StdBomb
 			||(invoker().getGroupMembers(new HashSet<MOB>()).contains(target))
 			||(target==invoker())
 			||(doesSaveVsTraps(target)))
-				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> avoid(s) the poison gas!"));
-			else
-			if(target.location().show(invoker(),target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("@x1 spews poison gas all over <T-NAME>!",affected.name())))
 			{
-				super.spring(target);
-				Ability A=CMClass.getAbility(text());
-				if(A==null)
-					A=CMClass.getAbility("Disease_Cold");
-				if(A!=null)
-					A.invoke(invoker(),target,true,0);
+				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,
+						getAvoidMsg(L("<S-NAME> avoid(s) the disease gas!")));
+			}
+			else
+			{
+				final String triggerMsg = getTrigMsg(L("@x1 spews disease gas all over <T-NAME>!",affected.name()));
+				if(target.location().show(invoker(),target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,triggerMsg))
+				{
+					super.spring(target);
+					Ability A=CMClass.getAbility(miscText);
+					if(A==null)
+						A=CMClass.getAbility("Disease_Cold");
+					if(A!=null)
+						A.invoke(invoker(),target,true,trapLevel()+abilityCode());
+				}
 			}
 		}
 	}

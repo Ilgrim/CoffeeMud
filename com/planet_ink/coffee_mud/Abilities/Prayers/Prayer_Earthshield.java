@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ public class Prayer_Earthshield extends Prayer
 			return;
 		if(!(affected instanceof MOB))
 			return;
-		affectableStats.setArmor(affectableStats.armor()-5 - (adjustedLevel(invoker(),0)/4));
+		affectableStats.setArmor(affectableStats.armor()-5 - (adjustedLevel((MOB)affected,0)/4));
 	}
 
 	@Override
@@ -128,7 +128,7 @@ public class Prayer_Earthshield extends Prayer
 
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already affected by @x1.",name()));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already affected by @x1.",name()));
 			return false;
 		}
 

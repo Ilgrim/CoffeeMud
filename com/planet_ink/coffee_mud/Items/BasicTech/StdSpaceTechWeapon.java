@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ public class StdSpaceTechWeapon extends StdSpaceTech implements SpaceObject, Wea
 	{
 		if(!super.tick(ticking, tickID))
 			return false;
-		if((ticking == this) && (tickID == Tickable.TICKID_BEAMWEAPON))
+		if((ticking == this) && (tickID == Tickable.TICKID_BALLISTICK))
 		{
 			this.destroy();
 			return false;
@@ -76,6 +76,23 @@ public class StdSpaceTechWeapon extends StdSpaceTech implements SpaceObject, Wea
 		{
 			if((msg.tool()==this) || (msg.target()==this))
 			{
+				SpaceObject srcP = null;
+				SpaceObject tgtP = null;
+				if((msg.tool() instanceof SpaceObject) && (msg.target()==this))
+				{
+					tgtP=(SpaceObject)msg.tool();
+					srcP=(SpaceObject)msg.target();
+				}
+				else
+				if((msg.tool() == this) && (msg.target() instanceof SpaceObject))
+				{
+					tgtP=(SpaceObject)msg.target();
+					srcP=this;
+				}
+				if(srcP!=null)
+					CMLib.space().sendSpaceEmissionEvent(tgtP, srcP, weaponDamageType()|CMMsg.MASK_MOVE|CMMsg.MASK_EYES
+														, L("<T-NAME> is hit by <O-NAME>"));
+
 				if (!amDestroyed())
 				{
 					this.destroy();

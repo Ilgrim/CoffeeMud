@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,6 +70,12 @@ public class Spell_ArmsLength extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	public int classificationCode()
 	{
 		return Ability.ACODE_SPELL|Ability.DOMAIN_DIVINATION;
@@ -112,9 +118,10 @@ public int castingQuality(final MOB mob, final Physical target)
 			if((mob.getVictim()==msg.source())
 			&&(mob.location()!=null))
 			{
-		final CMMsg msg2=CMClass.getMsg(mob,mob.getVictim(),CMMsg.MSG_RETREAT,L("<S-NAME> predict(s) <T-YOUPOSS> advance and retreat(s)."));
-		if(mob.location().okMessage(mob,msg2))
-			mob.location().send(mob,msg2);
+				final CMMsg msg2=CMClass.getMsg(mob,mob.getVictim(),CMMsg.MSG_RETREAT,
+						L("<S-NAME> predict(s) <T-YOUPOSS> advance and retreat(s)."));
+				if(mob.location().okMessage(mob,msg2))
+					mob.location().send(mob,msg2);
 			}
 		}
 		return true;
@@ -128,7 +135,7 @@ public int castingQuality(final MOB mob, final Physical target)
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> already <S-IS-ARE> keeping enemies at arms length."));
+			failureTell(mob,target,auto,L("<S-NAME> already <S-IS-ARE> keeping enemies at arms length."));
 			return false;
 		}
 

@@ -17,7 +17,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -85,6 +85,14 @@ public interface RoomnumberSet extends CMCommon
 	public void parseXML(String xml);
 
 	/**
+	 * Sets whether this set should never contain more
+	 * than one Area.  It will automatically clear the
+	 * list whenever a new area is added.
+	 * @param tf true to use one area, false for many
+	 */
+	public void setSingleAreaFlag(final boolean tf);
+
+	/**
 	 * Adds the given room id to this object
 	 * @param str a room id
 	 */
@@ -116,6 +124,12 @@ public interface RoomnumberSet extends CMCommon
 	public Enumeration<String> getRoomIDs();
 
 	/**
+	 * Returns timestamp of when this was last altered
+	 * @return timestamp of when this was last altered
+	 */
+	public long	getLastChangedMs();
+
+	/**
 	 * Returns an enumerator for all area names in this object
 	 * @return an enumerator for all area names in this object
 	 */
@@ -129,4 +143,9 @@ public interface RoomnumberSet extends CMCommon
 	 * @return a set of numbers.
 	 */
 	public LongSet getGrouper(String areaName);
+
+	/**
+	 * Clears this set completely
+	 */
+	public void clear();
 }

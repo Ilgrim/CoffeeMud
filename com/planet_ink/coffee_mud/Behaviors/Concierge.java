@@ -11,7 +11,6 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
-import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary;
 import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary.TrackingFlag;
 import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary.TrackingFlags;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
@@ -21,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -49,19 +48,50 @@ public class Concierge extends StdBehavior
 		return Behavior.CAN_ITEMS | Behavior.CAN_MOBS | Behavior.CAN_ROOMS | Behavior.CAN_EXITS | Behavior.CAN_AREAS;
 	}
 
+	protected static enum TrackWords
+	{
+		PORTAL(null,null),
+		MOBILE(null,null),
+		CLAN(null,null),
+		AREAONLY(null,TrackingFlag.AREAONLY),
+		NOCLIMB(TrackingFlag.NOCLIMB,null),
+		NOCRAWL(TrackingFlag.NOCRAWL,null),
+		NOWATER(TrackingFlag.NOWATER,null),
+		INDOOROK(TrackingFlag.OUTDOORONLY,null/*--TrackingFlag.OUTDOORONLY*/),
+		NOAIR(TrackingFlag.NOAIR,null),
+		NOLOCKS(TrackingFlag.UNLOCKEDONLY,null),
+		NOHOMES(TrackingFlag.NOHOMES,null),
+		NOINDOOR(TrackingFlag.OUTDOORONLY,null/*--TrackingFlag.OUTDOORONLY*/),
+		MAXRANGE(null,null),
+		GREETING(null,null),
+		ENTERMSG(null,null),
+		TALKERNAME(null,null),
+		PERROOM(null,null)
+		;
+		public TrackingFlag tf;
+		public TrackingFlag rf;
+		private TrackWords(final TrackingFlag tf, final TrackingFlag rf)
+		{
+			this.tf=tf;
+			this.rf=rf;
+		}
+	}
+
 	protected PairVector<Object, Double>		rates		= new PairVector<Object, Double>();
 	protected List<Room>						ratesVec	= null;
 	protected PairVector<MOB, String>			thingsToSay	= new PairVector<MOB, String>();
 
 	protected QuadVector<MOB, Room, Double, TrackingFlags>	destinations= new QuadVector<MOB, Room, Double, TrackingFlags>();
 
-	protected static final String defaultGreeting = "Need directions? Just name the place and I'll name the price! Append words like noswim, noclimb, nofly, nolocks, noprivate, and nocrawl to narrow the focus.";
+	protected static final String defaultGreeting = "Need directions? Just name the place and I'll name the price! "
+			+ "Append words like noswim, noclimb, nofly, nolocks, noprivate, and nocrawl to narrow the focus.";
 
-	protected final static TrackingLibrary.TrackingFlags defaultTrackingFlags	= CMLib.tracking().newFlags()
-																				.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
-																				.plus(TrackingLibrary.TrackingFlag.NOHOMES)
-																				.plus(TrackingLibrary.TrackingFlag.NOHIDDENAREAS);
-	protected final static TrackingLibrary.TrackingFlags defaultRoomRadiusFlags	= CMLib.tracking().newFlags();
+	protected final static TrackingFlags defaultTrackingFlags	= CMLib.tracking().newFlags()
+																		.plus(TrackingFlag.NOEMPTYGRIDS)
+																		.plus(TrackingFlag.NOHOMES)
+																		.plus(TrackingFlag.PASSABLE)
+																		.plus(TrackingFlag.NOHIDDENAREAS);
+	protected final static TrackingFlags defaultRoomRadiusFlags	= CMLib.tracking().newFlags();
 
 	protected double	basePrice		= 0.0;
 	protected double	perRoomPrice	= 0.0;
@@ -71,10 +101,13 @@ public class Concierge extends StdBehavior
 	protected String	greeting		= defaultGreeting;
 	protected String	mountStr		= "";
 	protected boolean	portal			= false;
+	protected boolean	mobile			= false;
 	protected int		maxRange		= 100;
+	protected String	clanName		= null;
+	protected boolean	goHomeFlag		= false;
 
-	protected TrackingLibrary.TrackingFlags trackingFlags	= CMLib.tracking().newFlags().plus(defaultTrackingFlags);
-	protected TrackingLibrary.TrackingFlags roomRadiusFlags = CMLib.tracking().newFlags().plus(defaultRoomRadiusFlags);
+	protected TrackingFlags trackingFlags	= CMLib.tracking().newFlags().plus(defaultTrackingFlags);
+	protected TrackingFlags roomRadiusFlags = CMLib.tracking().newFlags().plus(defaultRoomRadiusFlags);
 
 	@Override
 	public String accountForYourself()
@@ -143,6 +176,7 @@ public class Concierge extends StdBehavior
 	{
 		basePrice=0.0;
 		talkerName="";
+		clanName=null;
 		fakeTalker=null;
 		startRoom=null;
 		greeting=defaultGreeting;
@@ -154,6 +188,7 @@ public class Concierge extends StdBehavior
 		destinations.clear();
 		thingsToSay.clear();
 		portal=false;
+		mobile=false;
 	}
 
 	protected void resetFlags()
@@ -167,12 +202,12 @@ public class Concierge extends StdBehavior
 	{
 		super.setParms(newParm);
 		resetDefaults();
-		if((CMath.isInteger(newParm))
-		||(CMath.isDouble(newParm)))
+		if(CMath.isInteger(newParm) || CMath.isDouble(newParm))
 		{
 			basePrice=CMath.s_double(newParm);
 			return;
 		}
+		basePrice = -1;
 		final List<String> V=CMParms.parseSemicolons(newParm,true);
 		String s=null;
 		int x=0;
@@ -184,126 +219,121 @@ public class Concierge extends StdBehavior
 		{
 			s=V.get(v);
 			x=s.indexOf('=');
+			A=null;
+			R=null;
 			if(x>=0)
 			{
 				String numStr=s.substring(x+1).trim();
 				if(numStr.startsWith("\"")&&(numStr.endsWith("\"")))
 					numStr=numStr.substring(1,numStr.length()-1).trim();
+				else
+				{
+					final int xx = numStr.indexOf(' ');
+					if(xx>0)
+					{
+						final int yy = numStr.indexOf('=');
+						if((yy>xx)&&(CMath.s_valueOf(TrackWords.class, numStr.substring(xx+1,yy).trim().toUpperCase())!=null))
+						{
+							final String next = numStr.trim().substring(xx+1).trim();
+							numStr = numStr.substring(0,xx).trim();
+							V.add(v+1, next);
+						}
+					}
+				}
 				s=s.substring(0,x).trim().toUpperCase();
 				final boolean isTrue=numStr.toLowerCase().startsWith("t");
-				if(s.equals("PORTAL"))
+				final TrackWords tw = (TrackWords)CMath.s_valueOf(TrackWords.class, s);
+				if(tw == null)
 				{
-					portal=isTrue;
-					continue;
-				}
-				else
-				if(s.equals("AREAONLY"))
-				{
-					if(isTrue)
-						roomRadiusFlags.add(TrackingFlag.AREAONLY);
-					continue;
-				}
-				else
-				if(s.equals("NOCLIMB"))
-				{
-					if(isTrue)
-						trackingFlags.add(TrackingFlag.NOCLIMB);
-					continue;
-				}
-				else
-				if(s.equals("NOWATER"))
-				{
-					if(isTrue)
-						trackingFlags.add(TrackingFlag.NOWATER);
-					continue;
-				}
-				else
-				if(s.equals("INDOOROK"))
-				{
-					if(isTrue)
+					if(CMath.isNumber(numStr))
+						price=CMath.s_double(numStr);
+					if(s.trim().length()>0)
 					{
-						trackingFlags.remove(TrackingFlag.OUTDOORONLY);
-						roomRadiusFlags.remove(TrackingFlag.OUTDOORONLY);
+						R=CMLib.map().getRoom(s);
+						if(R==null)
+							A=CMLib.map().findArea(s);
+						if((R==null)&&(A==null))
+						{
+							Log.errOut("Concierge","Unknown room/area '"+s+"' in "+getParms());
+							continue;
+						}
 					}
-					continue;
 				}
 				else
-				if(s.equals("NOAIR"))
 				{
-					if(isTrue)
-						trackingFlags.add(TrackingFlag.NOAIR);
-					continue;
-				}
-				else
-				if(s.equals("NOLOCKS"))
-				{
-					if(isTrue)
-						trackingFlags.add(TrackingFlag.UNLOCKEDONLY);
-					continue;
-				}
-				else
-				if(s.equals("NOHOMES"))
-				{
-					if(isTrue)
-						trackingFlags.add(TrackingFlag.NOHOMES);
-					continue;
-				}
-				else
-				if(s.equals("NOINDOOR"))
-				{
-					if(isTrue)
+					switch(tw)
 					{
-						trackingFlags.add(TrackingFlag.OUTDOORONLY);
-						roomRadiusFlags.add(TrackingFlag.OUTDOORONLY);
+					case PORTAL:
+						portal=isTrue;
+						continue;
+					case MOBILE:
+						mobile=isTrue;
+						continue;
+					case CLAN:
+						clanName=numStr;
+						continue;
+					case MAXRANGE:
+						maxRange=CMath.s_int(numStr);
+						continue;
+					case GREETING:
+						greeting=numStr;
+						continue;
+					case ENTERMSG:
+						mountStr=numStr;
+						continue;
+					case TALKERNAME:
+						talkerName=numStr;
+						continue;
+					case PERROOM:
+						perRoomPrice=CMath.s_double(numStr);
+						continue;
+					default:
+						if(tw.tf != null)
+						{
+							if(isTrue)
+							{
+								this.trackingFlags.add(tw.tf);
+								this.roomRadiusFlags.remove(tw.tf);
+							}
+						}
+						else
+						if(tw.rf != null)
+						{
+							if(isTrue)
+								this.roomRadiusFlags.add(tw.rf);
+						}
+						else
+							Log.errOut("Broken Concierge flag: "+tw);
+						break;
 					}
-					continue;
 				}
-				else
-				if(s.equals("MAXRANGE"))
-				{
-					maxRange=CMath.s_int(numStr);
-					continue;
-				}
-				else
-				if(s.equals("GREETING"))
-				{
-					greeting=numStr;
-					continue;
-				}
-				else
-				if(s.equals("ENTERMSG"))
-				{
-					mountStr=numStr;
-					continue;
-				}
-				else
-				if(s.equals("TALKERNAME"))
-				{
-					talkerName=numStr;
-					continue;
-				}
-				else
-				if(s.equals("PERROOM"))
-				{
-					perRoomPrice=CMath.s_double(numStr);
-					continue;
-				}
-				else
-					price=CMath.s_double(numStr);
 			}
-			A=null;
-			R=CMLib.map().getRoom(s);
-			if(R==null)
-				A=CMLib.map().findArea(s);
+			else
+			if(CMath.isNumber(s))
+			{
+				price=CMath.s_double(s);
+				basePrice=price;
+				continue;
+			}
+			else
+			if((CMath.s_valueOf(TrackWords.class, s)!=null))
+				Log.errOut("Concierge","Empty flag (no = sign) '"+s+"' in "+getParms());
 			if(A!=null)
 				rates.add(A,Double.valueOf(price));
 			else
 			if((R!=null)&&(!rates.containsFirst(R)))
 				rates.add(R,Double.valueOf(price));
 			else
+			if(s.trim().length()==0)
+			{
+				if(basePrice <0)
+					basePrice=price;
+			}
+			else
 				rates.add(s,Double.valueOf(price));
 		}
-		basePrice=price;
+		if(basePrice <0)
+			basePrice=price;
 	}
 
 	protected double getPrice(final Room centerRoom, final Room  destR)
@@ -342,6 +372,44 @@ public class Concierge extends StdBehavior
 		return A.getRandomMetroRoom();
 	}
 
+	protected boolean isClanRoom(final Places P)
+	{
+		if(clanName == null)
+			return false;
+		LegalBehavior B=null;
+		if(P instanceof Area)
+		{
+			final Area A=(Area)P;
+			final PrivateProperty rec = CMLib.law().getPropertyRecord(A);
+			if((rec != null)
+			&&(clanName.equalsIgnoreCase(rec.getOwnerName())))
+				return true;
+			B=CMLib.law().getLegalBehavior(A);
+		}
+		else
+		if(P instanceof Room)
+		{
+			final Room R=(Room)P;
+			final PrivateProperty rec = CMLib.law().getPropertyRecord(R);
+			if((rec != null)
+			&&(clanName.equalsIgnoreCase(rec.getOwnerName())))
+				return true;
+			B=CMLib.law().getLegalBehavior(R);
+		}
+		if(B==null)
+			return false;
+		return (B.rulingOrganization().equalsIgnoreCase(clanName));
+	}
+
+	protected boolean isAllowedPlace(final Places A)
+	{
+		if(A==null)
+			return false;
+		if(clanName == null)
+			return true;
+		return this.isClanRoom(A);
+	}
+
 	protected Room findDestination(final Environmental observer, final MOB mob, final Room centerRoom, final String where, final TrackingFlags roomRadiusFlags)
 	{
 		PairVector<String,Double> stringsToDo=null;
@@ -350,7 +418,7 @@ public class Concierge extends StdBehavior
 		if(rates.size()==0)
 		{
 			final Area A=CMLib.map().findArea(where);
-			if(A!=null)
+			if(isAllowedPlace(A))
 			{
 				roomsInRange=getRoomsInRange(centerRoom,roomsInRange,roomRadiusFlags);
 				roomR=findNearestAreaRoom(A,roomsInRange);
@@ -400,23 +468,45 @@ public class Concierge extends StdBehavior
 						ratesVec.add((Room)p.first);
 				}
 			}
-			roomR=(Room)CMLib.english().fetchEnvironmental(ratesVec,where,true);
+			if((clanName != null) && (where.equalsIgnoreCase("home")))
+			{
+				final Clan C=CMLib.clans().getClan(clanName);
+				if((C!=null)&&(C.getRecall()!=null)&&(C.getRecall().length()>0))
+					roomR=CMLib.map().getRoom(C.getRecall());
+			}
+			if(roomR==null)
+				roomR=(Room)CMLib.english().fetchEnvironmental(ratesVec,where,true);
 			if(roomR==null)
 				roomR=(Room)CMLib.english().fetchEnvironmental(ratesVec,where,false);
+			if((roomR != null)
+			&&(!isAllowedPlace(roomR)))
+				roomR=null;
+
 			if(roomR==null)
 			{
 				final Area A=CMLib.map().findArea(where);
-				if(A!=null)
+				if(isAllowedPlace(A))
 				{
 					roomsInRange=getRoomsInRange(centerRoom,roomsInRange,roomRadiusFlags);
 					roomR=findNearestAreaRoom(A,roomsInRange);
 				}
 			}
 		}
+		if((roomR==null)
+		&&(clanName != null)
+		&& (where.equalsIgnoreCase("home")))
+		{
+			final Clan C=CMLib.clans().getClan(clanName);
+			if((C!=null)&&(C.getRecall()!=null)&&(C.getRecall().length()>0))
+				roomR=CMLib.map().getRoom(C.getRecall());
+		}
 		if(roomR==null)
 		{
 			roomsInRange=getRoomsInRange(centerRoom,roomsInRange,roomRadiusFlags);
-			roomR=CMLib.map().findFirstRoom(new IteratorEnumeration<Room>(roomsInRange.iterator()), mob, where, false, 5);
+			roomR=CMLib.hunt().findFirstRoom(new IteratorEnumeration<Room>(roomsInRange.iterator()), mob, where, false, 5);
+			if((roomR != null)
+			&&(!isAllowedPlace(roomR)))
+				roomR=null;
 		}
 		return roomR;
 	}
@@ -442,7 +532,7 @@ public class Concierge extends StdBehavior
 				return false;
 			}
 			else
-			if(!((Coins)possibleCoins).getCurrency().equalsIgnoreCase(CMLib.beanCounter().getCurrency(conceirgeM)))
+			if(!CMLib.beanCounter().isCurrencyMatch(((Coins)possibleCoins).getCurrency(),CMLib.beanCounter().getCurrency(conceirgeM)))
 			{
 				CMLib.commands().postSay(conceirgeM,source,L("I'm sorry, I don't accept that kind of currency."),true,false);
 				return false;
@@ -465,8 +555,11 @@ public class Concierge extends StdBehavior
 		final MOB source=msg.source();
 		if(startRoom==null)
 			startRoom=source.location();
-		if((!canFreelyBehaveNormal(host))&&(host instanceof MOB))
-			return true;
+		if(host instanceof MOB)
+		{
+			if((!canFreelyBehaveNormal(host))||(CMLib.flags().isTracking((MOB)host)))
+				return true;
+		}
 		final Environmental observer=host;
 		final Room room=source.location();
 		if(source != observer)
@@ -511,6 +604,19 @@ public class Concierge extends StdBehavior
 				}
 			}
 		}
+		if(this.mobile
+		&& goHomeFlag
+		&& (startRoom != null)
+		&& (ticking instanceof MOB)
+		&& !CMLib.flags().isTracking((MOB)ticking))
+		{
+			final MOB mob=(MOB)ticking;
+			goHomeFlag=false;
+			while(mob.numFollowers()>0)
+				mob.delFollower(mob.fetchFollower(0));
+			CMLib.commands().postSay(mob, L("OK, here you are -- good luck!"));
+			CMLib.tracking().wanderAway(mob, false, true);
+		}
 		return super.tick(ticking,tickID);
 	}
 
@@ -538,7 +644,8 @@ public class Concierge extends StdBehavior
 					if((change>0.0)&&(C!=null))
 					{
 						// this message will actually end up triggering the hand-over.
-						final CMMsg newMsg=CMClass.getMsg(conciergeM,source,C,CMMsg.MSG_SPEAK,L("^T<S-NAME> say(s) 'Heres your change.' to <T-NAMESELF>.^?"));
+						final CMMsg newMsg=CMClass.getMsg(conciergeM,source,C,CMMsg.MSG_SPEAK,
+								L("^T<S-NAME> say(s) 'Heres your change.' to <T-NAMESELF>.^?"));
 						C.setOwner(conciergeM);
 						final long num=C.getNumberOfCoins();
 						final String curr=C.getCurrency();
@@ -568,7 +675,8 @@ public class Concierge extends StdBehavior
 		return (destination instanceof Room)?((Room)destination).displayText(mob):destination.name();
 	}
 
-	protected void giveMerchandise(final MOB whoM, Room destination, final Environmental observer, final Room room, final TrackingFlags trackingFlags)
+	protected void giveMerchandise(final MOB whoM, Room destination, final Environmental observer,
+								   final Room room, final TrackingFlags trackingFlags)
 	{
 
 		if(this.portal)
@@ -594,6 +702,28 @@ public class Concierge extends StdBehavior
 			}
 		}
 		else
+		if(this.mobile && (observer instanceof MOB))
+		{
+			final MOB fromM=(MOB)observer;
+			String name=CMLib.map().getExtendedRoomID(destination);
+			if(name.length()==0)
+				name=destination.displayText();
+			final Ability tracker = CMClass.getAbility("Skill_Track");
+			final List<String> cmds = new ArrayList<String>();
+			cmds.add(name);
+			cmds.add("RADIUS="+maxRange);
+			for(final TrackingFlag flag : trackingFlags)
+				cmds.add("FLAG="+flag.name());
+			if(!tracker.invoke(fromM, cmds, destination, true, maxRange))
+				thingsToSay.addElement(whoM,L("Sorry, I can't get there from here."));
+			else
+			{
+				goHomeFlag=true;
+				CMLib.commands().postFollow(whoM, fromM, false);
+				thingsToSay.addElement(whoM,L("OK! Off we go!"));
+			}
+		}
+		else
 		{
 			final MOB fromM=getTalker(observer,room);
 			String name=CMLib.map().getExtendedRoomID(destination);
@@ -603,14 +733,14 @@ public class Concierge extends StdBehavior
 			CMLib.tracking().getRadiantRooms(fromM.location(),set,trackingFlags,null,maxRange,null);
 			String trailStr;
 			if(CMLib.tracking().canValidTrail(fromM.location(), set, name, maxRange, null, 1))
-				trailStr=CMLib.tracking().getTrailToDescription(fromM.location(),set,name,false,false,maxRange,null,1);
+				trailStr=CMLib.tracking().getTrailToDescription(fromM.location(),set,name,null,maxRange,null,", ",1);
 			else
 			{
 				//set.clear();
 				final TrackingFlags noAirFlags = trackingFlags.copyOf();
 				noAirFlags.add(TrackingFlag.NOAIR);
 				CMLib.tracking().getRadiantRooms(fromM.location(),set,noAirFlags,null,maxRange,null);
-				trailStr=CMLib.tracking().getTrailToDescription(fromM.location(),set,name,false,false,maxRange,null,1);
+				trailStr=CMLib.tracking().getTrailToDescription(fromM.location(),set,name,null,maxRange,null,", ",1);
 			}
 			thingsToSay.addElement(whoM,L("The way to @x1 from here is: @x2",getDestinationName(whoM,destination),trailStr));
 		}
@@ -621,8 +751,11 @@ public class Concierge extends StdBehavior
 	{
 		super.executeMsg(affecting,msg);
 
-		if((!canFreelyBehaveNormal(affecting))&&(affecting instanceof MOB))
-			return;
+		if(affecting instanceof MOB)
+		{
+			if((!canFreelyBehaveNormal(affecting))||(CMLib.flags().isTracking((MOB)affecting)))
+				return;
+		}
 
 		final MOB source=msg.source();
 		final Environmental observer=affecting;
@@ -723,7 +856,10 @@ public class Concierge extends StdBehavior
 						{
 							synchronized(thingsToSay)
 							{
-								thingsToSay.addElement(msg.source(),L("I'm sorry, I don't know where '@x1' is.",say));
+								if(clanName != null)
+									thingsToSay.addElement(msg.source(),L("I'm sorry, I don't know where '@x1' is amongst places controlled by @x2.",say,clanName));
+								else
+									thingsToSay.addElement(msg.source(),L("I'm sorry, I don't know where '@x1' is.",say));
 								return;
 							}
 						}

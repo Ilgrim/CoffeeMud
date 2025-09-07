@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@ public class Spell_GreaterEnchantWeapon extends Spell
 			mob.tell(L("@x1 cannot be greatly enchanted until it has first attained 3 levels of regular enchantment.",target.name(mob)));
 			return false;
 		}
-		if(target.phyStats().ability()>9)
+		if(target.phyStats().ability()>9+(super.getXLEVELLevel(mob)/3))
 		{
 			mob.tell(L("@x1 cannot be greatly enchanted further.",target.name(mob)));
 			return false;
@@ -106,7 +106,7 @@ public class Spell_GreaterEnchantWeapon extends Spell
 			return false;
 
 		int experienceToLose=getXPCOSTAdjustment(mob,250);
-		experienceToLose=-CMLib.leveler().postExperience(mob,null,null,-experienceToLose,false);
+		experienceToLose=-CMLib.leveler().postExperience(mob,"ABILITY:"+ID(),null,null,-experienceToLose, false);
 		mob.tell(L("The effort causes you to lose @x1 experience.",""+experienceToLose));
 
 		final boolean success=proficiencyCheck(mob,0,auto);

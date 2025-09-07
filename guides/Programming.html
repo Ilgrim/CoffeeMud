@@ -1,9 +1,11 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml"><head>
 
-  <meta content="HTML Tidy, see www.w3.org" name="generator" /><title>Programming for CoffeeMud 5.9</title>
+
+  <meta content="HTML Tidy, see www.w3.org" name="generator" /><title>Programming for CoffeeMud 5.10</title>
   
-  <link media="screen" type="text/css" href="style.css" rel="StyleSheet" /><!-- Modified by Josh Mueller, 2006-5-6, fix validation problems, reformat, fix spelling errors --></head><body>
+  <link media="screen" type="text/css" href="style.css" rel="StyleSheet" /><!-- Modified by Josh Mueller, 2006-5-6, fix validation problems, reformat, fix spelling errors --></head>
+<body>
 <center>
 <table border="1" cellpadding="10" cellspacing="0">
   <tbody>
@@ -11,7 +13,7 @@
       <td colspan="2" align="left" bgcolor="#dfdfdf" width="100%">
       <h1>Programming
 for
-CoffeeMud 5.9</h1>
+CoffeeMud 5.10</h1>
       </td>
     </tr>
     <tr>
@@ -150,7 +152,7 @@ Windows</a></h3>
 directory and edit the make.bat, the
 first line will be something like: <code>SET
 JAVACPATH=
-C:\Program Files\Java\jdk1.6.0_22\bin\javac</code>
+C:\Program Files\Java\jdk1.8.0_22\bin\javac</code>
 This might be
 different for you
 depending on what version of the Java JDK you installed, and where your
@@ -170,7 +172,7 @@ compile the mud, making all the .class files.</p>
         <li>
           <p>Go to your coffeemud
 directory and edit the makeUNIX.sh,
-the first line will be something like: <code>Java_Home=/home/knoppix/jdk1.6.0_22</code>
+the first line will be something like: <code>Java_Home=/home/knoppix/jdk1.8.0_22</code>
 This might be different for you depending on what version of the Java
 JDK you installed, and where your java
 development package is installed.</p>
@@ -300,8 +302,11 @@ instance, consider the following lines:</p>
       <p>Focusing only on the text
 for a moment, you will notice that
 special tags are used to designate a player name, or the name of the
-target of a spell. You will also notice that (s) and (es) is used to
-modify the proper form of a verb. These are key features of the
+target of a spell. You will also notice that <span style="font-weight: bold;">(s)</span>,&nbsp;<span style="font-weight: bold;"> (es)</span>,<span style="font-weight: bold;"> (ys)</span>&nbsp;is
+used to
+modify the proper form of a verb. &nbsp;The indefinite article 'a' can
+also be given as a(n) when the noun following it is unknown until
+run-time. &nbsp; These are key features of the
 CoffeeMud text engine. Here is a more complete list of available tags:</p>
       <a name="nametag" id="nametag"> </a>
       <table bgcolor="#ffffcc" border="1">
@@ -663,9 +668,9 @@ Direction</td>
 foreground x=0-5</td>
           </tr>
           <tr>
-            <td><code>^##xx</code> </td>
-            <td>256 color
-foreground xx=hex 00-ff</td>
+            <td><code>^##xxxxxx</code> </td>
+            <td>true color
+foreground x=hex 0-f</td>
           </tr>
           <tr>
             <td><code>^|xxx</code> </td>
@@ -673,9 +678,9 @@ foreground xx=hex 00-ff</td>
 background x=0-5</td>
           </tr>
           <tr>
-            <td><code>^||xx</code> </td>
-            <td>256 color
-background xx=hex 00-ff</td>
+            <td><code>^||xxxxxx</code> </td>
+            <td>true color
+background x=hex 0-f</td>
           </tr>
           <tr>
             <td><code>^&lt;</code> </td>
@@ -1444,7 +1449,7 @@ Room</td>
             <td>Bit mask of
 relevant disposition state</td>
           </tr>
-        </tbody>
+        <tr><td>ambiance</td><td>All</td><td>See below</td></tr></tbody>
       </table>
       <p>Although most of these
 fields are better described in the
@@ -1454,7 +1459,18 @@ value of each bit is defined by equates in the
 Common.interfaces.PhyStats interface. The equates which refer to the
 bits for sensesMask all begin with "CAN_" for MOBs or "SENSE_" for
 non-MOBs, while the equates which
-refer to the bits for disposition all begin with "IS_".</p>
+refer to the bits for disposition all begin with "IS_".</p><p>Related
+to disposition and sensesMask are ambiances. By default, these are
+arbitary strings&nbsp;designed for adding random text to the&nbsp;room
+display text of items and mobs, such as "glowing" or other&nbsp;<br />decorations.&nbsp;
+Ambiances also have a 'flagging' capability, when&nbsp;specific string
+values are used.&nbsp; These include: -ALL and -MOST to hides all or
+most natural flag displays that come from disposition, or -GOOD, -EVIL,
+-INVISIBLE, -SNEAKING, -HIDDEN, -MAGIC, -METAL, -GLOWING, -BUSY, -LAW,
+-CHAOS, -BOUND, -FLYING, -FALLING to&nbsp; hide these flag displays.
+&nbsp;Other special values are: (?)X:Y to show X if target heard, Y
+otherwise, @X to designate: X as a special flag, not to be shown by
+default, and #X to show: X if @X is also an ambiance.<br /></p>
       <p>Now, as mentioned
 previously, all Physical objects have
 two methods for accessing their PhyStats. One is <code>core.interfaces.Physical.basePhyStats()</code>
@@ -1856,7 +1872,7 @@ vanity titles</td>
             <td>Achievements</td>
             <td>AchievementLibrary</td>
             <td><code>achievements()</code></td>
-            <td>Player achievments
+            <td>Player achievements
 system</td>
           </tr>
           <tr>
@@ -1878,6 +1894,12 @@ new players.</td>
             <td>ClanManager</td>
             <td><code>clans()</code> </td>
             <td>Handle all clans.</td>
+          </tr>
+          <tr>
+            <td>CityCafe</td>
+            <td>CityMap</td>
+            <td><code>city()</code> </td>
+            <td>Handle shop and auction house locations.</td>
           </tr>
           <tr>
             <td>CMAbleMap</td>
@@ -2185,6 +2207,12 @@ normalized item evaluation.</td>
             <td><code>webMacroFilter()</code> </td>
             <td>Web Server
 extension for cmvp files.</td>
+          </tr>
+          <tr>
+            <td>WorldHuntUtils</td>
+            <td>WorldHuntLibrary</td>
+            <td><code>hunt()</code> </td>
+            <td>Search the world for things.</td>
           </tr>
           <tr>
             <td>XMLManager</td>
@@ -2686,6 +2714,11 @@ Class table. &nbsp;One row per Class.</td>
 table. &nbsp;One row per Ability.</td>
           </tr>
           <tr>
+            <td style="font-weight: bold;"><big>cmcdac</big></td>
+            <td>Generic Command
+table. &nbsp;One row per Command.</td>
+          </tr>
+          <tr>
             <td style="font-weight: bold;"><big>cmacct</big></td>
             <td>Common Account
 table, if you use that optional system. &nbsp;One row per player
@@ -2794,7 +2827,7 @@ MAX=effect)</td>
           </tr>
           <tr>
             <td style="font-weight: bold;" width="15%">CMTRAI</td>
-            <td width="35%">Training Points</td>
+            <td width="35%">Training Sessions</td>
             <td style="font-weight: bold;" width="15%">CMAGEH</td>
             <td width="35%">Age in Hours</td>
           </tr>
@@ -3120,6 +3153,12 @@ message)</td>
             <td width="35%">Number of message replies / children</td>
             <td style="font-weight: bold;" width="15%">CMMSGT</td>
             <td width="35%">Message text</td>
+          </tr>
+          <tr>
+            <td style="font-weight: bold;" width="15%">CMEXPI</td>
+            <td width="35%">Expiration timestamp</td>
+            <td style="font-weight: bold;" width="15%"></td>
+            <td width="35%"></td>
           </tr>
         </tbody>
       </table>
@@ -3577,7 +3616,7 @@ different types of ShopKeepers, including trainers, pet sellers,
 weaponsmiths, and others.</p>
       <p>StdRideable MOBs will
 require a few other settings as well!</p>
-      <pre>  setRideBasis( Rideable.RIDEABLE_LAND );<br />  setMobCapacity( 2 );<br /></pre>
+      <pre>  setRideBasis( Rideable.Basis.LAND_BASED );<br />  setMobCapacity( 2 );<br /></pre>
       <p>The last thing is to give
 the MOB equipment, armor, and
 weapons. The following commands will do the trick!</p>
@@ -4086,7 +4125,7 @@ worse) armor, or NON-METAL armor. You should check the CharClass
 interface for any other ARMOR_* definitions which may be added from
 time to time.</p>
       <pre>  public int allowedArmorLevel()<br />  {<br />    return CharClass.ARMOR_CLOTH;<br />  }<br /><br />  protected int requiredArmorSourceMinor()<br />  {<br />    return -1;<br />  }<br /><br />  protected String armorFailMessage()<br />  {<br />    return "&lt;s-name&gt; fumble(s) &lt;s-his-her&gt; &lt;skill&gt; due to &lt;s-his-her&gt; armor!";<br />  }<br /></pre>
-      <p>The The StdCharClass will
+      <p>The StdCharClass will
 automaticallyy enforce armor
 requirements whenever a class skill is used, provided these methods are
 defined. The <code>allowedArmorLevel()</code>
@@ -4214,7 +4253,7 @@ return a&nbsp;List of any
 Class-Specific
 Item object equipment they may need. Clothing and so forth is actually
 covered by Races.</p>
-      <pre>  public void grantAbilities( MOB mob, boolean isBorrowedClass )<br />  {<br />    super.grantAbilities( mob, isBorrowedClass );<br />    if( mob.isMonster() )<br />    {<br />      List&lt;AbilityMapper.AbilityMapping&gt; V=CMLib.ableMapper().getUpToLevelListings(ID(), mob.charStats().getClassLevel(ID()), false, false );<br /><br />      for(final AbilityMapper.AbilityMapping able : V)<br />      {<br />        final Ability A=CMClass.getAbility(able.abilityID());<br /> &nbsp;      if( ( A != null )<br />        &amp;&amp; ( ( A.classificationCode()&amp;Ability.ALL_ACODES) != Ability.ACODE_COMMON_SKILL )<br />        &amp;&amp; ( !CMLib.ableMapper().getDefaultGain( ID(), true, A.ID() ) ))<br />        {<br />          giveMobAbility( mob, A, CMLib.ableMapper().getDefaultproficiency( ID(), true, A.ID() ),<br />                        CMLib.ableMapper().getDefaultParm( ID(), true, A.ID() ), isBorrowedClass );<br />        }<br />      }<br />    }<br />  }<br /></pre>
+      <pre>  public void grantAbilities( MOB mob, boolean isBorrowedClass )<br />  {<br />    super.grantAbilities( mob, isBorrowedClass );<br />    if( mob.isMonster() )<br />    {<br />      List&lt;AbilityMapper.AbilityMapping&gt; V=CMLib.ableMapper().getUpToLevelListings(ID(), mob.charStats().getClassLevel(ID()), false, false );<br /><br />      for(final AbilityMapper.AbilityMapping able : V)<br />      {<br />        final Ability A=CMClass.getAbility(able.abilityID());<br /> &nbsp;      if( ( A != null )<br />        &amp;&amp; ( ( A.classificationCode()&amp;Ability.ALL_ACODES) != Ability.ACODE_COMMON_SKILL )<br />        &amp;&amp; ( !CMLib.ableMapper().getDefaultGain( ID(), true, A.ID() ) ))<br />        {<br />          giveMobAbility( mob, A, CMLib.ableMapper().getDefaultproficiency( ID(), true, A.ID() ),<br />                        CMLib.ableMapper().getDefaultParm( ID(), true, A.ID() ), InvokeMethod.WORD, isBorrowedClass );<br />        }<br />      }<br />    }<br />  }<br /></pre>
       <p>This important method is
 called whenever a player gains a
 level in this class, or when an NPC mob is being "outfitted" with this
@@ -4337,11 +4376,11 @@ method defines and returns an
 array of integers which defines the types and number of particular body
 parts normally retained by the race. Each position in the array is
 defined by the equates BODY_ in the Race interface. These equates are
-(starting from 0): BODY_ANTENNEA, BODY_EYE, BODY_EAR, BODY_HEAD,
+(starting from 0): BODY_ANTENNA, BODY_EYE, BODY_EAR, BODY_HEAD,
 BODY_NECK, BODY_ARM, BODY_HAND, BODY_TORSO, BODY_LEG, BODY_FOOT,
 BODY_NOSE, BODY_GILL, BODY_MOUTH, BODY_WAIST, BODY_TAIL, BODY_WING.
 Remember that these can be found in the Race interface for you to
-reference. In the above example, we find no antennea, 2 eyes, 2 ears, a
+reference. In the above example, we find no antenna, 2 eyes, 2 ears, a
 head, neck, no arms or hands, a torso, 4 legs, 4 feet, a nose, but no
 gill, and then a mouth, waist, tail, and 2 wings.</p>
       <pre>  private String[] racialAbilityNames = { "Skill_Trip", "Fighter_Whomp" };<br />  private int[] racialAbilityLevels = { 1, 3 };<br />  private int[] racialAbilityProficiencies = { 75, 50 };<br />  private boolean[] racialAbilityQuals = { false, false };<br /><br />  protected String[] racialAbilityNames()<br />  {<br />    return null;<br />  }<br /><br />  protected int[] racialAbilityLevels()<br />  {<br />    return null;<br />  }<br /><br />  protected int[] racialAbilityProficiencies()<br />  {<br />    return null;<br />  }<br /><br />  protected boolean[] racialAbilityQuals()<br />  {<br />    return null;<br />  }<br /><br />  public List&lt;Ability&gt; racialAbilities( MOB mob )<br />  {<br />    List V = super.racialAbilities( mob );<br />    return V;<br />  }<br /></pre>
@@ -4393,13 +4432,19 @@ similarly to the Racial Abilities above.</p>
 method we
 discussed in the Core Topics above makes sure that all creatures of
 this race can see in the infrared spectrum.</p>
-      <pre>  public void affectCharStats( MOB affectedMOB, CharStats affectableStats )<br />  {<br />    super.affectCharStats( affectedMOB, affectableStats );<br />    affectableStats.setStat( CharStats.STAT_STRENGTH, 15 );<br />    affectableStats.setStat( CharStats.STAT_DEXTERITY, 25 );<br />    affectableStats.setStat( CharStats.STAT_INTELLIGENCE, 5 );<br />  }<br /></pre>
+      <pre>  public void affectCharStats( MOB affectedMOB, CharStats affectableStats )<br />  {<br />    super.affectCharStats( affectedMOB, affectableStats );<br />    affectableStats.adjStat( CharStats.STAT_STRENGTH, 5 );<br />    affectableStats.adjStat( CharStats.STAT_DEXTERITY, 15 );<br />    affectableStats.adjStat( CharStats.STAT_INTELLIGENCE, -5 );<br />  }<br /><br />  public void unaffectCharStats( MOB affectedMOB, CharStats affectableStats )<br />  {<br />    super.unaffectCharStats( affectedMOB, affectableStats );<br />    affectableStats.adjStat( CharStats.STAT_STRENGTH, -5 );<br />    affectableStats.adjStat( CharStats.STAT_DEXTERITY, -15 );<br />    affectableStats.adjStat( CharStats.STAT_INTELLIGENCE, 5 );<br />  }<br /><br />      <br /></pre>
       <p>This sample of the
-affectCharStats method we discussed in the
-Core Topics above establishes a base strength, dexterity, and
+<span style="font-family: monospace;">affectCharStats</span> method we discussed in the
+Core Topics above changes the current and maximum strength, dexterity, and
 intelligence for all creatures of this race. As this is the ONLY way to
 modify a MOBs stats short of magical equipment, it should be used with
-care!</p>
+care!</p><p>The second method: <span style="font-family: monospace;">unaffectCharStats</span>
+should undo what the affectCharStats method does on a point-for-point
+basis. &nbsp;This method is necessary because, when spell effects, such
+as Improved Polymorph, change a players race, they do so right in the
+middle of the engines update of CharStats, and so must first undo the
+previous races stats before changing the race and then apply the new
+races stat changes.</p>
       <pre>  public void startRacing( MOB mob, boolean verifyOnly )<br />  {<br />    super.startRacing( mob, verifyOnly );<br />  }<br /></pre>
       <p>startRacing is called
 whenever a player of this race logs on,
@@ -4408,10 +4453,9 @@ of the mob or player which must be set due to their being this race,
 this would be the appropriate method in which to do so. This method is
 not called for Polymorph, Shape Shift, or similar changes in race, but
 only for those whose permanent race is this one.</p>
-      <pre>  public Weapon myNaturalWeapon()<br />  {<br />    if( naturalWeapon == null )<br />    {<br />      naturalWeapon = CMClass.getWeapon( "StdWeapon" );<br />      naturalWeapon.setName( "huge claws" );<br />      naturalWeapon.setMaterial(RawMaterial.RESOURCE_BONE);<br />      naturalWeapon.setUsesRemaining(1000);<br />      naturalWeapon.setWeaponDamageType( Weapon.TYPE_PIERCING );<br />    }<br />    return naturalWeapon;<br />  }<br /></pre>
+      <pre>  public Weapon[] getNaturalWeapons()<br />  {<br />    if( naturalWeaponChoices.length == 0 )<br />    {<br />      naturalWeapon = CMClass.getWeapon( "StdWeapon" );<br />      naturalWeapon.setName( "huge claws" );<br />      naturalWeapon.setMaterial(RawMaterial.RESOURCE_BONE);<br />      naturalWeapon.setUsesRemaining(1000);<br />      naturalWeapon.setWeaponDamageType( Weapon.TYPE_PIERCING );<br />      naturalWeaponChoices = new Weapon[] { naturalWeapon };<br />    }<br />    return super.getNaturalWeapons();<br />  }<br /></pre>
       <p>This method allows you to
-create (see item creation above) a
-special weapon to serve the creature whenever they are not wielding
+create (see item creation above)&nbsp;special weapons to serve the creature whenever they are not wielding
 something. Since our Grumbler cannot wield weapons anyway, it is
 important to give them some big piercing claws.</p>
       <pre>  public String healthText( MOB viewer, MOB mob )<br />  {<br />    double pct = ( CMath.div( mob.curState().getHitPoints(), mob.maxState().getHitPoints() ) );<br />    if( pct &lt; .10 )<br />    {<br />      return "^r" + mob.displayName(viewer) + "^ris raging in bloody pain!^N";<br />    }<br />    else <br />    if( pct &lt; .20 )<br />    {<br />      return "^r" + mob.displayName(viewer) + "^ris covered in blood.^N";<br />    }<br />    else if( pct &lt; .30 )<br />    {<br />      return "^r" + mob.displayName(viewer) + "^r is bleeding badly from lots of wounds.^N";<br />    }<br />    else if( pct &lt; .50 )<br />    {<br />      return "^y" + mob.displayName(viewer) + "^y has some bloody wounds and gashed scales.^N";<br />    }<br />    else if( pct &lt; .60 )<br />    {<br />      return "^p" + mob.displayName(viewer) + "^p has a few bloody wounds.^N";<br />    }<br />    else if( pct &lt; .70 )<br />    {<br />      return "^p" + mob.displayName(viewer) + "^p is cut and bruised heavily.^N";<br />    }<br />    else if( pct &lt; .90 )<br />    {<br />      return "^g" + mob.displayName(viewer) + "^g has a few bruises and scratched scales.^N";<br />    }<br />    else if( pct &lt; .99 )<br />    {<br />      return "^g" + mob.displayName(viewer) + "^g has a few small bruises.^N";<br />    }<br />    else<br />    {<br />      return "^c" + mob.displayName(viewer) + "^c is in perfect health.^N";\<br />    }<br />  }<br /></pre>
@@ -4492,14 +4536,15 @@ extends them.</p>
       <p>Let's looks at an example
 of a standard grid room, which has
 much of the functionality we are interested in:</p>
-      <pre>public class RoadGrid extends com.planet_ink.coffee_mud.Locales.StdGrid<br />{<br />  public String ID()<br />  {<br />    return "RoadGrid";<br />  }<br /><br />  public RoadGrid()<br />  {<br />    super();<br />    name = "a road";<br />    basePhyStats.setWeight( 1 );<br />    recoverPhyStats();<br />  }<br /><br />  public String getGridChildLocaleID()<br />  {<br />    return "Road";<br />  }<br /><br />  public List&lt;Integer&gt; resourceChoices()<br />  {<br />    return Road.roomResources;<br />  }<br /><br />  public int domainType()<br />  {<br />    return Room.DOMAIN_OUTDOORS_PLAINS;<br />  }<br />}<br /></pre>
+      <pre>public class RoadGrid extends com.planet_ink.coffee_mud.Locales.StdGrid<br />{<br />  public String ID()<br />  {<br />    return "RoadGrid";<br />  }<br /><br />  public RoadGrid()<br />  {<br />    super();<br />    name = "a road";<br />    basePhyStats.setWeight( 1 );<br />    basePhyStats.setHeight( 10 );<br />    recoverPhyStats();<br />  }<br /><br />  public String getGridChildLocaleID()<br />  {<br />    return "Road";<br />  }<br /><br />  public List&lt;Integer&gt; resourceChoices()<br />  {<br />    return Road.roomResources;<br />  }<br /><br />  public int domainType()<br />  {<br />    return Room.DOMAIN_OUTDOORS_PLAINS;<br />  }<br />}<br /></pre>
       <p>Here we see the standard
 RoadGrid. It's effects, behaviors,
 displaytext, description, and (since it is a grid type) size in the x
 and y are all defined by the builder. The features (and they aren't
 many) which are available to the coder can be seen here. We see the
-base weight being set to "1" here. This is the default number of
-movement points consumed by crossing this room. For Grids, we see the
+base weight being set to "1" here, which is the default number of
+movement points consumed by crossing this room. The height is set to
+10, which is the maximum range for ranges combat in this room. For Grids, we see the
 Locale ID of the child-rooms inside the grid. We also see the standard
 room settings methods for the domain type (the type of locale it is)
 and the domain conditions (the quality of the weather, or the air,
@@ -5067,9 +5112,9 @@ bad to him or her, so that the target will get angry and start
 fighting. Had this not been a malicious ability, we would have made
 calls instead to either the <code>beneficialWordsFizzle()</code>
 method, or the <code>beneficialVisualFizzle()</code>
-method, depending upon whether the skill is verbal or somantic based.
+method, depending upon whether the skill is verbal or somatic based.
 Most spells are verbal based, for instance, while most skills are
-somantic.</p>
+somatic.</p>
       <p>Finally, we return the
 results of the success variable from
 the <code>invoke()</code>
@@ -5485,7 +5530,7 @@ ITEM_BASE_VALUE, ITEM_NAME, AMOUNT_MATERIAL_REQUIRED, N_A,
 POSE_DESCRIPTION, RESOURCE_NAME, ATTACK_MODIFICATION, STATUE,
 WEAPON_CLASS, LIQUID_CAPACITY, OPTIONAL_RACE_ID, RESOURCE_OR_MATERIAL,
 CODED_WEAR_LOCATION, CONTAINER_TYPE, INSTRUMENT_TYPE,
-CLAN_ITEM_CODENUMBER, MAXIMUM_RANGE, RESOURCE_OR_KEYWORD, LID_LOCK,
+CLAN_ITEM_CODENUMBER, MIN_MAX_RANGE, RESOURCE_OR_KEYWORD, LID_LOCK,
 OPTIONAL_AMOUNT_REQUIRED, SMELL_LIST, LIGHT_DURATION, READABLE_TEXT,
 CODED_SPELL_LIST, BUILD_TIME_TICKS, POSE_NAME, METAL_OR_WOOD,
 RESOURCE_NAME_AMOUNT_MATERIAL_REQUIRED, CLAN_EXPERIENCE_COST_AMOUNT,
@@ -5524,7 +5569,7 @@ checking whether everything went ok and adding it to the room if things
 did. Since common skills work by adding themselves as affects on the
 player/mobs performing the skill, we need only check the
 StdAbility.affected reference variable to find our craftor.</p>
-      <pre><br />  @Override<br />  public boolean invoke(MOB mob, List&lt;String&gt; commands, Physical givenTarget, boolean auto, int asLevel)<br />  {<br />    // same invoke method as in all other Abilities, but we are redirecting to a special<br />    // method only for Crafting Skills.<br />    return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new Vector&lt;Item&gt;(0));<br />  }<br /><br />  @Override<br />  protected boolean autoGenInvoke(final MOB mob, List&lt;String&gt; commands, Physical givenTarget, final boolean auto, <br />                                  final int asLevel, int autoGenerate, boolean forceLevels, List&lt;Item&gt; crafted)<br /></pre>
+      <pre><br />  @Override<br />  public boolean invoke(MOB mob, List&lt;String&gt; commands, Physical givenTarget, boolean auto, int asLevel)<br />  {<br />    // same invoke method as in all other Abilities, but we are redirecting to a special<br />    // method only for Crafting Skills.<br />    return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new Vector&lt;Item&gt;(0));<br />  }<br /><br />  @Override<br />  protected boolean autoGenInvoke(final MOB mob, List&lt;String&gt; commands, Physical givenTarget, final boolean auto, <br />                                  final int asLevel, int autoGenerate, boolean forceLevels, PairList&lt;Item,Integer&gt; crafted)<br /></pre>
       <p>Crafting skills are all
 outfitted with the ability to allow
 the rest of the system to use the skill class as an automatic item
@@ -5660,7 +5705,7 @@ building, we can start filling in some fields, such as its name,
 display text, weight, and base value, usually from columns in our
 recipe text file. We can also derive the final completion variable,
 representing the number of ticks it will take to complete the item.</p>
-      <pre>  if( data[0][FOUND_CODE] == RawMaterial.RESOURCE_SAND )<br />  {<br />    building.setMaterial( RawMaterial.RESOURCE_GLASS );<br />  }<br />  else<br />  {<br />    building.setMaterial( data[0][FOUND_CODE] );<br />  }<br /><br />  building.basePhyStats().setLevel( CMath.s_int( (String)foundRecipe.elementAt( RCP_LEVEL ) ) );<br /><br />  building.setSecretIdentity( "This is the work of " + mob.Name() + "." );<br />  int capacity = CMath.s_int( (String)foundRecipe.elementAt( RCP_CAPACITY ) );<br />  String spell = ( foundRecipe.size() &gt; RCP_SPELL ) ? ( (String)foundRecipe.elementAt( RCP_SPELL ) ).trim() : "";<br /><br />  addSpells( building, spell );<br /></pre>
+      <pre>  if( data[0][FOUND_CODE] == RawMaterial.RESOURCE_SAND )<br />  {<br />    building.setMaterial( RawMaterial.RESOURCE_GLASS );<br />  }<br />  else<br />  {<br />    building.setMaterial( data[0][FOUND_CODE] );<br />  }<br /><br />  building.basePhyStats().setLevel( CMath.s_int( (String)foundRecipe.elementAt( RCP_LEVEL ) ) );<br /><br />  building.setSecretIdentity( "This is the work of " + mob.Name() + "." );<br />  int capacity = CMath.s_int( (String)foundRecipe.elementAt( RCP_CAPACITY ) );<br />  String spell = ( foundRecipe.size() &gt; RCP_SPELL ) ? ( (String)foundRecipe.elementAt( RCP_SPELL ) ).trim() : "";<br /><br />  addSpellsOrBehaviors( building, spell );<br /></pre>
       <p>Continuing with our
 mission of filling out the building
 object, we set the material type, level, and secret identity. We also
@@ -5691,7 +5736,7 @@ the env stats again in case that changed anything.</p>
 messedUp flag based on a proficiency check,
 and change our common skill player-message strings based on whether we
 are bundling.</p>
-      <pre>  if( autoGenerate &gt; 0 )<br />  {<br />    crafted.add( building );<br />    return true;<br />  }<br /> <br /></pre>
+      <pre>  if( autoGenerate &gt; 0 )<br />  {<br />    crafted.add( building, Integer.valueOf(completion) );<br />    return true;<br />  }<br /> <br /></pre>
       <p>If the autoGenInvoke
 method was called simply to generate the
 item,
@@ -5962,7 +6007,7 @@ Keeping the number of letters close or the same as the Common word
 equivalent provides a certain symmetry, however, and makes it fun for
 the players who don't speak a language to try and guess what is being
 said by counting letters.</p>
-      <pre>  private static final Map&lt;String,String&gt; hashwords = new Hashtable();<br />  public Map&lt;String,String&gt; translationHash(String language)<br />  {<br />    if( ( hashwords != null ) &amp;&amp; ( hashwords.size() &gt; 0 ) )<br />    {<br />      return hashwords;<br />    }<br /><br />    hashwords.put( "ABANDON", "avarta" );<br />    hashwords.put( "ABLE", "pol" );<br />    hashwords.put( "ACCOMMODATE", "camta" );<br />    hashwords.put( "ACT", "car" );<br /><br /> ...<br /><br />    hashwords.put( "WRONG", "raic�" );<br />    hashwords.put( "YES", "y�" );<br />    hashwords.put( "YESTERDAY", "tellaur�" );<br />    return hashwords;<br />  }<br />}<br /></pre>
+      <pre>  private static final Map&lt;String,String&gt; exactWords = new Hashtable();<br />  public Map&lt;String,String&gt; translationHash(String language)<br />  {<br />    if( ( exactWords != null ) &amp;&amp; ( exactWords.size() &gt; 0 ) )<br />    {<br />      return exactWords;<br />    }<br /><br />    exactWords.put( "ABANDON", "avarta" );<br />    exactWords.put( "ABLE", "pol" );<br />    exactWords.put( "ACCOMMODATE", "camta" );<br />    exactWords.put( "ACT", "car" );<br /><br /> ...<br /><br />    exactWords.put( "WRONG", "raic�" );<br />    exactWords.put( "YES", "y�" );<br />    exactWords.put( "YESTERDAY", "tellaur�" );<br />    return exactWords;<br />  }<br />}<br /></pre>
       <p>The last Language method
 is <code>translationHash(String
 language)</code>.

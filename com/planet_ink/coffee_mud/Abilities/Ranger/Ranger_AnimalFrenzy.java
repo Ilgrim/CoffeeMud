@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -102,7 +102,7 @@ public class Ranger_AnimalFrenzy extends StdAbility
 			return false;
 		if(invoker==null)
 		{
-			if(CMLib.flags().isAnimalIntelligence((MOB)affected)
+			if(CMLib.flags().isAnAnimal((MOB)affected)
 			&&(((MOB)affected).isMonster()))
 				return true;
 			invoker=(MOB)affected;
@@ -123,7 +123,7 @@ public class Ranger_AnimalFrenzy extends StdAbility
 				if((!rangersGroup.contains(mob))
 				&&(mob!=invoker)
 				&&(mob.location()==invoker.location())
-				&&(CMLib.flags().isAnimalIntelligence(mob)))
+				&&(CMLib.flags().isAnAnimal(mob)))
 				{
 					rangersGroup.addElement(mob);
 					mob.addNonUninvokableEffect((Ability)this.copyOf());
@@ -146,7 +146,7 @@ public class Ranger_AnimalFrenzy extends StdAbility
 						rangersGroup.removeElement(mob);
 					}
 				}
-				catch(final java.lang.ArrayIndexOutOfBoundsException e)
+				catch(final IndexOutOfBoundsException e)
 				{
 				}
 			}

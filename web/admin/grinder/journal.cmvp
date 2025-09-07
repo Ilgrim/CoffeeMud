@@ -2,20 +2,32 @@
 <META HTTP-EQUIV="Pragma" CONTENT="no-cache">
 @if?!Authenticate@ @AddFile?/grinder/failedlogin.cmvp@ @else@
 @if?!CheckAuthCode?AUTH_JOURNALS=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
-@AddRequestParameter?JOURNALPAGELIMIT=0@
 <html>
+	<META CHARSET="utf-8"/>
 <head>
 	<title>Journal Browser</title>
  	<link rel="grinder icon" href="/images/grinder.ico" >
+ 	<link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
 	<script language=JavaScript>
 	<!--
+		function ShowAllWarning()
+		{
+			var obj = document.getElementsByName("PROCESSALL");
+			if((obj!=null)&&(obj.length>0))
+			{
+				if(!window.confirm('You may have un-submitted changes.  Proceed?'))
+					return false;
+			}
+			return true;
+		}
+		
 		function Clicked(action,message,journal,journalcardinal,page,fun)
 		{
 			document.JOURNAL.action=action;
 			document.JOURNAL.JOURNAL.value=journal;
 			document.JOURNAL.JOURNALMESSAGE.value=message;
 			document.JOURNAL.JOURNALCARDINAL.value=journalcardinal;
-			//document.JOURNAL.JOURNALPAGE.value=page; // for page support
+			document.JOURNAL.JOURNALPAGE.value=page; // for page support
 			document.JOURNAL.FUNCTION.value=fun;
 			document.JOURNAL.submit();
 		}
@@ -35,12 +47,20 @@
 		{
 			Clicked("journal.cmvp#"+journal,message,journal,cardinal,document.JOURNAL.JOURNALPAGE.value,action);
 		}
+		function Clicked4(journal,message,action,cardinal,page)
+		{
+			Clicked("journal.cmvp#"+journal,message,journal,cardinal,page,action);
+		}
 		function ClickedSearch(journal)
 		{
+			if(!ShowAllWarning())
+				return;
 			Clicked("journal.cmvp#"+journal,'',journal,'','0','');
 		}
 		function FirstPage()
 		{
+			if(!ShowAllWarning())
+				return;
 			var journal='@RequestParameter?JOURNAL@';
 			Clicked("journal.cmvp#"+journal,'',journal,'','0','');
 		}
@@ -57,11 +77,16 @@
 		var currjournal='@RequestParameter?JOURNAL@';
 		function LastPage()
 		{
+			if(!ShowAllWarning())
+				return;
 			var journal='@RequestParameter?JOURNAL@';
 			Clicked("journal.cmvp#"+currjournal,'',currjournal,'',allpages,'');
 		}
+		
 		function PrevPage(journal)
 		{
+			if(!ShowAllWarning())
+				return;
 			var pages=document.JOURNAL.JOURNALPAGE.value;
 			if(pages == '')
 				pages=allpages;
@@ -76,6 +101,8 @@
 		}
 		function NextPage()
 		{
+			if(!ShowAllWarning())
+				return;
 			var pages=document.JOURNAL.JOURNALPAGE.value;
 			if(pages.length >= allpages.length)
 				return; // already there
@@ -133,6 +160,7 @@
 	@endif@
 	<TR><TD WIDTH=100% COLSPAN=2 BGCOLOR=WHITE ALIGN=CENTER><FONT COLOR=BLACK><H2>CoffeeMud @MudServerVersion@ Journal/Message Browser<a href="javascript:sfideas();"><FONT COLOR=WHITE>.</FONT></a></H2></FONT></TD></TR>
 		@AddRequestParameter?OLDJOURNAL=@@RequestParameter?JOURNAL@@ @
+		@AddRequestParameter?OLDCARDINAL=@@RequestParameter?JOURNALCARDINAL@@ @
 		@if?CheckReqParm?JOURNAL=@
 			<INPUT TYPE=HIDDEN NAME=JOURNALMESSAGESEARCH VALUE="@RequestParameter?JOURNALMESSAGESEARCH@">
 		@endif@
@@ -151,6 +179,9 @@
 				@if?CheckReqParm?FUNCTION=TRANSFER@
 				<CENTER><FONT COLOR=RED><B>@JournalFunction?TRANSFER@</B></FONT></CENTER>
 				@endif@
+				@if?CheckReqParm?FUNCTION=COPY@
+				<CENTER><FONT COLOR=RED><B>@JournalFunction?COPY@</B></FONT></CENTER>
+				@endif@
 				@if?CheckReqParm?FUNCTION=EMAIL@
 				<CENTER><FONT COLOR=RED><B>@JournalFunction?EMAIL@</B></FONT></CENTER>
 				@endif@
@@ -164,25 +195,24 @@
 				@if?CheckReqParm?FUNCTION=NEWPOST@
 				<CENTER><FONT COLOR=RED><B>@JournalFunction?NEWPOST@</B></FONT></CENTER>
 				@endif@
+				<!-- page support -->
 				@AddRequestParameter?OLDMESSAGE=@@RequestParameter?JOURNALMESSAGE@@ @
-				@AddRequestParameter?OLDCARDINAL=@@RequestParameter?JOURNALCARDINAL@@ @
-			
-				@<!--@ <!-- page support -->
 				@if?CheckReqParm?JOURNALPAGE=@
 					@AddRequestParameter?JOURNALPAGE=@@JournalMessageNext?LASTPAGE@@ @
 				@endif@
 				@AddRequestParameter?JOURNALPARENT=*@
-				@-->@
+				<INPUT TYPE=HIDDEN NAME=JOURNALPARENT VALUE="*">
 				@JournalMessageNext?RESET@
-				@<!--@ <!-- page support -->
 				@if?CheckReqParm?JOURNALCARDINAL=@
 					@AddRequestParameter?JOURNALCARDINAL=@@JournalMessageNext?PAGECARDINAL@@ @
 				@endif@
-				@-->@
+				<!-- /page support -->
 				<UL>
+				@AddRequestParameter?FIRSTCARDINAL=@
 				@loop@
 					@JournalMessageNext?REVERSE@
 					<LI><a href="javascript:Clicked2('@JournalName@','@RequestParameter?JOURNALMESSAGE@','@RequestParameter?JOURNALCARDINAL@')">
+					@if?CheckReqParm?FIRSTCARDINAL=@ @AddRequestParameter?FIRSTCARDINAL=@@RequestParameter?JOURNALCARDINAL@@ @ @endif@
 					<FONT COLOR=YELLOW>@RequestParameter?JOURNALCARDINAL@</FONT>
 					@AddRequestParameter?TEMPFROM=@@JournalInfo?FROM@@ @
 					@AddRequestParameter?TEMPTO=@@JournalInfo?TO@@ @
@@ -199,8 +229,8 @@
 					</a>
 				@back@
 				</UL>
-				@<!--@ <!-- page support -->
-				@if?!CheckReqParm?JOURNALPAGE=0&||JOURNALPAGE=@
+				<!-- page support -->
+				@if?!CheckReqParm?FIRSTCARDINAL=1&||FIRSTCARDINAL=@
 					<a href="javascript:FirstPage()"><FONT COLOR=WHITE>&lt;&lt;</FONT></a>&nbsp;&nbsp;
 					<a href="javascript:PrevPage()"><FONT COLOR=WHITE>&lt;</FONT></a>
 				@endif@
@@ -209,8 +239,8 @@
 					<a href="javascript:NextPage()"><FONT COLOR=WHITE>&gt;</FONT></a>&nbsp;&nbsp;
 					<a href="javascript:LastPage()"><FONT COLOR=WHITE>&gt;&gt;</FONT></a>
 				@endif@
+				<!-- /page support -->
 				<BR>
-				@-->@
 				<BR><INPUT TYPE=TEXT NAME=JOURNALMESSAGESEARCH SIZE=10 VALUE="@RequestParameter?JOURNALMESSAGESEARCH@">
 				<INPUT TYPE=BUTTON NAME=SEARCH VALUE="Filter" ONCLICK="Clicked2('@JournalName@','','');">
 				</TD>
@@ -218,7 +248,6 @@
 				@AddRequestParameter?JOURNALMESSAGE=@@RequestParameter?OLDMESSAGE@@ @
 				@AddRequestParameter?JOURNALCARDINAL=@@RequestParameter?OLDCARDINAL@@ @
 				@AddRequestParameter?JOURNAL=@@RequestParameter?OLDJOURNAL@@ @
-				
 				@if?!CheckReqParm?JOURNAL=@
 					@if?CheckReqParm?FUNCTION=POSTNEW@
 						<TABLE WIDTH=100% BORDER=0 CELLSPACING=0 CELLPADDING=0>
@@ -261,7 +290,7 @@
 						</TR>
 						</TABLE>
 						<HR>
-						<FONT COLOR=WHITE>@JournalInfo?MESSAGE@</FONT><P>
+						<FONT COLOR=WHITE>@JournalInfo?MESSAGE&SMARTTAGS@</FONT><P>
 						<HR>
 						
 						<TABLE WIDTH=100% BORDER=0 CELLSPACING=0 CELLPADDING=0>
@@ -310,7 +339,7 @@
 						</TR>
 						</TABLE>
 						<HR>
-						<TEXTAREA NAME=NEWTEXT ROWS=10 COLS=60 WRAP=VIRTUAL>@JournalInfo?MESSAGE@</TEXTAREA>
+						<TEXTAREA NAME=NEWTEXT ROWS=10 COLS=60 WRAP=VIRTUAL>@JournalInfo?MESSAGE&EDIT@</TEXTAREA>
 						<TABLE WIDTH=100% BORDER=0>
 						<TR>
 						<TD WIDTH=33% ALIGN=LEFT>
@@ -385,19 +414,20 @@
 							</TR>
 							</TABLE>
 							<HR>
-							<FONT COLOR=WHITE>@JournalInfo?MESSAGE@</FONT><P>
+							<FONT COLOR=WHITE>@JournalInfo?MESSAGE&SMARTTAGS@</FONT><P>
 							<HR>
 							<TABLE WIDTH=100% BORDER=0>
 							<TR VALIGN=TOP>
 							<TD WIDTH=51% ALIGN=LEFT VALIGN=TOP>
 								@if?CheckAuthCode?AUTH_JOURNALS=true@
 								<INPUT TYPE=BUTTON NAME=TRANSFER VALUE="Transfer TO:" ONCLICK="if(document.JOURNAL.NEWJOURNAL.selectedIndex>=0)Clicked3('@RequestParameter?JOURNAL@','@RequestParameter?JOURNALMESSAGE@','TRANSFER','@RequestParameter?JOURNALCARDINAL@');">
+								<INPUT TYPE=BUTTON NAME=COPY VALUE="Copy TO:" ONCLICK="if(document.JOURNAL.NEWJOURNAL.selectedIndex>=0)Clicked3('@RequestParameter?JOURNAL@','@RequestParameter?JOURNALMESSAGE@','COPY','@RequestParameter?JOURNALCARDINAL@');">
 								@AddRequestParameter?THISJOURNAL=@@RequestParameter?JOURNAL@@ @
 								<SELECT NAME=NEWJOURNAL>
 								@JournalNext?RESET@
 								@loop@
 									@JournalNext@
-									<OPTION VALUE="@JournalName@">@JournalName?NOCOLOR@
+									<OPTION VALUE="@JournalName@">@JournalName?NOCOLOR&LIMIT=25@
 								@back@
 								@AddRequestParameter?JOURNAL=@@RequestParameter?THISJOURNAL@@ @
 								@JournalInfo?ASSIGN&RESET@
@@ -432,6 +462,19 @@
                             @else@
                                 <HR>
                                 @JournalMessageNext?RESET@
+								<!-- page support -->
+								@AddRequestParameter?OLDMESSAGE=@@RequestParameter?JOURNALMESSAGE@@ @
+								@AddRequestParameter?OLDCARDINAL=@@RequestParameter?JOURNALCARDINAL@@ @
+								@if?CheckReqParm?JOURNALPAGE=@
+									@AddRequestParameter?JOURNALPAGE=@@JournalMessageNext?LASTPAGE@@ @
+								@endif@
+								@AddRequestParameter?JOURNALPARENT=*@
+								<INPUT TYPE=HIDDEN NAME=JOURNALPARENT VALUE="*">
+								@JournalMessageNext?RESET@
+								@if?CheckReqParm?JOURNALCARDINAL=@
+									@AddRequestParameter?JOURNALCARDINAL=@@JournalMessageNext?PAGECARDINAL@@ @
+								@endif@
+								<!-- /page support -->
                                 @loop@
                                     @JournalMessageNext@
                                     <INPUT TYPE=HIDDEN NAME="CARDINAL@RequestParameter?JOURNALMESSAGE@" VALUE="@RequestParameter?JOURNALCARDINAL@" CHECKED>
@@ -473,7 +516,7 @@
                                         <SELECT NAME=NEWJOURNAL@RequestParameter?JOURNALMESSAGE@>
                                         @JournalNext?RESET@
                                         @loop@
-                                            @JournalNext@
+                                            @JournalNext?TRANSFERLIST@
                                             <OPTION VALUE="@JournalName@">@JournalName?NOCOLOR@
                                         @back@
                                         </SELECT>
@@ -496,8 +539,11 @@
                                     </TABLE>
                                     <HR>
                                 @back@
+								@AddRequestParameter?JOURNALMESSAGE=@@RequestParameter?OLDMESSAGE@@ @
+								@AddRequestParameter?JOURNALCARDINAL=@@RequestParameter?OLDCARDINAL@@ @
+								@AddRequestParameter?JOURNAL=@@RequestParameter?OLDJOURNAL@@ @
                                 <CENTER>
-                                <INPUT TYPE=BUTTON NAME=PROCESSALL Value="Submit All" ONCLICK="if(window.confirm('Submit all changes above?')) Clicked3('@RequestParameter?JOURNAL@','','EVERYTHING','');">
+                                <INPUT TYPE=BUTTON NAME=PROCESSALL Value="Submit All" ONCLICK="if(window.confirm('Submit all changes above?')) Clicked4('@RequestParameter?JOURNAL@','','EVERYTHING','','@RequestParameter?JOURNALPAGE@');">
                                 </CENTER>
                             @endif@
 						@endif@
@@ -521,7 +567,7 @@
 				@if?!CheckReqParm?CHANNELBACK=@
 				@if?CheckReqParm?CHANNELBACK=@@RequestParameter?CHANNEL@@ @
 					@AddRequestParameter?CHANNEL=@@RequestParameter?CHANNELBACK@@ @
-					@AddRequestParameter?CHANNELBACKLOGPAGESIZE=10@
+					@AddRequestParameter?CHANNELBACKLOGPAGESIZE=100@
 					<INPUT TYPE=HIDDEN NAME=CHANNELBACKLOGPAGE VALUE="@RequestParameter?CHANNELBACKLOGPAGE@">
 					<P>
 					<B>Back logs for @RequestParameter?CHANNEL@</B><BR>

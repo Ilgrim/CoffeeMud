@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -111,11 +111,11 @@ public class Fighter_BodyShield extends FighterSkill
 		&&((msg.value())>0)
 		&&(msg.tool() instanceof Weapon)
 		&&(mob.getVictim()!=null)
-		&&(mob.getVictim().fetchEffect("Fighter_Pin")!=null)
+		&&(getGrappleA(mob.getVictim())!=null)
 		&&(!doneThisRound)
 		&&(mob.getVictim().baseWeight()>=(mob.baseWeight()/2)))
 		{
-			final Ability A=mob.fetchEffect("Fighter_Pin");
+			final Ability A=getGrappleA(mob);
 			if((A!=null)&&(A.invoker()==mob))
 			{
 				doneThisRound=true;

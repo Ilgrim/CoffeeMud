@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -120,7 +120,7 @@ public class Prayer_Fertilize extends Prayer
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof Room))
+		if((affected instanceof Room))
 		{
 			hasTicked=true;
 			final Room R=(Room)affected;
@@ -143,6 +143,8 @@ public class Prayer_Fertilize extends Prayer
 							A=M.fetchEffect("MasterGardening");
 						if(A==null)
 							A=M.fetchEffect("Gardening");
+						if(A==null)
+							A=M.fetchEffect("Shrooming");
 						if(A!=null)
 							A.setAbilityCode(1);
 					}
@@ -171,8 +173,7 @@ public class Prayer_Fertilize extends Prayer
 		final int type=R.domainType();
 		if(((type&Room.INDOORS)>0)
 			||(type==Room.DOMAIN_OUTDOORS_AIR)
-			||(type==Room.DOMAIN_OUTDOORS_CITY)
-			||(type==Room.DOMAIN_OUTDOORS_SPACEPORT)
+			||(CMLib.flags().isACityRoom(R))
 			||(type==Room.DOMAIN_OUTDOORS_UNDERWATER)
 			||(type==Room.DOMAIN_OUTDOORS_WATERSURFACE))
 		{

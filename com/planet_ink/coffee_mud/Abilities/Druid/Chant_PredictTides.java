@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -61,6 +61,12 @@ public class Chant_PredictTides extends Chant
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	protected int canAffectCode()
 	{
 		return 0;
@@ -85,9 +91,9 @@ public class Chant_PredictTides extends Chant
 			&&(R.resourceChoices().contains(Integer.valueOf(RawMaterial.RESOURCE_FISH))))
 				isWateryEnough = true;
 			final Area A=R.getArea();
-			if(A instanceof BoardableShip)
+			if(A instanceof Boardable)
 			{
-				final Room R2=CMLib.map().roomLocation(((BoardableShip)A).getShipItem());
+				final Room R2=CMLib.map().roomLocation(((Boardable)A).getBoardableItem());
 				if(R2!=null)
 				{
 					if(CMLib.flags().isWateryRoom(R2))

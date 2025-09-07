@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,7 +57,10 @@ public class Prop_ItemBinder extends Property implements TriggeredAffect
 		CHARACTER,
 		ACCOUNT,
 		GROUP,
-		CLAN
+		CLAN,
+		PLAYER,
+		NPC,
+		NOONE
 	}
 
 	protected BoundTo to = BoundTo.CHARACTER;
@@ -71,6 +74,8 @@ public class Prop_ItemBinder extends Property implements TriggeredAffect
 	protected BoundOn on = BoundOn.PICKUP;
 
 	protected String boundToName = "";
+
+	protected boolean keepOverDeath = false;
 
 	protected String msgStr=defaultMessage();
 
@@ -98,6 +103,7 @@ public class Prop_ItemBinder extends Property implements TriggeredAffect
 			on = BoundOn.PICKUP;
 
 		boundToName = CMStrings.deEscape(CMParms.getParmStr(text, "BOUND", ""));
+		keepOverDeath = CMParms.getParmBool(text, "DEATHKEEP", false);
 		msgStr=CMParms.getParmStr(text,"MESSAGE",defaultMessage());
 		super.setMiscText(text);
 	}
@@ -110,7 +116,7 @@ public class Prop_ItemBinder extends Property implements TriggeredAffect
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_ZAPPER;
+		return Ability.FLAG_ZAPPER|Ability.FLAG_NODISENCHANT;
 	}
 
 	@Override
@@ -137,7 +143,7 @@ public class Prop_ItemBinder extends Property implements TriggeredAffect
 		if(mob.location()==null)
 			return true;
 
-		if(msg.amITarget(affected))
+		if(msg.amITarget(affected) && (to != BoundTo.NOONE))
 		{
 			switch(msg.targetMinor())
 			{
@@ -155,8 +161,21 @@ public class Prop_ItemBinder extends Property implements TriggeredAffect
 					boolean zap = true;
 					switch(to)
 					{
+					case NOONE:
+						zap = false;
+						break;
 					case CHARACTER:
 						if(this.boundToName.equals(msg.source().Name()))
+							zap=false;
+						break;
+					case PLAYER:
+						if((this.boundToName.equals(msg.source().Name()))
+						||(!msg.source().isPlayer()))
+							zap=false;
+						break;
+					case NPC:
+						if((this.boundToName.equals(msg.source().Name()))
+						||(msg.source().isPlayer()))
 							zap=false;
 						break;
 					case GROUP:
@@ -206,7 +225,11 @@ public class Prop_ItemBinder extends Property implements TriggeredAffect
 	{
 		switch(to)
 		{
+		case NOONE:
+			return "";
 		case CHARACTER:
+		case PLAYER:
+		case NPC:
 			return mob.Name();
 		case GROUP:
 		{
@@ -233,9 +256,24 @@ public class Prop_ItemBinder extends Property implements TriggeredAffect
 	}
 
 	@Override
+	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
+	{
+		if ((keepOverDeath)
+		&&(affected instanceof Item)
+		&&(((Item)affected).owner() instanceof MOB))
+		{
+			if(on == BoundOn.PICKUP)
+				affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.SENSE_ITEMDEATHKEEPER);
+			else
+			if((on == BoundOn.EQUIP) && (((Item)affected).amBeingWornProperly()))
+				affectableStats.setSensesMask(affectableStats.sensesMask() | PhyStats.SENSE_ITEMDEATHKEEPER);
+		}
+	}
+
+	@Override
 	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
-		if(msg.amITarget(affected))
+		if(msg.amITarget(affected) && (to != BoundTo.NOONE))
 		{
 			switch(msg.targetMinor())
 			{

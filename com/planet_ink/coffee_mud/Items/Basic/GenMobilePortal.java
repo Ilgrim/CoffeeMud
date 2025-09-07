@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -64,7 +64,9 @@ public class GenMobilePortal extends GenPortal implements Rideable, Exit
 				if(destR==null)
 				{
 					msg.source().tell(L("Something has gone wrong!"));
-					Log.errOut("GenMobilePortal","Destination not found: "+readableText());
+					final String roomStr = CMLib.map().getApproximateExtendedRoomID(R);
+					final String itemStr = name()+"@"+roomStr;
+					Log.errOut("GenMobilePortal","Destination not found: "+readableText()+" on "+itemStr);
 					return;
 				}
 				final List<Item> choices=new ArrayList<Item>();

@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -189,13 +189,14 @@ public class Thief_Hideout extends ThiefSkill
 		}
 
 		final Room thisRoom=mob.location();
-		if(thisRoom.domainType()!=Room.DOMAIN_OUTDOORS_CITY)
+		if(!CMLib.flags().isACityRoom(thisRoom))
 		{
 			mob.tell(L("You must be on the streets to enter your hideout."));
 			return false;
 		}
 		TrackingLibrary.TrackingFlags flags;
 		flags = CMLib.tracking().newFlags()
+				.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 				.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
 				.plus(TrackingLibrary.TrackingFlag.NOAIR);
 		final List<Room> nearbyRooms=CMLib.tracking().getRadiantRooms(thisRoom, flags, 2);
@@ -204,6 +205,12 @@ public class Thief_Hideout extends ThiefSkill
 			switch(room.domainType())
 			{
 			case Room.DOMAIN_INDOORS_STONE:
+				if((room.phyStats().weight()<3)||(room.maxRange()<5))
+				{
+					mob.tell(L("You must be deep in an urban area to enter your hideout."));
+					return false;
+				}
+				break;
 			case Room.DOMAIN_INDOORS_METAL:
 			case Room.DOMAIN_INDOORS_WOOD:
 			case Room.DOMAIN_OUTDOORS_CITY:
@@ -249,7 +256,7 @@ public class Thief_Hideout extends ThiefSkill
 			}
 		}
 		else
-			beneficialVisualFizzle(mob,null,L("<S-NAME> attemp(s) to slip away, and fail(s)."));
+			beneficialVisualFizzle(mob,null,L("<S-NAME> attempt(s) to slip away, and fail(s)."));
 
 		return success;
 	}

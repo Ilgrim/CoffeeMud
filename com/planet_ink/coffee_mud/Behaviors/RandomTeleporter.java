@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -55,6 +55,8 @@ public class RandomTeleporter extends ActiveTicker
 
 	protected Vector<Integer>	restrictedLocales	= null;
 	protected boolean			nowander			= false;
+	protected String			poofin				= null;
+	protected String			poofout				= null;
 
 	public RandomTeleporter()
 	{
@@ -89,12 +91,20 @@ public class RandomTeleporter extends ActiveTicker
 		super.setParms(newParms);
 		nowander=false;
 		restrictedLocales=null;
+		this.poofin=null;
+		this.poofout=null;
 		final Vector<String> V=CMParms.parse(newParms);
 		for(int v=0;v<V.size();v++)
 		{
 			String s=V.elementAt(v);
 			if(s.toUpperCase().startsWith("NOWANDER"))
 				nowander=true;
+			else
+			if(s.toUpperCase().startsWith("POOFIN="))
+				poofin=s.substring(7);
+			else
+			if(s.toUpperCase().startsWith("POOFOUT="))
+				poofin=s.substring(8);
 			else
 			if((s.startsWith("+")||(s.startsWith("-")))&&(s.length()>1))
 			{
@@ -183,11 +193,22 @@ public class RandomTeleporter extends ActiveTicker
 				}
 			}
 			final Room oldRoom=mob.location();
-			CMLib.tracking().wanderAway(mob,true,false);
+			CMLib.tracking().wanderAway(mob,false,false);
 			if(R!=null)
+			{
+				if(poofout != null)
+					oldRoom.show(mob, null, CMMsg.MSG_OK_VISUAL, poofout);
 				R.bringMobHere(mob,true);
+			}
 			if(mob.location()==oldRoom)
 				tickDown=0;
+			else
+			if((mob.location()==R)
+			&&(R!=null))
+			{
+				if(poofin != null)
+					R.show(mob, null, CMMsg.MSG_OK_VISUAL, poofin);
+			}
 		}
 		return true;
 	}

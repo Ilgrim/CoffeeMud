@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -100,6 +100,7 @@ public class Grazing extends StdAbility
 	}
 
 	protected volatile boolean	isGrazing	= false;
+	protected volatile Race		grazeRace	= null;
 	protected volatile int		tickCount	= 0;
 	protected volatile int		cuds		= 0;
 
@@ -114,8 +115,12 @@ public class Grazing extends StdAbility
 				return super.tick(ticking, tickID);
 			if(isGrazing)
 			{
+				if(grazeRace == null)
+					grazeRace = mob.charStats().getMyRace();
+
 				if((R.domainType()!=Room.DOMAIN_OUTDOORS_PLAINS)
 				||(mob.isInCombat())
+				||(mob.charStats().getMyRace() != grazeRace)
 				||(!CMLib.flags().isAliveAwakeMobileUnbound(mob,true))
 				||(isBusy(mob)))
 				{
@@ -202,6 +207,12 @@ public class Grazing extends StdAbility
 		if((A!=null)&&(A.cuds >= getMaxCuds(mob)))
 		{
 			mob.tell(L("You are too full to graze."));
+			return false;
+		}
+		if((A!=null)&&(A.isGrazing))
+		{
+			mob.tell(L("You stop grazing."));
+			A.isGrazing=false;
 			return false;
 		}
 

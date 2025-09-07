@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -104,10 +104,10 @@ public class Chant_WaterHammer extends Chant
 					}
 				}
 			}
-			if((R.getArea() instanceof BoardableShip)
+			if((R.getArea() instanceof Boardable)
 			&&((R.domainType()&Room.INDOORS)==0))
 			{
-				final Item I=((BoardableShip)R.getArea()).getShipItem();
+				final Item I=((Boardable)R.getArea()).getBoardableItem();
 				if(I.owner() instanceof Room)
 				{
 					final Room outerR=((Room)I.owner());
@@ -163,7 +163,9 @@ public class Chant_WaterHammer extends Chant
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L((auto?"A compressed wave from @x1 flies at <T-NAME>!":"^S<S-NAME> chant(s), gather(s) @x1 to <S-HIM-HERSELF> and hurl(s) it towards <T-NAMESELF>!^?"),waterName));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					auto?L("A compressed wave from @x1 flies at <T-NAME>!",waterName):
+					L("^S<S-NAME> chant(s), gather(s) @x1 to <S-HIM-HERSELF> and hurl(s) it towards <T-NAMESELF>!^?",waterName));
 			final CMMsg msg2=CMClass.getMsg(mob,target,this,verbalCastMask(mob,target,auto)|CMMsg.TYP_WATER,null);
 			if((mob.location().okMessage(mob,msg))&&((mob.location().okMessage(mob,msg2))))
 			{

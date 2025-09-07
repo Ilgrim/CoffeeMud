@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class Spell_StoreSpell extends Spell
+public class Spell_StoreSpell extends Spell implements AbilityContainer
 {
 
 	@Override
@@ -42,10 +42,12 @@ public class Spell_StoreSpell extends Spell
 		return "Spell_StoreSpell";
 	}
 
+	private final static String localizedName = CMLib.lang().L("Store Spell");
+
 	@Override
 	public String Name()
 	{
-		return "Store Spell";
+		return localizedName;
 	}
 
 	@Override
@@ -53,19 +55,8 @@ public class Spell_StoreSpell extends Spell
 	{
 		if((affected!=null)&&(CMLib.flags().isInTheGame(affected,true)))
 		{
-			if(spellName.length()==0)
-			{
-				spellName="unknown";
-				final int x=text().indexOf('/');
-				Ability A=null;
-				if(x>0)
-				{
-					A=CMClass.getAbility(text().substring(0,x));
-					if(A!=null)
-						spellName=A.name();
-				}
-			}
-			return "Store Spell: "+spellName;
+			final String spellName=geSpellName();
+			return Name()+": "+spellName;
 		}
 		return Name();
 	}
@@ -97,6 +88,52 @@ public class Spell_StoreSpell extends Spell
 	public String	spellName		= "";
 	protected int	overridemana	= -1;
 
+	protected String geSpellName()
+	{
+		if(spellName.length()==0)
+		{
+			spellName="unknown";
+			final String spellID=getSpellID();
+			if(spellID.length()>0)
+			{
+				final Ability A=CMClass.getAbility(getSpellID());
+				if(A!=null)
+					spellName=A.name();
+			}
+		}
+		return spellName;
+	}
+
+	protected String getSpellID()
+	{
+		final int x=text().indexOf('/');
+		if(x>0)
+			return text().substring(0,x);
+		return "";
+	}
+
+	protected int getCharges()
+	{
+		String argText=text();
+		int x=argText.indexOf('/');
+		if(x>0)
+		{
+			argText=argText.substring(x+1);
+			x=argText.indexOf('/');
+			if(x>0)
+				return CMath.s_int(argText.substring(0,x));
+			else
+				return CMath.s_int(argText);
+		}
+		return 0;
+	}
+
+	protected void setCharges(final int newCharges)
+	{
+		final String abilityID=getSpellID();
+		setMiscText(abilityID+"/"+newCharges);
+	}
+
 	public String getSpeakableName(String name)
 	{
 		name=CMStrings.removeColors(name.toUpperCase());
@@ -121,7 +158,7 @@ public class Spell_StoreSpell extends Spell
 			if((mob.location()!=null))
 				target=afftarget;
 			final String name=getSpeakableName(me.name());
-			int x=message.toUpperCase().indexOf(name);
+			final int x=message.toUpperCase().indexOf(name);
 			if(x>=0)
 			{
 				message=message.substring(x+name.length());
@@ -129,14 +166,8 @@ public class Spell_StoreSpell extends Spell
 				if(y>=0)
 					message=message.substring(0,y);
 				message=message.trim();
-				x=text().indexOf('/');
-				int charges=0;
-				Ability A=null;
-				if(x>0)
-				{
-					charges=CMath.s_int(text().substring(x+1));
-					A=CMClass.getAbility(text().substring(0,x));
-				}
+				final int charges=getCharges();
+				Ability A=fetchAbility(0);
 				if(A==null)
 					mob.tell(L("Something seems wrong with @x1.",me.name()));
 				else
@@ -147,14 +178,14 @@ public class Spell_StoreSpell extends Spell
 				}
 				else
 				{
-					setMiscText(A.ID()+"/"+(charges-1));
+					setCharges(charges-1);
 					A=(Ability)A.newInstance();
 					final Vector<String> V=new Vector<String>();
 					if(target!=null)
 						V.addElement(target.name());
 					V.addElement(message);
 					mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("@x1 glows brightly.",me.name()));
-					A.invoke(mob, V, target, true,0);
+					A.invoke(mob, V, target, true, me.phyStats().level());
 				}
 			}
 		}
@@ -173,7 +204,7 @@ public class Spell_StoreSpell extends Spell
 			break;
 		case CMMsg.TYP_SPEAK:
 			if((msg.sourceMinor()==CMMsg.TYP_SPEAK)
-			&&(msg.targetMessage()!=null)
+			&&(msg.sourceMessage()!=null)
 			&&(affected != null))
 			{
 				boolean alreadyWanding=false;
@@ -189,10 +220,13 @@ public class Spell_StoreSpell extends Spell
 				if(!alreadyWanding)
 				{
 					final String name=getSpeakableName(affected.name());
-					final int x=msg.targetMessage().toUpperCase().indexOf(name);
+					final int x=msg.sourceMessage().toUpperCase().indexOf(name);
 					if(x>=0)
 					{
-						msg.addTrailerMsg(CMClass.getMsg(msg.source(),affected,msg.target(),CMMsg.NO_EFFECT,null,CMMsg.MASK_ALWAYS|CMMsg.TYP_WAND_USE,CMStrings.getSayFromMessage(msg.sourceMessage()),CMMsg.NO_EFFECT,null));
+						msg.addTrailerMsg(CMClass.getMsg(msg.source(),affected,msg.target(),
+								CMMsg.NO_EFFECT,null,
+								CMMsg.MASK_ALWAYS|CMMsg.TYP_WAND_USE,CMStrings.getSayFromMessage(msg.sourceMessage()),
+								CMMsg.NO_EFFECT,null));
 					}
 				}
 			}
@@ -201,6 +235,99 @@ public class Spell_StoreSpell extends Spell
 			break;
 		}
 		super.executeMsg(myHost,msg);
+	}
+
+	@Override
+	public void addAbility(final Ability to)
+	{
+		if(to != null)
+			setMiscText(to.ID()+"/"+getCharges());
+	}
+
+	@Override
+	public void delAbility(final Ability to)
+	{
+		final Ability hasA=fetchAbility(0);
+		if((hasA!=null)&&(to!=null)&&(hasA.ID().equals(to.ID())))
+		{
+			final Physical affected=this.affected;
+			if(affected != null)
+			{
+				unInvoke();
+				affected.delEffect(this);
+			}
+		}
+	}
+
+	@Override
+	public int numAbilities()
+	{
+		if(fetchAbility(0)!=null)
+			return 1;
+		return 0;
+	}
+
+	@Override
+	public Ability fetchAbility(final int index)
+	{
+		if(index != 0)
+			return null;
+		final String name=getSpellID();
+		if((name==null)||(name.length()==0))
+			return null;
+		final Ability A=CMClass.getAbility(name);
+		if(A==null)
+			return null;
+		return A;
+	}
+
+	@Override
+	public Ability fetchAbility(final String ID)
+	{
+		final Ability A=fetchAbility(0);
+		if(A==null)
+			return null;
+		if(A.ID().equalsIgnoreCase(ID))
+			return A;
+		return null;
+	}
+
+	@Override
+	public Ability fetchRandomAbility()
+	{
+		final Ability A=fetchAbility(0);
+		if(A==null)
+			return null;
+		return A;
+	}
+
+	@Override
+	public Enumeration<Ability> abilities()
+	{
+		final Ability A=fetchAbility(0);
+		if(A==null)
+			return new XVector<Ability>().elements();
+		return new XVector<Ability>(A).elements();
+	}
+
+	@Override
+	public void delAllAbilities()
+	{
+		delAbility(fetchAbility(0));
+	}
+
+	@Override
+	public int numAllAbilities()
+	{
+		if(fetchAbility(0)!=null)
+			return 1;
+		return 0;
+	}
+
+	@Override
+	public Enumeration<Ability> allAbilities()
+	{
+		return abilities();
 	}
 
 	@Override
@@ -228,31 +355,30 @@ public class Spell_StoreSpell extends Spell
 		commands.remove(commands.size()-1);
 
 		final String spellName=CMParms.combine(commands,0).trim();
-		Spell wandThis=null;
+		Ability storeSpellA=null;
 		for(final Enumeration<Ability> a=mob.allAbilities();a.hasMoreElements();)
 		{
 			final Ability A=a.nextElement();
 			if((A!=null)
-			&&(A instanceof Spell)
+			&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SPELL)
 			&&((!A.isSavable())||(CMLib.ableMapper().qualifiesByLevel(mob,A)))
 			&&(A.name().toUpperCase().startsWith(spellName.toUpperCase()))
 			&&(!A.ID().equals(this.ID())))
-				wandThis=(Spell)A;
+				storeSpellA=A;
 		}
-		if(wandThis==null)
+		if(storeSpellA==null)
 		{
 			mob.tell(L("You don't know how to enchant anything with '@x1'.",spellName));
 			return false;
 		}
-		if((CMLib.ableMapper().lowestQualifyingLevel(wandThis.ID())>24)
-		||(((StdAbility)wandThis).usageCost(null,true)[0]>45)
-		||(CMath.bset(wandThis.flags(), Ability.FLAG_CLANMAGIC)))
+
+		if(!storeSpellA.mayBeEnchanted())
 		{
 			mob.tell(L("That spell is too powerful to store."));
 			return false;
 		}
 		Ability A=item.fetchEffect(ID());
-		if((A!=null)&&(A.text().length()>0)&&(!A.text().startsWith(wandThis.ID()+"/")))
+		if((A!=null)&&(A.text().length()>0)&&(!A.text().startsWith(storeSpellA.ID()+"/")))
 		{
 			mob.tell(L("'@x1' already has a different spell stored in it.",item.name()));
 			return false;
@@ -261,14 +387,14 @@ public class Spell_StoreSpell extends Spell
 		if(A==null)
 		{
 			A=(Ability)copyOf();
-			A.setMiscText(wandThis.ID()+"/0");
+			A.setMiscText(storeSpellA.ID()+"/0");
 		}
 		int charges=0;
 		final int x=A.text().indexOf('/');
 		if(x>=0)
 			charges=CMath.s_int(A.text().substring(x+1));
 		overridemana=-1;
-		int mana=usageCost(mob,true)[0]+wandThis.usageCost(mob,true)[0];
+		int mana=usageCost(mob,true)[0]+storeSpellA.usageCost(mob,true)[0];
 		if(mana>mob.maxState().getMana())
 			mana=mob.maxState().getMana();
 		overridemana=mana;
@@ -282,7 +408,7 @@ public class Spell_StoreSpell extends Spell
 
 		if(success)
 		{
-			setMiscText(wandThis.ID());
+			setMiscText(storeSpellA.ID());
 			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L("^S<S-NAME> move(s) <S-HIS-HER> fingers around <T-NAMESELF>, incanting softly.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
@@ -292,7 +418,7 @@ public class Spell_StoreSpell extends Spell
 					A.setInvoker(mob);
 					target.addNonUninvokableEffect(A);
 				}
-				A.setMiscText(wandThis.ID()+"/"+(charges+1));
+				A.setMiscText(storeSpellA.ID()+"/"+(charges+1));
 				mob.location().show(mob,target,null,CMMsg.MSG_OK_VISUAL,L("<T-NAME> glow(s) softly."));
 			}
 

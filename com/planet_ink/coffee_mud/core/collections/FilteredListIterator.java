@@ -4,7 +4,7 @@ import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.Vector;
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -18,6 +18,11 @@ import java.util.Vector;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+/**
+ * An iterator that filters its elements through a Filterer.
+ *
+ * @param <K> the type of object being filtered
+ */
 public class FilteredListIterator<K> implements ListIterator<K>
 {
 	private final ListIterator<K>  iter;
@@ -25,18 +30,50 @@ public class FilteredListIterator<K> implements ListIterator<K>
 	private K 				nextElement = null;
 	private K 				prevElement = null;
 	private boolean 		initialized = false;
+	private final boolean	delete;
 
+	/**
+	 * Construct a new filtered iterator
+	 *
+	 * @param eset the iterator to wrap
+	 * @param fil the filterer to use
+	 * @param delete true to cause filtered-out elements to be removed from the
+	 *            underlying iterator
+	 */
+	public FilteredListIterator(final ListIterator<K> eset, final Filterer<K> fil, final boolean delete)
+	{
+		iter=eset;
+		filterer=fil;
+		this.delete=delete;
+	}
+
+	/**
+	 * Construct a new filtered iterator
+	 *
+	 * @param eset the iterator to wrap
+	 * @param fil the filterer to use
+	 */
 	public FilteredListIterator(final ListIterator<K> eset, final Filterer<K> fil)
 	{
 		iter=eset;
 		filterer=fil;
+		delete = false;
 	}
 
+	/**
+	 * Set the filterer to be used
+	 *
+	 * @param fil the new filterer
+	 */
 	public void setFilterer(final Filterer<K> fil)
 	{
 		filterer=fil;
 	}
 
+	/**
+	 * Stages the next element that passes the filterer, or null if there is
+	 * none.
+	 */
 	private void stageNextElement()
 	{
 		prevElement=nextElement;
@@ -46,10 +83,16 @@ public class FilteredListIterator<K> implements ListIterator<K>
 			nextElement = iter.next();
 			if(filterer.passesFilter(nextElement))
 				return;
+			if(delete)
+				iter.remove();
 			nextElement = null;
 		}
 	}
 
+	/**
+	 * Stages the previous element that passes the filterer, or null if there is
+	 * none.
+	 */
 	private void stagePrevElement()
 	{
 		nextElement=prevElement;
@@ -59,10 +102,15 @@ public class FilteredListIterator<K> implements ListIterator<K>
 			prevElement = iter.previous();
 			if(filterer.passesFilter(prevElement))
 				return;
+			if(delete)
+				iter.remove();
 			prevElement = null;
 		}
 	}
 
+	/**
+	 * Initializes the iterator by staging the first element
+	 */
 	private void initialize()
 	{
 		if(!initialized)
@@ -91,12 +139,25 @@ public class FilteredListIterator<K> implements ListIterator<K>
 		return element;
 	}
 
+	/**
+	 * Not supported, as the result of next() is not the last thing returned by
+	 * the underlying iterator
+	 */
 	@Override
 	public void remove()
 	{
+		/*
+		 * can't remove because next() is the result of a look-ahead.
+		 * by the time next() is called, iter has already next()ed
+		 * again, meaning that iter.remove() would remove the
+		 * wrong thing
+		*/
 		throw new java.lang.IllegalArgumentException();
 	}
 
+	/**
+	 * Not supported, as this iterator is read-only
+	 */
 	@Override
 	public void add(final K e)
 	{
@@ -127,12 +188,20 @@ public class FilteredListIterator<K> implements ListIterator<K>
 		return element;
 	}
 
+	/**
+	 * Not supported, as the result of previous() is not the last thing returned
+	 * by the underlying iterator
+	 */
 	@Override
 	public int previousIndex()
 	{
 		throw new java.lang.IllegalArgumentException();
 	}
 
+	/**
+	 * Not supported, as the result of next() is not the last thing returned by
+	 * the underlying iterator
+	 */
 	@Override
 	public void set(final K e)
 	{

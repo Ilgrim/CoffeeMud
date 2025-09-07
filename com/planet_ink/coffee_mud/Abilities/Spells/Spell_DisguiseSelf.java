@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -167,11 +167,11 @@ public class Spell_DisguiseSelf extends Spell
 
 		final String whomName=CMParms.combine(commands);
 
-		MOB targetM = CMLib.map().findFirstInhabitant(new XVector<Room>(mob.location()).elements(), mob, whomName, 5);
+		MOB targetM = CMLib.hunt().findFirstInhabitant(new XVector<Room>(mob.location()).elements(), mob, whomName, 5);
 		if(targetM == null)
-			targetM=CMLib.map().findFirstInhabitant(mob.location().getArea().getCompleteMap(), mob, whomName, 5);
+			targetM=CMLib.hunt().findFirstInhabitant(mob.location().getArea().getCompleteMap(), mob, whomName, 5);
 		if(targetM == null)
-			targetM=CMLib.map().findFirstInhabitant(CMLib.map().rooms(), mob, whomName, 5);
+			targetM=CMLib.hunt().findFirstInhabitant(CMLib.map().rooms(), mob, whomName, 5);
 		if(targetM == null)
 		{
 			mob.tell(L("You can't seem to picture '@x1' in your mind.  Perhaps if you saw them again?",whomName));
@@ -196,7 +196,8 @@ public class Spell_DisguiseSelf extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L(auto?"<T-NAME> gain(s) a disguise!":"^S<S-NAME> casts a spell on <T-NAMESELF>, causing <T-HIS-HER> appearance to change.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					L(auto?"<T-NAME> gain(s) a disguise!":"^S<S-NAME> casts a spell on <T-NAMESELF>, causing <T-HIS-HER> appearance to change.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

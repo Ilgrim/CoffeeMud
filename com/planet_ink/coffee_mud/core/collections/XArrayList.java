@@ -4,7 +4,7 @@ import java.io.Serializable;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ public class XArrayList<T> extends ArrayList<T>
 {
 	private static final long	serialVersionUID	= 6687178785122563992L;
 
-	public XArrayList(final List<? extends T> V)
+	public XArrayList(final Collection<? extends T> V)
 	{
 		super((V==null)?0:V.size());
 		if (V != null)

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -77,6 +77,11 @@ public class Prop_WearSpellCast extends Prop_HaveSpellCast
 		}
 		final boolean oldDisabled=disabled;
 		if(!A.amBeingWornProperly())
+		{
+			checked=false;
+			return;
+		}
+		if((A instanceof Light)&&(!((Light)A).isLit()))
 		{
 			checked=false;
 			return;
@@ -157,7 +162,8 @@ public class Prop_WearSpellCast extends Prop_HaveSpellCast
 				myItem=(Item)host;
 
 				final boolean worn=(!myItem.amWearingAt(Wearable.IN_INVENTORY))
-				&&((!myItem.amWearingAt(Wearable.WORN_FLOATING_NEARBY))||(myItem.fitsOn(Wearable.WORN_FLOATING_NEARBY)));
+								&&((!myItem.amWearingAt(Wearable.WORN_FLOATING_NEARBY))
+									||(myItem.fitsOn(Wearable.WORN_FLOATING_NEARBY)));
 
 				if((lastMOB instanceof MOB)
 				&&(((MOB)lastMOB).location()!=null)

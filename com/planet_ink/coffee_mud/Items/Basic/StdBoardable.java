@@ -25,7 +25,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class StdBoardable extends StdPortal implements PrivateProperty, BoardableShip
+public class StdBoardable extends StdPortal implements PrivateProperty, Boardable
 {
 	@Override
 	public String ID()
@@ -53,6 +53,12 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 	protected int		internalPrice	= 0;
 	protected Area 		area			= null;
 	protected String	homePortID		= "";
+
+	protected static String	DEFAULT_NOUN_STRING = CMLib.lang().L("base");
+	protected static String	DEFAULT_HEAD_OFFTHEDECK_STRING = CMLib.lang().L("^HOutside, you see: ^N");
+
+	protected String	noun_word		= DEFAULT_NOUN_STRING;
+	protected String	head_offTheDeck = DEFAULT_HEAD_OFFTHEDECK_STRING;
 
 	public StdBoardable()
 	{
@@ -74,10 +80,10 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 	@Override
 	public CMObject newInstance()
 	{
-		final StdBoardable ship = (StdBoardable)super.newInstance();
-		ship.area=null;
-		ship.getShipArea();
-		return ship;
+		final StdBoardable obj = (StdBoardable)super.newInstance();
+		obj.area=null;
+		obj.getArea();
+		return obj;
 	}
 
 	@Override
@@ -87,7 +93,7 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 	}
 
 	@Override
-	public Item getShipItem()
+	public Item getBoardableItem()
 	{
 		return this;
 	}
@@ -95,6 +101,12 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 	protected String getAreaClassType()
 	{
 		return "StdBoardableShip";
+	}
+
+	@Override
+	protected boolean abilityImbuesMagic()
+	{
+		return false;
 	}
 
 	protected Room createFirstRoom()
@@ -107,12 +119,12 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 	@Override
 	public void setDockableItem(final Item dockableItem)
 	{
-		if(area instanceof BoardableShip)
-			((BoardableShip)area).setDockableItem(dockableItem);
+		if(area instanceof Boardable)
+			((Boardable)area).setDockableItem(dockableItem);
 	}
 
 	@Override
-	public Area getShipArea()
+	public Area getArea()
 	{
 		if(destroyed)
 			return null;
@@ -130,14 +142,14 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 			R.setRoomID(area.Name()+"#0");
 			R.setSavable(false);
 			area.addProperRoom(R);
-			((BoardableShip)area).setDockableItem(this);
+			((Boardable)area).setDockableItem(this);
 			readableText=R.roomID();
 		}
 		return area;
 	}
 
 	@Override
-	public void setShipArea(final String xml)
+	public void setArea(final String xml)
 	{
 		try
 		{
@@ -150,10 +162,10 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 				area.destroy();
 			}
 			area=CMLib.coffeeMaker().unpackAreaObjectFromXML(xml);
-			if(area instanceof BoardableShip)
+			if(area instanceof Boardable)
 			{
 				area.setSavable(false);
-				((BoardableShip)area).setDockableItem(this);
+				((Boardable)area).setDockableItem(this);
 				for(final Enumeration<Room> r=area.getCompleteMap();r.hasMoreElements();)
 				{
 					final Room R=r.nextElement();
@@ -171,8 +183,8 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 			}
 			else
 			{
-				Log.warnOut("Failed to unpack a boardable area for the space ship");
-				getShipArea();
+				Log.warnOut("Failed to unpack a boardable area");
+				getArea();
 			}
 			if(resetState!=null)
 				area.setAreaState(resetState);
@@ -195,8 +207,8 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 		}
 		if(this.homePortID.length()==0)
 			this.homePortID=CMLib.map().getExtendedRoomID(R);
-		if (area instanceof BoardableShip)
-			((BoardableShip)area).dockHere(R);
+		if (area instanceof Boardable)
+			((Boardable)area).dockHere(R);
 	}
 
 	@Override
@@ -208,16 +220,16 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 			R.delItem(this);
 			setOwner(null);
 		}
-		if (area instanceof BoardableShip)
-			return ((BoardableShip)area).unDock(moveToOutside);
+		if (area instanceof Boardable)
+			return ((Boardable)area).unDock(moveToOutside);
 		return null;
 	}
 
 	@Override
 	public Room getIsDocked()
 	{
-		if (area instanceof BoardableShip)
-			return ((BoardableShip)area).getIsDocked();
+		if (area instanceof Boardable)
+			return ((Boardable)area).getIsDocked();
 		if(owner() instanceof Room)
 			return ((Room)owner());
 		return null;
@@ -277,14 +289,14 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this,false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 	}
 
 	@Override
 	public void setMiscText(final String newText)
 	{
 		miscText="";
-		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this,newText,false);
 		recoverPhyStats();
 	}
 
@@ -295,11 +307,11 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 		s.destroyed=false;
 		s.area=null; // otherwise it gets a copy of the rooms and mobs, which will be destroyed
 		s.setOwnerName("");
-		final String xml=CMLib.coffeeMaker().getAreaObjectXML(getShipArea(), null, null, null, true).toString();
-		s.setShipArea(xml);
-		s.setReadableText(readableText()); // in case this was first call to getShipArea()
+		final String xml=CMLib.coffeeMaker().getAreaObjectXML(getArea(), null, null, null, true).toString();
+		s.setArea(xml);
+		s.setReadableText(readableText()); // in case this was first call to getArea()
 		/* Should we rename?
-		final Area A=s.getShipArea();
+		final Area A=s.getArea();
 		final String num=Double.toString(Math.random());
 		final int x=num.indexOf('.')+1;
 		final int len=((num.length()-x)/2)+1;
@@ -313,8 +325,8 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 		}
 		s.renameDestinationRooms(oldName,A.Name());
 		*/
-		//TODO: when you buy a ship, none of its electronics is registered.  This is bad.
-		//CMLib.tech().unregisterAllElectronics(CMLib.tech().getElectronicsKey(s.getShipArea()));
+		//TODO: when you buy a boardable, none of its electronics is registered.  This is bad.
+		//CMLib.tech().unregisterAllElectronics(CMLib.tech().getElectronicsKey(s.getArea()));
 		return s;
 	}
 
@@ -323,7 +335,7 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 	{
 		if(area!=null)
 		{
-			CMLib.threads().deleteAllTicks(area);
+			CMLib.threads().unTickAll(area);
 			final String key=CMLib.tech().getElectronicsKey(area);
 			CMLib.tech().unregisterAllElectronics(key);
 		}
@@ -334,17 +346,17 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 	@Override
 	protected Room getDestinationRoom(final Room fromRoom)
 	{
-		getShipArea();
+		getArea();
 		Room R=null;
 		final List<String> V=CMParms.parseSemicolons(readableText(),true);
-		if((V.size()>0)&&(getShipArea()!=null))
-			R=getShipArea().getRoom(V.get(CMLib.dice().roll(1,V.size(),-1)));
+		if((V.size()>0)&&(getArea()!=null))
+			R=getArea().getRoom(V.get(CMLib.dice().roll(1,V.size(),-1)));
 		return R;
 	}
 
 	protected void renameDestinationRooms(String from, final String to)
 	{
-		getShipArea();
+		getArea();
 		final List<String> V=CMParms.parseSemicolons(readableText().toUpperCase(),true);
 		final List<String> nV=new ArrayList<String>();
 		from=from.toUpperCase();
@@ -352,26 +364,29 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 		{
 			if(s.startsWith(from))
 				s=to+s.substring(from.length());
-			if(getShipArea().getRoom(s)!=null)
+			if(getArea().getRoom(s)!=null)
 				nV.add(s);
 		}
-		if((nV.size()==0)&&(getShipArea().getProperMap().hasMoreElements()))
-			nV.add(getShipArea().getProperMap().nextElement().roomID());
+		if((nV.size()==0)&&(getArea().getProperMap().hasMoreElements()))
+			nV.add(getArea().getProperMap().nextElement().roomID());
 		setReadableText(CMParms.toSemicolonListString(nV));
 	}
 
 	@Override
 	public void destroy()
 	{
-		final CMObject propOwner=getOwnerObject();
-		if(propOwner != null)
+		final String ownerName=getOwnerName();
+		if((ownerName!=null) && (ownerName.length()>0))
 		{
-			if((propOwner instanceof MOB)
-			&&(((MOB)propOwner).playerStats()!=null))
-				((MOB)propOwner).playerStats().getExtItems().delItem(this);
+			final Clan clan = CMLib.clans().fetchClanAnyHost(ownerName);
+			if(clan != null)
+				clan.getExtItems().delItem(this);
 			else
-			if(propOwner instanceof Clan)
-				((Clan)propOwner).getExtItems().delItem(this);
+			{
+				final MOB mob=CMLib.players().getLoadPlayerAllHosts(ownerName);
+				if((mob != null) && (mob.playerStats()!=null))
+					mob.playerStats().getExtItems().delItem(this);
+			}
 		}
 		if(area!=null)
 		{
@@ -400,7 +415,7 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 		int value = baseGoldValue();
 		if(price > 0)
 			value += price;
-		getShipArea();
+		getArea();
 		return value + internalPrice;
 	}
 
@@ -432,15 +447,15 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 	}
 
 	@Override
-	public CMObject getOwnerObject()
+	public boolean isProperlyOwned()
 	{
 		final String owner=getOwnerName();
 		if(owner.length()==0)
-			return null;
-		final Clan C=CMLib.clans().getClanExact(owner);
+			return false;
+		final Clan C=CMLib.clans().fetchClanAnyHost(owner);
 		if(C!=null)
-			return C;
-		return CMLib.players().getLoadPlayer(owner);
+			return true;
+		return CMLib.players().playerExistsAllHosts(owner);
 	}
 
 	@Override
@@ -450,27 +465,34 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 	}
 
 	@Override
-	public void renameShip(final String newName)
+	public void rename(final String newName)
 	{
-		final Area area=getShipArea();
-		if(area instanceof BoardableShip)
+		final Area area=getArea();
+		if(area instanceof Boardable)
 		{
 			final String oldName=area.Name();
-			((BoardableShip)area).renameShip(newName);
+			((Boardable)area).rename(newName);
 			renameDestinationRooms(oldName,area.Name());
-			setShipArea(CMLib.coffeeMaker().getAreaObjectXML(area, null, null, null, true).toString());
+			setArea(CMLib.coffeeMaker().getAreaObjectXML(area, null, null, null, true).toString());
 		}
-		for(final String word : new String[]{"NAME","NEWNAME","SHIPNAME","SHIP","name","newname","shipname","ship"})
+		boolean wouldRecurse=false;
+		for(final String word : Boardable.NAME_REPL_STRINGS)
+			for(final String rubs : Boardable.NAME_REPL_MARKERS)
+				wouldRecurse=wouldRecurse || newName.indexOf(rubs.charAt(0)+word+rubs.charAt(1))>=0;
+		if(!wouldRecurse)
 		{
-			for(final String rubs : new String[]{"<>","[]","{}","()"})
+			for(final String word : Boardable.NAME_REPL_STRINGS)
 			{
-				if(Name().indexOf(rubs.charAt(0)+word+rubs.charAt(1))>=0)
-					setName(CMStrings.replaceAll(Name(), rubs.charAt(0)+word+rubs.charAt(1), newName));
-			}
-			for(final String rubs : new String[]{"<>","[]","{}","()"})
-			{
-				if(displayText().indexOf(rubs.charAt(0)+word+rubs.charAt(1))>=0)
-					setDisplayText(CMStrings.replaceAll(displayText(), rubs.charAt(0)+word+rubs.charAt(1), newName));
+				for(final String rubs : Boardable.NAME_REPL_MARKERS)
+				{
+					if(Name().indexOf(rubs.charAt(0)+word+rubs.charAt(1))>=0)
+						setName(CMStrings.replaceAll(Name(), rubs.charAt(0)+word+rubs.charAt(1), newName));
+				}
+				for(final String rubs : Boardable.NAME_REPL_MARKERS)
+				{
+					if(displayText().indexOf(rubs.charAt(0)+word+rubs.charAt(1))>=0)
+						setDisplayText(CMStrings.replaceAll(displayText(), rubs.charAt(0)+word+rubs.charAt(1), newName));
+				}
 			}
 		}
 	}
@@ -482,17 +504,30 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 		{
 			if(amDestroyed())
 				return false;
-
+			/* this is necessary, but why wasn't it there before?
+			if(numEffects()>0)
+			{
+				eachEffect(new EachApplicable<Ability>()
+				{
+					@Override
+					public final void apply(final Ability A)
+					{
+						if(!A.tick(ticking,tickID))
+							A.unInvoke();
+					}
+				});
+			}
+			*/
 			return true;
 		}
 		return super.tick(ticking, tickID);
 	}
 
-	protected synchronized void destroyThisShip()
+	protected synchronized void destroyThisBoardable()
 	{
 		if((this.getOwnerName().length()>0)&&(!this.getOwnerName().startsWith("#")))
 		{
-			final Clan clan = CMLib.clans().getClanExact(this.getOwnerName());
+			final Clan clan = CMLib.clans().fetchClanAnyHost(this.getOwnerName());
 			if(clan != null)
 				clan.getExtItems().delItem(this);
 			else
@@ -505,7 +540,7 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 			}
 		}
 		final CMMsg expireMsg=CMClass.getMsg(CMLib.map().deity(), this, CMMsg.MASK_ALWAYS|CMMsg.MSG_EXPIRE, L("<T-NAME> is destroyed!"));
-		final Area A = getShipArea();
+		final Area A = getArea();
 		if(A!=null)
 		{
 			final LinkedList<Room> propRooms = new LinkedList<Room>();
@@ -539,10 +574,10 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 	protected boolean okAreaMessage(final CMMsg msg, final boolean outdoorOnly)
 	{
 		boolean failed = false;
-		final Area ship=getShipArea();
-		if(ship!=null)
+		final Area boardedArea=getArea();
+		if(boardedArea!=null)
 		{
-			for(final Enumeration<Room> r = ship.getProperMap(); r.hasMoreElements();)
+			for(final Enumeration<Room> r = boardedArea.getProperMap(); r.hasMoreElements();)
 			{
 				final Room R=r.nextElement();
 				if((!outdoorOnly)||((R.domainType()&Room.INDOORS)==0))
@@ -556,7 +591,8 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 		return failed;
 	}
 
-	protected boolean securityCheck(final MOB mob)
+	@Override
+	public boolean securityCheck(final MOB mob)
 	{
 		if(mob==null)
 			return false;
@@ -564,10 +600,102 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 			return true;
 		if(getOwnerName().length()==0)
 			return true;
-		return CMLib.law().doesOwnThisProperty(mob, this);
+		if(CMLib.law().doesOwnThisProperty(mob, this))
+			return true;
+		final Item I=mob.fetchFirstWornItem(Wearable.WORN_HEAD);
+		if((I instanceof ClanItem)
+		&&(((ClanItem)I).getClanItemType()==ClanItem.ClanItemType.SAILORSCAP)
+		&&(getOwnerName().length()>0)
+		&&(getOwnerName().equalsIgnoreCase(((ClanItem)I).clanID())))
+			return true;
+		return false;
 	}
 
-	protected void announceToShip(final String msgStr)
+	protected void announceToOuterViewers(final String msgStr)
+	{
+		final CMMsg msg=CMClass.getMsg(null, CMMsg.MSG_OK_ACTION, msgStr);
+		announceToOuterViewers(msg);
+	}
+
+	protected boolean canViewOuterRoom(final Room R)
+	{
+		return ((R!=null) && ((R.domainType()&Room.INDOORS)==0));
+	}
+
+	protected void announceToOuterViewers(final CMMsg msg)
+	{
+		MOB mob = null;
+		final MOB msgSrc = msg.source();
+		try
+		{
+			final Area A=this.getArea();
+			if(A!=null)
+			{
+				Room mobR = null;
+				for(final Enumeration<Room> r=A.getProperMap();r.hasMoreElements();)
+				{
+					final Room R=r.nextElement();
+					if(canViewOuterRoom(R))
+					{
+						mobR=R;
+						break;
+					}
+				}
+				if(mobR!=null)
+				{
+					mob = CMClass.getFactoryMOB(name(),phyStats().level(),mobR);
+					msg.setSource(mob);
+					final Boolean oldValue = Boolean.valueOf(msg.suspendResumeTrailers(null));
+					try
+					{
+						msg.suspendResumeTrailers(Boolean.TRUE);
+						for(final Enumeration<Room> r=A.getProperMap();r.hasMoreElements();)
+						{
+							final Room R=r.nextElement();
+							if(canViewOuterRoom(R)
+							&& (R.okMessage(mob, msg)))
+							{
+								if(R == mobR)
+									R.send(mob, msg); // this lets the source know, i guess
+								else
+									R.sendOthers(mob, msg); // this lets the source know, i guess
+							}
+						}
+					}
+					finally
+					{
+						msg.suspendResumeTrailers(oldValue);
+					}
+				}
+			}
+		}
+		finally
+		{
+			msg.setSource(msgSrc);
+			if(mob != null)
+				mob.destroy();
+		}
+	}
+
+	protected void announceToOuterViewers(final MOB mob, final String msgStr)
+	{
+		final CMMsg msg=CMClass.getMsg(mob, CMMsg.MSG_OK_ACTION, msgStr);
+		sendAreaMessage(mob,msg, true);
+	}
+
+	protected void announceToOuterViewers(final MOB mob, final Environmental target, final Environmental tool, final String msgStr)
+	{
+		final CMMsg msg=CMClass.getMsg(mob, target, tool, CMMsg.MSG_OK_ACTION, msgStr);
+		sendAreaMessage(mob,msg, true);
+	}
+
+	protected void announceToNonOuterViewers(final MOB mob, final String msgStr)
+	{
+		final CMMsg msg=CMClass.getMsg(mob, CMMsg.MSG_OK_ACTION, msgStr);
+		sendAreaMessage(mob,msg, false);
+	}
+
+	protected void announceToAllAboard(final String msgStr)
 	{
 		final MOB mob = CMClass.getFactoryMOB(name(),phyStats().level(),CMLib.map().roomLocation(this));
 		try
@@ -576,7 +704,7 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 			final Room R=CMLib.map().roomLocation(this);
 			if((R!=null) && (R.okMessage(mob, msg2) && this.okAreaMessage(msg2, false)))
 			{
-				R.send(mob, msg2); // this lets the source know, i guess
+				//R.send(mob, msg2); // this lets the source know, i guess
 				this.sendAreaMessage(msg2, false); // this just sends to "others"
 			}
 		}
@@ -586,61 +714,103 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 		}
 	}
 
-	protected void sendAreaMessage(final CMMsg msg, final boolean outdoorOnly)
+	protected void sendAreaMessage(final MOB mob, final CMMsg msg, final boolean outerViewerStatus)
 	{
-		final Area ship=getShipArea();
-		if(ship!=null)
+		final Area A=this.getArea();
+		final Room mobR=CMLib.map().roomLocation(mob);
+		if(A!=null)
 		{
-			for(final Enumeration<Room> r = ship.getProperMap(); r.hasMoreElements();)
+			final Boolean oldValue = Boolean.valueOf(msg.suspendResumeTrailers(null));
+			try
 			{
-				final Room R=r.nextElement();
-				if(((!outdoorOnly)||((R.domainType()&Room.INDOORS)==0))
-				&&(R.roomID().length()>0))
-					R.sendOthers(msg.source(), msg);
+				msg.suspendResumeTrailers(Boolean.TRUE);
+				for(final Enumeration<Room> r=A.getProperMap();r.hasMoreElements();)
+				{
+					final Room R=r.nextElement();
+					if((R!=null) && (canViewOuterRoom(R)==outerViewerStatus) && (R.okMessage(mob, msg)))
+					{
+						if(R == mobR)
+							R.send(mob, msg); // this lets the source know, i guess
+						else
+							R.sendOthers(mob, msg); // this lets the source know, i guess
+					}
+				}
+			}
+			finally
+			{
+				msg.suspendResumeTrailers(oldValue);
 			}
 		}
 	}
 
-	protected boolean confirmAreaMessage(final CMMsg msg, final boolean outdoorOnly)
+	protected void sendAreaMessage(final CMMsg msg, final boolean outerViewersOnly)
 	{
-		final Area itemArea=CMLib.map().areaLocation(this.getShipItem());
-		final Area shipArea=getShipArea();
-		if(itemArea == shipArea)
+		final Area boardedArea=getArea();
+		if(boardedArea!=null)
 		{
+			// suspendResumeTrailers is disabled to have NO EFFECT, until I figure out why this is here
+			// it was preventing death from trailing damage.
+			//final Boolean oldValue = Boolean.valueOf(msg.suspendResumeTrailers(null));
+			try
+			{
+				//msg.suspendResumeTrailers(Boolean.TRUE);
+				for(final Enumeration<Room> r = boardedArea.getProperMap(); r.hasMoreElements();)
+				{
+					final Room R=r.nextElement();
+					if(((!outerViewersOnly)||canViewOuterRoom(R))
+					&&(R.roomID().length()>0))
+						R.sendOthers(msg.source(), msg);
+				}
+			}
+			finally
+			{
+				//msg.suspendResumeTrailers(oldValue);
+			}
+		}
+	}
+
+	protected boolean confirmAreaMessage(final CMMsg msg, final boolean outerViewersOnly)
+	{
+		final Area itemArea=CMLib.map().areaLocation(this.getBoardableItem());
+		final Area boardedArea=getArea();
+		if(itemArea == boardedArea)
+		{
+			if(itemArea == null)
+				return true;
 			final Room srcR=(msg!=null && msg.source() != null) ? msg.source().location() : null;
 			if((srcR!=null)
-			&&(srcR != shipArea))
+			&&(srcR != boardedArea))
 			{
-				if(srcR.isContent(this.getShipItem()))
+				if(srcR.isContent(this.getBoardableItem()))
 				{
-					Log.errOut("Ship "+name()+" is inside itself?! Fixing bad owner ref.");
-					getShipItem().setOwner(srcR);
+					Log.errOut("Boardable "+name()+" is inside itself?! Fixing bad owner ref.");
+					getBoardableItem().setOwner(srcR);
 				}
 				else
 				{
-					Log.errOut("Ship "+name()+" is inside itself?! Moving to message room...");
-					srcR.moveItemTo(this.getShipItem());
+					Log.errOut("Boardable "+name()+" is inside itself?! Moving to message room...");
+					srcR.moveItemTo(this.getBoardableItem());
 				}
 			}
 			else
 			if((this.getOwnerName().length()==0)||(this.getOwnerName().startsWith("#")))
 			{
-				Log.errOut("Ship "+name()+" is inside itself?! It's unowned, so destroying!");
-				this.destroyThisShip();
+				Log.errOut("Boardable "+name()+" is inside itself?! It's unowned, so destroying!");
+				this.destroyThisBoardable();
 			}
 			else
 			if(srcR != null)
 			{
-				Log.errOut("Ship "+name()+", owned by "+getOwnerName()+" is inside itself?! Not sure what to do.");
+				Log.errOut("Boardable "+name()+", owned by "+getOwnerName()+" is inside itself?! Not sure what to do.");
 				return false;
 			}
 		}
-		if(shipArea!=null)
+		if(boardedArea!=null)
 		{
-			for(final Enumeration<Room> r = shipArea.getProperMap(); r.hasMoreElements();)
+			for(final Enumeration<Room> r = boardedArea.getProperMap(); r.hasMoreElements();)
 			{
 				final Room R=r.nextElement();
-				if((!outdoorOnly)||((R.domainType()&Room.INDOORS)==0))
+				if((!outerViewersOnly)||canViewOuterRoom(R))
 				{
 					if((msg != null)
 					&& (!R.okMessage(msg.source(), msg)))
@@ -651,9 +821,71 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 		return true;
 	}
 
+	protected void cleanMsgForRepeat(final CMMsg msg)
+	{
+		msg.setSourceCode(CMMsg.NO_EFFECT);
+		if(msg.trailerRunnables()!=null)
+			msg.trailerRunnables().clear();
+		if(msg.trailerMsgs()!=null)
+		{
+			for(final CMMsg msg2 : msg.trailerMsgs())
+				cleanMsgForRepeat(msg2);
+		}
+	}
+
+	protected void haveEveryoneLookOutside()
+	{
+		if((area != null)&&(owner() instanceof Room))
+		{
+			final Room targetR=(Room)owner();
+			for(final Enumeration<Room> r=area.getProperMap(); r.hasMoreElements(); )
+			{
+				final Room R=r.nextElement();
+				if((R!=null)
+				&&(this.canViewOuterRoom(R)))
+				{
+					final Set<MOB> mobs=CMLib.players().getPlayersHere(R);
+					if(mobs.size()>0)
+					{
+						for(final MOB mob : new XTreeSet<MOB>(mobs))
+						{
+							if(mob == null)
+								continue;
+							final CMMsg lookMsg=CMClass.getMsg(mob,targetR,null,CMMsg.MSG_LOOK,null);
+							final CMMsg lookExitMsg=CMClass.getMsg(mob,targetR,null,CMMsg.MSG_LOOK_EXITS,null);
+							if((mob.isAttributeSet(MOB.Attrib.AUTOEXITS))
+							&&(CMProps.getIntVar(CMProps.Int.EXVIEW)!=CMProps.Int.EXVIEW_PARAGRAPH)
+							&&(CMLib.flags().canBeSeenBy(targetR,mob)))
+							{
+								if((CMProps.getIntVar(CMProps.Int.EXVIEW)>=CMProps.Int.EXVIEW_MIXED)!=mob.isAttributeSet(MOB.Attrib.BRIEF))
+									lookExitMsg.setValue(CMMsg.MASK_OPTIMIZE);
+								lookMsg.addTrailerMsg(lookExitMsg);
+							}
+							if(targetR.okMessage(mob,lookMsg))
+								targetR.send(mob,lookMsg);
+						}
+					}
+				}
+			}
+		}
+	}
+
+
 	@Override
 	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
+		switch(msg.sourceMinor())
+		{
+		case CMMsg.TYP_HUH:
+		case CMMsg.TYP_COMMANDFAIL:
+		case CMMsg.TYP_COMMAND:
+			break;
+		default:
+			if(!confirmAreaMessage(msg, true))
+				return false;
+			break;
+		}
+
 		if((msg.target()==this)
 		&&(msg.targetMinor()==CMMsg.TYP_GET)
 		&&(msg.tool() instanceof ShopKeeper))
@@ -668,7 +900,9 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 			return false;
 		}
 		if(!super.okMessage(myHost, msg))
+		{
 			return false;
+		}
 		if(msg.amITarget(this))
 		{
 			switch(msg.targetMinor())
@@ -738,6 +972,30 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 			}
 			break;
 		}
+		switch(msg.sourceMinor())
+		{
+		case CMMsg.TYP_HUH:
+		case CMMsg.TYP_COMMANDFAIL:
+		case CMMsg.TYP_COMMAND:
+			break;
+		default:
+			if(msg.source().riding() != this)
+			{
+				if(msg.othersMessage()==null)
+					sendAreaMessage(msg, true);
+				else
+				{
+					final CMMsg msg2=(CMMsg)msg.copyOf();
+					msg2.setOthersMessage(head_offTheDeck+msg.othersMessage());
+					cleanMsgForRepeat(msg2);
+					sendAreaMessage(msg2, true);
+				}
+			}
+			else
+			if(msg.sourceMinor()!=CMMsg.TYP_ENTER)
+				sendAreaMessage(msg, true);
+			break;
+		}
 	}
 
 	protected void transferOwnership(final MOB buyer, final boolean clanSale)
@@ -752,12 +1010,14 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 			}
 			else
 			{
-				final Clan C=CMLib.clans().getClanExact(getOwnerName());
+				final Clan C=CMLib.clans().fetchClanAnyHost(getOwnerName());
 				if(C!=null)
 				{
 					C.getExtItems().delItem(this);
 					CMLib.database().DBUpdateClanItems(C);
-					CMLib.achievements().possiblyBumpAchievement(C.getResponsibleMember(), AchievementLibrary.Event.CLANPROPERTY, -1, C, getShipArea());
+					final MOB cM=CMLib.players().getLoadPlayerAllHosts(C.getResponsibleMemberName());
+					if(cM != null)
+						CMLib.achievements().possiblyBumpAchievement(cM, AchievementLibrary.Event.CLANPROPERTY, -1, C, getArea());
 				}
 			}
 			setOwnerName("");
@@ -768,7 +1028,7 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 			if(targetClan!=null)
 			{
 				setOwnerName(targetClan.first.clanID());
-				CMLib.achievements().possiblyBumpAchievement(buyer, AchievementLibrary.Event.CLANPROPERTY, 1, targetClan, getShipArea());
+				CMLib.achievements().possiblyBumpAchievement(buyer, AchievementLibrary.Event.CLANPROPERTY, 1, targetClan, getArea());
 			}
 			else
 				setOwnerName(buyer.Name());
@@ -787,7 +1047,7 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 				@Override
 				public void showPrompt()
 				{
-					session.println(L("\n\rEnter a new name for your ship: "));
+					session.println(L("\n\rEnter a new name for your @x1: ",noun_word));
 				}
 
 				@Override
@@ -798,10 +1058,13 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 				@Override
 				public void callBack()
 				{
-					for(final Enumeration<BoardableShip> s=CMLib.map().ships();s.hasMoreElements();)
+					for(final Enumeration<Boardable> s=CMLib.map().ships();s.hasMoreElements();)
 					{
-						final BoardableShip ship=s.nextElement();
-						if((ship!=null)&&(!ship.amDestroyed())&&(ship.getShipArea()!=null)&&(ship.getShipArea().Name().equalsIgnoreCase(this.input.trim())))
+						final Boardable boardableItem=s.nextElement();
+						if((boardableItem!=null)
+						&&(!boardableItem.amDestroyed())
+						&&(boardableItem.getArea()!=null)
+						&&(boardableItem.getArea().Name().equalsIgnoreCase(this.input.trim())))
 						{
 							this.input="";
 							break;
@@ -818,9 +1081,9 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 						session.prompt(namer[0].reset());
 						return;
 					}
-					CMLib.tech().unregisterAllElectronics(CMLib.tech().getElectronicsKey(me.getShipArea()));
+					CMLib.tech().unregisterAllElectronics(CMLib.tech().getElectronicsKey(me.getArea()));
 					final String oldName=me.Name();
-					me.renameShip(this.input.trim());
+					me.rename(this.input.trim());
 					buyer.tell(L("@x1 is now signed over to @x2.",name(),getOwnerName()));
 					for(final Enumeration<Item> i=buyer.items();i.hasMoreElements();)
 					{
@@ -833,7 +1096,7 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 							{
 								L.setName("");
 								L.setLandPropertyID(me.Name());
-								L.text(); // everything else is derived from the ship itself
+								L.text(); // everything else is derived from the thing itself
 								I.recoverPhyStats();
 							}
 						}
@@ -841,17 +1104,17 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 					final Room finalR=findNearestDocks(R);
 					if(finalR==null)
 					{
-						Log.errOut("Could not dock ship in area "+R.getArea().Name()+" due to lack of spaceport.");
-						buyer.tell(L("Nowhere was found to dock your ship.  Please contact the administrators!."));
+						Log.errOut("Could not dock "+me.name()+" in area "+R.getArea().Name()+" due to lack of port.");
+						buyer.tell(L("Nowhere was found to dock.  Please contact the administrators!."));
 					}
 					else
 					{
 						me.setHomePortID("");
 						me.dockHere(finalR);
-						buyer.tell(L("You'll find your ship docked at '@x1'.",finalR.displayText(buyer)));
+						buyer.tell(L("You'll find @x1 docked at '@x2'.",me.name(),finalR.displayText(buyer)));
 					}
 					// re-register all electronics by re-settings its owners.  That should do it.
-					for(final Enumeration<Room> r=me.getShipArea().getProperMap();r.hasMoreElements();)
+					for(final Enumeration<Room> r=me.getArea().getProperMap();r.hasMoreElements();)
 					{
 						final Room R=r.nextElement();
 						if(R!=null)
@@ -907,18 +1170,40 @@ public class StdBoardable extends StdPortal implements PrivateProperty, Boardabl
 				}
 				else
 				{
-					buyer.tell(L("However, there is no entity to actually take ownership.  Wierd."));
+					buyer.tell(L("However, there is no entity to actually take ownership.  Weird."));
 				}
 			}
 			final Room finalR=findNearestDocks(R);
 			if(finalR==null)
-				Log.errOut("Could not dock ship in area "+R.getArea().Name()+" due to lack of docks.");
+				Log.errOut("Could not dock in area "+R.getArea().Name()+" due to lack of docks.");
 			else
 			{
 				this.setHomePortID("");
 				dockHere(finalR);
 			}
 		}
+	}
+
+	protected Room getRandomOutsideRoom()
+	{
+		final Area A=this.getArea();
+		if(A!=null)
+		{
+			final List<Room> deckRooms=new ArrayList<Room>(2);
+			for(final Enumeration<Room> r=A.getProperMap();r.hasMoreElements();)
+			{
+				final Room R=r.nextElement();
+				if((R!=null)
+				&& ((R.domainType()&Room.INDOORS)==0)
+				&& (R.domainType()!=Room.DOMAIN_OUTDOORS_AIR))
+					deckRooms.add(R);
+			}
+			if(deckRooms.size()>0)
+			{
+				return deckRooms.get(CMLib.dice().roll(1, deckRooms.size(), -1));
+			}
+		}
+		return null;
 	}
 
 	protected Room findNearestDocks(final Room R)

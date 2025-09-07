@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,16 +59,20 @@ public class Remove extends StdCommand
 			return false;
 		}
 		commands.remove(0);
-		final List<Item> items=CMLib.english().fetchItemList(mob,mob,null,commands,Wearable.FILTER_WORNONLY,false);
+		final List<Item> items = new ArrayList<Item>();
+		items.addAll(CMLib.english().fetchItemList(mob,mob,null,commands,Wearable.FILTER_WORNONLY,false));
 		if(items.size()==0)
 			CMLib.commands().postCommandFail(mob,origCmds,L("You don't seem to be wearing that."));
 		else
 		for(int i=0;i<items.size();i++)
 		{
 			final Item item=items.get(i);
-			final CMMsg newMsg=CMClass.getMsg(mob,item,null,CMMsg.MSG_REMOVE,L("<S-NAME> remove(s) <T-NAME>."));
-			if(mob.location().okMessage(mob,newMsg))
-				mob.location().send(mob,newMsg);
+			final CMMsg msg=CMClass.getMsg(mob,item,null,CMMsg.MSG_REMOVE,L("<S-NAME> remove(s) <T-NAME>."));
+			if(mob.location().okMessage(mob,msg))
+				mob.location().send(mob,msg);
+			else
+			if(items.size()==1)
+				CMLib.commands().postCommandRejection(msg.source(),msg.target(),msg.tool(),origCmds);
 		}
 		return false;
 	}
@@ -80,12 +84,24 @@ public class Remove extends StdCommand
 			return Boolean.FALSE;
 		if(args[0] instanceof Item)
 		{
+			final Room R=mob.location();
 			final Item item=(Item)args[0];
 			final boolean quiet=((args.length>1) && (args[1] instanceof Boolean)) ? ((Boolean)args[1]).booleanValue() : false;
 			final CMMsg newMsg=CMClass.getMsg(mob,item,null,CMMsg.MSG_REMOVE,quiet?null:L("<S-NAME> remove(s) <T-NAME>."));
-			if(mob.location().okMessage(mob,newMsg))
+			if(R==null)
 			{
-				mob.location().send(mob,newMsg);
+				if( mob.okMessage(mob,newMsg)
+				&& item.okMessage(mob,newMsg))
+				{
+					mob.executeMsg(mob,newMsg);
+					item.executeMsg(mob,newMsg);
+					return Boolean.TRUE;
+				}
+			}
+			else
+			if(R.okMessage(mob,newMsg))
+			{
+				R.send(mob,newMsg);
 				return Boolean.TRUE;
 			}
 			return Boolean.FALSE;

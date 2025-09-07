@@ -19,7 +19,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -126,7 +126,7 @@ public class Prop_LimitedEquip extends Property
 			return false;
 		if((msg.targetMinor()==CMMsg.TYP_WEAR)
 		&&(msg.target()==affected)
-		&&(CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		&&(CMProps.isState(CMProps.HostState.RUNNING))
 		&&(affected instanceof Item))
 		{
 			final Item affI=(Item)msg.target();

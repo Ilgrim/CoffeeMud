@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ public class Artisan extends StdCharClass
 	@Override
 	public int getBonusPracLevel()
 	{
-		return 2;
+		return 3;
 	}
 
 	@Override
@@ -100,6 +100,24 @@ public class Artisan extends StdCharClass
 	public int allowedWeaponLevel()
 	{
 		return CharClass.WEAPONS_DAGGERONLY;
+	}
+
+	@Override
+	public int maxNonCraftingSkills()
+	{
+		return Integer.MAX_VALUE;
+	}
+
+	@Override
+	public int maxCraftingSkills()
+	{
+		return Integer.MAX_VALUE;
+	}
+
+	@Override
+	public int maxCommonSkills()
+	{
+		return Integer.MAX_VALUE;
 	}
 
 	private final Set<Integer> disallowedWeapons = buildDisallowedWeaponClasses();
@@ -147,6 +165,7 @@ public class Artisan extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_WildernessLore",false,CMParms.parseSemicolons("Searching(75);Foraging(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Autoswim",false,CMParms.parseSemicolons("Skill_Swim(75)",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Shrooming",false,CMParms.parseSemicolons("Foraging(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Farming",false,CMParms.parseSemicolons("Foraging(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"FoodPreserving",false,CMParms.parseSemicolons("Foraging(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Shearing",false,CMParms.parseSemicolons("Foraging(75)",true));
@@ -165,6 +184,7 @@ public class Artisan extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Landscaping",false,CMParms.parseSemicolons("Composting",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"MasterFarming",false,CMParms.parseSemicolons("Landscaping(75);Farming(100)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Herbology",false,CMParms.parseSemicolons("FoodPrep(75)",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Mycology",false,CMParms.parseSemicolons("FoodPrep(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Textiling",false,CMParms.parseSemicolons("Shearing(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Gardening",false,CMParms.parseSemicolons("Composting(75);Herbology(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Floristry",false,CMParms.parseSemicolons("Skill_WildernessLore(75);Herbology(75)",true));
@@ -226,9 +246,12 @@ public class Artisan extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"MasterShearing",false,CMParms.parseSemicolons("Shearing(100);AnimalHusbandry(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Cage",false,CMParms.parseSemicolons("AnimalHusbandry(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_MountedCombat",false,CMParms.parseSemicolons("AnimalHusbandry(75)",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Herding",false,CMParms.parseSemicolons("Skill_MountedCombat(75)",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Shepherding",false,CMParms.parseSemicolons("Shearing(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Embroidering",false,CMParms.parseSemicolons("Skill_Write(50);Tailoring(75);Leatherworking(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"MasterFloristry",false,CMParms.parseSemicolons("Floristry(100);Painting(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"MasterHerbology",false,CMParms.parseSemicolons("Herbology(100);MasterCooking(75);MasterFoodPrep(75)",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"MasterMycology",false,CMParms.parseSemicolons("Mycology(100);MasterCooking(75);MasterFoodPrep(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Thief_Lore",false,CMParms.parseSemicolons("Skill_Write(75);PaperMaking(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Proficiency_Ranged",false,CMParms.parseSemicolons("Fletching(100)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Familiarity_Ranged",false,CMParms.parseSemicolons("Proficiency_Ranged(75)",true));
@@ -269,11 +292,12 @@ public class Artisan extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Familiarity_Axe",false,CMParms.parseSemicolons("Proficiency_Axe(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"SmokeRings",false,CMParms.parseSemicolons("Herbology(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Decorating",false,CMParms.parseSemicolons("Painting(75);Construction(75)",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Embellishing",false,CMParms.parseSemicolons("Armorsmithing(75);LeatherWorking(75);Tailoring(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Thief_StrategicRetreat",false,CMParms.parseSemicolons("Skill_Autoclimb(75);Skill_Autoswim(75);Skill_Autocrawl(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_ShipLore",false,CMParms.parseSemicolons("Shipwright(75)",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),60,"LegendaryWeaponsmithing",false,CMParms.parseSemicolons("MasterWeaponsmithing(100)",true));
-		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"MasterDyeing",false,CMParms.parseSemicolons("Dyeing(100);Herbology(75)",true));
-		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"MasterLacquerring",false,CMParms.parseSemicolons("Lacquerring(100);Herbology(75)",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"MasterDyeing",false,CMParms.parseSemicolons("Dyeing(100)",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"MasterLacquerring",false,CMParms.parseSemicolons("Lacquerring(100)",true));
 	}
 
 	@Override
@@ -306,7 +330,7 @@ public class Artisan extends StdCharClass
 			 ||((((Ability)msg.tool()).classificationCode() & Ability.ALL_DOMAINS) == Ability.DOMAIN_EPICUREAN)
 			 ||((((Ability)msg.tool()).classificationCode() & Ability.ALL_DOMAINS) == Ability.DOMAIN_BUILDINGSKILL)))
 			{
-				CMLib.leveler().postExperience(msg.source(),null,null,msg.value(),false);
+				CMLib.leveler().postExperience(msg.source(),"CLASS:"+ID(),null,null,msg.value(), false);
 			}
 			else
 			if((msg.targetMinor() == CMMsg.TYP_RECIPELEARNED)
@@ -331,7 +355,7 @@ public class Artisan extends StdCharClass
 					&&((homeL.toHoursSinceEpoc() - lastTime[0])>0))
 					{
 						lastTime[0] = homeL.toHoursSinceEpoc();
-						CMLib.leveler().postExperience(msg.source(), null, null, msg.value(), false);
+						CMLib.leveler().postExperience(msg.source(), "ABILITY:"+ID(), null, null, msg.value(), false);
 					}
 				}
 			}
@@ -361,7 +385,7 @@ public class Artisan extends StdCharClass
 					exp=exp/2;
 					if(exp<1)
 						exp=1;
-					CMLib.leveler().postExperience(mob,null,null,exp,false);
+					CMLib.leveler().postExperience(mob,"CLASS:"+ID(),null,null,exp, false);
 				}
 			}
 		}
@@ -399,6 +423,7 @@ public class Artisan extends StdCharClass
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

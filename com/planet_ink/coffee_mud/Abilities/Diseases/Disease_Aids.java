@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ public class Disease_Aids extends Disease
 	@Override
 	public int spreadBitmap()
 	{
-		return DiseaseAffect.SPREAD_STD;
+		return DiseaseAffect.SPREAD_STD|DiseaseAffect.SPREAD_INHERETED;
 	}
 
 	@Override

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ public class Spell_Haste extends Spell
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
 		super.affectPhyStats(affected,affectableStats);
-		affectableStats.setSpeed(affectableStats.speed()+1.0+(CMath.mul(getXLEVELLevel(invoker()),0.10)));
+		affectableStats.setSpeed(affectableStats.speed()+(CMProps.getSpeedAdjustment()*(1.0+(CMath.mul(getXLEVELLevel(invoker()),0.10)))));
 	}
 
 	@Override

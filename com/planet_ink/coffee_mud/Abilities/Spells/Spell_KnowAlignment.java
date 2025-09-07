@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,6 +50,12 @@ public class Spell_KnowAlignment extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	public int classificationCode()
 	{
 		return Ability.ACODE_SPELL|Ability.DOMAIN_DIVINATION;
@@ -67,8 +73,6 @@ public class Spell_KnowAlignment extends Spell
 		final MOB target=this.getTarget(mob,commands,givenTarget);
 		if(target==null)
 			return false;
-		if(target==mob)
-			return false;
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
@@ -84,17 +88,18 @@ public class Spell_KnowAlignment extends Spell
 				String alignment;
 				final String goodEvilName = CMLib.flags().getAlignmentName(target).toLowerCase();
 				if(CMLib.flags().isChaotic(target))
-					alignment = L("chaotic "+goodEvilName);
+					alignment = L("chaotic @x1",goodEvilName);
 				else
-				if(CMLib.flags().isChaotic(target))
-					alignment = L("lawful "+goodEvilName);
+				if(CMLib.flags().isLawful(target))
+					alignment = L("lawful @x1",goodEvilName);
 				else
-					alignment = L(goodEvilName);
-				mob.tell(mob,target,null,L("<T-NAME> seem(s) like <T-HE-SHE> is @x1.",alignment));
+					alignment = goodEvilName;
+				commonTelL(mob,target,(Environmental)null,"<T-NAME> seem(s) like <T-HE-SHE> <T-IS-ARE> @x1.",alignment);
 			}
 			else
 			{
-				mob.tell(mob,target,null,L("<T-NAME> seem(s) like <T-HE-SHE> is @x1.",Faction.Align.values()[CMLib.dice().roll(1,Faction.Align.values().length-1,0)].toString().toLowerCase()));
+				commonTelL(mob,target,null,"<T-NAME> seem(s) like <T-HE-SHE> <T-IS-ARE> @x1.",
+						Faction.Align.values()[CMLib.dice().roll(1,Faction.Align.values().length-1,0)].toString().toLowerCase());
 			}
 		}
 

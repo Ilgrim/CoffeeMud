@@ -19,7 +19,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ public class GenSiegeWeapon extends StdSiegeWeapon
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this,false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 	}
 
 	@Override
@@ -92,7 +92,7 @@ public class GenSiegeWeapon extends StdSiegeWeapon
 	public void setMiscText(final String newText)
 	{
 		miscText="";
-		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this,newText,false);
 		recoverPhyStats();
 	}
 
@@ -109,7 +109,7 @@ public class GenSiegeWeapon extends StdSiegeWeapon
 			return CMLib.coffeeMaker().getGenItemStat(this,code);
 		if(GenWeapon.getGenWeaponCodeNum(code)>=0)
 			return GenWeapon.getGenWeaponStat(this,code);
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return "" + hasALock();
@@ -155,7 +155,7 @@ public class GenSiegeWeapon extends StdSiegeWeapon
 		if(GenWeapon.getGenWeaponCodeNum(code)>=0)
 			GenWeapon.setGenWeaponStat(this,code,val);
 		else
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			setDoorsNLocks(hasADoor(), isOpen(), defaultsClosed(), CMath.s_bool(val), false, CMath.s_bool(val) && defaultsLocked());
@@ -173,8 +173,18 @@ public class GenSiegeWeapon extends StdSiegeWeapon
 			setOpenDelayTicks(CMath.s_parseIntExpression(val));
 			break;
 		case 5:
-			setRideBasis(CMath.s_parseListIntExpression(Rideable.RIDEABLE_DESCS, val));
+		{
+			final Rideable.Basis bas = (Rideable.Basis)CMath.s_valueOf(Rideable.Basis.class, val);
+			if(bas != null)
+				setRideBasis(bas);
+			else
+			{
+				final int x=CMath.s_parseListIntExpression(Rideable.Basis.getStrings(), val);
+				if((x>=0)&&(x<Rideable.Basis.values().length))
+					setRideBasis(Rideable.Basis.values()[x]);
+			}
 			break;
+		}
 		case 6:
 			setRiderCapacity(CMath.s_parseIntExpression(val));
 			break;
@@ -208,8 +218,7 @@ public class GenSiegeWeapon extends StdSiegeWeapon
 		}
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<MYCODES.length;i++)
 		{

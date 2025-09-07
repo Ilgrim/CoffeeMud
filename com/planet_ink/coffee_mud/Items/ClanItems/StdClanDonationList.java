@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -37,6 +37,12 @@ import java.util.*;
 public class StdClanDonationList extends StdClanItem
 {
 	private Item lastItem=null;
+
+	@Override
+	public String ID()
+	{
+		return "StdClanDonationList";
+	}
 
 	public StdClanDonationList()
 	{

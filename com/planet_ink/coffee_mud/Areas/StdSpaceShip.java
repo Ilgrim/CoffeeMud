@@ -3,9 +3,6 @@ import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.CMSecurity.DbgFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
-import com.planet_ink.coffee_mud.core.interfaces.BoundedObject;
-import com.planet_ink.coffee_mud.core.interfaces.BoundedObject.BoundedCube;
-import com.planet_ink.coffee_mud.core.interfaces.Places;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -25,7 +22,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,7 +56,7 @@ public class StdSpaceShip extends StdBoardableShip implements SpaceShip
 	protected volatile long	nextStaleWarn	= System.currentTimeMillis() + STALE_WARN_INTERVAL;
 	protected Set<String> 	staleAirList	= new HashSet<String>();
 	protected Ability 		gravityFloaterA = null;
-
+	protected volatile int	gravLossDown	= 0;
 
 	@Override
 	public String ID()
@@ -145,6 +142,12 @@ public class StdSpaceShip extends StdBoardableShip implements SpaceShip
 	}
 
 	@Override
+	public Coord3D center()
+	{
+		return coordinates();
+	}
+
+	@Override
 	public void setRadius(final long radius)
 	{
 		this.radius = radius;
@@ -169,22 +172,22 @@ public class StdSpaceShip extends StdBoardableShip implements SpaceShip
 	}
 
 	@Override
-	public long[] coordinates()
+	public Coord3D coordinates()
 	{
-		return (shipItem instanceof SpaceShip) ? ((SpaceShip) shipItem).coordinates() : new long[3];
+		return (shipItem instanceof SpaceShip) ? ((SpaceShip) shipItem).coordinates() : new Coord3D();
 	}
 
 	@Override
-	public void setCoords(final long[] coords)
+	public void setCoords(final Coord3D coords)
 	{
 		if (shipItem instanceof SpaceShip)
 			((SpaceShip) shipItem).setCoords(coords);
 	}
 
 	@Override
-	public double[] direction()
+	public Dir3D direction()
 	{
-		return (shipItem instanceof SpaceShip) ? ((SpaceShip) shipItem).direction() : new double[2];
+		return (shipItem instanceof SpaceShip) ? ((SpaceShip) shipItem).direction() : new Dir3D();
 	}
 
 	@Override
@@ -201,20 +204,20 @@ public class StdSpaceShip extends StdBoardableShip implements SpaceShip
 	}
 
 	@Override
-	public void setDirection(final double[] dir)
+	public void setDirection(final Dir3D dir)
 	{
 		if (shipItem instanceof SpaceShip)
 			((SpaceShip) shipItem).setDirection(dir);
 	}
 
 	@Override
-	public double[] facing()
+	public Dir3D facing()
 	{
-		return (shipItem instanceof SpaceShip) ? ((SpaceShip) shipItem).facing() : new double[2];
+		return (shipItem instanceof SpaceShip) ? ((SpaceShip) shipItem).facing() : new Dir3D();
 	}
 
 	@Override
-	public void setFacing(final double[] dir)
+	public void setFacing(final Dir3D dir)
 	{
 		if (shipItem instanceof SpaceShip)
 			((SpaceShip) shipItem).setFacing(dir);
@@ -267,9 +270,15 @@ public class StdSpaceShip extends StdBoardableShip implements SpaceShip
 	}
 
 	@Override
-	public BoundedCube getBounds()
+	public BoundedCube getCube()
 	{
-		return new BoundedObject.BoundedCube(coordinates(),radius());
+		return new BoundedCube(coordinates(),radius());
+	}
+
+	@Override
+	public BoundedSphere getSphere()
+	{
+		return new BoundedSphere(coordinates(),radius());
 	}
 
 	@Override
@@ -306,7 +315,7 @@ public class StdSpaceShip extends StdBoardableShip implements SpaceShip
 	@Override
 	public void destroy()
 	{
-		CMLib.map().delObjectInSpace(this);
+		CMLib.space().delObjectInSpace(this);
 		super.destroy();
 		spaceSource=null;
 		climateObj=null;
@@ -364,7 +373,7 @@ public class StdSpaceShip extends StdBoardableShip implements SpaceShip
 	{
 		try
 		{
-			return this.getClass().newInstance();
+			return this.getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -419,20 +428,22 @@ public class StdSpaceShip extends StdBoardableShip implements SpaceShip
 			case CMMsg.TYP_ACTIVATE:
 				if(CMath.bset(msg.targetMajor(), CMMsg.MASK_CNTRLMSG))
 				{
-					final String[] parts=msg.targetMessage().split(" ");
-					final TechCommand command=TechCommand.findCommand(parts);
+					final TechCommand command=TechCommand.findCommand(msg.targetMessage());
 					if(command!=null)
 					{
-						final Object[] parms=command.confirmAndTranslate(parts);
+						final Object[] parms=command.confirmAndTranslate(msg.targetMessage());
 						if(parms!=null)
 						{
 							if(command==Technical.TechCommand.AIRREFRESH)
 							{
 								if((staleAirList.size()==0)
 								&&(msg.tool() instanceof Item)
-								&&(((Item)msg.tool()).owner() instanceof Room)
-								&&(((Room)((Item)msg.tool()).owner()).getAtmosphere()<=0))
-									doStaleCheck();
+								&&(((Item)msg.tool()).owner() instanceof Room))
+								{
+									final Room R = (Room)((Item)msg.tool()).owner();
+									if(R.getAtmosphere()<=0)
+										doStaleCheck();
+								}
 								if(staleAirList.size()>0)
 								{
 									final double pct=((Double)parms[0]).doubleValue();
@@ -507,6 +518,23 @@ public class StdSpaceShip extends StdBoardableShip implements SpaceShip
 			}
 		}
 	}
+
+	@Override
+	public void registerListener(final TechCommand command, final MsgListener listener)
+	{
+		final Item I = this.getBoardableItem();
+		if(I instanceof SpaceShip)
+			((SpaceShip)I).registerListener(command, listener);
+	}
+
+	@Override
+	public void unregisterListener(final TechCommand command, final MsgListener listener)
+	{
+		final Item I = this.getBoardableItem();
+		if(I instanceof SpaceShip)
+			((SpaceShip)I).unregisterListener(command, listener);
+	}
+
 
 	public int[] addMaskAndReturn(final int[] one, final int[] two)
 	{
@@ -586,12 +614,15 @@ public class StdSpaceShip extends StdBoardableShip implements SpaceShip
 			final Room R=r.nextElement();
 			if(!staleAirList.contains(R.roomID()))
 			{
-				if(R.numInhabitants()>0)
+				if((R.numInhabitants()>0)
+				||(R.getAtmosphere()==0))
 					staleAirList.add(R.roomID());
 			}
 			else
 				R.setAtmosphere(RawMaterial.RESOURCE_NOTHING); // WE NOW HAVE A VACUUM HERE!!!
 		}
+		//if(CMSecurity.isDebugging(DbgFlag.SPACESHIP))
+		//	Log.debugOut("Stale check happening in "+name()+", stale rooms: "+staleAirList.size());
 	}
 
 	protected Ability getGravityFloat()
@@ -610,7 +641,7 @@ public class StdSpaceShip extends StdBoardableShip implements SpaceShip
 		return gravityFloaterA;
 	}
 
-	protected void doGravityChanges()
+	protected void doGravityChangesTick()
 	{
 		if((lastEngine != null)
 		&&(!lastEngine.amDestroyed())
@@ -639,7 +670,11 @@ public class StdSpaceShip extends StdBoardableShip implements SpaceShip
 			|| (getIsDocked() != null)
 			|| (lastEThrust > 0.2);
 
-		setShipFlag(ShipFlag.ARTI_GRAV, false);
+		if(--gravLossDown<=0)
+		{
+			gravLossDown=2;
+			setShipFlag(ShipFlag.ARTI_GRAV, false);
+		}
 		if(gravExistsNow == getShipFlag(ShipFlag.NO_GRAVITY)) // opposite, so it needs changing
 		{
 			final Ability floater = getGravityFloat();
@@ -654,7 +689,7 @@ public class StdSpaceShip extends StdBoardableShip implements SpaceShip
 					msgStr=L("You no longer feel the pull of gravity.");
 				final CMMsg msg=CMClass.getMsg(floater.invoker(), spaceObject, me, CMMsg.NO_EFFECT, null, CMMsg.MSG_ACTIVATE|CMMsg.MASK_CNTRLMSG, code, CMMsg.MSG_QUIETMOVEMENT,msgStr);
 				CMMsg gmsg;
-				if(lastEThrust >= (SpaceObject.ACCELERATION_PASSOUT-0.49))
+				if(lastEThrust >= (SpaceObject.ACCELERATION_UNCONSCIOUSNESS-0.49))
 				{
 					gmsg=CMClass.getMsg(floater.invoker(), null, me, CMMsg.NO_EFFECT, null, CMMsg.NO_EFFECT, null, CMMsg.MSG_GRAVITY, null);
 					gmsg.setValue((int)Math.round(lastEThrust));
@@ -671,7 +706,7 @@ public class StdSpaceShip extends StdBoardableShip implements SpaceShip
 							cancelled=true;
 						if((gmsg != null)
 						&& ((!R.okMessage(gmsg.source(), gmsg))
-							||((gmsg.value() < (SpaceObject.ACCELERATION_PASSOUT-0.49)))))
+							||((gmsg.value() < (SpaceObject.ACCELERATION_UNCONSCIOUSNESS-0.49)))))
 							gmsg = null;
 					}
 				}
@@ -763,9 +798,9 @@ public class StdSpaceShip extends StdBoardableShip implements SpaceShip
 			doStaleCheck();
 			if(staleAirList.size()>numStaleRooms)
 				nextStaleWarn = System.currentTimeMillis() + STALE_WARN_INTERVAL;
-			if(CMSecurity.isDebugging(DbgFlag.SPACESHIP) && (staleAirList.size()>0))
-				Log.debugOut("Used up the air in "+Name()+", stale rooms: "+staleAirList.size());
-
+			// the following message is uninteresting, because doStaleCheck ALWAYS generates rooms
+			//if(CMSecurity.isDebugging(DbgFlag.SPACESHIP) && (staleAirList.size()>0))
+			//	Log.debugOut("Used up the air in "+Name()+", stale rooms: "+staleAirList.size());
 		}
 	}
 
@@ -778,8 +813,8 @@ public class StdSpaceShip extends StdBoardableShip implements SpaceShip
 		if(tickID==Tickable.TICKID_AREA)
 		{
 			doAtmosphereChanges();
-			doGravityChanges();
-			final BoardableShip item=this.shipItem;
+			doGravityChangesTick();
+			final Boardable item=this.shipItem;
 			if(item != null)
 				item.tick(ticking, tickID);
 		}
@@ -793,7 +828,7 @@ public class StdSpaceShip extends StdBoardableShip implements SpaceShip
 		super.dockHere(roomR);
 		if(roomR==null)
 			return;
-		CMLib.map().delObjectInSpace(getShipSpaceObject());
+		CMLib.space().delObjectInSpace(getShipSpaceObject());
 	}
 
 	@Override

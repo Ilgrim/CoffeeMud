@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -156,6 +156,18 @@ public class Kobold extends StdRace
 	}
 
 	@Override
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
+	{
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.setStat(CharStats.STAT_STRENGTH,affectedMOB.baseCharStats().getStat(CharStats.STAT_STRENGTH));
+		affectableStats.setStat(CharStats.STAT_MAX_STRENGTH_ADJ,affectedMOB.baseCharStats().getStat(CharStats.STAT_MAX_STRENGTH_ADJ));
+		affectableStats.setStat(CharStats.STAT_DEXTERITY,affectedMOB.baseCharStats().getStat(CharStats.STAT_DEXTERITY));
+		affectableStats.setStat(CharStats.STAT_MAX_DEXTERITY_ADJ,affectedMOB.baseCharStats().getStat(CharStats.STAT_MAX_DEXTERITY_ADJ));
+		affectableStats.setStat(CharStats.STAT_INTELLIGENCE,affectedMOB.baseCharStats().getStat(CharStats.STAT_INTELLIGENCE));
+		affectableStats.setStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ,affectedMOB.baseCharStats().getStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ));
+	}
+
+	@Override
 	public String arriveStr()
 	{
 		return "creeps in";
@@ -168,9 +180,33 @@ public class Kobold extends StdRace
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public Weapon[] getNaturalWeapons()
 	{
-		return funHumanoidWeapon();
+		if(naturalWeaponChoices.length==0)
+			naturalWeaponChoices = getHumanoidWeapons();
+		return super.getNaturalWeapons();
+	}
+
+
+	@Override
+	public List<Item> outfit(final MOB myChar)
+	{
+		if(outfitChoices==null)
+		{
+			outfitChoices = new Vector<Item>();
+			final Armor p1=CMClass.getArmor("GenPants");
+			p1.setName(L("a loincloth"));
+			p1.setDisplayText(L("a simple loincloth sits here."));
+			p1.setDescription(L("A simple piece of cloth for wrapping around your mid-parts."));
+			p1.setRawProperLocationBitmap(Wearable.WORN_WAIST);
+			p1.basePhyStats().setAbility(0);
+			((Container)p1).setCapacity(20);
+			((Container)p1).setContainTypes(Container.CONTAIN_DAGGERS|Container.CONTAIN_ONEHANDWEAPONS|Container.CONTAIN_SWORDS|Container.CONTAIN_OTHERWEAPONS);
+			p1.text();
+			outfitChoices.add(p1);
+			cleanOutfit(outfitChoices);
+		}
+		return outfitChoices;
 	}
 
 	@Override

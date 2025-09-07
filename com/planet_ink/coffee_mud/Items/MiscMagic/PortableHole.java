@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class PortableHole extends BagOfHolding implements MiscMagic
+public class PortableHole extends BagOfHolding
 {
 	@Override
 	public String ID()
@@ -43,7 +43,7 @@ public class PortableHole extends BagOfHolding implements MiscMagic
 		super();
 
 		setName("a small disk");
-		setDisplayText("a small black disk can be found up here.");
+		setDisplayText("a small black disk can be found here.");
 		setDescription("This dark fabric opens to another dimension, allowing near infinite storage capacity!");
 		secretIdentity="A Portable Hole";
 		basePhyStats().setLevel(1);

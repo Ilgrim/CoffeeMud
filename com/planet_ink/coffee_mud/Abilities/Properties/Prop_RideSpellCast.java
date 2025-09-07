@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -74,7 +74,17 @@ public class Prop_RideSpellCast extends Prop_HaveSpellCast
 	}
 
 	@Override
-	public void affectPhyStats(final Physical host, final PhyStats affectableStats)
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
+	{
+		super.executeMsg(myHost, msg);	
+		if((onClosed)
+		&&(msg.targetMinor()==CMMsg.TYP_CLOSE)
+		&&(msg.target()==affected)
+		&&(affected instanceof Rideable))
+			processRideSpellCast();
+	}
+	
+	protected void processRideSpellCast()
 	{
 		if(processing)
 			return;
@@ -114,5 +124,11 @@ public class Prop_RideSpellCast extends Prop_HaveSpellCast
 		{
 			processing=false;
 		}
+	}
+	
+	@Override
+	public void affectPhyStats(final Physical host, final PhyStats affectableStats)
+	{
+		processRideSpellCast();
 	}
 }

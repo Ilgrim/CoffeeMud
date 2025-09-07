@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -140,7 +140,9 @@ public class Prayer_DivineGuidance extends Prayer
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),L(auto?"<T-NAME> await(s) divine guidance!":"^S<S-NAME> "+prayForWord(mob)+" to give <T-NAME> divine guidance.^?")+CMLib.protocol().msp("bless.wav",10));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),
+					L(auto?"<T-NAME> await(s) divine guidance!":
+							"^S<S-NAME> @x1 to give <T-NAME> divine guidance.^?",prayForWord(mob))+CMLib.protocol().msp("bless.wav",10));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

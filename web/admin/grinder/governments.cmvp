@@ -3,8 +3,10 @@
 @if?!Authenticate@ @AddFile?/grinder/failedlogin.cmvp@ @else@
 @if?!CheckAuthCode?AUTH_CMDCLANS=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <html>
+	<META CHARSET="utf-8"/>
 <head>
  	<link rel="grinder icon" href="/images/grinder.ico" >
+ 	<link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
 	<title>Clan Governments List</title>
 	<script language=JavaScript>
 	<!--
@@ -56,13 +58,15 @@
 	@loop@
 	@ClanGovernmentNext@
 	<TR>
-	<TD><a href="javascript:Government('@ClanGovernmentID@')"><FONT COLOR=WHITE><B>@ClanGovernmentID@</B></FONT></a></TD>
+	<TD><a href="javascript:Government('@ClanGovernmentID@')"><FONT COLOR="#FFFF8F"><U><B>@ClanGovernmentID@</B></U></FONT></a></TD>
 	<TD><FONT COLOR=WHITE>@ClanGovernmentData?NAME@</FONT></TD>
 	<TD><FONT COLOR=WHITE>@ClanGovernmentData?SHORTDESC@</FONT></TD>
 	</TR>
 	@back@
 	<TR>
-	<TD COLSPAN=5><a href="javascript:if(document.RESOURCES.GOVTNAME.value!='')Government('_NEWONE_&NAME='+document.RESOURCES.GOVTNAME.value)"><FONT COLOR=WHITE><B>Create New:</a> <INPUT TYPE=TEXT NAME=GOVTNAME SIZE=70></B></FONT></TD>
+	<TD COLSPAN=5><a href="javascript:if(document.RESOURCES.GOVTNAME.value!='')Government('_NEWONE_&NAME='+document.RESOURCES.GOVTNAME.value)">
+		<FONT COLOR=CYAN><B><U>Create New:</U></a> <INPUT TYPE=TEXT NAME=GOVTNAME SIZE=70></B></FONT>
+	</TD>
 	</TR>
 	</TABLE>
 	<P>

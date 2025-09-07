@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -122,8 +122,15 @@ public class Prayer_Anger extends Prayer
 							{
 								if(target==inhab)
 									target=null;
+								else
 								if(target==mob)
 									target=null;
+								else
+								{
+									final int levelDiff = CMath.abs(inhab.phyStats().level()-target.phyStats().level());
+									if(levelDiff > CMProps.getIntVar(CMProps.Int.EXPRATE))
+										target=null;
+								}
 							}
 							tries++;
 						}

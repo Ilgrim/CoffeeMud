@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -82,22 +82,28 @@ public class Prop_HereEnabler extends Prop_HaveEnabler
 					addMeIfNeccessary(msg.source(),msg.source(),maxTicks);
 					final Prop_HereEnabler here = new Prop_HereEnabler()
 					{
+						final Physical enablingP = baseAffectedP;
+
 						@Override
 						public void executeMsg(final Environmental host, final CMMsg msg)
 						{
 							if((this.affected==msg.source())
-							&&((msg.sourceMinor()==CMMsg.TYP_ENTER)||(msg.sourceMinor()==CMMsg.TYP_LEAVE)))
+							&&(((msg.sourceMinor()==CMMsg.TYP_ENTER)&&(msg.target() != enablingP))
+								||(msg.sourceMinor()==CMMsg.TYP_LEAVE)))
 							{
-								final Room R=msg.source().location();
-								if((R!=null)&&(R.getArea()!=null))
+								final Room srcMobR=msg.source().location();
+								if((srcMobR!=null)
+								&&(srcMobR.getArea()!=null))
 								{
-									if((baseAffectedP instanceof Room)&&(R!=baseAffectedP))
+									if((enablingP instanceof Room)
+									&&(srcMobR!=enablingP))
 										unInvoke();
 									else
-									if((baseAffectedP instanceof Area)&&(((Area)baseAffectedP).inMyMetroArea(R.getArea())))
+									if((enablingP instanceof Area)
+									&&(!((Area)enablingP).inMyMetroArea(srcMobR.getArea())))
 										unInvoke();
 									else
-									if(R!=CMLib.map().roomLocation(baseAffectedP))
+									if(srcMobR!=CMLib.map().roomLocation(enablingP))
 										unInvoke();
 								}
 							}
@@ -136,7 +142,6 @@ public class Prop_HereEnabler extends Prop_HaveEnabler
 				}
 			}
 		}
-
 	}
 
 	@Override

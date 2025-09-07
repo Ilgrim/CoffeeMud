@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,16 +48,29 @@ public class Bomb_AcidBurst extends StdBomb
 		return localizedName;
 	}
 
-	@Override
-	protected int trapLevel()
+	public Bomb_AcidBurst()
 	{
-		return 20;
+		super();
+		trapLevel = 20;
 	}
 
 	@Override
 	public String requiresToSet()
 	{
 		return "some lemons";
+	}
+
+	@Override
+	protected boolean doesInnerExplosionDestroy(final int material)
+	{
+		switch(material&RawMaterial.MATERIAL_MASK)
+		{
+		case RawMaterial.MATERIAL_METAL:
+		case RawMaterial.MATERIAL_GLASS:
+		case RawMaterial.MATERIAL_ENERGY:
+			return false;
+		}
+		return true;
 	}
 
 	@Override
@@ -93,12 +106,20 @@ public class Bomb_AcidBurst extends StdBomb
 			||(invoker().getGroupMembers(new HashSet<MOB>()).contains(target))
 			||(target==invoker())
 			||(doesSaveVsTraps(target)))
-				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> avoid(s) the acid burst!"));
-			else
-			if(target.location().show(invoker(),target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("@x1 sprays acid all over <T-NAME>!",affected.name())))
 			{
-				super.spring(target);
-				CMLib.combat().postDamage(invoker(),target,null,CMLib.dice().roll(trapLevel()+abilityCode(),24,1),CMMsg.MASK_ALWAYS|CMMsg.TYP_ACID,Weapon.TYPE_MELTING,L("The acid <DAMAGE> <T-NAME>!"));
+				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,
+						getAvoidMsg(L("<S-NAME> avoid(s) the acid burst!")));
+			}
+			else
+			{
+				final String triggerMsg = getTrigMsg(L("@x1 sprays acid all over <T-NAME>!",affected.name()));
+				final String damageMsg = getDamMsg(L("The acid <DAMAGE> <T-NAME>!"));
+				if(target.location().show(invoker(),target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,triggerMsg))
+				{
+					super.spring(target);
+					CMLib.combat().postDamage(invoker(),target,null,CMLib.dice().roll(trapLevel()+abilityCode(),24,1),
+							CMMsg.MASK_ALWAYS|CMMsg.TYP_ACID,Weapon.TYPE_MELTING,damageMsg);
+				}
 			}
 		}
 	}

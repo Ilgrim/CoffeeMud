@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -199,28 +199,35 @@ public class Centaur extends StdRace
 	public void affectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
 		super.affectCharStats(affectedMOB, affectableStats);
-		affectableStats.setStat(CharStats.STAT_STRENGTH,affectableStats.getStat(CharStats.STAT_STRENGTH)+1);
-		affectableStats.setStat(CharStats.STAT_MAX_STRENGTH_ADJ,affectableStats.getStat(CharStats.STAT_MAX_STRENGTH_ADJ)+1);
-		affectableStats.setStat(CharStats.STAT_INTELLIGENCE,affectableStats.getStat(CharStats.STAT_INTELLIGENCE)+1);
-		affectableStats.setStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ,affectableStats.getStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ)+1);
-		affectableStats.setStat(CharStats.STAT_CHARISMA,affectableStats.getStat(CharStats.STAT_CHARISMA)-1);
-		affectableStats.setStat(CharStats.STAT_MAX_CHARISMA_ADJ,affectableStats.getStat(CharStats.STAT_MAX_CHARISMA_ADJ)-1);
-		affectableStats.setStat(CharStats.STAT_WISDOM,affectableStats.getStat(CharStats.STAT_WISDOM)-1);
-		affectableStats.setStat(CharStats.STAT_MAX_WISDOM_ADJ,affectableStats.getStat(CharStats.STAT_MAX_WISDOM_ADJ)-1);
+		affectableStats.adjStat(CharStats.STAT_STRENGTH,1);
+		affectableStats.adjStat(CharStats.STAT_INTELLIGENCE,1);
+		affectableStats.adjStat(CharStats.STAT_CHARISMA,-1);
+		affectableStats.adjStat(CharStats.STAT_WISDOM,-1);
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
-		if(naturalWeapon==null)
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.adjStat(CharStats.STAT_STRENGTH,-1);
+		affectableStats.adjStat(CharStats.STAT_INTELLIGENCE,-1);
+		affectableStats.adjStat(CharStats.STAT_CHARISMA,+1);
+		affectableStats.adjStat(CharStats.STAT_WISDOM,+1);
+	}
+
+	@Override
+	public Weapon[] getNaturalWeapons()
+	{
+		if(this.naturalWeaponChoices.length==0)
 		{
-			naturalWeapon=CMClass.getWeapon("StdWeapon");
+			final Weapon naturalWeapon=CMClass.getWeapon("GenWeapon");
 			naturalWeapon.setName(L("a pair of hooves"));
 			naturalWeapon.setMaterial(RawMaterial.RESOURCE_BONE);
 			naturalWeapon.setUsesRemaining(1000);
 			naturalWeapon.setWeaponDamageType(Weapon.TYPE_BASHING);
+			this.naturalWeaponChoices = new Weapon[] {naturalWeapon};
 		}
-		return naturalWeapon;
+		return super.getNaturalWeapons();
 	}
 
 	@Override
@@ -281,6 +288,54 @@ public class Centaur extends StdRace
 		}
 	}
 
+	@Override
+	public List<Item> outfit(final MOB myChar)
+	{
+		if(outfitChoices==null)
+		{
+			// Have to, since it requires use of special constructor
+			final Armor s1=CMClass.getArmor("GenShirt");
+			if(s1 == null)
+				return new Vector<Item>();
+			outfitChoices=new Vector<Item>();
+			s1.setName(L("a woven battleharness"));
+			s1.setDisplayText(L("a woven battleharness lies here."));
+			s1.setMaterial(RawMaterial.RESOURCE_COTTON);
+			s1.setDescription(L("There are lots of little loops and folks for hanging tools about it."));
+			((Container)s1).setCapacity(100);
+			((Container)s1).setContainTypes(Container.CONTAIN_ONEHANDWEAPONS|Container.CONTAIN_OTHERWEAPONS|Container.CONTAIN_SWORDS);
+			s1.text();
+			outfitChoices.add(s1);
+
+			final Armor s2=CMClass.getArmor("GenShoes");
+			s2.setName(L("a pair of horseshoes"));
+			s2.setMaterial(RawMaterial.RESOURCE_IRONWOOD);
+			s2.setDisplayText(L("a pair of horseshoes have been left here."));
+			final Ability a1=CMClass.getAbility("Prop_WearOverride");
+			if(a1!=null)
+				a1.setMiscText("-RACE +HORSE +CENTAUR");
+			s2.addNonUninvokableEffect(a1);
+			s2.text();
+			outfitChoices.add(s2);
+			final Armor s2a = (Armor)s2.copyOf();
+			outfitChoices.add(s2a);
+
+			final Armor s3=CMClass.getArmor("GenArmor");
+			s3.setName(L("some saddlebags"));
+			s3.setDisplayText(L("some saddlebags lay here."));
+			s3.setDescription(L("These simple leather saddlebags are common amongst centaurs."));
+			((Container)s3).setCapacity(252);
+			s3.setRawProperLocationBitmap(Wearable.WORN_BACK);
+			final Ability a2=CMClass.getAbility("Prop_WearOverride");
+			if(a2!=null)
+				a2.setMiscText("-racecat +equine");
+			s3.addNonUninvokableEffect(a1);
+			s3.text();
+			outfitChoices.add(s3);
+			cleanOutfit(outfitChoices);
+		}
+		return outfitChoices;
+	}
 	@Override
 	public String healthText(final MOB viewer, final MOB mob)
 	{

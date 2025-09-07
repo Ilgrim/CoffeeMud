@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -111,12 +111,27 @@ public interface TickableGroup extends CMRunnable
 	public Iterator<TickClient> getTickSet(final Tickable T, final int tickID);
 
 	/**
+	 * The types of objects to clear during a clearDebri call
+	 *
+	 * @see ThreadEngine#clearDebri(Room, LocalType)
+	 * @see TickableGroup#getLocalItems(LocalType, Room)
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public static enum LocalType
+	{
+		MOBS_OR_ITEMS,
+		ITEMS_ONLY,
+		MOBS_ONLY
+	}
+
+	/**
 	 * Returns an iterator of all the items of the given type in the given room.
 	 * @param itemTypes 0=mobs or items, 1=items, 2=mobs
 	 * @param R the room to look in
 	 * @return an iterator of all the items of the given type in the given room.
 	 */
-	public Iterator<TickClient> getLocalItems(int itemTypes, Room R);
+	public Iterator<TickClient> getLocalItems(LocalType itemTypes, Room R);
 
 	/**
 	 * Returns true if this group contains the given ticking object with
@@ -158,6 +173,11 @@ public interface TickableGroup extends CMRunnable
 	 * @return the number of ms that this object has ticked in total
 	 */
 	public long getMilliTotal();
+
+	/**
+	 * Resets the total millis counted
+	 */
+	public void resetTotals();
 
 	/**
 	 * Returns the number of times that this object has ticked in total

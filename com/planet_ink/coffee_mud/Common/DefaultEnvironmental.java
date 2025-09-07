@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -245,7 +245,7 @@ public class DefaultEnvironmental extends DefaultModifiable implements Environme
 	@Override
 	public String L(final String str, final String... xs)
 	{
-		return CMLib.lang().fullSessionTranslation(str, xs);
+		return CMLib.lang().fullSessionTranslation(getClass(), str, xs);
 	}
 
 }

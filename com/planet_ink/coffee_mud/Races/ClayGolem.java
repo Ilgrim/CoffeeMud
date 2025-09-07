@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -46,6 +46,21 @@ public class ClayGolem extends StoneGolem
 	public String name()
 	{
 		return localizedStaticName;
+	}
+
+	@Override
+	public Weapon[] getNaturalWeapons()
+	{
+		if(naturalWeaponChoices.length==0)
+		{
+			final Weapon naturalWeapon=CMClass.getWeapon("GenWeapon");
+			naturalWeapon.setName(L("a clay limb"));
+			naturalWeapon.setMaterial(RawMaterial.RESOURCE_BONE);
+			naturalWeapon.setUsesRemaining(1000);
+			naturalWeapon.setWeaponDamageType(Weapon.TYPE_NATURAL);
+			this.naturalWeaponChoices = new Weapon[] { naturalWeapon };
+		}
+		return super.getNaturalWeapons();
 	}
 
 	protected static Vector<RawMaterial> resources=new Vector<RawMaterial>();

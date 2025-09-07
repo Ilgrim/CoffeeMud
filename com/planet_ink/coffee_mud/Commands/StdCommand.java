@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ public class StdCommand implements Command
 
 	public String L(final String str, final String ... xs)
 	{
-		return CMLib.lang().fullSessionTranslation(str, xs);
+		return CMLib.lang().fullSessionTranslation(getClass(), str, xs);
 	}
 
 	public static String[] I(final String[] str)
@@ -80,6 +80,12 @@ public class StdCommand implements Command
 		for(int i=0;i<str.length;i++)
 			str[i]=CMLib.lang().commandWordTranslation(str[i]);
 		return str;
+	}
+
+	@Override
+	public boolean isGeneric()
+	{
+		return false;
 	}
 
 	@Override
@@ -116,11 +122,11 @@ public class StdCommand implements Command
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public boolean checkArguments(final Class[][] fmt, final Object... args)
+	public int getArgumentSetIndex(final Class[][] fmt, final Object... args)
 	{
-		for (final Class[] element : fmt)
+		for (int index=0;index<fmt.length;index++)
 		{
-			final Class[] ff=element;
+			final Class[] ff=fmt[index];
 			if(ff.length==args.length)
 			{
 				boolean check=true;
@@ -135,9 +141,19 @@ public class StdCommand implements Command
 					}
 				}
 				if(check)
-					return true;
+					return index;
 			}
 		}
+		return -1;
+	}
+
+	@SuppressWarnings({ "rawtypes"})
+	public boolean checkArguments(final Class[][] fmt, final Object... args)
+	{
+		final int index = getArgumentSetIndex(fmt,args);
+		if(index >=0)
+			return true;
+
 		final StringBuilder str=new StringBuilder("");
 		str.append(L("Illegal arguments. Sent: "));
 		for(final Object o : args)
@@ -157,6 +173,37 @@ public class StdCommand implements Command
 		return false;
 	}
 
+	protected MOB getVisibleRoomTarget(final MOB mob, final String whom)
+	{
+		if(mob == null)
+			return null;
+		final Room R=mob.location();
+		if(R==null)
+			return null;
+		MOB target = R.fetchInhabitant(whom);
+		int ctr=1;
+		while ((target != null)
+		&& (!CMLib.flags().canBeSeenBy(target, mob))
+		&&(whom.indexOf('.')<0))
+			target = R.fetchInhabitant(whom+"."+(++ctr));
+		return target;
+	}
+
+	protected boolean isOccupiedWithOtherWork(final MOB mob)
+	{
+		if(mob==null)
+			return false;
+		for(final Enumeration<Ability> a=mob.effects();a.hasMoreElements();)
+		{
+			final Ability A=a.nextElement();
+			if((A!=null)
+			&&(!A.isAutoInvoked())
+			&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_COMMON_SKILL))
+				return true;
+		}
+		return false;
+	}
+
 	@Override
 	public double actionsCost(final MOB mob, final List<String> cmds)
 	{
@@ -170,6 +217,12 @@ public class StdCommand implements Command
 	}
 
 	@Override
+	public boolean canBeCancelled()
+	{
+		return false;
+	}
+
+	@Override
 	public double checkedActionsCost(final MOB mob, final List<String> cmds)
 	{
 		if(mob!=null)
@@ -180,11 +233,11 @@ public class StdCommand implements Command
 			if(R!=null)
 			{
 				final Area A=R.getArea();
-				if(A instanceof BoardableShip)
+				if(A instanceof Boardable)
 				{
-					final BoardableShip ship = (BoardableShip)A;
-					if((ship.getShipItem() instanceof Combatant)
-					&&(((Combatant)ship.getShipItem()).isInCombat()))
+					final Boardable ship = (Boardable)A;
+					if((ship.getBoardableItem() instanceof Combatant)
+					&&(((Combatant)ship.getBoardableItem()).isInCombat()))
 						return combatActionsCost(mob,cmds);
 				}
 			}
@@ -237,5 +290,11 @@ public class StdCommand implements Command
 	public int compareTo(final CMObject o)
 	{
 		return CMClass.classID(this).compareToIgnoreCase(CMClass.classID(o));
+	}
+
+	@Override
+	public boolean putInCommandlist()
+	{
+		return true;
 	}
 }

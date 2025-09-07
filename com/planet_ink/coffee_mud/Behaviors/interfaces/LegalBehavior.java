@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -130,7 +130,7 @@ public interface LegalBehavior extends Behavior
 	 * @param mob the pc/npc to test
 	 * @return whether the mob is an officer of the law
 	 */
-	public boolean isElligibleOfficer(Area myArea, MOB mob);
+	public boolean isEligibleOfficer(Area myArea, MOB mob);
 
 	/**
 	 * Returns whether the given mob has a valid warrant out for his/her arrest.
@@ -323,7 +323,7 @@ public interface LegalBehavior extends Behavior
 	 * @param jails a list of Room objects to inspect
 	 * @return whether any one of the room objects is, in fact, a jail
 	 */
-	public boolean isJailRoom(Area myArea, List<Room> jails);
+	public boolean isAnyJailRoom(Area myArea, List<Room> jails);
 
 	/**
 	 * Issues a LegalWarrant against the accused on behalf of the given
@@ -348,4 +348,23 @@ public interface LegalBehavior extends Behavior
 	 * @param warrant the warrant to excuse
 	 */
 	public void release(Area myArea, LegalWarrant warrant);
+
+	/**
+	 * Suppresses warrants for the given crime until the given
+	 * Long timestamp, or Ability is uninvoked, or Quest is
+	 * ended. A crime of "ALL" will suppress all crimes.
+	 *
+	 * @param crime the crime to suppress
+	 * @param until the Object expiration for the suppression
+	 */
+	public void suppressLaws(String crime, final Object until);
+
+	/**
+	 * Changes and/or reads the current loyalty bonus that this
+	 * populace has to their rulers.  Normally 0.
+	 *
+	 * @param delta 0, or an amount to change the loyalty bonus by
+	 * @return the current loyalty bonus.
+	 */
+	public int addGetLoyaltyBonus(final int delta);
 }

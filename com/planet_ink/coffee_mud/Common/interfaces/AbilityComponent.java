@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary;
 import com.planet_ink.coffee_mud.core.CMath;
+import com.planet_ink.coffee_mud.core.exceptions.CMException;
 
 /**
  * Descriptor class for ability components.
@@ -18,7 +19,8 @@ public interface AbilityComponent extends CMCommon
 	/**
 	 * Returns an enum describing how this component "connects" with the
 	 * following component logically.  As in, is it required
-	 * WITH the following component, or instead of?
+	 * WITH the following component, or instead of?  It may also designate
+	 * that the component is really the description message.
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.AbilityComponent.CompConnector
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.AbilityComponent#setConnector(CompConnector)
 	 * @return a connector enum
@@ -28,7 +30,8 @@ public interface AbilityComponent extends CMCommon
 	/**
 	 * Sets an enum describing how this component "connects" with the
 	 * following component logically.  As in, is it required
-	 * WITH the following component, or instead of?
+	 * WITH the following component, or instead of? It may also designate
+	 * that the component is really the description message.
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.AbilityComponent.CompConnector
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.AbilityComponent#getConnector()
 	 * @param connector a connector enum
@@ -168,18 +171,56 @@ public interface AbilityComponent extends CMCommon
 	public void setMask(String maskStr);
 
 	/**
+	 * Returns the raw triggering ritual definition string to execute
+	 * this ability for which this component exists.
+	 *
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.AbilityComponent#setTriggererDef(String)
+	 *
+	 * @return the triggering ritual encoding definition string for this component
+	 */
+	public String getTriggererDef();
+
+	/**
+	 * Sets the raw triggering ritual definition string to execute
+	 * this ability for which this component exists.
+	 *
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.AbilityComponent#getTriggererDef()
+	 *
+	 * @param def the triggering ritual encoding definition string for this component
+	 */
+	public void setTriggererDef(final String def);
+
+	/**
+	 * Returns the ability ID that this component serves.
+	 *
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.AbilityComponent#setAbilityID(String)
+	 *
+	 * @return the ability ID
+	 */
+	public String getAbilityID();
+
+	/**
+	 * Sets the ability ID that this component serves.
+	 *
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.AbilityComponent#getAbilityID()
+	 *
+	 * @param ID the ability ID
+	 */
+	public void setAbilityID(final String ID);
+
+	/**
 	 * Connector descriptors for connecting component descriptions together
 	 * @author Bo Zimmerman
 	 *
 	 */
-	public enum CompConnector { AND, OR }
+	public enum CompConnector { AND, OR, MESSAGE }
 
 	/**
 	 * Where worn locations for determining where a component must be
 	 * @author Bo Zimmerman
 	 *
 	 */
-	public enum CompLocation { INVENTORY, HELD, WORN, NEARBY, ONGROUND }
+	public enum CompLocation { INVENTORY, HELD, WORN, HAVE, NEARBY, ONGROUND, TRIGGER }
 
 	/**
 	 * An component type item filter for determining

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -159,7 +159,10 @@ public class Prayer_HolyWind extends Prayer
 
 		if(success)
 		{
-			if(mob.location().show(mob,null,this,verbalCastCode(mob,null,auto),L(auto?"A horrendous wind gust blows through here.":"^S<S-NAME> "+prayWord(mob)+" for the holy wind to blow through here.^?")+CMLib.protocol().msp("wind.wav",40)))
+			if(mob.location().show(mob,null,this,verbalCastCode(mob,null,auto),
+					(auto?L("A horrendous wind gust blows through here."):
+						L("^S<S-NAME> @x1 for the holy wind to blow through here.^?",prayWord(mob)))
+					+CMLib.protocol().msp("wind.wav",40)))
 			{
 				for (final Object element : h)
 				{

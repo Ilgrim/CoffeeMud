@@ -20,7 +20,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@ public class Shutdown extends StdCommand implements Tickable
 	protected MOB		shuttingDownMob				= null;
 	protected long		shuttingDownNextAnnounce	= 0;
 	protected long		shuttingDownCompletes		= 0;
+	protected String	reason						= "";
 	protected boolean	keepItDown					= true;
 	protected String	externalCommand				= null;
 
@@ -62,7 +63,7 @@ public class Shutdown extends StdCommand implements Tickable
 			tm = " now";
 		else
 			tm=" in "+tm;
-		return L("\n\r\n\r^Z@x1 will be @x2@x3^.^?\n\r",CMProps.getVar(CMProps.Str.MUDNAME),(keepItDown?"shutting down":"restarting"),tm);
+		return L("\n\r\n\r^Z@x1 will be @x2@x3@x4^.^?\n\r",CMProps.getVar(CMProps.Str.MUDNAME),(keepItDown?"shutting down":"restarting"),tm,reason);
 	}
 
 	protected void showDisplayableShutdownTimeRemaining()
@@ -78,10 +79,17 @@ public class Shutdown extends StdCommand implements Tickable
 	{
 		if(mob.isMonster())
 			return false;
+		if(CMProps.isState(CMProps.HostState.SHUTTINGDOWN))
+		{
+			mob.tell(L("A shutdown is already in progress."));
+			return false;
+		}
 		boolean noPrompt=false;
 		String externalCommand=null;
 		boolean keepItDown=true;
+		String reason=null;
 		boolean startCountDown=false;
+		MOB newShutdownMob=this.shuttingDownMob;
 		for(int i=commands.size()-1;i>=1;i--)
 		{
 			final String s=commands.get(i);
@@ -90,7 +98,14 @@ public class Shutdown extends StdCommand implements Tickable
 
 			}
 			else
-			if(s.equalsIgnoreCase("RESTART"))
+			if(s.equalsIgnoreCase("FOR"))
+			{
+				reason=" "+CMParms.combine(commands,i);
+				while(commands.size()>i)
+					commands.remove(i);
+			}
+			else
+			if(s.equalsIgnoreCase("RESTART") && (mob.Name().equals("Zac")))
 			{
 				keepItDown = false;
 				commands.remove(i);
@@ -117,7 +132,7 @@ public class Shutdown extends StdCommand implements Tickable
 				return false;
 			}
 			else
-			if((s.equalsIgnoreCase("IN"))&&(i==commands.size()-3))
+			if((s.equalsIgnoreCase("IN"))&&(i<=commands.size()-3))
 			{
 				noPrompt=true;
 				commands.remove(i);
@@ -135,13 +150,38 @@ public class Shutdown extends StdCommand implements Tickable
 					return false;
 				shuttingDownCompletes=System.currentTimeMillis()+(wait * timeMultiplier)-1;
 				shuttingDownNextAnnounce=System.currentTimeMillis() + ((wait * timeMultiplier)/2)-100;
-				shuttingDownMob=mob;
+				newShutdownMob=mob;
+				startCountDown=true;
+			}
+			else
+			if((s.equalsIgnoreCase("AT"))&&(i<=commands.size()-2))
+			{
+				noPrompt=true;
+				commands.remove(i);
+				final String atWhat=commands.remove(i);
+				final Calendar C=CMLib.time().string2TimeFuture(atWhat);
+				if(C==null)
+				{
+					mob.session().println(L("'@x1' is not a valid time.",atWhat));
+					return false;
+				}
+				if((!mob.session().confirm(L("Shutdown @x1 at @x2 (y/N)?",CMProps.getVar(CMProps.Str.MUDNAME),CMLib.time().date2String(C)),"N")))
+					return false;
+				shuttingDownCompletes=C.getTimeInMillis();
+				shuttingDownNextAnnounce=System.currentTimeMillis() + ((C.getTimeInMillis()-System.currentTimeMillis())/2)-100;
+				newShutdownMob=mob;
 				startCountDown=true;
 			}
 		}
 		if((!keepItDown)&&(commands.size()>1))
 			externalCommand=CMParms.combine(commands,1);
 
+		if(shuttingDownMob != null)
+		{
+			mob.tell(L("@x1 has already scheduled a shutdown, or one is imminent.  Use SHUTDOWN CANCEL first.",shuttingDownMob.name()));
+			return false;
+		}
+		shuttingDownMob=newShutdownMob;
 		if(!startCountDown)
 		{
 			if((!noPrompt)
@@ -152,6 +192,7 @@ public class Shutdown extends StdCommand implements Tickable
 		}
 		this.externalCommand=externalCommand;
 		this.keepItDown=keepItDown;
+		this.reason=(reason==null)?"":reason;
 
 		if(startCountDown)
 		{
@@ -242,7 +283,7 @@ public class Shutdown extends StdCommand implements Tickable
 			if(args[0] instanceof Boolean)
 			{
 				final Boolean upDn = (Boolean)args[0];
-				if(CMProps.getBoolVar(Bool.MUDSHUTTINGDOWN))
+				if(CMProps.isState(CMProps.HostState.SHUTTINGDOWN))
 					return Boolean.FALSE;
 				if(CMLib.threads().isTicking(this, Tickable.TICKID_AREA))
 					CMLib.threads().deleteTick(this, Tickable.TICKID_AREA);

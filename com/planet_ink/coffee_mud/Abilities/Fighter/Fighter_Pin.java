@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class Fighter_Pin extends FighterSkill
+public class Fighter_Pin extends FighterGrappleSkill
 {
 	@Override
 	public String ID()
@@ -57,11 +57,6 @@ public class Fighter_Pin extends FighterSkill
 	}
 
 	private static final String[] triggerStrings =I(new String[] {"PIN"});
-	@Override
-	public int abstractQuality()
-	{
-		return Ability.QUALITY_MALICIOUS;
-	}
 
 	@Override
 	public String[] triggerStrings()
@@ -82,119 +77,39 @@ public class Fighter_Pin extends FighterSkill
 	}
 
 	@Override
-	public int classificationCode()
+	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
-		return Ability.ACODE_SKILL|Ability.DOMAIN_GRAPPLING;
+		super.affectPhyStats(affected,affectableStats);
+		if(!CMLib.flags().isSleeping(affected))
+			affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_SITTING);
 	}
 
 	@Override
-	public long flags()
+	protected boolean isImmobilizing()
 	{
-		return Ability.FLAG_BINDING;
+		return true;
 	}
-
-	@Override
-	public int usageType()
-	{
-		return USAGE_MOVEMENT;
-	}
-
-	protected MOB pairedWith=null;
-	protected String pinWord = "pin";
-	protected String pinnedWord = "pinned";
 
 	@Override
 	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
-		if(!(affected instanceof MOB))
-			return true;
-
-		final MOB mob=(MOB)affected;
-
-		if((msg.sourceMinor() == CMMsg.TYP_DEATH)
-		&&(pairedWith != null)
-		&&(msg.amISource(pairedWith)))
+		if(!super.okMessage(myHost, msg))
+			return false;
+		// pin is more restrictive, can't see, talk, or anything else
+		if(msg.source()==affected)
 		{
-			unInvoke();
-			return super.okMessage(myHost, msg);
-		}
-
-		// when this spell is on a MOBs Affected list,
-		// it should consistantly prevent the mob
-		// from trying to do ANYTHING except sleep
-		if((msg.amISource(mob))
-		&&(!msg.sourceMajor(CMMsg.MASK_ALWAYS)))
-		{
-			if((msg.sourceMajor(CMMsg.MASK_EYES))
-			||(msg.sourceMajor(CMMsg.MASK_HANDS))
-			||(msg.sourceMajor(CMMsg.MASK_MOUTH))
-			||(msg.sourceMajor(CMMsg.MASK_MOVE)))
+			if(!msg.sourceMajor(CMMsg.MASK_ALWAYS))
 			{
-				if(msg.sourceMessage()!=null)
-					mob.tell(L("You are "+pinnedWord+"!"));
-				return false;
+				if((msg.sourceMajor(CMMsg.MASK_MOUTH))
+				||(msg.sourceMajor(CMMsg.MASK_EYES)))
+				{
+					if(msg.sourceMessage()!=null)
+						msg.source().tell(L("You are in a(n) @x1!",name().toLowerCase()));
+					return false;
+				}
 			}
 		}
-		return super.okMessage(myHost,msg);
-	}
-
-	@Override
-	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
-	{
-		super.affectPhyStats(affected,affectableStats);
-		// when this spell is on a MOBs Affected list,
-		// it should consistantly put the mob into
-		// a sleeping state, so that nothing they do
-		// can get them out of it.
-		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_MOVE);
-		affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_SITTING);
-	}
-
-	@Override
-	public int castingQuality(final MOB mob, final Physical target)
-	{
-		if((mob!=null)&&(target!=null))
-		{
-			if(mob.isInCombat()&&(mob.rangeToTarget()>0))
-				return Ability.QUALITY_INDIFFERENT;
-			if((target instanceof MOB)&&(mob.baseWeight()<(((MOB)target).baseWeight()-200)))
-				return Ability.QUALITY_INDIFFERENT;
-		}
-		return super.castingQuality(mob,target);
-	}
-
-	@Override
-	public void unInvoke()
-	{
-		// undo the affects of this spell
-		if(!(affected instanceof MOB))
-			return;
-		final MOB mob=(MOB)affected;
-
-		super.unInvoke();
-
-		if(canBeUninvoked())
-		{
-			if((!mob.amDead())
-			&&(CMLib.flags().isInTheGame(mob,false)))
-			{
-				if((mob==invoker) && (this.pairedWith != null))
-				{
-					if(mob.location()!=null)
-						mob.location().show(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> release(s) <S-HIS-HER> "+pinWord+"."));
-					else
-						mob.tell(L("You release your "+pinWord+"."));
-				}
-				else
-				{
-					if(mob.location()!=null)
-						mob.location().show(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> <S-IS-ARE> released from the "+pinWord+""));
-					else
-						mob.tell(L("You are released from the "+pinWord+"."));
-				}
-				CMLib.commands().postStand(mob,true, false);
-			}
-		}
+		return true;
 	}
 
 	@Override
@@ -204,63 +119,32 @@ public class Fighter_Pin extends FighterSkill
 		if(target==null)
 			return false;
 
-		if(mob.isInCombat()&&(mob.rangeToTarget()>0))
-		{
-			mob.tell(L("You are too far away from your target to "+pinWord+" them!"));
-			return false;
-		}
-
-		if((!auto)&&(mob.baseWeight()<(target.baseWeight()-200)))
-		{
-			mob.tell(L("@x1 is too big to "+pinWord+"!",target.name(mob)));
-			return false;
-		}
-
-		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
+		if(!super.invoke(mob,commands,target,auto,asLevel))
 			return false;
 
-		int levelDiff=target.phyStats().level()-(mob.phyStats().level()+(2*getXLEVELLevel(mob)));
-		if(levelDiff>0)
-			levelDiff=levelDiff*10;
-		else
-			levelDiff=0;
 		// now see if it worked
-		final boolean hit=(auto)||CMLib.combat().rollToHit(mob,target);
-		boolean success=proficiencyCheck(mob,(-levelDiff)+(-(((target.charStats().getStat(CharStats.STAT_STRENGTH)-mob.charStats().getStat(CharStats.STAT_STRENGTH))*5))),auto)&&(hit);
+		final boolean hit=(auto)
+							||(super.getGrappleA(target)!=null)
+							||CMLib.combat().rollToHit(mob,target);
+		boolean success=proficiencyCheck(mob,0,auto)&&(hit);
 		if(success)
 		{
 			invoker=mob;
 			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE|(auto?CMMsg.MASK_ALWAYS:0),
-					auto?L("<T-NAME> get(s) "+pinnedWord+"!"):L("^F^<FIGHT^><S-NAME> "+pinWord+"(s) <T-NAMESELF> to the floor!^</FIGHT^>^?"));
+					auto?L("<T-NAME> get(s) <T-HIMHERSELF> in a pin!"):
+						L("^F^<FIGHT^><S-NAME> pin(s) <T-NAMESELF> to the floor!^</FIGHT^>^?"));
 			CMLib.color().fixSourceFightColor(msg);
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
 				if(msg.value()<=0)
-				{
-					success=maliciousAffect(mob,target,asLevel,5,-1)!=null;
-					success=maliciousAffect(mob,mob,asLevel,5,-1)!=null;
-					Fighter_Pin targetPin = (Fighter_Pin)target.fetchEffect(ID());
-					Fighter_Pin sourcePin = (Fighter_Pin)mob.fetchEffect(ID());
-					if((targetPin != null) && (sourcePin == null))
-					{
-						targetPin.unInvoke();
-						targetPin = null;
-					}
-					if((sourcePin != null) && (targetPin == null))
-					{
-						sourcePin.unInvoke();
-						sourcePin = null;
-					}
-					if(sourcePin != null)
-						sourcePin.pairedWith = target;
-					if(targetPin != null)
-						targetPin.pairedWith = mob;
-				}
+					success = finishGrapple(mob,4,target, asLevel);
+				else
+					return maliciousFizzle(mob,target,L("<T-NAME> fight(s) off <S-YOUPOSS> pinning move."));
 			}
 		}
 		else
-			return maliciousFizzle(mob,target,L("<S-NAME> attempt(s) to "+pinWord+" <T-NAMESELF>, but fail(s)."));
+			return maliciousFizzle(mob,target,L("<S-NAME> attempt(s) to @x1 <T-NAMESELF>, but fail(s).",name().toLowerCase()));
 
 		// return whether it worked
 		return success;

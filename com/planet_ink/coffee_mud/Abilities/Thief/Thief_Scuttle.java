@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -100,15 +100,15 @@ public class Thief_Scuttle extends ThiefSkill
 			return false;
 		final Room boatRoom;
 		final Rideable boat;
-		if((R.getArea() instanceof BoardableShip)
+		if((R.getArea() instanceof Boardable)
 		&&(R.domainType()!=Room.DOMAIN_OUTDOORS_AIR)
-		&&(((BoardableShip)R.getArea()).getShipItem() instanceof Rideable))
+		&&(((Boardable)R.getArea()).getBoardableItem() instanceof Rideable))
 		{
-			boat = (Rideable)((BoardableShip)R.getArea()).getShipItem();
-			boatRoom=CMLib.map().roomLocation(((BoardableShip)R.getArea()).getShipItem());
+			boat = (Rideable)((Boardable)R.getArea()).getBoardableItem();
+			boatRoom=CMLib.map().roomLocation(((Boardable)R.getArea()).getBoardableItem());
 		}
 		else
-		if((mob.riding() != null)&&(mob.riding().rideBasis()==Rideable.RIDEABLE_WATER))
+		if((mob.riding() != null)&&(mob.riding().rideBasis()==Rideable.Basis.WATER_BASED))
 		{
 			boat=mob.riding();
 			boatRoom=mob.location();
@@ -125,10 +125,16 @@ public class Thief_Scuttle extends ThiefSkill
 			return false;
 		}
 
-		if(((!CMLib.combat().mayIAttackThisVessel(mob, boat))
-			&&(!CMLib.law().doesHavePriviledgesHere(mob, R))))
+		if((!CMLib.combat().mayIAttackThisVessel(mob, boat))
+		&&(!CMLib.law().doesHavePriviledgesHere(mob, R)))
 		{
 			mob.tell(L("You are not permitted to scuttle this boat."));
+			return false;
+		}
+		if((boat instanceof Item)
+		&&(((Item)boat).material()==RawMaterial.RESOURCE_SCALES))
+		{
+			mob.tell(L("You don't know how to scuttle this."));
 			return false;
 		}
 
@@ -140,7 +146,7 @@ public class Thief_Scuttle extends ThiefSkill
 		}
 
 		int numRiders=0;
-		if(R.getArea() instanceof BoardableShip)
+		if(R.getArea() instanceof Boardable)
 		{
 			for(final Enumeration<Room> r=R.getArea().getProperMap();r.hasMoreElements();)
 			{
@@ -152,7 +158,7 @@ public class Thief_Scuttle extends ThiefSkill
 			}
 		}
 		else
-		if((mob.riding() != null)&&(mob.riding().rideBasis()==Rideable.RIDEABLE_WATER))
+		if((mob.riding() != null)&&(mob.riding().rideBasis()==Rideable.Basis.WATER_BASED))
 			numRiders=mob.riding().numRiders();
 		if(numRiders > 1)
 		{
@@ -188,8 +194,8 @@ public class Thief_Scuttle extends ThiefSkill
 					@Override
 					public void run()
 					{
-						if((mob.riding() != null)&&(mob.riding().rideBasis()==Rideable.RIDEABLE_WATER))
-							mob.riding().setRideBasis(Rideable.RIDEABLE_SIT);
+						if((mob.riding() != null)&&(mob.riding().rideBasis()==Rideable.Basis.WATER_BASED))
+							mob.riding().setRideBasis(Rideable.Basis.FURNITURE_SIT);
 						CMLib.tracking().makeSink(boat, boatRoom, false);
 						final String sinkString = L("<T-NAME> start(s) sinking!");
 						boatRoom.show(mob, boatRoom, CMMsg.MSG_OK_ACTION, sinkString);
@@ -199,7 +205,7 @@ public class Thief_Scuttle extends ThiefSkill
 			}
 		}
 		else
-			return maliciousFizzle(mob,target,L("<S-NAME> attempt(s) to scuttle <T-NAME>, but fails."));
+			return maliciousFizzle(mob,target,L("<S-NAME> attempt(s) to scuttle <T-NAME>, but fail(s)."));
 
 		// return whether it worked
 		return success;

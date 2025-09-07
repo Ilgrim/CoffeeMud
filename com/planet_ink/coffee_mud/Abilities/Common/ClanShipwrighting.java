@@ -24,7 +24,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,7 +62,8 @@ public class ClanShipwrighting extends Shipwright
 		return triggerStrings;
 	}
 
-	protected void doShipTransfer(final BoardableShip buildingI, final MOB buyer)
+	@Override
+	protected void doShipTransfer(final Boardable buildingI, final MOB buyer)
 	{
 		final MOB shopKeeper = CMClass.getMOB("StdShopkeeper");
 		try
@@ -93,7 +94,7 @@ public class ClanShipwrighting extends Shipwright
 					if(role == null)
 					{
 						if(!quiet)
-							commonTell(mob,L("You aren't authorized to do that."));
+							commonTelL(mob,"You aren't authorized to do that.");
 						return false;
 					}
 				}
@@ -116,7 +117,7 @@ public class ClanShipwrighting extends Shipwright
 
 	@Override
 	protected boolean autoGenInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto,
-								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<Item> crafted)
+								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<CraftedItem> crafted)
 	{
 		if((mob != null)&&(!auto))
 		{
@@ -128,7 +129,7 @@ public class ClanShipwrighting extends Shipwright
 			}
 			if(foundC==null)
 			{
-				commonTell(mob,L("You aren't authorized to build ships for a clan."));
+				commonTelL(mob,"You aren't authorized to build ships for a clan.");
 				return false;
 			}
 		}

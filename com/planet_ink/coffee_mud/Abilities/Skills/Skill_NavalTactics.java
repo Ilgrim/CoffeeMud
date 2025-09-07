@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -137,25 +137,26 @@ public class Skill_NavalTactics extends StdSkill
 
 		{
 			final Physical affected=this.affected;
-			if(!(affected instanceof SailingShip))
+			if((!(affected instanceof NavigableItem))
+			||(((NavigableItem)affected).navBasis()!=Rideable.Basis.WATER_BASED))
 				return false;
 			if(wait)
 				return true;
 			final MOB mob=invoker();
-			final SailingShip shipItem=(SailingShip)affected;
+			final NavigableItem shipItem=(NavigableItem)affected;
 			final Room R=mob.location();
 			if((R!=null)
 			&&(tactic!=null)
-			&&(R.getArea() instanceof BoardableShip)
-			&&(shipItem.getShipArea()==R.getArea())
+			&&(R.getArea() instanceof Boardable)
+			&&(shipItem.getArea()==R.getArea())
 			&&(shipItem.isInCombat())
-			&&(shipItem.getCombatant() instanceof SailingShip)
+			&&(shipItem.getCombatant() instanceof NavigableItem)
 			&&((CMLib.law().doesHavePriviledgesHere(mob, R))
 				||(CMSecurity.isAllowed(mob, R, CMSecurity.SecFlag.CMDMOBS)))
 			&&(R.roomID().length()>0)
 			&&((R.domainType()&Room.INDOORS)==0))
 			{
-				final SailingShip targetShip=(SailingShip)shipItem.getCombatant();
+				final NavigableItem targetShip=(NavigableItem)shipItem.getCombatant();
 				// establish desired distance
 				switch(tactic)
 				{
@@ -174,7 +175,7 @@ public class Skill_NavalTactics extends StdSkill
 				case RETREAT:
 					if(setDistance < 0)
 					{
-						final Area otherArea=targetShip.getShipArea();
+						final Area otherArea=targetShip.getArea();
 						int highestRange=0;
 						for(final Enumeration<Room> r=otherArea.getProperMap();r.hasMoreElements();)
 						{
@@ -184,7 +185,7 @@ public class Skill_NavalTactics extends StdSkill
 								for(final Enumeration<Item> i=oR.items();i.hasMoreElements();)
 								{
 									final Item I=i.nextElement();
-									if(CMLib.combat().isAShipSiegeWeapon(I))
+									if(CMLib.combat().isASiegeWeapon(I))
 									{
 										final int range=I.maxRange();
 										if(range > highestRange)
@@ -201,7 +202,7 @@ public class Skill_NavalTactics extends StdSkill
 				}
 				if(shipItem.rangeToTarget() == setDistance)
 					return true;
-				final int mySpeed = shipItem.getShipSpeed();
+				final int mySpeed = shipItem.getMaxSpeed();
 				final int directionToTarget=shipItem.getDirectionToTarget();
 				final List<Integer> newCourse = new ArrayList<Integer>();
 				int myMoves=mySpeed;
@@ -335,15 +336,16 @@ public class Skill_NavalTactics extends StdSkill
 		final Room R=mob.location();
 		if(R==null)
 			return false;
-		if((!(R.getArea() instanceof BoardableShip))
-		||(!(((BoardableShip)R.getArea()).getShipItem() instanceof SailingShip)))
+		if((!(R.getArea() instanceof Boardable))
+		||(!(((Boardable)R.getArea()).getBoardableItem() instanceof NavigableItem))
+		||(((NavigableItem)(((Boardable)R.getArea()).getBoardableItem())).navBasis() != Rideable.Basis.WATER_BASED))
 		{
 			mob.tell(L("You must be on a sailing ship."));
 			return false;
 		}
-		final BoardableShip myShip=(BoardableShip)R.getArea();
-		final SailingShip myShipItem=(SailingShip)myShip.getShipItem();
-		final Area myShipArea=myShip.getShipArea();
+		final Boardable myShip=(Boardable)R.getArea();
+		final NavigableItem myShipItem=(NavigableItem)myShip.getBoardableItem();
+		final Area myShipArea=myShip.getArea();
 		final Room myShipRoom = CMLib.map().roomLocation(myShipItem);
 		if((myShipItem==null)
 		||(myShipArea==null)
@@ -384,7 +386,7 @@ public class Skill_NavalTactics extends StdSkill
 
 		final PhysicalAgent targetShip=myShipItem.getCombatant();
 		if((!myShipItem.isInCombat())
-		||(!(targetShip instanceof SailingShip))
+		||(!(targetShip instanceof NavigableItem))
 		||(!myShipRoom.isHere(targetShip)))
 		{
 			mob.tell(L("You must be in combat with another large sailing ship to use that tactic."));

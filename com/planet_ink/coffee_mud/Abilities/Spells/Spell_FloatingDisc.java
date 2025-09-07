@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -88,11 +88,18 @@ public class Spell_FloatingDisc extends Spell
 		final Item item=(Item)affected;
 		super.unInvoke();
 
-		if(canBeUninvoked())
+		if(canBeUninvoked()
+		&&(mob != null)
+		&&(item != null))
 		{
 			if(item.amWearingAt(Wearable.WORN_FLOATING_NEARBY))
 			{
-				mob.location().show(mob,item,CMMsg.MSG_OK_VISUAL,L("<T-NAME> floating near <S-NAME> now floats back @x1",((wasntMine)?"down to the ground":"into <S-HIS-HER> hands.")));
+				final Room R=mob.location();
+				if(R!=null)
+				{
+					R.show(mob,item,CMMsg.MSG_OK_VISUAL,L("<T-NAME> floating near <S-NAME> now floats back @x1",
+							((wasntMine)?"down to the ground":"into <S-HIS-HER> hands.")));
+				}
 				item.unWear();
 			}
 			if(wasntMine)

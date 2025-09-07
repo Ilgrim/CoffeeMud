@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ public class Skill_WildernessLore extends StdSkill
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		boolean report=false;
-		if((commands.size()>1)&&(commands.get(commands.size()-1).equalsIgnoreCase("REPORT")))
+		if((commands.size()>0)&&(commands.get(commands.size()-1).equalsIgnoreCase("REPORT")))
 		{
 			commands.remove(commands.size()-1);
 			report=true;
@@ -272,7 +272,7 @@ public class Skill_WildernessLore extends StdSkill
 					conditions.add("cold");
 				if(CMath.bset(derivedClimate, Places.CLIMASK_WINDY))
 					conditions.add("windy");
-				str.append(CMLib.english().toEnglishStringList(conditions.toArray(new String[0])));
+				str.append(CMLib.english().toEnglishStringList(conditions.toArray(new String[0]),true));
 				str.append(L(" here."));
 				if(report)
 					CMLib.commands().postSay(mob, str.toString());
@@ -320,7 +320,7 @@ public class Skill_WildernessLore extends StdSkill
 						rscNames.add(resourceName);
 				}
 				final String list=CMLib.english().toEnglishStringList(rscNames);
-				if(report)
+				if(report || mob.isMonster())
 					CMLib.commands().postSay(mob, L("This is the sort of place that one might find @x1.",list));
 				else
 					mob.tell(L("This is the sort of place that one might find @x1.",list));

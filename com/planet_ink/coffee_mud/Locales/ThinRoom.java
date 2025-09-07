@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -108,11 +108,15 @@ public class ThinRoom implements Room
 		return Tickable.STATUS_NOT;
 	}
 
-	protected String						roomID	= "";
-	protected Area							myArea	= null;
-	protected static final Vector<Integer>	empty	= new ReadOnlyVector<Integer>(1);
-	protected static final Exit[]			exits	= new Exit[Directions.NUM_DIRECTIONS()];
-	protected static final Room[]			rooms	= new Room[Directions.NUM_DIRECTIONS()];
+
+	protected String	roomID	= "";
+	protected Area		myArea	= null;
+	protected Exit[]	exits	= sexits;
+	protected Room[]	rooms	= srooms;
+
+	protected static final Exit[]		sexits	= new Exit[Directions.NUM_DIRECTIONS()];
+	protected static final Room[]		srooms	= new Room[Directions.NUM_DIRECTIONS()];
+	protected static final List<Integer>empty	= new ReadOnlyVector<Integer>(1);
 
 	@Override
 	public String roomID()
@@ -152,6 +156,12 @@ public class ThinRoom implements Room
 	@Override
 	public void setAtmosphere(final int resourceCode)
 	{
+	}
+
+	@Override
+	public String genericName()
+	{
+		return L("a place");
 	}
 
 	@Override
@@ -216,6 +226,17 @@ public class ThinRoom implements Room
 	@Override
 	public void setRawExit(final int direction, final Exit E)
 	{
+		if(exits == sexits)
+		{
+			synchronized(this)
+			{
+				if(exits == sexits)
+				{
+					rooms=Arrays.copyOf(srooms, srooms.length);
+					exits=Arrays.copyOf(sexits, sexits.length);
+				}
+			}
+		}
 		if(E != null)
 			exits[direction]=E;
 		else
@@ -233,7 +254,7 @@ public class ThinRoom implements Room
 		{
 			recurse=true;
 			Room myR=null;
-			synchronized(("SYNC"+roomID).intern())
+			synchronized(CMClass.getSync(("SYNC"+roomID)))
 			{
 				myR=CMLib.map().getRoom(roomID);
 				if(myR==null)
@@ -352,6 +373,32 @@ public class ThinRoom implements Room
 		if(dir<exits.length)
 			return exits[dir];
 		return null;
+	}
+
+	@Override
+	public Room getRawDoor(final int direction)
+	{
+		if(direction<rooms.length)
+			return rooms[direction];
+		return null;
+	}
+
+	@Override
+	public void setRawDoor(final int direction, final Room R)
+	{
+		if(rooms == srooms)
+		{
+			synchronized(this)
+			{
+				if(rooms == srooms)
+				{
+					rooms=Arrays.copyOf(srooms, srooms.length);
+					exits=Arrays.copyOf(sexits, sexits.length);
+				}
+			}
+		}
+		if(direction<rooms.length)
+			rooms[direction] = R;
 	}
 
 	@Override
@@ -975,7 +1022,7 @@ public class ThinRoom implements Room
 	@Override
 	public String L(final String str, final String... xs)
 	{
-		return CMLib.lang().fullSessionTranslation(str, xs);
+		return CMLib.lang().fullSessionTranslation(getClass(), str, xs);
 	}
 
 	@Override
@@ -1087,7 +1134,7 @@ public class ThinRoom implements Room
 	{
 		try
 		{
-			return this.getClass().newInstance();
+			return this.getClass().getDeclaredConstructor().newInstance();
 		}
 		catch (final Exception e)
 		{

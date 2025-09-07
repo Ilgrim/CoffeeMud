@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Prop_UseEmoter2 extends Prop_UseEmoter
 	@Override
 	public String name()
 	{
-		return "Emoting when used";
+		return "Emoting when used differently";
 	}
 
 	@Override
@@ -68,37 +68,41 @@ public class Prop_UseEmoter2 extends Prop_UseEmoter
 				return;
 			if((msg.amITarget(affected))
 			&&(msg.targetMinor()==CMMsg.TYP_SNIFF)
-			&&(CMLib.flags().canSmell(msg.source()))
-			&&(smells!=null))
+			&&(CMLib.flags().canSmell(msg.source(),myItem))
+			&&(smells!=null)
+			&&((mask==null)||(CMLib.masking().maskCheck(mask, msg.source(), true))))
 			{
 				processing=false;
 				super.executeMsg(myHost, msg);
 			}
 			else
-			switch(msg.sourceMinor())
+			if((mask==null)||(CMLib.masking().maskCheck(mask, msg.source(), true)))
 			{
-			case CMMsg.TYP_DRINK:
-				if((myItem instanceof Drink)
-				&&(msg.amITarget(myItem)))
-					super.emoteNow(msg);
-				break;
-			case CMMsg.TYP_POUR:
-				if((myItem instanceof Drink)
-				&&(msg.tool()==myItem)
-				&&(msg.target() instanceof Physical))
-					super.emoteNow(msg);
-				break;
-			case CMMsg.TYP_EAT:
-				if((myItem instanceof Food)
-				&&(msg.amITarget(myItem)))
-					super.emoteNow(msg);
-				break;
-			case CMMsg.TYP_GET:
-				if((!(myItem instanceof Drink))
-				&&(!(myItem instanceof Food))
-				&&(msg.amITarget(myItem)))
-					super.emoteNow(msg);
-				break;
+				switch(msg.sourceMinor())
+				{
+				case CMMsg.TYP_DRINK:
+					if((myItem instanceof Drink)
+					&&(msg.amITarget(myItem)))
+						super.emoteNow(msg);
+					break;
+				case CMMsg.TYP_POUR:
+					if((myItem instanceof Drink)
+					&&(msg.tool()==myItem)
+					&&(msg.target() instanceof Physical))
+						super.emoteNow(msg);
+					break;
+				case CMMsg.TYP_EAT:
+					if((myItem instanceof Food)
+					&&(msg.amITarget(myItem)))
+						super.emoteNow(msg);
+					break;
+				case CMMsg.TYP_GET:
+					if((!(myItem instanceof Drink))
+					&&(!(myItem instanceof Food))
+					&&(msg.amITarget(myItem)))
+						super.emoteNow(msg);
+					break;
+				}
 			}
 		}
 		finally

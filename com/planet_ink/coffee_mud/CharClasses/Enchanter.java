@@ -11,12 +11,13 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -81,11 +82,13 @@ public class Enchanter extends SpecialistMage
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Spell_Alarm",25,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Spell_MindFog",25,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Spell_Enthrall",25,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Spell_Brainwash",0,"",false,true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Spell_Brainwash",0,"",false,SecretFlag.SECRET);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Spell_AweOther",0,"",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Spell_LowerResists",25,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Spell_MassHold",25,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Spell_RogueLimb",25,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Spell_Permanency",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),35,"Spell_PlanarEnthrall", 25, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
 	}
 }

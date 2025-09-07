@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -104,8 +104,6 @@ public class Prayer_HolyWord extends Prayer implements MendingSkill
 			return;
 		final MOB mob=(MOB)affected;
 
-		if(mob==invoker)
-			return;
 		final int xlvl=super.getXLEVELLevel(invoker());
 		if(CMLib.flags().isGood(mob))
 		{
@@ -143,7 +141,9 @@ public class Prayer_HolyWord extends Prayer implements MendingSkill
 
 		final boolean success=proficiencyCheck(mob,0,auto);
 
-		String str=(auto?"The holy word is spoken.":"^S<S-NAME> speak(s) the holy word"+ofDiety(mob)+" to <T-NAMESELF>.^?")+CMLib.protocol().msp("bless.wav",10);
+		String str=(auto?L("The holy word is spoken."):
+				L("^S<S-NAME> speak(s) the holy word@x1 to <T-NAMESELF>.^?",ofDiety(mob)))
+				+CMLib.protocol().msp("bless.wav",10);
 		String missStr=L("<S-NAME> speak(s) the holy word@x1, but nothing happens.",ofDiety(mob));
 		final Room room=mob.location();
 		if(room!=null)
@@ -175,10 +175,16 @@ public class Prayer_HolyWord extends Prayer implements MendingSkill
 							while((I!=null)&&(!alreadyDone.contains(I)))
 							{
 								alreadyDone.add(I);
-								final CMMsg msg2=CMClass.getMsg(target,I,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_DROP,L("<S-NAME> release(s) <T-NAME>."));
-								target.location().send(target,msg2);
-								Prayer_Bless.endLowerCurses(I,CMLib.ableMapper().lowestQualifyingLevel(ID()));
-								I.recoverPhyStats();
+								final CMMsg msgb=CMClass.getMsg(mob,I,this,verbalCastCode(mob,target,auto), null);
+								if(target.location().okMessage(target, msgb))
+								{
+									target.location().send(target,msgb);
+									final CMMsg msg2=CMClass.getMsg(target,I,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_DROP,
+											L("<S-NAME> release(s) <T-NAME>."));
+									target.location().send(target,msg2);
+									Prayer_Bless.endLowerCurses(I,CMLib.ableMapper().lowestQualifyingLevel(ID()));
+									I.recoverPhyStats();
+								}
 								I=Prayer_Bless.getSomething(target,true);
 							}
 							Prayer_Bless.endAllOtherBlessings(mob,target,CMLib.ableMapper().lowestQualifyingLevel(ID()));

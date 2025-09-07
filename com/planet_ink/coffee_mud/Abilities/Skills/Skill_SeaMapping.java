@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,13 +70,13 @@ public class Skill_SeaMapping extends Skill_Map
 		if((mob!=null)&&(srcM!=null))
 		{
 			if((mob.riding() !=null)
-			&& (mob.riding().rideBasis() == Rideable.RIDEABLE_WATER)
+			&& (mob.riding().rideBasis() == Rideable.Basis.WATER_BASED)
 			&&(mob == srcM))
 				return true;
 
-			if((srcM.riding() instanceof BoardableShip)
+			if((srcM.riding() instanceof Boardable)
 			&&(mob.location()!=null)
-			&&(mob.location().getArea() == ((BoardableShip)srcM.riding()).getShipArea()))
+			&&(mob.location().getArea() == ((Boardable)srcM.riding()).getArea()))
 				return true;
 		}
 		return false;
@@ -85,15 +85,15 @@ public class Skill_SeaMapping extends Skill_Map
 	@Override
 	protected Room getCurrentRoom(final MOB mob)
 	{
-		if((mob.riding() !=null) && (mob.riding().rideBasis() == Rideable.RIDEABLE_WATER))
+		if((mob.riding() !=null) && (mob.riding().rideBasis() == Rideable.Basis.WATER_BASED))
 			return mob.location();
 
 		final Room R=mob.location();
 		if(R!=null)
 		{
-			if(R.getArea() instanceof BoardableShip)
+			if(R.getArea() instanceof Boardable)
 			{
-				final Item I = ((BoardableShip)R.getArea()).getShipItem();
+				final Item I = ((Boardable)R.getArea()).getBoardableItem();
 				if(I!=null)
 					return CMLib.map().roomLocation(I);
 			}
@@ -113,10 +113,10 @@ public class Skill_SeaMapping extends Skill_Map
 		final Room R=mob.location();
 		if(R!=null)
 		{
-			if((mob.riding() !=null) && (mob.riding().rideBasis() == Rideable.RIDEABLE_WATER))
+			if((mob.riding() !=null) && (mob.riding().rideBasis() == Rideable.Basis.WATER_BASED))
 				return true;
 
-			if(R.getArea() instanceof BoardableShip)
+			if(R.getArea() instanceof Boardable)
 			{
 				return true;
 			}

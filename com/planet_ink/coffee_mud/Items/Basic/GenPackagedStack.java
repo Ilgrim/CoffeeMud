@@ -20,7 +20,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,12 +45,14 @@ public class GenPackagedStack extends GenPackagedItems implements PackagedItems
 	@Override
 	public String name()
 	{
-		return "a stack of " + numberOfItemsInPackage() + " " + Name().trim() + "(s)";
+		if(numberOfItemsInPackage()!=1)
+			return L("a stack of @x1 @x2",""+numberOfItemsInPackage(), CMLib.english().makePlural(Name().trim()));
+		return L("a stack of @x1 @x2",""+numberOfItemsInPackage(), Name().trim());
 	}
 
 	@Override
 	public String displayText()
 	{
-		return "a stack of " + numberOfItemsInPackage() + " " + Name().trim() + "(s) is here.";
+		return L("@x1 sits here.",name());
 	}
 }

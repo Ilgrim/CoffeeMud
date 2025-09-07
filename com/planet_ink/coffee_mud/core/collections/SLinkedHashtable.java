@@ -3,7 +3,7 @@ package com.planet_ink.coffee_mud.core.collections;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import java.util.*;
  */
 public class SLinkedHashtable<K, F> implements java.util.Map<K, F>, java.io.Serializable
 {
-	private static final long	         serialVersionUID	= 6687178785122561993L;
+	private static final long			 serialVersionUID	= 6687178785122561993L;
 	private volatile LinkedHashMap<K, F>	H;
 
 	public SLinkedHashtable()
@@ -114,13 +114,19 @@ public class SLinkedHashtable<K, F> implements java.util.Map<K, F>, java.io.Seri
 		return H.containsValue(arg0);
 	}
 
+	@SuppressWarnings("unchecked")
 	public synchronized Enumeration<F> elements()
 	{
+		if(size()==0)
+			return EmptyEnumeration.INSTANCE;
 		return new IteratorEnumeration<F>(H.values().iterator());
 	}
 
+	@SuppressWarnings("unchecked")
 	public synchronized Enumeration<Map.Entry<K, F>> entries()
 	{
+		if(size()==0)
+			return EmptyEnumeration.INSTANCE;
 		return new IteratorEnumeration<Map.Entry<K, F>>(H.entrySet().iterator());
 	}
 

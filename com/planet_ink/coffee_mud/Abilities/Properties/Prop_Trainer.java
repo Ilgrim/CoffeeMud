@@ -13,12 +13,13 @@ import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -147,8 +148,7 @@ public class Prop_Trainer extends Prop_StatTrainer
 				mob.addExpertise(allowedExpertises.get(e).ID());
 			if(alsoSkills && (allowedClasses.size()>0))
 			{
-				mob.baseCharStats().setMyClasses("");
-				mob.charStats().setMyClasses("");
+				mob.baseCharStats().setAllClassInfo("StdCharClass", "0");
 				for(int c=0;c<allowedClasses.size();c++)
 				{
 					currC=allowedClasses.get(c);
@@ -169,16 +169,22 @@ public class Prop_Trainer extends Prop_StatTrainer
 					{
 						Ability A=a.nextElement();
 						if((A!=null)
-						&&(CMLib.ableMapper().qualifiesByLevel(mob,A)&&(!CMLib.ableMapper().getSecretSkill(className,true,A.ID())))
+						&&(CMLib.ableMapper().qualifiesByLevel(mob,A))
 						&&(CMLib.ableMapper().availableToTheme(A.ID(),Area.THEME_FANTASY,true))
 						&&(!myAbles.containsKey(A.ID())))
 						{
-							A=(Ability)A.copyOf();
-							A.setSavable(false);
-							A.setProficiency(100);
-							A.setProficiency(CMLib.ableMapper().getMaxProficiency(mob,true,A.ID()));
-							myAbles.put(A.ID(),A);
-							mob.addAbility(A);
+							final SecretFlag secret = CMLib.ableMapper().getSecretSkill(className,true,A.ID());
+							if((secret!=SecretFlag.SECRET)
+							&&((secret!=SecretFlag.MASKED)
+								||(CMLib.masking().maskCheck(CMLib.ableMapper().getExtraMask(className, true, A.ID()), mob, true))))
+							{
+								A=(Ability)A.copyOf();
+								A.setSavable(false);
+								A.setProficiency(100);
+								A.setProficiency(CMLib.ableMapper().getMaxProficiency(mob,true,A.ID()));
+								myAbles.put(A.ID(),A);
+								mob.addAbility(A);
+							}
 						}
 					}
 				}

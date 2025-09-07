@@ -9,6 +9,9 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.ScriptingEngine.MPContext;
+import com.planet_ink.coffee_mud.Common.interfaces.ScriptingEngine.ScriptLn;
+import com.planet_ink.coffee_mud.Common.interfaces.ScriptingEngine.SubScript;
 import com.planet_ink.coffee_mud.Common.interfaces.Session.InputCallback;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
@@ -25,7 +28,7 @@ import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -232,10 +235,49 @@ public class JConsole extends StdCommand
 									strb.append(" ").append(String.valueOf(args[i]));
 								else
 									strb.append(" ").append("'"+String.valueOf(args[i])+"'");
-							final DVector DV=new DVector(2);
-							DV.add("JS_PROG",null);
-							DV.add(strb.toString(),null);
-							return c.execute(mob,mob,null,mob,null,null,DV,"",objs);
+							final SubScript DV=new SubScript()
+							{
+								private static final long serialVersionUID = -8744471025411719363L;
+								@Override
+								public int getTriggerCode()
+								{
+									return 0;
+								}
+
+								@Override
+								public String[] getTriggerArgs()
+								{
+									return (size()>0)?get(0).second:null;
+								}
+
+								@Override
+								public String getTriggerLine()
+								{
+									return (size()>0)?get(0).first:"";
+								}
+
+								@Override
+								public String[] getTriggerBits()
+								{
+									return CMParms.getCleanBits(getTriggerLine());
+								}
+
+								@Override
+								public void setFlag(final String flag)
+								{
+								}
+
+								@Override
+								public boolean isFlagSet(final String flag)
+								{
+									return false;
+								}
+
+							};
+							DV.add(new ScriptLn("JS_PROG",null,null));
+							DV.add(new ScriptLn(strb.toString(),null,null));
+							final MPContext ctx = new MPContext(mob,mob,mob,null,null,null,"", objs);
+							return c.execute(ctx.push(DV));
 						}
 						if(name.endsWith("$"))
 						{
@@ -249,7 +291,8 @@ public class JConsole extends StdCommand
 								else
 									strb.append(" ").append("'"+String.valueOf(args[i])+"'");
 							strb.append(" ) ");
-							return c.functify(mob,mob,null,mob,null,null,"",objs,strb.toString());
+							final MPContext ctx = new MPContext(mob,mob,mob,null,null,null,"",objs);
+							return c.functify(ctx,strb.toString());
 						}
 						final String[] sargs=new String[args.length+3];
 						sargs[0]=name;
@@ -257,8 +300,9 @@ public class JConsole extends StdCommand
 						for(int i=0;i<args.length;i++)
 							sargs[i+2]=String.valueOf(args[i]);
 						sargs[sargs.length-1]=")";
-						final String[][] EVAL={sargs};
-						return Boolean.valueOf(c.eval(mob,mob,null,mob,null,null,"",objs,EVAL,0));
+						final String[][] eval={sargs};
+						final MPContext ctx = new MPContext(mob,mob,mob,null,null,null,"",objs);
+						return Boolean.valueOf(c.eval(ctx,eval,0));
 					}
 
 					@Override
@@ -368,18 +412,6 @@ public class JConsole extends StdCommand
 			this.mob=mob;
 			c.tick(mob, Tickable.TICKID_MOB); // this sets lastknownlocation
 		}
-	}
-
-	@Override
-	public double combatActionsCost(final MOB mob, final List<String> cmds)
-	{
-		return CMProps.getCommandCombatActionCost(ID());
-	}
-
-	@Override
-	public double actionsCost(final MOB mob, final List<String> cmds)
-	{
-		return CMProps.getCommandActionCost(ID());
 	}
 
 	@Override

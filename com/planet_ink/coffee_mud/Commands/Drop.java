@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMSecurity.SecFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -19,7 +20,7 @@ import java.io.IOException;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -161,24 +162,27 @@ public class Drop extends StdCommand
 			{
 				doBugFix=false;
 				dropThis=mob.fetchItem(container,Wearable.FILTER_UNWORNONLY,whatToDrop+addendumStr);
+
 				if((dropThis==null)
 				&&(items.size()==0)
-				&&(addendumStr.length()==0)
-				&&(!allFlag))
+				&&(addendumStr.length()==0))
 				{
-					dropThis=mob.fetchItem(null,Wearable.FILTER_WORNONLY,whatToDrop);
-					if(dropThis!=null)
+					if(!allFlag)
 					{
-						if((!dropThis.amWearingAt(Wearable.WORN_HELD))&&(!dropThis.amWearingAt(Wearable.WORN_WIELD)))
+						dropThis=mob.fetchItem(null,Wearable.FILTER_WORNONLY,whatToDrop);
+						if(dropThis!=null)
 						{
-							mob.tell(L("You must remove that first."));
-							return false;
+							if((!dropThis.amWearingAt(Wearable.WORN_HELD))&&(!dropThis.amWearingAt(Wearable.WORN_WIELD)))
+							{
+								mob.tell(L("You must remove that first."));
+								return false;
+							}
+							final CMMsg newMsg=CMClass.getMsg(mob,dropThis,null,CMMsg.MSG_REMOVE,null);
+							if(R.okMessage(mob,newMsg))
+								R.send(mob,newMsg);
+							else
+								return false;
 						}
-						final CMMsg newMsg=CMClass.getMsg(mob,dropThis,null,CMMsg.MSG_REMOVE,null);
-						if(R.okMessage(mob,newMsg))
-							R.send(mob,newMsg);
-						else
-							return false;
 					}
 				}
 				if((allFlag)&&(!onlyGoldFlag)&&(dropThis instanceof Coins)&&(whatToDrop.equalsIgnoreCase("all")))

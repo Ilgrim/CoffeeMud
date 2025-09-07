@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -121,6 +121,7 @@ public class Thief_SmugglersHold extends ThiefSkill
 		}
 	}
 
+	@Override
 	protected void commonTell(final MOB mob, String str)
 	{
 		if(mob.isMonster()&&(mob.amFollowing()!=null))
@@ -153,17 +154,17 @@ public class Thief_SmugglersHold extends ThiefSkill
 				final int direction=this.direction;
 				if((messedUp)||(direction<0)||(fromRoom==null))
 				{
-					commonTell(mob,L("You've ruined the smuggler's hold!"));
+					commonTelL(mob,"You've ruined the smuggler's hold!");
 				}
 				else
 				{
-					synchronized(("SYNC"+room.roomID()).intern())
+					synchronized(CMClass.getSync("SYNC"+room.roomID()))
 					{
 						final Room R=CMClass.getLocale("WoodRoom");
 						R.setRoomID(room.getArea().getNewRoomID(room,direction));
 						if(R.roomID().length()==0)
 						{
-							commonTell(mob,L("You've ruined the smuggler's hold!"));
+							commonTelL(mob,"You've ruined the smuggler's hold!");
 						}
 						else
 						{
@@ -171,7 +172,7 @@ public class Thief_SmugglersHold extends ThiefSkill
 							if(invoker==null)
 								R.setDisplayText(L("The Smuggler's Hold"));
 							else
-								R.setDisplayText(L(invoker.name()+"'s Smuggler's Hold"));
+								R.setDisplayText(L("@x1's Smuggler's Hold",invoker.name()));
 							R.setDescription("");
 
 							final Exit newExit=CMClass.getExit("GenDoor");
@@ -268,10 +269,10 @@ public class Thief_SmugglersHold extends ThiefSkill
 			return false;
 
 		final Item target;
-		if((R.getArea() instanceof BoardableShip)
-		&&(((BoardableShip)R.getArea()).getShipItem() instanceof BoardableShip))
+		if((R.getArea() instanceof Boardable)
+		&&(((Boardable)R.getArea()).getBoardableItem() instanceof Boardable))
 		{
-			target=((BoardableShip)R.getArea()).getShipItem();
+			target=((Boardable)R.getArea()).getBoardableItem();
 		}
 		else
 		{

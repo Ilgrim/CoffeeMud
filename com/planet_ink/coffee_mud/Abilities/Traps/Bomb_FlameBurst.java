@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,10 +48,10 @@ public class Bomb_FlameBurst extends StdBomb
 		return localizedName;
 	}
 
-	@Override
-	protected int trapLevel()
+	public Bomb_FlameBurst()
 	{
-		return 17;
+		super();
+		trapLevel = 17;
 	}
 
 	@Override
@@ -74,12 +74,38 @@ public class Bomb_FlameBurst extends StdBomb
 		if(!super.canSetTrapOn(mob,P))
 			return false;
 		if((!(P instanceof Item))
-		||(!(P instanceof Drink))
-		||(!((((Drink)P).containsDrink())||(((Drink)P).liquidType()!=RawMaterial.RESOURCE_LAMPOIL)))
+		||(!(P instanceof LiquidHolder))
+		||(!((((LiquidHolder)P).containsLiquid())||(((LiquidHolder)P).liquidType()!=RawMaterial.RESOURCE_LAMPOIL)))
 		   &&(((Item)P).material()!=RawMaterial.RESOURCE_LAMPOIL))
 		{
 			if(mob!=null)
 				mob.tell(L("You need some lamp oil to make this out of."));
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	protected boolean doesInnerExplosionDestroy(final int material)
+	{
+		switch(material&RawMaterial.MATERIAL_MASK)
+		{
+		case RawMaterial.MATERIAL_MITHRIL:
+		case RawMaterial.MATERIAL_LIQUID:
+		case RawMaterial.MATERIAL_ENERGY:
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	protected boolean canExplodeOutOf(final int material)
+	{
+		switch(material&RawMaterial.MATERIAL_MASK)
+		{
+		case RawMaterial.MATERIAL_METAL:
+		case RawMaterial.MATERIAL_MITHRIL:
+		case RawMaterial.MATERIAL_ROCK:
 			return false;
 		}
 		return true;
@@ -95,12 +121,21 @@ public class Bomb_FlameBurst extends StdBomb
 			||(invoker().getGroupMembers(new HashSet<MOB>()).contains(target))
 			||(target==invoker())
 			||(doesSaveVsTraps(target)))
-				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> avoid(s) the flame burst!"));
-			else
-			if(target.location().show(invoker(),target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,(affected.name()+" flames all over <T-NAME>!")+CMLib.protocol().msp("fireball.wav",30)))
 			{
-				super.spring(target);
-				CMLib.combat().postDamage(invoker(),target,null,CMLib.dice().roll(trapLevel()+abilityCode(),12,1),CMMsg.MASK_ALWAYS|CMMsg.TYP_FIRE,Weapon.TYPE_BURNING,L("The flames <DAMAGE> <T-NAME>!"));
+				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,
+						getAvoidMsg(L("<S-NAME> avoid(s) the flame burst!")));
+			}
+			else
+			{
+				final String triggerMsg = getTrigMsg(L("@x1 flames all over <T-NAME>!",affected.name()));
+				final String damageMsg = getDamMsg(L("The flames <DAMAGE> <T-NAME>!"));
+				if(target.location().show(invoker(),target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,
+						triggerMsg+CMLib.protocol().msp("fireball.wav",30)))
+				{
+					super.spring(target);
+					CMLib.combat().postDamage(invoker(),target,null,CMLib.dice().roll(trapLevel()+abilityCode(),12,1),
+							CMMsg.MASK_ALWAYS|CMMsg.TYP_FIRE,Weapon.TYPE_BURNING,damageMsg);
+				}
 			}
 		}
 	}

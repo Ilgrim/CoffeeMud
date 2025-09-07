@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,7 +62,8 @@ public class Song_Lethargy extends Song
 			return;
 		if(invoker==affected)
 			return;
-
-		affectableStats.setSpeed(CMath.div(affectableStats.speed(),2.0+CMath.mul(0.25,getXLEVELLevel(invoker()))));
+		final double pct = super.statBonusPct();
+		affectableStats.setSpeed(CMath.div(affectableStats.speed(),
+									(pct * 1.5)+CMath.mul(0.1,getXLEVELLevel(invoker()))));
 	}
 }

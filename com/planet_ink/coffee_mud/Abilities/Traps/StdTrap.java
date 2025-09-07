@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Traps;
 import com.planet_ink.coffee_mud.Abilities.StdAbility;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.ItemPossessor.Expire;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -19,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,10 +58,11 @@ public class StdTrap extends StdAbility implements Trap
 		return TRIGGER;
 	}
 
-	protected boolean sprung=false;
-	protected int reset=60; // 5 minute reset is standard
-	protected int ableCode=0;
-	protected boolean disabled=false;
+	protected boolean	sprung		= false;
+	protected int		reset		= 60;	// 5 minute reset is standard
+	protected int		ableCode	= 0;
+	protected boolean	disabled	= false;
+	protected int		trapLevel 	= -1;
 
 	public StdTrap()
 	{
@@ -93,7 +95,7 @@ public class StdTrap extends StdAbility implements Trap
 
 	protected int trapLevel()
 	{
-		return -1;
+		return trapLevel;
 	}
 
 	@Override
@@ -121,11 +123,11 @@ public class StdTrap extends StdAbility implements Trap
 	}
 
 	protected List<String> newMessaging=new ArrayList<String>(0);
-	private String invokerName=null;
+	protected String invokerName=null;
 
-	public PairVector<MOB,Integer> safeDirs=null;
+	protected PairVector<MOB,Integer> safeDirs=null;
 
-	public int baseRejuvTime(int level)
+	protected int baseRejuvTime(int level)
 	{
 		if(level>=30)
 			level=29;
@@ -135,12 +137,12 @@ public class StdTrap extends StdAbility implements Trap
 		return ticks;
 	}
 
-	public int baseDestructTime(final int level)
+	protected int baseDestructTime(final int level)
 	{
 		return level*30;
 	}
 
-	public boolean getTravelThroughFlag()
+	protected boolean getTravelThroughFlag()
 	{
 		return false;
 	}
@@ -153,7 +155,7 @@ public class StdTrap extends StdAbility implements Trap
 			   ||(affected.fetchEffect(ID())==null);
 	}
 
-	public boolean doesSaveVsTraps(final MOB target)
+	protected boolean doesSaveVsTraps(final MOB target)
 	{
 		int save=target.charStats().getSave(CharStats.STAT_SAVE_TRAPS);
 		if(invoker()!=null)
@@ -164,7 +166,7 @@ public class StdTrap extends StdAbility implements Trap
 		return (CMLib.dice().rollPercentage()<=save);
 	}
 
-	public boolean isLocalExempt(final MOB target)
+	protected boolean isLocalExempt(final MOB target)
 	{
 		if(target==null)
 			return false;
@@ -212,9 +214,11 @@ public class StdTrap extends StdAbility implements Trap
 	}
 
 	@Override
-	public void setReset(final int Reset)
+	public void setReset(final int resetTicks)
 	{
-		reset = Reset;
+		if((!sprung)&&(!disabled)&&(resetTicks>=0))
+			tickDown=resetTicks;
+		reset = resetTicks;
 	}
 
 	@Override
@@ -277,22 +281,75 @@ public class StdTrap extends StdAbility implements Trap
 		{
 			final int x=text.indexOf(':');
 			final int y=text.indexOf(':',x+1);
-			if((x>=0)&&(y>x)&&(CMath.isInteger(text.substring(x+1,y).trim())))
+			if((x>=0)&&(y>x))
 			{
-				setAbilityCode(CMath.s_int(text.substring(x+1,y).trim()));
+				final String ac = text.substring(x+1,y).trim();
+				final int z=ac.indexOf('/');
+				if((z>0)
+				&&(CMath.isInteger(ac.substring(0,z).trim()))
+				&&(CMath.isInteger(ac.substring(z+1).trim())))
+				{
+					trapLevel=CMath.s_int(ac.substring(0,z).trim());
+					setAbilityCode(CMath.s_int(ac.substring(z+1).trim()));
+				}
+				else
+				if(CMath.isInteger(ac))
+					setAbilityCode(CMath.s_int(ac));
 				text=text.substring(y+1).trim();
 			}
 		}
-		super.setMiscText(text);
+		if(text.trim().length()>0)
+			super.setMiscText(text.trim());
 	}
 
 	@Override
 	public String text()
 	{
-		return "`"+invokerName+"` :"+abilityCode()+":"+super.text();
+		final StringBuilder txt=new StringBuilder("");
+		if((invokerName != null)
+		&&(!invokerName.equalsIgnoreCase("null")))
+			txt.append("`"+invokerName+"` ");
+		for(final String msg : newMessaging)
+			txt.append("\""+msg+"\" ");
+		txt.append(":"+trapLevel()+"/"+abilityCode()+":");
+		txt.append(super.text());
+		return txt.toString();
 	}
 
-	public synchronized PairVector<MOB,Integer> getSafeDirs()
+	protected String getTrigMsg(final String defMsg)
+	{
+		if(newMessaging.size()>0)
+		{
+			final String str = newMessaging.get(0);
+			if(str.length()>0)
+				return str;
+		}
+		return defMsg;
+	}
+
+	protected String getDamMsg(final String defMsg)
+	{
+		if(newMessaging.size()>1)
+		{
+			final String str = newMessaging.get(1);
+			if(str.length()>0)
+				return str;
+		}
+		return defMsg;
+	}
+
+	protected String getAvoidMsg(final String defMsg)
+	{
+		if(newMessaging.size()>2)
+		{
+			final String str = newMessaging.get(2);
+			if(str.length()>0)
+				return str;
+		}
+		return defMsg;
+	}
+
+	protected synchronized PairVector<MOB,Integer> getSafeDirs()
 	{
 		if(safeDirs == null)
 			safeDirs=new PairVector<MOB,Integer>();
@@ -377,56 +434,6 @@ public class StdTrap extends StdAbility implements Trap
 			super.executeMsg(myHost,msg);
 			return;
 		}
-		if(CMath.bset(canAffectCode(),Ability.CAN_EXITS))
-		{
-			if(msg.amITarget(affected))
-			{
-				if((affected instanceof Exit)
-				&&(((Exit)affected).hasADoor())
-				&&(((Exit)affected).hasALock())
-				&&(((Exit)affected).isLocked()))
-				{
-					if(msg.targetMinor()==CMMsg.TYP_UNLOCK)
-						spring(msg.source());
-				}
-				else
-				if((affected instanceof Container)
-				&&(((Container)affected).hasADoor())
-				&&(((Container)affected).hasALock())
-				&&(((Container)affected).isLocked()))
-				{
-					if(msg.targetMinor()==CMMsg.TYP_UNLOCK)
-						spring(msg.source());
-				}
-				else
-				if(msg.targetMinor()==CMMsg.TYP_OPEN)
-					spring(msg.source());
-			}
-		}
-		else
-		if(CMath.bset(canAffectCode(),Ability.CAN_ITEMS))
-		{
-			if(isABomb())
-			{
-				if(msg.amITarget(affected))
-				{
-					if((msg.targetMinor()==CMMsg.TYP_HOLD)
-					&&(msg.source().isMine(affected)))
-					{
-						msg.source().tell(msg.source(),affected,null,L("You activate <T-NAME>."));
-						activateBomb();
-					}
-				}
-			}
-			else
-			if(msg.amITarget(affected))
-			{
-				if(((msg.targetMinor()==CMMsg.TYP_GET)||(msg.targetMinor()==CMMsg.TYP_PUSH)||(msg.targetMinor()==CMMsg.TYP_PULL))
-				&&(!msg.source().isMine(affected)))
-					spring(msg.source());
-			}
-		}
-		else
 		if(CMath.bset(canAffectCode(), Ability.CAN_ROOMS)
 		&& msg.amITarget(affected)
 		&&(msg.targetMinor()==CMMsg.TYP_ENTER))
@@ -457,14 +464,59 @@ public class StdTrap extends StdAbility implements Trap
 			if(!msg.source().isMine(affected))
 				spring(msg.source());
 		}
+		else
+		if(CMath.bset(canAffectCode(),Ability.CAN_EXITS)
+		&&(msg.amITarget(affected))
+		&&((affected instanceof Exit)||(affected instanceof Container)))
+		{
+			if((affected instanceof Exit)
+			&&(((Exit)affected).hasADoor())
+			&&(((Exit)affected).hasALock())
+			&&(((Exit)affected).isLocked()))
+			{
+				if(msg.targetMinor()==CMMsg.TYP_UNLOCK)
+					spring(msg.source());
+			}
+			else
+			if((affected instanceof Container)
+			&&(((Container)affected).hasADoor())
+			&&(((Container)affected).hasALock())
+			&&(((Container)affected).isLocked()))
+			{
+				if(msg.targetMinor()==CMMsg.TYP_UNLOCK)
+					spring(msg.source());
+			}
+			else
+			if(msg.targetMinor()==CMMsg.TYP_OPEN)
+				spring(msg.source());
+		}
+		else
+		if((CMath.bset(canAffectCode(),Ability.CAN_ITEMS))
+		&&(msg.amITarget(affected))
+		&&(affected instanceof Item))
+		{
+			if(isABomb())
+			{
+				if((msg.targetMinor()==CMMsg.TYP_HOLD)
+				&&(msg.source().isMine(affected)))
+				{
+					msg.source().tell(msg.source(),affected,null,L("You activate <T-NAME>."));
+					activateBomb();
+				}
+			}
+			else
+			{
+				if(((msg.targetMinor()==CMMsg.TYP_GET)||(msg.targetMinor()==CMMsg.TYP_PUSH)||(msg.targetMinor()==CMMsg.TYP_PULL))
+				&&(!msg.source().isMine(affected)))
+					spring(msg.source());
+			}
+		}
 		super.executeMsg(myHost,msg);
 	}
 
 	@Override
 	public boolean maySetTrap(final MOB mob, final int asLevel)
 	{
-		if(mob==null)
-			return false;
 		if(trapLevel()<0)
 			return false;
 		if(asLevel<0)
@@ -598,6 +650,95 @@ public class StdTrap extends StdAbility implements Trap
 		super.setInvoker(mob);
 	}
 
+	protected void tellOwner(final ItemPossessor P, final String msg)
+	{
+		if(P instanceof Room)
+			((Room)P).showHappens(CMMsg.MSG_OK_ACTION, msg);
+		else
+		if(P instanceof MOB)
+			((MOB)P).tell(msg);
+	}
+
+	protected boolean canExplodeOutOf(final int material)
+	{
+		switch(material&RawMaterial.MATERIAL_MASK)
+		{
+		case RawMaterial.MATERIAL_METAL:
+		case RawMaterial.MATERIAL_MITHRIL:
+		case RawMaterial.MATERIAL_GLASS:
+		case RawMaterial.MATERIAL_ROCK:
+		case RawMaterial.MATERIAL_LIQUID:
+		case RawMaterial.MATERIAL_ENERGY:
+		case RawMaterial.MATERIAL_SYNTHETIC:
+		case RawMaterial.MATERIAL_GAS:
+			return false;
+		}
+		return true;
+	}
+
+	protected boolean doesInnerExplosionDestroy(final int material)
+	{
+		return false;
+	}
+
+	protected void explodeContainer(final Container C)
+	{
+		if((!canExplodeOutOf(C.material()))
+		||(!CMLib.utensils().canBeRuined(C)))
+		{
+			tellOwner(C.owner(), L("Something happened inside @x1.",C.name()));
+			return;
+		}
+		if(doesInnerExplosionDestroy(C.material()))
+		{
+			tellOwner(C.owner(), L("@x1 is destroyed.",C.name()));
+			final List<Item> contents=C.getDeepContents();
+			for(final Item I : contents)
+			{
+				final Item I2=CMLib.utensils().ruinItem(I);
+				if(I2 != null)
+				{
+					I.owner().addItem(I2, Expire.Monster_Body);
+					I.destroy();
+				}
+				else
+					I.setContainer(null);
+			}
+			C.destroy();
+		}
+		if(C.owner() instanceof MOB)
+			spring((MOB)C.owner());
+		else
+		if(C.owner() instanceof Room)
+			springOnRoomMobs((Room)C.owner());
+	}
+
+	protected void springOnRoomMobs(final Room R)
+	{
+		if(R!=null)
+		{
+			for(int i=R.numInhabitants()-1;i>=0;i--)
+			{
+				final MOB M=R.fetchInhabitant(i);
+				if(M!=null)
+					spring(M);
+			}
+		}
+	}
+
+	protected void explodeBomb(final Physical P)
+	{
+		final Item I=(Item)affected;
+		if(I.container() != null)
+			explodeContainer(I.container());
+		else
+		if(I.owner() instanceof MOB)
+			spring((MOB)I.owner());
+		else
+		if(I.owner() instanceof Room)
+			springOnRoomMobs((Room)I.owner());
+	}
+
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
@@ -615,24 +756,11 @@ public class StdTrap extends StdAbility implements Trap
 		{
 			if((--tickDown)<=0)
 			{
-				if((isABomb())
-				&&(affected instanceof Item)
-				&&(((Item)affected).owner()!=null))
+				if( isABomb()
+				&&(affected instanceof Item))
 				{
 					final Item I=(Item)affected;
-					if(I.owner() instanceof MOB)
-						spring((MOB)I.owner());
-					else
-					if(I.owner() instanceof Room)
-					{
-						final Room R=(Room)I.owner();
-						for(int i=R.numInhabitants()-1;i>=0;i--)
-						{
-							final MOB M=R.fetchInhabitant(i);
-							if(M!=null)
-								spring(M);
-						}
-					}
+					explodeBomb(I.owner());
 					disable();
 					unInvoke();
 					I.destroy();
@@ -691,7 +819,7 @@ public class StdTrap extends StdAbility implements Trap
 
 	protected int findNumberOfResource(final Room room, final RawMaterial resource)
 	{
-		return CMLib.materials().findNumberOfResource(room, resource);
+		return CMLib.materials().findNumberOfResourceLike(room, resource);
 	}
 
 	@Override

@@ -11,14 +11,15 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
-import com.planet_ink.coffee_mud.Items.interfaces.TechComponent.ShipDir;
+import com.planet_ink.coffee_mud.Items.interfaces.ShipDirectional.ShipDir;
+import com.planet_ink.coffee_mud.Items.interfaces.Technical.TechCommand;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -32,6 +33,18 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+/**
+ * The Tech library mainly deals with technical items, and making them work.
+ * It registers groups of items into circuits according to a tech 'key',
+ * and then uses all the items in the circuit to trigger electricity
+ * generation and distribution.
+ *
+ * It also manages the list of tech manufacturers and their stats, as
+ * well as the Global Tech Level.
+ *
+ * @author Bo Zimmerman
+ *
+ */
 public interface TechLibrary extends CMLibrary
 {
 	/**
@@ -75,6 +88,19 @@ public interface TechLibrary extends CMLibrary
 	public String registerElectrics(Electronics E, String oldKey);
 
 	/**
+	 * Registers an electronic component that belongs
+	 * in a complex circuitry, like a panel or a
+	 * generator.  Also allows you to register for various
+	 * TechCommand activations in the circuit.
+	 *
+	 * @param E the electronic component to register
+	 * @param oldKey the last key registered to this device
+	 * @param listenFors TechCommands to listen for, or null
+	 * @return the new key assigned to this item (or old key)
+	 */
+	public String registerElectrics(final Electronics E, final String oldKey, final TechCommand[] listenFors);
+
+	/**
 	 * Returns whether the currents at the given key are still
 	 * active.  Some currents go inactive when players leave
 	 * the game, or their areas may be suspended by the system.
@@ -99,6 +125,35 @@ public interface TechLibrary extends CMLibrary
 	 * @return the list of electronic object of that key
 	 */
 	public List<Electronics> getMakeRegisteredElectronics(String key);
+
+	/**
+	 * For objects connected ONLY via their electronics, this will allow
+	 * tech messages to be transferred between them.
+	 * This is the previewer.
+	 *
+	 * @see TechLibrary#executeMsg(String, TechCommand, Environmental, CMMsg)
+	 *
+	 * @param oldKey the electronics key
+	 * @param command the tech command in question
+	 * @param myHost message host
+	 * @param msg the message to send
+	 * @return true if the message may be sent
+	 */
+	public boolean okMessage(final String oldKey, final TechCommand command, final Environmental myHost, final CMMsg msg);
+
+	/**
+	 * For objects connected ONLY via their electronics, this will allow
+	 * tech messages to be transferred between them.
+	 * This method sends the messsage and executes it.
+	 *
+	 * @see TechLibrary#okMessage(String, TechCommand, Environmental, CMMsg)
+	 *
+	 * @param oldKey the electronics key
+	 * @param command the tech command in question
+	 * @param myHost message host
+	 * @param msg the message to send
+	 */
+	public void executeMsg(final String oldKey, final TechCommand command, final Environmental myHost, final CMMsg msg);
 
 	/**
 	 * Certain Key Systems may automatically force batteries in their circuit
@@ -153,7 +208,7 @@ public interface TechLibrary extends CMLibrary
 	 * @param name the manufacturer to fetch
 	 * @return the manufacturer found, or null
 	 */
-	public Manufacturer getManufacturerOf(Electronics E, String name);
+	public Manufacturer getManufacturerOf(Technical E, String name);
 
 	/**
 	 * Returns an iterator of manufacturers
@@ -199,27 +254,6 @@ public interface TechLibrary extends CMLibrary
 	 * @param I An electronics item that needs fixing
 	 * @param newTechLevel the new tech level
 	 */
-	public void fixItemTechLevel(Electronics I, int newTechLevel);
-
-	/**
-	 * If the two given objects are within an appropriate distance
-	 * from each other, this will return the correct amount of
-	 * acceleration g-force applied by the second object to the
-	 * first. typically <= 1G
-	 *
-	 * @param S the object being pulled
-	 * @param cO the object pulling
-	 * @return the amount of gravity force, or 0
-	 */
-	public double getGravityForce(SpaceObject S, SpaceObject cO);
-
-	/**
-	 * Given a ship war component, returns the directions in which it is
-	 * currently covering.
-	 *
-	 * @param comp the war component
-	 * @return the directions being covered
-	 */
-	public ShipDir[] getCurrentBattleCoveredDirections(final ShipWarComponent comp);
+	public void fixItemTechLevel(Technical I, int newTechLevel);
 
 }

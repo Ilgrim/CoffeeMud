@@ -3,6 +3,7 @@ package com.planet_ink.coffee_mud.WebMacros.grinder;
 import com.planet_ink.coffee_web.interfaces.*;
 import com.planet_ink.coffee_mud.WebMacros.RoomData;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.ShopKeeper.ViewType;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.CMSecurity.DisFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
@@ -11,6 +12,7 @@ import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.CatalogLibrary.CataSpawn;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
@@ -21,7 +23,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,7 +61,9 @@ public class GrinderMobs
 		LIBRDAYCHG,LIBROVERPCT,LIBDAYPCT,LIBMINDAYS,
 		LIBMAXDAYS,LIBMAXBORROW,ISLIBRARIAN,LIBCMASK,
 		STATESTR,STATESUBJSTR,RIDERSTR,MOUNTSTR,DISMOUNTSTR,
-		ISDRINK, LIQUIDHELD, QUENCHED, LIQUIDTYPES
+		ISDRINK, LIQUIDHELD, QUENCHED, LIQUIDTYPES, SIVIEWTYPES,
+		CURRENCIES, CURRENCY,CATARATE,CATALIVE,CATAMASK,CATACAP,
+		ISBROKER, BROCHAIN, MAXLISTINGS, COMMISSIONPCT
 		;
 
 		public boolean isGenField;
@@ -212,7 +216,12 @@ public class GrinderMobs
 					if(B==null)
 						return "Unknown Blessing '"+aff+"'.";
 					else
+					{
+						final String atext=httpReq.getUrlParameter("BLESSTEXT"+num);
+						if((atext!=null)&&(atext.length()>0))
+							B.setMiscText(atext);
 						E.addBlessing(B,clericOnly);
+					}
 				}
 				num++;
 				aff=httpReq.getUrlParameter("BLESS"+num);
@@ -223,7 +232,7 @@ public class GrinderMobs
 
 	public static String clans(final MOB E, final HTTPRequest httpReq, final java.util.Map<String,String> parms)
 	{
-		final List<String> clans=new Vector<String>();
+		final List<String> clans=new ArrayList<String>();
 		for(final Pair<Clan,Integer> p : E.clans())
 			clans.add(p.first.clanID());
 		for(final String clanID : clans)
@@ -271,7 +280,12 @@ public class GrinderMobs
 					if(B==null)
 						return "Unknown Curse '"+aff+"'.";
 					else
+					{
+						final String atext=httpReq.getUrlParameter("CURSETEXT"+num);
+						if((atext!=null)&&(atext.length()>0))
+							B.setMiscText(atext);
 						E.addCurse(B,clericOnly);
+					}
 				}
 				num++;
 				aff=httpReq.getUrlParameter("CURSE"+num);
@@ -316,7 +330,7 @@ public class GrinderMobs
 				final String WORN=httpReq.getUrlParameter("ITEMWORN"+i);
 				if(MATCHING==null)
 					break;
-				Item I2=RoomData.getItemFromAnywhere(allitems,MATCHING);
+				Item I2=CMLib.webMacroFilter().findItemInAnything(allitems,MATCHING);
 				if(I2!=null)
 				{
 					if(!CMath.isNumber(MATCHING))
@@ -387,7 +401,12 @@ public class GrinderMobs
 					if(B==null)
 						return "Unknown Power '"+aff+"'.";
 					else
+					{
+						final String atext=httpReq.getUrlParameter("POWERTEXT"+num);
+						if((atext!=null)&&(atext.length()>0))
+							B.setMiscText(atext);
 						E.addPower(B);
+					}
 				}
 				num++;
 				aff=httpReq.getUrlParameter("POWER"+num);
@@ -409,7 +428,7 @@ public class GrinderMobs
 			shopMobCode="";
 
 		CatalogLibrary.CataData cataData=null;
-		synchronized(("SYNC"+((R!=null)?R.roomID():"null")).intern())
+		synchronized(CMClass.getSync(("SYNC"+((R!=null)?R.roomID():"null"))))
 		{
 			if(R!=null)
 			{
@@ -421,7 +440,7 @@ public class GrinderMobs
 			if(mobCode.equals("NEW")||mobCode.equals("NEWDEITY")||mobCode.startsWith("NEWCATA-"))
 				M=CMClass.getMOB(newClassID);
 			else
-				M=RoomData.getMOBFromCode(R,mobCode);
+				M=CMLib.webMacroFilter().getMOBFromWebCache(R,mobCode);
 
 			MOB shopM=null;
 
@@ -434,7 +453,7 @@ public class GrinderMobs
 					M=CMClass.getMOB(newClassID);
 				else
 				{
-					final MOB chkM=RoomData.getMOBFromCode((Room)null,shopMobCode);
+					final MOB chkM=CMLib.webMacroFilter().getMOBFromWebCache((Room)null,shopMobCode);
 					if(chkM != null)
 						M=(MOB)((ShopKeeper)M).getShop().getStock(chkM.Name(), null);
 				}
@@ -451,7 +470,7 @@ public class GrinderMobs
 					{
 						final MOB M2=R.fetchInhabitant(m);
 						if((M2!=null)&&(M2.isSavable()))
-							str.append(M2.Name()+"="+RoomData.getMOBCode(R,M2)+"<BR>\n\r");
+							str.append(M2.Name()+"="+CMLib.webMacroFilter().findMOBWebCacheCode(R,M2)+"<BR>\n\r");
 					}
 				}
 				return str.toString();
@@ -492,7 +511,7 @@ public class GrinderMobs
 					M.setDisplayText(old);
 					break;
 				case DESCRIPTION: // description
-					M.setDescription(old);
+					M.setDescription(CMStrings.fixMudCRLF(old));
 					break;
 				case LEVEL: // level
 					M.basePhyStats().setLevel(CMath.s_int(old));
@@ -549,7 +568,7 @@ public class GrinderMobs
 					break;
 				case RIDEABLETYPE: // rideable type
 					if(M instanceof Rideable)
-						((Rideable)M).setRideBasis(CMath.s_int(old));
+						((Rideable)M).setRideBasis(Rideable.Basis.values()[CMath.s_int(old)]);
 					break;
 				case MOBSHELD: // mobs held
 					if(M instanceof Rideable)
@@ -561,6 +580,38 @@ public class GrinderMobs
 					if(M instanceof ShopKeeper)
 						((ShopKeeper)M).setWhatIsSoldZappermask(old.trim());
 					break;
+				case CATARATE: // catarate
+					if(mobCode.startsWith("CATALOG-")||mobCode.startsWith("NEWCATA-"))
+					{
+						if(cataData==null)
+							cataData=CMLib.catalog().sampleCataData("");
+						cataData.setRate(CMath.s_pct(old));
+					}
+					break;
+				case CATACAP:
+					if(mobCode.startsWith("CATALOG-")||mobCode.startsWith("NEWCATA-"))
+					{
+						if(cataData==null)
+							cataData=CMLib.catalog().sampleCataData("");
+						cataData.setCap(CMath.s_int(old));
+					}
+					break;
+				case CATALIVE: // catalive
+					if(mobCode.startsWith("CATALOG-")||mobCode.startsWith("NEWCATA-"))
+					{
+						if(cataData==null)
+							cataData=CMLib.catalog().sampleCataData("");
+						cataData.setSpawn((CataSpawn)CMath.s_valueOf(CataSpawn.class,old));
+					}
+					break;
+				case CATAMASK: // catamask
+					if(mobCode.startsWith("CATALOG-")||mobCode.startsWith("NEWCATA-"))
+					{
+						if(cataData==null)
+							cataData=CMLib.catalog().sampleCataData("");
+						cataData.setMaskStr(old);
+					}
+					break;
 				case SHOPKEEPERTYPE: // shopkeeper type
 					if(M instanceof ShopKeeper)
 					{
@@ -571,6 +622,22 @@ public class GrinderMobs
 						{
 							((ShopKeeper)M).addSoldType(CMath.s_int(httpReq.getUrlParameter(parmName+x)));
 							x++;
+						}
+					}
+					break;
+				case SIVIEWTYPES: // view types
+					if(M instanceof ShopKeeper)
+					{
+						((ShopKeeper)M).viewFlags().clear();
+						int x=0;
+						String key=parmName;
+						while(httpReq.getUrlParameter(key)!=null)
+						{
+							final ViewType V = (ViewType)CMath.s_valueOf(ViewType.class, httpReq.getUrlParameter(key));
+							if(V != null)
+								((ShopKeeper)M).viewFlags().add(V);
+							x++;
+							key=parmName+x;
 						}
 					}
 					break;
@@ -593,6 +660,11 @@ public class GrinderMobs
 				case SHOPPREJ: // shopkeeper prejudices
 					if(M instanceof ShopKeeper)
 						((ShopKeeper)M).setPrejudiceFactors(old);
+					break;
+				case CURRENCIES:
+				case CURRENCY:
+					if(M instanceof Economics)
+						((Economics)M).setCurrency(old);
 					break;
 				case ISDEITY: // is deity
 					break;
@@ -746,6 +818,14 @@ public class GrinderMobs
 					if(M instanceof Librarian)
 						((Librarian)M).setMaxOverdueDays(CMath.s_int(old));
 					break;
+				case MAXLISTINGS: // max listings
+					if(M instanceof CraftBroker)
+						((CraftBroker)M).setMaxListings(CMath.s_int(old));
+					break;
+				case COMMISSIONPCT:
+					if(M instanceof CraftBroker)
+						((CraftBroker)M).setCommissionPct(CMath.s_pct(old));
+					break;
 				case LIBMAXBORROW: // library max borrowed
 					if(M instanceof Librarian)
 						((Librarian)M).setMaxBorrowed(CMath.s_int(old));
@@ -769,6 +849,10 @@ public class GrinderMobs
 				case AUCCHAIN: // auction house
 					if(M instanceof Auctioneer)
 						((Auctioneer)M).setAuctionHouse(old);
+					break;
+				case BROCHAIN: // auction house
+					if(M instanceof CraftBroker)
+						((CraftBroker)M).setBrokerChain(old);
 					break;
 				case LIVELIST: // live list
 					//if(M instanceof Auctioneer)
@@ -819,6 +903,14 @@ public class GrinderMobs
 						else
 							((Auctioneer)M).setMaxTimedAuctionDays(CMath.s_int(old));
 					}
+					else
+					if(M instanceof CraftBroker)
+					{
+						if(old.length()==0)
+							((CraftBroker)M).setMaxTimedListingDays(-1);
+						else
+							((CraftBroker)M).setMaxTimedListingDays(CMath.s_int(old));
+					}
 					break;
 				case MINDAYS: // min days
 					if(M instanceof Auctioneer)
@@ -830,6 +922,8 @@ public class GrinderMobs
 					}
 					break;
 				case ISAUCTION: // is auction
+					break;
+				case ISBROKER: // is broker
 					break;
 				case DEITYID: // deity
 					/*
@@ -872,16 +966,16 @@ public class GrinderMobs
 						((Rideable) M).setRideString(old);
 					break;
 				case LIQUIDTYPES: // liquid types
-					if((M instanceof Drink)&&(!(M instanceof Potion)))
-						((Drink)M).setLiquidType(CMath.s_int(old));
+					if((M instanceof LiquidHolder)&&(!(M instanceof Potion)))
+						((LiquidHolder)M).setLiquidType(CMath.s_int(old));
 					break;
 				case ISDRINK: // is drink
 					break;
 				case LIQUIDHELD: // liquid held
-					if(M instanceof Drink)
+					if(M instanceof LiquidHolder)
 					{
-						((Drink)M).setLiquidHeld(CMath.s_int(old));
-						((Drink)M).setLiquidRemaining(CMath.s_int(old));
+						((LiquidHolder)M).setLiquidHeld(CMath.s_int(old));
+						((LiquidHolder)M).setLiquidRemaining(CMath.s_int(old));
 					}
 					break;
 				case QUENCHED: // quenched
@@ -899,9 +993,6 @@ public class GrinderMobs
 				error=GrinderMobs.senses(M,httpReq,parms);
 				if(error.length()>0)
 					return error;
-				error=GrinderAreas.doAffects(M,httpReq,parms);
-				if(error.length()>0)
-					return error;
 				error=GrinderAreas.doBehavs(M,httpReq,parms);
 				if(error.length()>0)
 					return error;
@@ -909,6 +1000,9 @@ public class GrinderMobs
 				if(error.length()>0)
 					return error;
 				error=GrinderMobs.abilities(M,httpReq,parms);
+				if(error.length()>0)
+					return error;
+				error=GrinderAreas.doAffects(M,httpReq,parms); // after abilities because of auto-invoking crap
 				if(error.length()>0)
 					return error;
 				error=GrinderMobs.clans(M,httpReq,parms);
@@ -954,26 +1048,18 @@ public class GrinderMobs
 						else
 						if(MATCHING.startsWith("CATALOG-"))
 						{
-							Environmental O=RoomData.getMOBFromCatalog(MATCHING);
+							Environmental O=CMLib.webMacroFilter().getMOBFromCatalog(MATCHING);
 							if(O==null)
-								O=RoomData.getItemFromAnywhere(null,MATCHING);
+								O=CMLib.webMacroFilter().findItemInAnything(null,MATCHING);
 							if(O!=null)
 								shop.addStoreInventory((Environmental)O.copyOf(),CMath.s_int(theparm),CMath.s_int(theprice));
 						}
 						else
 						if(MATCHING.indexOf('@')>0)
 						{
-							Environmental O=null;
-							for (final MOB M2 : RoomData.getMOBCache())
-							{
-								if(MATCHING.equals(""+M2))
-								{
-									O=M2;
-									break;
-								}
-							}
+							Environmental O=CMLib.webMacroFilter().getMOBFromAnywhere(MATCHING);
 							if(O==null)
-								O=RoomData.getItemFromAnywhere(null,MATCHING);
+								O=CMLib.webMacroFilter().findItemInAnything(null,MATCHING);
 							if(O!=null)
 								shop.addStoreInventory((Environmental)O.copyOf(),CMath.s_int(theparm),CMath.s_int(theprice));
 						}
@@ -1000,7 +1086,7 @@ public class GrinderMobs
 								}
 							}
 							if(O==null)
-								O=RoomData.getItemFromAnywhere(null,MATCHING);
+								O=CMLib.webMacroFilter().findItemInAnything(null,MATCHING);
 							if(O!=null)
 								shop.addStoreInventory((Environmental)O.copyOf(),CMath.s_int(theparm),CMath.s_int(theprice));
 						}
@@ -1015,13 +1101,13 @@ public class GrinderMobs
 				if((M instanceof Economics)
 				&&(httpReq.isUrlParameter("IPRIC1")))
 				{
-					final Vector<String> prics=new Vector<String>();
+					final List<String> prics=new ArrayList<String>();
 					String DOUBLE=httpReq.getUrlParameter("IPRIC"+num);
 					String MASK=httpReq.getUrlParameter("IPRICM"+num);
 					while((DOUBLE!=null)&&(MASK!=null))
 					{
 						if(CMath.isNumber(DOUBLE))
-							prics.addElement((DOUBLE+" "+MASK).trim());
+							prics.add((DOUBLE+" "+MASK).trim());
 						num++;
 						DOUBLE=httpReq.getUrlParameter("IPRIC"+num);
 						MASK=httpReq.getUrlParameter("IPRICM"+num);
@@ -1067,9 +1153,9 @@ public class GrinderMobs
 				}
 				else
 				{
-					RoomData.contributeMOBs(new XVector<MOB>(M));
-					final MOB M2=RoomData.getReferenceMOB(M);
-					newMobCode=RoomData.getMOBCode(RoomData.getMOBCache(),M2);
+					CMLib.webMacroFilter().contributeMOBsToWebCache(new XVector<MOB>(M));
+					final MOB M2=CMLib.webMacroFilter().findMOBMatchInWebCache(M);
+					newMobCode=CMLib.webMacroFilter().findMOBWebCacheCode(M2);
 				}
 			}
 			else
@@ -1079,11 +1165,11 @@ public class GrinderMobs
 			{
 				if(shopMobCode.equals("NEW")||shopMobCode.equals("NEWDEITY"))
 					((ShopKeeper)shopM).getShop().addStoreInventory(M);
-				RoomData.contributeMOBs(new XVector<MOB>(M));
-				final MOB M2=RoomData.getReferenceMOB(M);
-				newShopMobCode=RoomData.getMOBCode(RoomData.getMOBCache(),M2);
+				CMLib.webMacroFilter().contributeMOBsToWebCache(new XVector<MOB>(M));
+				final MOB M2=CMLib.webMacroFilter().findMOBMatchInWebCache(M);
+				newShopMobCode=CMLib.webMacroFilter().findMOBWebCacheCode(M2);
 				CMLib.database().DBUpdateMOBs(R);
-				newMobCode=RoomData.getMOBCode(R,shopM);
+				newMobCode=CMLib.webMacroFilter().findMOBWebCacheCode(R,shopM);
 			}
 			else
 			{
@@ -1105,7 +1191,7 @@ public class GrinderMobs
 				}
 				R.recoverRoomStats();
 				CMLib.database().DBUpdateMOBs(R);
-				newMobCode=RoomData.getMOBCode(R,M);
+				newMobCode=CMLib.webMacroFilter().findMOBWebCacheCode(R,M);
 			}
 			if((newShopMobCode!=null)&&(newShopMobCode.length()>0))
 			{

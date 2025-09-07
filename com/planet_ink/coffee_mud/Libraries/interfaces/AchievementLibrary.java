@@ -25,7 +25,7 @@ import com.planet_ink.coffee_web.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -54,8 +54,11 @@ public interface AchievementLibrary extends CMLibrary
 {
 	/**
 	 * The list of arguments/parameters common to all achievement event types
+	 * -- remember to also modify fillAchievementParmTree
 	 */
-	public final String[] BASE_ACHIEVEMENT_PARAMETERS = new String[] { "EVENT", "DISPLAY", "TITLE", "REWARDS", "VISIBLEMASK" };
+	public final String[] BASE_ACHIEVEMENT_PARAMETERS = new String[] {
+		"EVENT", "DISPLAY", "TITLE", "REWARDS", "VISIBLEMASK", "DURATION", "PLAYERMASK", "FLAGS"
+	};
 
 	/**
 	 * Events define the type of achievement, describing specific arguments that
@@ -67,47 +70,59 @@ public interface AchievementLibrary extends CMLibrary
 	 */
 	public enum Event
 	{
-		KILLS("Number of Kills",new String[]{"NUM","ZAPPERMASK","PLAYERMASK"}),
-		STATVALUE("A Stat value",new String[]{"VALUE","ABOVEBELOW","STAT"}),
-		FACTION("A Faction level",new String[]{"VALUE","ABOVEBELOW","ID"}),
-		EXPLORE("Exploration",new String[]{"PERCENT","AREA"}),
-		CRAFTING("Crafting",new String[]{"NUM","ABILITYID"}),
-		MENDER("Mending",new String[]{"NUM","ABILITYID"}),
-		SKILLUSE("Using Skills",new String[]{"NUM","ABILITYID"}),
-		SOCIALUSE("Using Socials",new String[]{"NUM","SOCIALID"}),
-		QUESTOR("Completing Quests",new String[]{"NUM","PLAYERMASK","QUESTMASK"}),
-		ACHIEVER("Completing Achievements",new String[]{"ACHIEVEMENTLIST"}),
-		ROOMENTER("Entering a Room",new String[]{"ROOMID"}),
-		LEVELSGAINED("Gaining Levels",new String[]{"NUM","PLAYERMASK"}),
-		CLASSLEVELSGAINED("Gaining Class Levels",new String[]{"NUM","CLASS","PLAYERMASK"}),
-		TIMEPLAYED("Time Played",new String[]{"SECONDS","PLAYERMASK"}),
-		JUSTBE("Character State",new String[]{"PLAYERMASK"}),
-		DEATHS("Dieing",new String[]{"NUM","ZAPPERMASK","PLAYERMASK"}),
-		RETIRE("Retiring",new String[]{"NUM","PLAYERMASK"}),
-		REMORT("Remorting",new String[]{"NUM","PLAYERMASK"}),
-		GOTITEM("Got an item",new String[]{"NUM","ITEMMASK","PLAYERMASK"}),
-		FACTIONS("A group of factions",new String[]{"VALUE","ABOVEBELOW","IDMASK","NUM"}),
-		BIRTHS("Births",new String[]{"NUM","ZAPPERMASK","PLAYERMASK"}),
-		RACEBIRTH("Race Creation",new String[]{"NUM","ZAPPERMASK","PLAYERMASK"}),
-		PLAYERBORN("Being a Player Born",new String[]{"PLAYERMASK"}),
-		PLAYERBORNPARENT("Being a Player Parent",new String[]{"NUM","ZAPPERMASK","PLAYERMASK"}),
-		CLANPROPERTY("Purchased property",new String[]{"NUM","AREAMASK"}),
-		CONQUEREDAREAS("Conquered an area",new String[]{"NUM","AREAMASK"}),
-		CLANKILLS("Killed a rival clan member",new String[]{"NUM","ZAPPERMASK","PLAYERMASK"}),
-		CLANDECLARE("Declared a new relationship",new String[]{"NUM","RELATION"}),
-		CHARACTERS("Account size",new String[]{"NUM", "PLAYERMASK"}),
-		CLANMEMBERS("Membership size",new String[]{"NUM", "PLAYERMASK"}),
-		CONQUESTPOINTS("Conquest points",new String[]{"NUM","AREAMASK"}),
-		CLANLEVELSGAINED("Clan levels",new String[]{"NUM"}),
-		SHIPSSUNK("Ships sunk",new String[] {"NUM", "PLAYERMASK", "SHIPMASK"}),
-		CMDUSE("Using Commands",new String[]{"NUM","COMMANDID"}),
+		KILLS("NUM","ZAPPERMASK"),
+		STATVALUE("VALUE","ABOVEBELOW","STAT"),
+		FACTION("VALUE","ABOVEBELOW","ID"),
+		FACTIONS("VALUE","ABOVEBELOW","IDMASK","NUM"),
+		EXPLORE("PERCENT","AREA"),
+		CHARITY("AMOUNT","ZAPPERMASK"),
+		ROOMENTER("ROOMID"),
+		CRAFTING("NUM","ABILITYID","ITEMMASK"),
+		MENDER("NUM","ABILITYID","ITEMMASK"),
+		DECONSTRUCTING("NUM","ABILITYID","ITEMMASK"),
+		SKILLUSE("NUM","ABILITYID"),
+		SKILLPROF("NUM", "PROF","ABILITYID"),
+		EFFECTSHAD("NUM", "ABILITYID"),
+		SOCIALUSE("NUM","SOCIALID"),
+		QUESTOR("NUM","QUESTMASK"),
+		ACHIEVER("ACHIEVEMENTLIST"),
+		LEVELSGAINED("NUM"),
+		CLASSLEVELSGAINED("NUM","CLASS"),
+		TIMEPLAYED("SECONDS"),
+		JUSTBE(),
+		DEATHS("NUM","ZAPPERMASK"),
+		REMORT("NUM"),
+		RETIRE("NUM"),
+		GOTITEM("NUM","ITEMMASK"),
+		BIRTHS("NUM","ZAPPERMASK"),
+		RACEBIRTH("NUM","ZAPPERMASK"),
+		PLAYERBORNPARENT("NUM","ZAPPERMASK"),
+		PLAYERBORN(),
+		CHARACTERS("NUM"),
+		CLANMEMBERS("NUM"),
+		CLANKILLS("NUM","ZAPPERMASK"),
+		CLANLEVELSGAINED("NUM"),
+		CLANDECLARE("NUM","RELATION"),
+		CLANPROPERTY("NUM","AREAMASK"),
+		CONQUEREDAREAS("NUM","AREAMASK"),
+		CONQUESTPOINTS("NUM","AREAMASK"),
+		AREAVISIT("AREAMASK","NUM","TIME_MINS", "ROOMMASK"),
+		INSTANCEEXPIRE("AREAMASK","NUM","TIME_MINS","VALUEEXP"),
+		SHIPSSUNK("NUM", "SHIPMASK"),
+		CMDUSE("NUM","COMMANDID"),
+		GROUPKILLS("NUM","SIZE","ZAPPERMASK"),
+		ENTITLED("NUM","TITLEMASK"),
+		SCRIPTED("NUM"),
+		LEVELUP("NUM"),
+		CLASSLEVELUP("NUM","CLASS"),
+		LEVELDOWN("NUM"),
+		CLASSLEVELDOWN("NUM","CLASS"),
 		;
 		private final String[] parameters;
-		private final String displayName;
+		private String displayName = null;
 
-		private Event(final String displayName, final String[] extraParameters)
+		private Event(final String... extraParameters)
 		{
-			this.displayName = displayName;
 			parameters = CMParms.combine(BASE_ACHIEVEMENT_PARAMETERS, extraParameters);
 		}
 
@@ -117,7 +132,60 @@ public interface AchievementLibrary extends CMLibrary
 		 */
 		public String displayName()
 		{
-			return this.displayName;
+			if(displayName == null)
+			{
+				switch(this)
+				{
+				case KILLS: displayName=CMLib.lang().L("Number of Kills"); break;
+				case STATVALUE: displayName=CMLib.lang().L("A Stat value"); break;
+				case FACTION: displayName=CMLib.lang().L("A Faction level"); break;
+				case FACTIONS: displayName=CMLib.lang().L("A group of factions"); break;
+				case EXPLORE: displayName=CMLib.lang().L("Exploration"); break;
+				case CHARITY: displayName=CMLib.lang().L("Charity"); break;
+				case ROOMENTER: displayName=CMLib.lang().L("Entering a Room"); break;
+				case CRAFTING: displayName=CMLib.lang().L("Crafting"); break;
+				case MENDER: displayName=CMLib.lang().L("Mending"); break;
+				case DECONSTRUCTING: displayName=CMLib.lang().L("Deconstructing"); break;
+				case SKILLUSE: displayName=CMLib.lang().L("Using Skills"); break;
+				case SKILLPROF: displayName=CMLib.lang().L("Skill proficiency"); break;
+				case EFFECTSHAD: displayName=CMLib.lang().L("Effects checked-off"); break;
+				case SOCIALUSE: displayName=CMLib.lang().L("Using Socials"); break;
+				case QUESTOR: displayName=CMLib.lang().L("Completing Quests"); break;
+				case ACHIEVER: displayName=CMLib.lang().L("Completing Achievements"); break;
+				case LEVELSGAINED: displayName=CMLib.lang().L("Gaining net Levels"); break;
+				case CLASSLEVELSGAINED: displayName=CMLib.lang().L("Gaining net Class Levels"); break;
+				case TIMEPLAYED: displayName=CMLib.lang().L("Time Played"); break;
+				case JUSTBE: displayName=CMLib.lang().L("Character State"); break;
+				case DEATHS: displayName=CMLib.lang().L("Dieing"); break;
+				case REMORT: displayName=CMLib.lang().L("Remorting"); break;
+				case RETIRE: displayName=CMLib.lang().L("Retiring"); break;
+				case GOTITEM: displayName=CMLib.lang().L("Got an item"); break;
+				case BIRTHS: displayName=CMLib.lang().L("Births"); break;
+				case RACEBIRTH: displayName=CMLib.lang().L("Race Creation"); break;
+				case PLAYERBORNPARENT: displayName=CMLib.lang().L("Being a Player Parent"); break;
+				case PLAYERBORN: displayName=CMLib.lang().L("Being a Player Born"); break;
+				case CHARACTERS: displayName=CMLib.lang().L("Account size"); break;
+				case CLANMEMBERS: displayName=CMLib.lang().L("Membership size"); break;
+				case CLANKILLS: displayName=CMLib.lang().L("Killed a rival clan member"); break;
+				case CLANLEVELSGAINED: displayName=CMLib.lang().L("Clan levels"); break;
+				case CLANDECLARE: displayName=CMLib.lang().L("Declared a new relationship"); break;
+				case CLANPROPERTY: displayName=CMLib.lang().L("Purchased property"); break;
+				case CONQUEREDAREAS: displayName=CMLib.lang().L("Conquered an area"); break;
+				case CONQUESTPOINTS: displayName=CMLib.lang().L("Conquest points"); break;
+				case AREAVISIT: displayName=CMLib.lang().L("Visit an Area/Plane"); break;
+				case INSTANCEEXPIRE: displayName=CMLib.lang().L("An area instance expires"); break;
+				case SHIPSSUNK: displayName=CMLib.lang().L("Ships sunk"); break;
+				case CMDUSE: displayName=CMLib.lang().L("Using Commands"); break;
+				case GROUPKILLS: displayName=CMLib.lang().L("Number of Group Kills"); break;
+				case ENTITLED: displayName=CMLib.lang().L("Number of titles"); break;
+				case SCRIPTED: displayName=CMLib.lang().L("Special Scripted"); break;
+				case LEVELUP: displayName=CMLib.lang().L("Gaining a level"); break;
+				case CLASSLEVELUP: displayName=CMLib.lang().L("Gaining a Class levels"); break;
+				case LEVELDOWN: displayName=CMLib.lang().L("Losing a level"); break;
+				case CLASSLEVELDOWN: displayName=CMLib.lang().L("Losing a Class levels"); break;
+				}
+			}
+			return displayName;
 		}
 
 		/**
@@ -140,6 +208,16 @@ public interface AchievementLibrary extends CMLibrary
 				choices.add(E.name());
 			return choices.toArray(new String[0]);
 		}
+	}
+
+	/**
+	 * Legal values for the FLAGS field in an achievement.
+	 *
+	 * @author Bo Zimmerman
+	 */
+	public enum AchievementFlag
+	{
+		REMORT // is reset on remort and can be re-attained
 	}
 
 	/**
@@ -198,10 +276,10 @@ public interface AchievementLibrary extends CMLibrary
 		 * Creates a new tracker object with the given progress count as
 		 * the default/starting value.
 		 * @see Achievement#getTargetCount()
-		 * @param oldCount the initial value for progress, if applicable
+		 * @param oldVal the initial value for progress, if applicable
 		 * @return a new tracker object with the given progress count
 		 */
-		public Tracker getTracker(int oldCount);
+		public Tracker getTracker(String oldVal);
 
 		/**
 		 * Parses the parameters defined by the event type of this achievement
@@ -263,6 +341,23 @@ public interface AchievementLibrary extends CMLibrary
 		 * @return the value of the parameter
 		 */
 		public String getRawParmVal(String str);
+
+		/**
+		 * For achievements that are repeatable,
+		 * this is the duration of the tattoo.  These
+		 * should not be used for Account achievements!
+		 * 0 is indefinite/forever
+		 * @return the duration, in ticks, of the achievement
+		 */
+		public int getDuration();
+
+		/**
+		 * Returns whether the given achievment flag applies
+		 * to this achievement.
+		 * @param flag the flag
+		 * @return true if it applies
+		 */
+		public boolean isFlag(AchievementFlag flag);
 	}
 
 	/**
@@ -283,6 +378,9 @@ public interface AchievementLibrary extends CMLibrary
 		NOPURGE,
 		CLANXP,
 		CLANCURRENCY,
+		TATTOO,
+		ITEM,
+		MOB
 		;
 	}
 
@@ -438,6 +536,49 @@ public interface AchievementLibrary extends CMLibrary
 	}
 
 	/**
+	 * The TattooAward interface provides pre-parsed award information for those who
+	 * complete the achievement.
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public interface TattooAward extends Award
+	{
+		/**
+		 * The tattoo to grant to the player or account.
+		 * @return the tattoo to grant to the player or account
+		 */
+		public String getTattoo();
+
+		/**
+		 * Returns whether the tattoo award should be applied
+		 * to an account, default false.
+		 * @return true for an account tattoo
+		 */
+		public boolean isForAccount();
+	}
+
+	/**
+	 * The CatalogAward interface provides pre-parsed award information for those who
+	 * complete the achievement and have earned a mob or item from the catalog.
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public interface CatalogAward extends AmountAward
+	{
+		/**
+		 * The item or mob granted.
+		 * @return the item or mob granted.
+		 */
+		public PhysicalAgent getItem();
+
+		/**
+		 * The name of the item or mob to grant.
+		 * @return the name of the item or mob to grant.
+		 */
+		public String getItemName();
+	}
+
+	/**
 	 * A tracker object assigned to a particular player or account
 	 * for a particular achievement, allowing the achievement to
 	 * track progress if it needs to, or just providing a way
@@ -485,6 +626,15 @@ public interface AchievementLibrary extends CMLibrary
 		public int getCount(Tattooable tracked);
 
 		/**
+		 * Returns the parms to store for the given mob.  If the
+		 * achievement of this tracker is Savable, then the mob may be
+		 * null, since the count would then be internally stored.
+		 * @param tracked the mob to get a parms for -- required ONLY for unsavable
+		 * @return the parms for this achievement and this mob
+		 */
+		public String getCountParms(Tattooable tracked);
+
+		/**
 		 * Returns a copy of this tracker, unattached to the
 		 * tracker it is a copy of.
 		 * @return a copy of this tracker
@@ -499,7 +649,7 @@ public interface AchievementLibrary extends CMLibrary
 	 * is returned, otherwise an error message is returned.
 	 * @param agent whether this is a player or account
 	 * @param row the coded key=value pairs row.
-	 * @param addIfPossible true if, on success, the new achievment is added, false otherwise
+	 * @param addIfPossible true if, on success, the new achievement is added, false otherwise
 	 * @return the error message, or "" for success
 	 */
 	public String evaluateAchievement(AccountStats.Agent agent, String row, boolean addIfPossible);
@@ -585,6 +735,18 @@ public interface AchievementLibrary extends CMLibrary
 	public void possiblyBumpAchievement(final MOB mob, final Event E, int bumpNum, Object... parms);
 
 	/**
+	 * Always causes a player to have one of their achievements bumped,
+	 * this method is called with event specific parameters which might possibly cause the achievement
+	 * to be bumped in the tracker, which might cause it to be completed as well.
+	 *
+	 * @param mob the mob who is bumping the achievement
+	 * @param A the achievement
+	 * @param bumpNum the amount to bump, plus or minus
+	 * @param parms any event-specific argument that help determine whether a bump is warranted.
+	 */
+	public void bumpAchievement(final MOB mob, final Achievement A, final int bumpNum, final Object... parms);
+
+	/**
 	 * When an event occurs that might possible cause a player to have one of their achievements bumped,
 	 * this method is called with event specific parameters which might possibly cause the achievement
 	 * to be bumped in the tracker, which might cause it to be completed as well.  This method does
@@ -604,6 +766,16 @@ public interface AchievementLibrary extends CMLibrary
 	 * @return all the comment/help entries from the achievement definition file
 	 */
 	public Map<String,Map<String,String>> getAchievementsHelpMap();
+
+	/**
+	 * Parses the given string as per an achievements.ini 'rewards'
+	 * definition and grants the given mob the given awards.
+	 *
+	 * @param mob the mob to give awards to
+	 * @param rewardStr the rewards definition
+	 * @return the message describing the awards given
+	 */
+	public String giveAwards(final MOB mob, final String rewardStr);
 
 	/**
 	 * Given the comments/help entried from the achievement definition file, and an event,
@@ -675,10 +847,19 @@ public interface AchievementLibrary extends CMLibrary
 	 * Searches for an Achievement of the given tattoo name or display name,
 	 * and returns a help entry for the achievement.
 	 * @param ID the tattoo name or display name
-	 * @param exact true for exact matches only, false for startswith
 	 * @return the help entry, or ""
 	 */
-	public String getAchievementsHelp(String ID, boolean exact);
+	public String getAchievementsHelp(String ID);
+
+	/**
+	 * Searches for an Achievement of the given tattoo name or display name,
+	 * and returns the tattoo or display name that applies.
+	 *
+	 * @param ID the tattoo name or display name
+	 * @param exact true for exact match only, false otherwise
+	 * @return the final tattoo name or display name
+	 */
+	public String findAchievementID(String ID, final boolean exact);
 
 	/**
 	 * Returns a friendly description of the award, adjusting for the recipient, and

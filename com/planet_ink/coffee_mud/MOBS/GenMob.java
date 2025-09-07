@@ -19,7 +19,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ public class GenMob extends StdMOB
 	public GenMob()
 	{
 		super();
-		username="a generic mob";
+		_name="a generic mob";
 		setDescription("");
 		setDisplayText("A generic mob stands here.");
 
@@ -66,9 +66,9 @@ public class GenMob extends StdMOB
 	public String text()
 	{
 		if(CMProps.getBoolVar(CMProps.Bool.MOBCOMPRESS))
-			miscText=CMLib.encoder().compressString(CMLib.coffeeMaker().getPropertiesStr(this,false));
+			miscText=CMLib.encoder().compressString(CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false));
 		else
-			miscText=CMLib.coffeeMaker().getPropertiesStr(this,false);
+			miscText=CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 		return super.text();
 	}
 

@@ -6,7 +6,7 @@ import java.util.Map;
 import com.planet_ink.coffee_mud.Locales.interfaces.Room;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import com.planet_ink.coffee_mud.core.interfaces.*;
  * are herein exposed
  * @author Bo Zimmerman
  */
-public interface AutoGenArea extends Area
+public interface AutoGenArea
 {
 	/**
 	 * Get the path to the xml file to use to generate this areas rooms
@@ -60,4 +60,11 @@ public interface AutoGenArea extends Area
 	 * @param vars the variable mappings
 	 */
 	public void setAutoGenVariables(String vars);
+
+	/**
+	 * Resets the instance, sending all players back to the given room.
+	 * @param returnToRoom the room to return all players to
+	 * @return true if reset was successful, false otherwise
+	 */
+	public boolean resetInstance(final Room returnToRoom);
 }

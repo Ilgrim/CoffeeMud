@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<!-- ----------------------------------------------------------------------------
-Copyright 2020-2020 Bo Zimmerman
+<!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Copyright 2020-2025 Bo Zimmerman
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
---------------------------------------------------------------------------------
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 See guides/RandomAreas.html for information about documents of this type.
 
@@ -21,6 +21,7 @@ template: normal_dispel1
 settable vars: 
     template(normal_dispel1)
     sub_template(bound, diseased, hurt, cursed, badspelled, crippled, bleeding, polymorphed)
+    category(whatevs)
     area_name(area name)
     source_name(mob name)
     targetarea_name(area name)
@@ -35,18 +36,21 @@ settable vars:
 	quest_point_awarded(YES,NO)
 	announcechannel()
 	reward_items()
+	target_min_arealevel(#), target_max_arealevel(#)
 	quest_multiple(YES, NO, or PREV)
 -->
 
 <QUEST ID="normal_dispel1" QUEST_TEMPLATE_ID="normal_dispel1">
 	<QUEST_ID DEFINE="quest_id">${_:source_area_name}_${_:source_name}_${h:quest_template}_R$[100000000?999999999]</QUEST_ID>
-	<QUEST_NAME SELECT="Any-1">
+	<QUEST_NAME SELECT="Pick-1">
 		<QUEST_NAME>${C:source_name} in ${C:source_area_name} needs $num_targets ${p:target_name} $reason_verbed</QUEST_NAME>
 		<QUEST_NAME>${C:source_name} in ${C:source_area_name} wants $num_targets ${p:target_name} $reason_verbed</QUEST_NAME>
 		<QUEST_NAME>${C:source_name} in ${C:source_area_name} asks for $num_targets ${p:target_name} to be $reason_verbed</QUEST_NAME>
 		<QUEST_NAME>${C:reason_verb} $num_targets ${p:target_name} for ${C:source_name} in ${C:source_area_name}</QUEST_NAME>
+		<QUEST_NAME PICKWEIGHT="99" CONDITION="$deityname!=''">${C:source_name} in ${C:source_area_name} needs $num_targets ${p:target_name} $reason_verbed for $deityname</QUEST_NAME>
 	</QUEST_NAME>
 	<QUEST_CRITERIA>+SYSOP +LEVELS -&lt;$[$target_level - $level_span] -&gt;$[$target_level + $level_span]</QUEST_CRITERIA>
+	<CATEGORY>$quest_category</CATEGORY>
 	<ANNOUNCER_AREA>"$source_area_name"</ANNOUNCER_AREA>
 	<ANNOUNCER_ROOM>"$source_room_id"</ANNOUNCER_ROOM>
 	<ANNOUNCER_NAME>"$source_name"</ANNOUNCER_NAME>
@@ -102,24 +106,25 @@ settable vars:
 
 	<STRING ID="quest_notifystring" define="quest_notifystring" SELECT="ALL">
 		<STRING ACTION="PREPEND">$reason_short  $quest_notifyaddendum</STRING>
+		<STRING ACTION="APPEND" CONDITION="$deityname!=''">Do this in the name of ${c:deityname}.</STRING>
 	</STRING>
 
 	<STRING ID="quest_notifyaddendum" SELECT="Pick-1">
-		<STRING PICKWEIGHT=1>Are you game?</STRING>
-		<STRING PICKWEIGHT=1>Are you ready?</STRING>
-		<STRING PICKWEIGHT=1>Are you up to it?</STRING>
-		<STRING PICKWEIGHT=1>Can you handle it?</STRING>
-		<STRING PICKWEIGHT=1>Who's ready?</STRING>
-		<STRING PICKWEIGHT=12></STRING>
+		<STRING PICKWEIGHT="1">Are you game?</STRING>
+		<STRING PICKWEIGHT="1">Are you ready?</STRING>
+		<STRING PICKWEIGHT="1">Are you up to it?</STRING>
+		<STRING PICKWEIGHT="1">Can you handle it?</STRING>
+		<STRING PICKWEIGHT="1">Who's ready?</STRING>
+		<STRING PICKWEIGHT="12"></STRING>
 	</STRING>
 
 	<STRING ID="reason_short" define="reason_short" SELECT="Any-1">
-		<STRING>I need ${p:target_name} $reason_verbed!</STRING>
-		<STRING>Help me $reason_verb ${p:target_name}!</STRING>
-		<STRING>Assistance required with some ${p:target_name}!</STRING>
-		<STRING>${c:reason_verb} ${p:target_name} for me!</STRING>
-		<STRING>${c:reason_verb} ${p:target_name}, quickly!</STRING>
-		<STRING>I want ${p:target_name} $reason_verbed!</STRING>
+		<STRING>I need ${p:target_name} in $target_area_name $reason_verbed!</STRING>
+		<STRING>Help me $reason_verb ${p:target_name} in $target_area_name!</STRING>
+		<STRING>Assistance required with some ${p:target_name} in $target_area_name!</STRING>
+		<STRING>${c:reason_verb} ${p:target_name} in $target_area_name for me!</STRING>
+		<STRING>${c:reason_verb} ${p:target_name} in $target_area_name, quickly!</STRING>
+		<STRING>I want ${p:target_name} in $target_area_name $reason_verbed!</STRING>
 	</STRING>
 
 	<STRING ID="quest_instructionstring" SELECT="ALL">
@@ -134,13 +139,13 @@ settable vars:
 	</STRING>
 
 	<STRING ID="do_drop_item" define="do_drop_item" SELECT="PICK-1">
-		<STRING PICKWEIGHT=50>YES</STRING>
-		<STRING PICKWEIGHT=20>NO</STRING>
+		<STRING PICKWEIGHT="50">YES</STRING>
+		<STRING PICKWEIGHT="20">NO</STRING>
 	</STRING>
 
 	<STRING ID="quest_drop_loc" define="quest_drop_loc" SELECT="PICK-1">
-		<STRING PICKWEIGHT=50>ROOM</STRING>
-		<STRING PICKWEIGHT=50>MOB</STRING>
+		<STRING PICKWEIGHT="50">ROOM</STRING>
+		<STRING PICKWEIGHT="50">MOB</STRING>
 	</STRING>
 
 	<STRING ID="quest_drop_chance" define="quest_drop_chance" SELECT="ANY-1">
@@ -393,8 +398,8 @@ settable vars:
 	</STRING>
 
 	<STRING ID="quest_point_awarded" DEFINE="quest_point_awarded" SELECT="Pick-1">
-		<STRING PICKWEIGHT=2>NO</STRING>
-		<STRING PICKWEIGHT=1>YES</STRING>
+		<STRING PICKWEIGHT="2">NO</STRING>
+		<STRING PICKWEIGHT="1">YES</STRING>
 	</STRING>
 
 	<STRING ID="gold_amount_awarded" DEFINE="gold_amount_awarded" SELECT="any-1">
@@ -402,17 +407,22 @@ settable vars:
 	</STRING>
 
 	<STRING ID="xp_amount_awarded" DEFINE="xp_amount_awarded" SELECT="any-1">
-		<STRING>$[100 + $target_level*3]</STRING>
+		<STRING>$[100 + ($target_level * 3)]</STRING>
 	</STRING>
 
 	<OBJECT ID="source_area" SELECT="Pick-1" DEFINE="source_area">
-		<OBJECT pickweight=99999 condition="'${SELECT: name FROM area}' != ''">SELECT: . FROM area</OBJECT>
-		<OBJECT pickweight=55555 condition="$area_name != ''" and '${SELECT: name FROM area}' = ''>SELECT: ANY\. FROM areas where NAME=$area_name</OBJECT> 
-		<OBJECT pickweight=1 condition="$area_name = '' and '${SELECT: name FROM area}' = '' and $multiarea = 'YES'">
+		<OBJECT pickweight="99999" condition="'${SELECT: name FROM area}' != ''">SELECT: . FROM area</OBJECT>
+		<OBJECT pickweight="55555" condition="$area_name != '' and '${SELECT: name FROM area}' = ''">SELECT: ANY\. FROM areas where NAME=$area_name</OBJECT> 
+		<OBJECT pickweight="1" condition="$area_name = '' and '${SELECT: name FROM area}' = '' and $multiarea = 'YES'">
 			SELECT: ANY\. FROM areas WHERE (SELECT: count\. from $mql_viable_questgivers) &gt; 0
 		</OBJECT>
-		<OBJECT pickweight=1 condition="$area_name = '' and '${SELECT: name FROM area}' = '' and $multiarea != 'YES'">
+		<OBJECT pickweight="1" condition="$area_name = '' and $target_min_arealevel = '' and '${SELECT: name FROM area}' = '' and $multiarea != 'YES'">
 			SELECT: ANY\. FROM areas WHERE (SELECT: count\. from $mql_viable_questgivers) &gt; 0
+				AND (SELECT:count\. from area\npcs WHERE name\count &gt; $num_targets  and . LIKE '-HOME "+$target_area_name"') &gt; 0
+		</OBJECT>
+		<OBJECT pickweight="1" condition="$area_name = '' and $target_min_arealevel != '' and '${SELECT: name FROM area}' = '' and $multiarea != 'YES'">
+			SELECT: ANY\. FROM areas WHERE MED_LEVEL &gt;= $target_min_arealevel and MED_LEVEL &lt;= $target_max_arealevel 
+				and (SELECT: count\. from $mql_viable_questgivers) &gt; 0
 				AND (SELECT:count\. from area\npcs WHERE name\count &gt; $num_targets  and . LIKE '-HOME "+$target_area_name"') &gt; 0
 		</OBJECT>
 	</OBJECT>
@@ -420,9 +430,9 @@ settable vars:
 	<OBJECT ID="source_room" DEFINE="source_room">SELECT: . FROM $source\room</OBJECT>
 	
 	<OBJECT ID="source" SELECT="Pick-1" DEFINE="source">
-		<OBJECT PICKWEIGHT=99999 CONDITION="'${SELECT: name FROM mob}' != ''">SELECT: . FROM mob</OBJECT>
-		<OBJECT pickweight=55555 condition="$sourcename != ''" and '${SELECT: name FROM mob}' = ''>SELECT: . FROM $source_area\npcs WHERE name = $sourcename</OBJECT> 
-		<OBJECT PICKWEIGHT=1 CONDITION="$sourcename = '' and '${SELECT: name FROM mob}' = ''" insert="$mql_viable_questgiver" />
+		<OBJECT PICKWEIGHT="99999" CONDITION="'${SELECT: name FROM mob}' != ''">SELECT: . FROM mob</OBJECT>
+		<OBJECT pickweight="55555" condition="$sourcename != '' and '${SELECT: name FROM mob}' = ''">SELECT: . FROM $source_area\npcs WHERE name = $sourcename</OBJECT> 
+		<OBJECT PICKWEIGHT="1" CONDITION="$sourcename = '' and '${SELECT: name FROM mob}' = ''" insert="$mql_viable_questgiver" />
 	</OBJECT>
 
 	<STRING ID="source_area_name" SELECT="any-1" DEFINE="source_area_name">
@@ -433,7 +443,7 @@ settable vars:
 		<STRING>${SELECT:mean\level FROM $target_area\npcs WHERE name = $target_name}</STRING>
 	</STRING>
 	
-	<STRING ID="level_range" SELECT="any-1" DEFINE="level_range" MERGE=true>
+	<STRING ID="level_range" SELECT="any-1" DEFINE="level_range" merge="true">
 		<STRING>$target_level</STRING>
 	</STRING>
 	
@@ -482,10 +492,14 @@ settable vars:
 	<STRING ID="multiarea" define="multiarea">NO</STRING>
 	
 	<OBJECT ID="target_area" SELECT="Pick-1" DEFINE="target_area">
-		<OBJECT pickweight=55555 condition="$targetarea_name != ''">SELECT: ANY\. FROM areas where NAME=$targetarea_name</OBJECT> 
-		<OBJECT pickweight=100 condition="$targetarea_name = '' and $multiarea != 'YES'">SELECT: any\. from $source_area</OBJECT>
-		<OBJECT pickweight=1 condition="$targetarea_name = '' and $multiarea = 'YES'">
+		<OBJECT pickweight="55555" condition="$targetarea_name != ''">SELECT: ANY\. FROM areas where NAME=$targetarea_name</OBJECT> 
+		<OBJECT pickweight="100" condition="$targetarea_name = '' and $multiarea != 'YES'">SELECT: any\. from $source_area</OBJECT>
+		<OBJECT pickweight="1" condition="$targetarea_name = '' and $target_min_arealevel = '' and $multiarea = 'YES'">
 			SELECT: ANY\. FROM areas WHERE (SELECT:count\. from area\npcs WHERE name\count &gt; $num_targets  and . LIKE '-HOME "+$target_area_name"') &gt; 0
+		</OBJECT>
+		<OBJECT pickweight="1" condition="$targetarea_name = '' and $target_min_arealevel != '' and $multiarea = 'YES'">
+			SELECT: ANY\. FROM areas WHERE MED_LEVEL &gt;= $target_min_arealevel and MED_LEVEL &lt;= $target_max_arealevel 
+				and (SELECT:count\. from area\npcs WHERE name\count &gt; $num_targets  and . LIKE '-HOME "+$target_area_name"') &gt; 0
 		</OBJECT>
 	</OBJECT>
 

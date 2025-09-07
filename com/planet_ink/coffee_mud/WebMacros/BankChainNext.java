@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -96,16 +96,16 @@ public class BankChainNext extends StdWebMacro
 			if(!CMSecurity.isAllowedEverywhere(M,CMSecurity.SecFlag.CMDPLAYERS))
 				return "";
 
-			for(final Iterator<String> j=CMLib.map().bankChains(null);j.hasNext();)
+			for(final Enumeration<String> j=CMLib.city().bankChains(null);j.hasMoreElements();)
 			{
-				final String bankChain=j.next();
+				final String bankChain=j.nextElement();
 				if((last==null)||((last.length()>0)&&(last.equals(lastID))&&(!bankChain.equals(lastID))))
 				{
 					httpReq.addFakeUrlParameter("BANKCHAIN",bankChain);
 					last=bankChain;
 					if(playerM!=null)
 					{
-						final Banker bankerM=CMLib.map().getBank(bankChain,bankChain);
+						final Banker bankerM=CMLib.city().getBank(bankChain,bankChain);
 						if((bankerM==null)
 						||((bankerM.isSold(ShopKeeper.DEAL_CLANBANKER))&&(playerM.getClanRole(playerM.Name())==null))
 						||(BankAccountInfo.getAccountInfoBalance(httpReq,bankerM,playerM)<=0.0))

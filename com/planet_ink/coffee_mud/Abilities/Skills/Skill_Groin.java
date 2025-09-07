@@ -20,7 +20,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -220,8 +220,8 @@ public class Skill_Groin extends StdSkill implements HealthCondition
 		{
 			invoker=mob;
 			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE|(auto?CMMsg.MASK_ALWAYS:0),
-					L(auto?"<T-NAME> clutch(es) <T-HIS-HER> groin area in obvious pain!":
-						"^F<S-NAME> kick(s) <T-NAMESELF> in the groin!^?"));
+					(auto?L("<T-NAME> clutch(es) <T-HIS-HER> groin area in obvious pain!"):
+						L("^F<S-NAME> kick(s) <T-NAMESELF> in the groin!^?")));
 			CMLib.color().fixSourceFightColor(msg);
 			if(mob.location().okMessage(mob,msg))
 			{
@@ -234,7 +234,7 @@ public class Skill_Groin extends StdSkill implements HealthCondition
 					damage=target.curState().getHitPoints()-1;
 				CMLib.combat().postDamage(mob,target,this,damage,CMMsg.MASK_ALWAYS|CMMsg.MASK_SOUND|CMMsg.MASK_MOVE|CMMsg.TYP_JUSTICE,Weapon.TYPE_BASHING,
 						L("^F^<FIGHT^>The crotch blow <DAMAGES> <T-NAME>!^</FIGHT^>^?@x1",CMLib.protocol().msp("bashed1.wav",30)));
-				if(target.charStats().getStat(CharStats.STAT_GENDER) == 'M')
+				if(target.charStats().reproductiveCode() == 'M')
 					success=maliciousAffect(mob,target,asLevel,2+super.getXLEVELLevel(mob),-1)!=null;
 				this.lastHit=new WeakReference<MOB>(target);
 			}

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ public class Prayer_RemoveCurse extends Prayer implements MendingSkill
 	@Override
 	public int classificationCode()
 	{
-		return Ability.ACODE_PRAYER|Ability.DOMAIN_BLESSING;
+		return Ability.ACODE_PRAYER|Ability.DOMAIN_NEUTRALIZATION;
 	}
 
 	@Override
@@ -114,7 +114,9 @@ public class Prayer_RemoveCurse extends Prayer implements MendingSkill
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("^SA glow surrounds <T-NAME>.^?"):L("^S<S-NAME> call(s) on @x1 for <T-NAME> to be released from a curse.^?",hisHerDiety(mob)));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					auto?L("^SA glow surrounds <T-NAME>.^?"):
+						L("^S<S-NAME> call(s) on @x1 for <T-NAME> to be released from a curse.^?",hisHerDiety(mob)));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -126,16 +128,28 @@ public class Prayer_RemoveCurse extends Prayer implements MendingSkill
 					if(lastI==I)
 					{
 						alreadyDone.add(I);
-						final CMMsg msg2=CMClass.getMsg(target,I,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_DROP,L("<S-NAME> release(s) <T-NAME>."));
-						target.location().send(target,msg2);
+						final CMMsg msgb=CMClass.getMsg(mob,I,this,verbalCastCode(mob,target,auto), null);
+						if(target.location().okMessage(target, msgb))
+						{
+							target.location().send(target,msgb);
+							final CMMsg msg2=CMClass.getMsg(target,I,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_DROP,L("<S-NAME> release(s) <T-NAME>."));
+							target.location().send(target,msg2);
+							Prayer_Bless.endLowerCurses(I,adjustedLevel(mob,asLevel));
+							I.recoverPhyStats();
+						}
 					}
 					else
 					{
-						CMLib.flags().setRemovable(I,true);
-						CMLib.flags().setDroppable(I,true);
+						final CMMsg msgb=CMClass.getMsg(mob,I,this,verbalCastCode(mob,target,auto), null);
+						if(target.location().okMessage(target, msgb))
+						{
+							target.location().send(target,msgb);
+							CMLib.flags().setRemovable(I,true);
+							CMLib.flags().setDroppable(I,true);
+							Prayer_Bless.endLowerCurses(I,adjustedLevel(mob,asLevel));
+							I.recoverPhyStats();
+						}
 					}
-					Prayer_Bless.endLowerCurses(I,adjustedLevel(mob,asLevel));
-					I.recoverPhyStats();
 					lastI=I;
 					I=Prayer_Bless.getSomething(target,true);
 				}

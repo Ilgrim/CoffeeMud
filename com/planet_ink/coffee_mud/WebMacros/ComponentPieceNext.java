@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,7 +57,10 @@ public class ComponentPieceNext extends StdWebMacro
 		final String fixedCompID=compID.replace(' ','_').toUpperCase();
 		if(!httpReq.isUrlParameter(fixedCompID+"_PIECE_CONNECTOR_1"))
 		{
-			final List<AbilityComponent> set=CMLib.ableComponents().getAbilityComponents(compID);
+			@SuppressWarnings("unchecked")
+			List<AbilityComponent> set=(List<AbilityComponent>)httpReq.getRequestObjects().get("COMP4_"+compID.toUpperCase().trim());
+			if(set == null)
+				set=CMLib.ableComponents().getAbilityComponents(compID);
 			if(set!=null)
 			{
 				int index=1;
@@ -71,6 +74,7 @@ public class ComponentPieceNext extends StdWebMacro
 					httpReq.addFakeUrlParameter(fixedCompID+"_PIECE_AMOUNT_"+index, Integer.toString(A.getAmount()));
 					httpReq.addFakeUrlParameter(fixedCompID+"_PIECE_CONNECTOR_"+index, A.getConnector().toString());
 					httpReq.addFakeUrlParameter(fixedCompID+"_PIECE_LOCATION_"+index, A.getLocation().toString());
+					httpReq.addFakeUrlParameter(fixedCompID+"_PIECE_RITUAL_"+index, A.getTriggererDef());
 					httpReq.addFakeUrlParameter(fixedCompID+"_PIECE_TYPE_"+index, A.getType().toString());
 					httpReq.addFakeUrlParameter(fixedCompID+"_PIECE_STYPE_"+index, A.getSubType().toString());
 					httpReq.addFakeUrlParameter(fixedCompID+"_PIECE_CONSUMED_"+index, A.isConsumed()?"on":"");
@@ -80,6 +84,7 @@ public class ComponentPieceNext extends StdWebMacro
 			else
 			{
 				httpReq.addFakeUrlParameter(fixedCompID+"_PIECE_MASK_1", "");
+				httpReq.addFakeUrlParameter(fixedCompID+"_PIECE_RITUAL_1", "");
 				httpReq.addFakeUrlParameter(fixedCompID+"_PIECE_STRING_1", "item name");
 				httpReq.addFakeUrlParameter(fixedCompID+"_PIECE_AMOUNT_1", "1");
 				httpReq.addFakeUrlParameter(fixedCompID+"_PIECE_CONNECTOR_1", "AND");
@@ -101,6 +106,7 @@ public class ComponentPieceNext extends StdWebMacro
 					if(newIndex != oldIndex)
 					{
 						httpReq.addFakeUrlParameter(fixedCompID+"_PIECE_MASK_"+newIndex, httpReq.getUrlParameter(fixedCompID+"_PIECE_MASK_"+oldIndex));
+						httpReq.addFakeUrlParameter(fixedCompID+"_PIECE_RITUAL_"+newIndex, httpReq.getUrlParameter(fixedCompID+"_PIECE_RITUAL_"+oldIndex));
 						httpReq.addFakeUrlParameter(fixedCompID+"_PIECE_STRING_"+newIndex, httpReq.getUrlParameter(fixedCompID+"_PIECE_STRING_"+oldIndex));
 						httpReq.addFakeUrlParameter(fixedCompID+"_PIECE_AMOUNT_"+newIndex, httpReq.getUrlParameter(fixedCompID+"_PIECE_AMOUNT_"+oldIndex));
 						httpReq.addFakeUrlParameter(fixedCompID+"_PIECE_CONNECTOR_"+newIndex, httpReq.getUrlParameter(fixedCompID+"_PIECE_CONNECTOR_"+oldIndex));
@@ -114,6 +120,7 @@ public class ComponentPieceNext extends StdWebMacro
 				oldIndex++;
 			}
 			httpReq.removeUrlParameter(fixedCompID+"_PIECE_MASK_"+newIndex);
+			httpReq.removeUrlParameter(fixedCompID+"_PIECE_RITUAL_"+newIndex);
 			httpReq.removeUrlParameter(fixedCompID+"_PIECE_STRING_"+newIndex);
 			httpReq.removeUrlParameter(fixedCompID+"_PIECE_AMOUNT_"+newIndex);
 			httpReq.removeUrlParameter(fixedCompID+"_PIECE_CONNECTOR_"+newIndex);

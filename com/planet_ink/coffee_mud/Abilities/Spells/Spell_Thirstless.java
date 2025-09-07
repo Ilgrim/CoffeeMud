@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -102,7 +102,8 @@ public class Spell_Thirstless extends Spell
 		super.unInvoke();
 
 		if((canBeUninvoked())
-		&&(!CMSecurity.isDisabled(DisFlag.THIRST)))
+		&&(!CMSecurity.isDisabled(DisFlag.THIRST))
+		&&(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.IMMORT)))
 		{
 			mob.tell(L("You are starting to feel thirstier."));
 			mob.curState().setThirst(0);
@@ -134,7 +135,7 @@ public class Spell_Thirstless extends Spell
 			return false;
 
 		// now see if it worked
-		final boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto)&& (!CMSecurity.isDisabled(DisFlag.THIRST));
 		if(success)
 		{
 			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> cast(s) a spell on <T-NAMESELF>.^?"));

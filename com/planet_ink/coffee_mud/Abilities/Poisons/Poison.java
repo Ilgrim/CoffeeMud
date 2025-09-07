@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -112,12 +112,12 @@ public class Poison extends StdAbility implements HealthCondition
 
 	protected String POISON_DONE()
 	{
-		return "The poison runs its course.";
+		return L("The poison runs its course.");
 	}
 
 	protected String POISON_START()
 	{
-		return "^G<S-NAME> turn(s) green.^?";
+		return L("^G<S-NAME> turn(s) green.^?");
 	}
 
 	protected String POISON_START_TARGETONLY()
@@ -130,24 +130,29 @@ public class Poison extends StdAbility implements HealthCondition
 		return true;
 	}
 
+	protected int POISON_ADDICTION_CHANCE()
+	{
+		return 0;
+	}
+
 	protected String POISON_AFFECT()
 	{
-		return "<S-NAME> cringe(s) as the poison courses through <S-HIS-HER> blood.";
+		return L("<S-NAME> cringe(s) as the poison courses through <S-HIS-HER> blood.");
 	}
 
 	protected String POISON_CAST()
 	{
-		return "^F^<FIGHT^><S-NAME> attempt(s) to poison <T-NAMESELF>!^</FIGHT^>^?";
+		return L("^F^<FIGHT^><S-NAME> attempt(s) to poison <T-NAMESELF>!^</FIGHT^>^?");
 	}
 
 	protected String POISON_FAIL()
 	{
-		return "<S-NAME> attempt(s) to poison <T-NAMESELF>, but fail(s).";
+		return L("<S-NAME> attempt(s) to poison <T-NAMESELF>, but fail(s).");
 	}
 
 	protected int POISON_DAMAGE()
 	{
-		return (invoker != null) ? CMLib.dice().roll(1, invoker().phyStats().level(), 1) : 0;
+		return (invoker != null) ? CMLib.dice().roll(1, invoker().phyStats().level(), (int)Math.round(rank)) : 0;
 	}
 
 	protected boolean POISON_MAKE_PEACE()
@@ -156,16 +161,37 @@ public class Poison extends StdAbility implements HealthCondition
 	}
 
 	protected boolean	processing	= false;
-
+	protected double	rank		= 1.0;
 	protected int		poisonTick	= 3;
+
+	@Override
+	public void setMiscText(final String newMiscText)
+	{
+		super.setMiscText(newMiscText);
+		if(newMiscText.length()>0)
+		{
+			rank = CMParms.getParmDouble(newMiscText, "RANK", 1.0);
+		}
+	}
 
 	@Override
 	public String getHealthConditionDesc()
 	{
 		if(name().toUpperCase().endsWith("S"))
-			return "Suffering from "+name();
+			return L("Suffering from @x1.", name());
 		else
-			return "Suffering from "+name()+" poisoning.";
+			return L("Suffering from @x1 poisoning.", name());
+	}
+
+	protected void getAddicted(final MOB mob, final MOB targetMOB)
+	{
+		Ability A=targetMOB.fetchEffect("Addictions");
+		if(A==null)
+		{
+			A=CMClass.getAbility("Addictions");
+			if(A!=null)
+				A.invoke(mob, new XVector<String>("effect:"+ID()), null, true, 0);
+		}
 	}
 
 	protected boolean catchIt(final MOB mob, final Physical target)
@@ -208,6 +234,13 @@ public class Poison extends StdAbility implements HealthCondition
 						&&(((MOB)target).getVictim()==poisoner))
 							((MOB)target).makePeace(true);
 					}
+					if(CMLib.dice().rollPercentage() <= POISON_ADDICTION_CHANCE())
+					{
+						if((affected instanceof Drink)
+						||(affected instanceof Food)
+						||(affected instanceof MagicDust))
+							getAddicted(mob, targetMOB);
+					}
 					return true;
 				}
 				return false;
@@ -231,14 +264,20 @@ public class Poison extends StdAbility implements HealthCondition
 		if((--poisonTick)<=0)
 		{
 			poisonTick=POISON_DELAY();
-			if(POISON_AFFECT().length()>0)
-				mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,POISON_AFFECT()+CMLib.protocol().msp("poisoned.wav",10));
-			final MOB invoker=(invoker()!=null) ? invoker() : mob;
-			if(POISON_DAMAGE()!=0)
+			final Room R=mob.location();
+			if(R!=null)
 			{
-				CMLib.combat().postDamage(invoker,mob,this,POISON_DAMAGE(),CMMsg.MASK_ALWAYS|CMMsg.TYP_POISON,-1,null);
-				if((!mob.isInCombat())&&(mob!=invoker)&&(mob.location()!=null)&&(mob.location().isInhabitant(invoker))&&(CMLib.flags().canBeSeenBy(invoker,mob)))
-					CMLib.combat().postAttack(mob,invoker,mob.fetchWieldedItem());
+				if(POISON_AFFECT().length()>0)
+					R.show(mob,null,CMMsg.MSG_OK_VISUAL,POISON_AFFECT()+CMLib.protocol().msp("poisoned.wav",10));
+				final MOB invoker=(invoker()!=null) ? invoker() : mob;
+				if(POISON_DAMAGE()!=0)
+				{
+					CMLib.combat().postDamage(invoker,mob,this,POISON_DAMAGE(),CMMsg.MASK_ALWAYS|CMMsg.TYP_POISON,-1,null);
+					if((!mob.isInCombat())
+					&&(mob!=invoker)
+					&&(R.isInhabitant(invoker))&&(CMLib.flags().canBeSeenBy(invoker,mob)))
+						CMLib.combat().postAttack(mob,invoker,mob.fetchWieldedItem());
+				}
 			}
 		}
 		return true;

@@ -3,8 +3,10 @@
 @if?!Authenticate@ @AddFile?/grinder/failedlogin.cmvp@ @else@
 @if?!CheckAuthCode?AUTH_CMDFACTIONS=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <html>
+	<META CHARSET="utf-8"/>
 <head>
     <link rel="grinder icon" href="/images/grinder.ico" >
+    <link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
     <title>Factions List</title>
     <script language=JavaScript>
     <!--
@@ -88,7 +90,7 @@
     @loop@
     @FactionNext?ALL@
         <TR>
-        <TD><a href="javascript:Faction('@FactionID@','')"><FONT COLOR=WHITE><B>@FactionID@</B></FONT></a></TD>
+        <TD><a href="javascript:Faction('@FactionID@','')"><FONT COLOR="#FFFF8F"><U><B>@FactionID@</B></U></FONT></a></TD>
         <TD><FONT COLOR=WHITE><B>@FactionName@</B></FONT></a></TD>
         <TD><FONT COLOR=WHITE><B>@FactionData?MINRANGE@</B></FONT></a></TD>
         <TD><FONT COLOR=WHITE><B>@FactionData?MAXRANGE@</B></FONT></a></TD>
@@ -96,7 +98,10 @@
         </TR>
     @back@
     <TR>
-    <TD COLSPAN=5><a href="javascript:if(document.RESOURCES.NEWFACTION.value!='')NewFaction(document.RESOURCES.NEWFACTION.value,'&NEWFACTION='+document.RESOURCES.NEWFACTION.value)"><FONT COLOR=WHITE><B>Load/Create New Faction ini file:</a> <INPUT TYPE=TEXT NAME=NEWFACTION SIZE=70></B></FONT></TD>
+    <TD COLSPAN=5>
+    	<a href="javascript:if(document.RESOURCES.NEWFACTION.value!='')NewFaction(document.RESOURCES.NEWFACTION.value,'&NEWFACTION='+document.RESOURCES.NEWFACTION.value)">
+    	<FONT COLOR=CYAN><B><U>Load/Create New Faction ini file:</U></a> <INPUT TYPE=TEXT NAME=NEWFACTION SIZE=70></B></FONT>
+   	</TD>
     </TR>
     </TABLE>
     <P>

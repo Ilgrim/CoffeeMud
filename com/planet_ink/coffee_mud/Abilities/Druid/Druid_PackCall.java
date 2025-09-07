@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -176,8 +176,7 @@ public class Druid_PackCall extends StdAbility
 			mob.tell(L("You must be outdoors to call your pack."));
 			return false;
 		}
-		if((mob.location().domainType()==Room.DOMAIN_OUTDOORS_CITY)
-		||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT))
+		if(CMLib.flags().isACityRoom(mob.location()))
 		{
 			mob.tell(L("You must be in the wild to call your pack."));
 			return false;
@@ -191,7 +190,7 @@ public class Druid_PackCall extends StdAbility
 		for(final Enumeration<Ability> a=mob.effects();a.hasMoreElements();)
 		{
 			final Ability A=a.nextElement();
-			if((A!=null)&&(A instanceof Druid_ShapeShift))
+			if((A instanceof Druid_ShapeShift))
 				D=(Druid_ShapeShift)A;
 		}
 		if(D==null)
@@ -262,11 +261,13 @@ public class Druid_PackCall extends StdAbility
 					newMOB.setLocation(mob.location());
 					newMOB.basePhyStats().setRejuv(PhyStats.NO_REJUV);
 					newMOB.recoverPhyStats();
-					newMOB.basePhyStats().setAbility(newMOB.basePhyStats().ability()*2);
+					newMOB.basePhyStats().setAbility(CMProps.getMobHPBase()*2);
 					newMOB.basePhyStats().setArmor(CMLib.leveler().getLevelMOBArmor(newMOB));
 					newMOB.basePhyStats().setAttackAdjustment(CMLib.leveler().getLevelAttack(newMOB));
 					newMOB.basePhyStats().setDamage(CMLib.leveler().getLevelMOBDamage(newMOB));
-					newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+					newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+					newMOB.addTattoo("SYSTEM_SUMMONED");
+					newMOB.addTattoo("SUMMONED_BY:"+mob.name());
 					newMOB.setMiscText(newMOB.text());
 					newMOB.recoverPhyStats();
 					newMOB.recoverCharStats();

@@ -2,7 +2,6 @@ package com.planet_ink.coffee_mud.Abilities.Common;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
-import com.planet_ink.coffee_mud.Abilities.ThinAbility;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -20,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -55,9 +54,9 @@ public class MasterPaintingSkill extends PaintingSkill
 	protected volatile List<String>		recipe		= null;
 
 	@Override
-	protected String getRecipeFile()
+	public String getRecipeFilename()
 	{
-		return "masterpainting.txt";
+		return "";
 	}
 
 	protected String applyColorMask(final String basePhrase, final String colorPhrase, final String fullMask, final List<String> colorNames, final List<Color256> colors)
@@ -303,8 +302,8 @@ public class MasterPaintingSkill extends PaintingSkill
 		{
 			final List<String> recipe=recipes.get(i);
 			final Item I=CMClass.getBasicItem("GenItem");
-			I.setName("a most awesome item");
-			I.setDisplayText("the most awesome item sits here.");
+			I.setName(L("a most awesome item"));
+			I.setDisplayText(L("the most awesome item sits here."));
 			I.text();
 			final int numColors=this.requiredColorsInRecipe(recipe.get(RCP_MASK));
 			this.found=I;

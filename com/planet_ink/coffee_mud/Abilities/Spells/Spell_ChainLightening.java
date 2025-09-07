@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,15 +70,18 @@ public class Spell_ChainLightening extends Spell
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_AIRBASED;
+		return Ability.FLAG_ELECTRICBASED;
 	}
 
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, boolean auto, final int asLevel)
 	{
-		Set<MOB> h=properTargets(mob,givenTarget,auto);
-		if(h==null)
-			h=new HashSet<MOB>();
+		final Set<MOB> h=properTargets(mob,givenTarget,auto);
+		if((h==null)||(h.size()==0))
+		{
+			mob.tell(L("There doesn't appear to be anyone here worth striking at."));
+			return false;
+		}
 
 		final Set<MOB> myGroup=mob.getGroupMembers(new HashSet<MOB>());
 		final List<MOB> targets=new ArrayList<MOB>(h);
@@ -104,7 +107,9 @@ public class Spell_ChainLightening extends Spell
 		if(success)
 		{
 			final Room R=mob.location();
-			if(R.show(mob,null,this,verbalCastCode(mob,null,auto),L(auto?"A thunderous crack of lightning erupts!":"^S<S-NAME> invoke(s) a thunderous crack of lightning.^?")+CMLib.protocol().msp("lightning.wav",40)))
+			if(R.show(mob,null,this,verbalCastCode(mob,null,auto),
+					L(auto?"A thunderous crack of lightning erupts!":"^S<S-NAME> invoke(s) a thunderous crack of lightning.^?")
+					+CMLib.protocol().msp("lightning.wav",40)))
 			{
 				while(damage>0)
 				{

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -47,8 +47,13 @@ public class Unload extends StdCommand
 		return access;
 	}
 
-	final String[]	ARCHON_LIST	= { "CLASS", "HELP", "USER", "AREA", "FACTION", "ALL", "FILE", "RESOURCE", "INIFILE", "ACHIEVEMENTS", "[FILENAME]", "VFS" };
+	final String[]	ARCHON_LIST	= {
+		"CLASS", "HELP", "USER", "AREA", "FACTION", "ALL", "FILE",
+		"RESOURCE", "INIFILE", "ACHIEVEMENTS", "[FILENAME]", "VFS",
+		"INI", "SETTINGS", "AWARDS"
+	};
 
+	@SuppressWarnings("rawtypes")
 	@Override
 	public boolean execute(final MOB mob, final List<String> commands, final int metaFlags)
 		throws java.io.IOException
@@ -242,17 +247,37 @@ public class Unload extends StdCommand
 				mob.tell(L("VFS Cache unloaded"));
 			}
 			else
+			if(str.equalsIgnoreCase("ini")||str.equalsIgnoreCase("settings")||str.equalsIgnoreCase("inifile"))
+			{
+				final CMProps ipage=CMProps.instance();
+				ipage.clear();
+				ipage.load(CMProps.getVar(CMProps.Str.INIPATH));
+				if((ipage!=null)&&(ipage.isLoaded()))
+				{
+					ipage.resetSystemVars();
+					ipage.resetSecurityVars();
+					final String normalChannels=ipage.getStr("CHANNELS");
+					final String i3Channels=ipage.getBoolean("RUNI3SERVER") ? ipage.getStr("ICHANNELS") : "";
+					final String imc2Channels=ipage.getBoolean("RUNIMC2CLIENT") ? ipage.getStr("IMC2CHANNELS") : "";
+					CMLib.channels().loadChannels(normalChannels,i3Channels,imc2Channels);
+					CMLib.journals().loadCommandJournals(ipage.getStr("COMMANDJOURNALS"));
+					CMLib.journals().loadForumJournals(ipage.getStr("FORUMJOURNALS"));
+					mob.tell(L("INI Settings unloaded and reset"));
+				}
+				else
+					mob.tell(L("INI Settings not unloaded or reset"));
+			}
+			else
 			if(str.equalsIgnoreCase("achievements"))
 			{
 				CMLib.achievements().shutdown();
 				mob.tell(L("Achievements unloaded."));
 			}
 			else
-			if(str.equalsIgnoreCase("inifile"))
+			if(str.equalsIgnoreCase("awards")||str.equalsIgnoreCase("autoawards"))
 			{
-				CMProps.instance().resetSecurityVars();
-				CMProps.instance().resetSystemVars();
-				mob.tell(L("INI file entries have been unloaded."));
+				CMLib.awards().shutdown();
+				mob.tell(L("Auto-Awards unloaded."));
 			}
 			else
 			if((str.equalsIgnoreCase("all"))&&(CMSecurity.isASysOp(mob)))
@@ -297,21 +322,21 @@ public class Unload extends StdCommand
 						if(M!=mob)
 						{
 							if (M.session() != null)
-								M.session().stopSession(false, false, false);
+								M.session().stopSession(true, false, false, false);
 							int attempts=100;
 							while ((M.session() != null)&&(--attempts>0))
 							{
 								CMLib.s_sleep(100);
 							}
 							if (M.session() != null)
-								M.session().stopSession(true, true, false);
+								M.session().stopSession(true, true, true, false);
 							attempts=100;
 							while ((M.session() != null)&&(--attempts>0))
 							{
 								CMLib.s_sleep(100);
 							}
 							if (M.session() != null)
-								M.session().stopSession(true, true, true);
+								M.session().stopSession(true, true, true, true);
 							attempts=100;
 							while ((M.session() != null)&&(--attempts>0))
 							{
@@ -339,7 +364,7 @@ public class Unload extends StdCommand
 					{
 						done++;
 						if(M.session()!=null)
-							M.session().stopSession(true,true,true);
+							M.session().stopSession(true,true,true, true);
 						final PlayerStats pStats = M.playerStats();
 						if(pStats != null)
 							pStats.getExtItems().delAllItems(true);
@@ -377,7 +402,6 @@ public class Unload extends StdCommand
 			if(("EXPERTISE".startsWith(commands.get(1).toUpperCase()))
 			&&(CMSecurity.isAllowed(mob, mob.location(), CMSecurity.SecFlag.EXPERTISE)))
 			{
-				Resources.removeResource("skills/expertises.txt");
 				CMLib.expertises().recompileExpertises();
 				mob.tell(L("Expertise list unloaded and reloaded."));
 				return false;
@@ -385,21 +409,94 @@ public class Unload extends StdCommand
 			else
 			if(commands.get(1).equalsIgnoreCase("RESOURCE"))
 			{
-				final String which=CMParms.combine(commands,2);
-				final Iterator<String> k=Resources.findResourceKeys(which);
+				String which=CMParms.combine(commands,2);
+				if(which.trim().length()==0)
+				{
+					mob.tell(L("You need to specify a resource mask to unload, or ALL to unload all."));
+					return false;
+				}
+				if(which.trim().equalsIgnoreCase("all"))
+					which="";
+				Iterator<String> k=Resources.findResourceKeys(which);
+				final List<String> subKeys = new ArrayList<String>();
 				if(!k.hasNext())
 				{
-					mob.tell(L("Unknown resource '@x1'.  Use LIST RESOURCES.",which));
-					return false;
+					if(which.toLowerCase().startsWith("title"))
+					{
+						CMLib.awards().reloadAutoTitles();
+						return false;
+					}
+					else
+					{
+						int x=which.indexOf('@');
+						while(x>0)
+						{
+							final String w=which.substring(0,x);
+							subKeys.add(w);
+							which=which.substring(x+1);
+							x=which.indexOf('@');
+						}
+						k=Resources.findResourceKeys(which);
+						if(!k.hasNext())
+						{
+							mob.tell(L("Unknown resource '@x1'.  Use LIST RESOURCES.",which));
+							return false;
+						}
+					}
 				}
 				for(;k.hasNext();)
 				{
 					final String key=k.next();
-					Resources.removeResource(key);
-					mob.tell(L("Resource '@x1' unloaded.",key));
+					boolean success=true;
+					if(subKeys.size()==0)
+						Resources.removeResource(key);
+					else
+					{
+						Object o = Resources.getResource(key);
+						for(int i=subKeys.size()-1;i>=0;i--)
+						{
+							if(i==0)
+							{
+								if(o instanceof Map)
+									((Map)o).remove(subKeys.get(i));
+								else
+								if(o instanceof List)
+									((List)o).remove(subKeys.get(i));
+								else
+								if(o instanceof Set)
+									((Set)o).remove(subKeys.get(i));
+								else
+								if(o instanceof Resources)
+									((Resources)o)._removeResource(subKeys.get(i));
+								else
+								{
+									mob.tell(L("Can't remove "+subKeys.get(i)+" from "+o.toString()));
+									success=false;
+								}
+							}
+							else
+							if(o instanceof Map)
+								o=((Map)o).get(subKeys.get(i));
+							else
+							if(o instanceof Resources)
+								o=((Resources)o)._getResource(subKeys.get(i));
+							else
+							{
+								mob.tell(L("Can't remove "+subKeys.get(i)+" from "+o.toString()));
+								success=false;
+							}
+						}
+					}
+					if(success)
+					{
+						if(subKeys.size()>0)
+							mob.tell(L("Resource '@x1' unloaded.",CMParms.toListString(subKeys)+"@"+key));
+						else
+							mob.tell(L("Resource '@x1' unloaded.",key));
+					}
 				}
 				if(which.toLowerCase().startsWith("title"))
-					CMLib.titles().reloadAutoTitles();
+					CMLib.awards().reloadAutoTitles();
 			}
 			else
 			if(commands.get(1).equalsIgnoreCase("FILE"))

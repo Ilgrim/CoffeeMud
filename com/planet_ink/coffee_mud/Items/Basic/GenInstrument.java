@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -73,6 +73,14 @@ public class GenInstrument extends GenItem implements MusicalInstrument
 	public String getInstrumentTypeName()
 	{
 		return type.name();
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return CMLib.english().startWithAorAn(this.getInstrumentTypeName());
 	}
 
 	@Override
@@ -138,7 +146,7 @@ public class GenInstrument extends GenItem implements MusicalInstrument
 	{
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			return CMLib.coffeeMaker().getGenItemStat(this,code);
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return this.getInstrumentTypeName();
@@ -153,7 +161,7 @@ public class GenInstrument extends GenItem implements MusicalInstrument
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			CMLib.coffeeMaker().setGenItemStat(this,code,val);
 		else
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 		{
@@ -166,8 +174,7 @@ public class GenInstrument extends GenItem implements MusicalInstrument
 		}
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<MYCODES.length;i++)
 		{

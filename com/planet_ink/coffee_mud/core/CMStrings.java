@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 import com.planet_ink.coffee_mud.Libraries.interfaces.ColorLibrary;
 
 /*
-   Mostly Copyright 2000-2020 Bo Zimmerman
+   Mostly Copyright 2000-2025 Bo Zimmerman
 
    Functions for diff (C) 2006 Google
    Author: fraser@google.com (Neil Fraser)
@@ -115,6 +115,36 @@ public class CMStrings
 		while((x<str.length()) && Character.isWhitespace(str.charAt(x+1)))
 			x++;
 		return str.substring(x);
+	}
+
+	/**
+	 * Splits a string into single spaceless word lengths where each
+	 * entry starts with a capital letter of the alphabet.
+	 *
+	 * @param str the string to split
+	 * @return the capitalized word-lengths, minus spaces
+	 */
+	public final static String[] splitByCapitals(final String str)
+	{
+		if((str == null)||(str.length()==0))
+			return new String[0];
+		final List<String> caps = new ArrayList<String>();
+		final StringBuilder word = new StringBuilder(str.charAt(0));
+		for(int i=1;i<str.length();i++)
+		{
+			final char c = str.charAt(i);
+			if(Character.isLetter(c) && Character.isUpperCase(c))
+			{
+				if(word.length()>0)
+					caps.add(word.toString());
+				word.setLength(0);
+			}
+			if(!Character.isWhitespace(c))
+				word.append(c);
+		}
+		if(word.length()>0)
+			caps.add(word.toString());
+		return caps.toArray(new String[caps.size()]);
 	}
 
 	/**
@@ -229,13 +259,36 @@ public class CMStrings
 	}
 
 	/**
+	 * Returns the number of letters in the second word that are
+	 * also found in the first word.
+	 * @param word the word to look in
+	 * @param str the word the count is based on
+	 * @return the final count
+	 */
+	public static final int sameLetterCount(final String word, final String str)
+	{
+		if((word==null)||(str==null))
+			return 0;
+		if((word.length()==0)||(str.length()==0))
+			return 0;
+		int i=0;
+		for(final char c : str.toCharArray())
+		{
+			if(word.indexOf(c)>=0)
+				i++;
+		}
+		return i;
+	}
+
+	/**
 	 * Puts a period at the end of the last viewable character in this string,
 	 * assuming there isn't already punctuation at the end.  Preserves any
 	 * trailing special color codes.
 	 * @param str the string to end with a period.
+	 * @param endChar the char to end sentence with
 	 * @return the string, with a period at the end.
 	 */
-	public final static String endWithAPeriod(final String str)
+	public final static String endWithAPeriod(final String str, final char endChar)
 	{
 		if((str==null)||(str.length()==0))
 			return str;
@@ -250,7 +303,7 @@ public class CMStrings
 			return str;
 		if((str.charAt(x)=='.')||(str.charAt(x)=='!')||(str.charAt(x)=='?'))
 			return str.trim()+" ";
-		return str.substring(0,x+1)+". "+str.substring(x+1).trim();
+		return str.substring(0,x+1)+endChar+" "+str.substring(x+1).trim();
 	}
 
 	/**
@@ -349,6 +402,14 @@ public class CMStrings
 		return (("aeiouAEIOU").indexOf(c)>=0);
 	}
 
+	public final static String getFirstWord(final String s)
+	{
+		if(s==null)
+			return "";
+		return s.substring(0,indexOfEndOfWord(s,0));
+	}
+
+
 	/**
 	 * Returns the next index in the given string of an end-of-word character,
 	 * such as space,.;? or !.  It returns that index.
@@ -407,7 +468,7 @@ public class CMStrings
 
 	public final static String scrunchWord(String s, final int len)
 	{
-		if(s.length()<=len)
+		if((s.length()<=len)||(len<0))
 			return s;
 		s=s.trim();
 		int x=s.lastIndexOf(' ');
@@ -425,6 +486,24 @@ public class CMStrings
 		if(s.length()>len)
 			return s.substring(0,len);
 		return s;
+	}
+
+	/**
+	 * Returns whether the given string contains any of the given strings in the
+	 * array, and if so, which one.  Case sensitive.
+	 *
+	 * @param text the text to search
+	 * @param any the list of things to search for in the text
+	 * @return index into the any array that was found.
+	 */
+	public final static int indexOfAny(final String text, final String[] any)
+	{
+		if((text==null)||(any==null)||(any.length==0))
+			return -1;
+		for(int a=0;a<any.length;a++)
+			if(text.indexOf(any[a])>=0)
+				return a;
+		return -1;
 	}
 
 	/**
@@ -539,6 +618,70 @@ public class CMStrings
 	}
 
 	/**
+	 * Returns whether the first string starts with the second string, case insensitive.
+	 *
+	 * @param thisStr the string to search
+	 * @param startStr the substring to search for
+	 * @return true if its true
+	 */
+	public final static boolean startsWithIgnoreCase(final String thisStr, final String startStr)
+	{
+		if((thisStr == null)
+		||(startStr==null)
+		||(thisStr.length()<startStr.length()))
+			return false;
+		if(startStr.length()==0)
+			return true;
+		return thisStr.substring(0,startStr.length()).toLowerCase().startsWith(startStr.toLowerCase());
+	}
+
+	/**
+	 * Returns whether the first string ends with the second string, case insensitive.
+	 *
+	 * @param thisStr the string to search
+	 * @param startStr the substring to search for
+	 * @return true if its true
+	 */
+	public final static boolean endsWithIgnoreCase(final String thisStr, final String startStr)
+	{
+		if((thisStr == null)
+		||(startStr==null)
+		||(thisStr.length()<startStr.length()))
+			return false;
+		if(startStr.length()==0)
+			return true;
+		return thisStr.substring(0,startStr.length()).toLowerCase().endsWith(startStr.toLowerCase());
+	}
+
+	/**
+	 * Returns whether the given string contains the second string, without any following
+	 * letter, which is the CMStrings definition of a "word".  This check is case
+	 * sensitive.  It returns the index of the word
+	 * @param thisStr the string to look in
+	 * @param word the string/word to look for
+	 * @return -1, or the index of the found word in the string
+	 */
+	public final static int indexOfWord(final String thisStr, final String word)
+	{
+		if((thisStr==null)
+		||(word==null)
+		||(thisStr.length()==0)
+		||(word.length()==0))
+			return -1;
+		for(int i=thisStr.length()-1;i>=0;i--)
+		{
+			if((thisStr.charAt(i)==word.charAt(0))
+			&&((i==0)||(!Character.isLetter(thisStr.charAt(i-1)))))
+			{
+				if((thisStr.substring(i).startsWith(word))
+				&&((thisStr.length()==i+word.length())||(!Character.isLetter(thisStr.charAt(i+word.length())))))
+					return i;
+			}
+		}
+		return -1;
+	}
+
+	/**
 	 * Returns whether the given string contains the second string, without any following
 	 * letter, which is the CMStrings definition of a "word".  This check is case
 	 * sensitive.
@@ -548,24 +691,7 @@ public class CMStrings
 	 */
 	public final static boolean containsWord(final String thisStr, final String word)
 	{
-		if((thisStr==null)
-		||(word==null)
-		||(thisStr.length()==0)
-		||(word.length()==0))
-			return false;
-		for(int i=thisStr.length()-1;i>=0;i--)
-		{
-			if((thisStr.charAt(i)==word.charAt(0))
-			&&((i==0)||(!Character.isLetter(thisStr.charAt(i-1)))))
-			{
-				if((thisStr.substring(i).startsWith(word))
-				&&((thisStr.length()==i+word.length())||(!Character.isLetter(thisStr.charAt(i+word.length())))))
-				{
-					return true;
-				}
-			}
-		}
-		return false;
+		return indexOfWord(thisStr,word) >=0;
 	}
 
 	/**
@@ -583,15 +709,26 @@ public class CMStrings
 		||(str.length()==0)
 		||(!containsAny(str,theseChars)))
 			return str;
-		final char[] newChars = str.toCharArray();
-		for(int i=str.length()-1;i>=0;i--)
+		if(with=='\0')
 		{
-			if(contains(theseChars,str.charAt(i)))
+			final StringBuilder s=new StringBuilder(str);
+			for(int i=str.length()-1;i>=0;i--)
 			{
-				newChars[i]=with;
+				if(contains(theseChars,str.charAt(i)))
+					s.deleteCharAt(i);
 			}
+			return s.toString();
 		}
-		return new String(newChars);
+		else
+		{
+			final char[] newChars = str.toCharArray();
+			for(int i=str.length()-1;i>=0;i--)
+			{
+				if(contains(theseChars,str.charAt(i)))
+					newChars[i]=with;
+			}
+			return new String(newChars);
+		}
 	}
 
 	/**
@@ -748,6 +885,55 @@ public class CMStrings
 	}
 
 	/**
+	 * Finds all instances of the second parameter string in the first string, ignoring case,
+	 * replaces them with the third word.  Returns the string with or without changes.
+	 * The search is case insensitive
+	 * @param str the string to look inside of
+	 * @param thisStr the string to look for inside the first string
+	 * @param withThisStr the string to replace the second string with, where found.
+	 * @return the string modified, or not modified if no replacements were made.
+	 */
+	public final static String replaceAllIgnoreCase(String str, final String thisStr, final String withThisStr)
+	{
+		if((str==null)
+		||(thisStr==null)
+		||(withThisStr==null)
+		||(str.length()==0)
+		||(thisStr.length()==0)
+		||(thisStr.equalsIgnoreCase(withThisStr)))
+		{
+			return str;
+		}
+		final String lthisStr = thisStr.toLowerCase();
+		final String lstr = str.toLowerCase();
+		for(int i=str.length()-1;i>=0;i--)
+		{
+			if(lstr.charAt(i)==lthisStr.charAt(0))
+			{
+				if(lstr.substring(i).startsWith(lthisStr))
+				{
+					str=str.substring(0,i)+withThisStr+str.substring(i+thisStr.length());
+				}
+			}
+		}
+		return str;
+	}
+
+	/**
+	 * Flattens a string by converting all carriage returns and linefeeds into spaces.
+	 * @param str the string to flatten
+	 * @return the flat string
+	 */
+	public final static String flatten(String str)
+	{
+		if(str==null)
+			return null;
+		str=replaceAll(str,"\n\r"," ");
+		str=replaceAll(str,"\r\n"," ");
+		return str.replace('\r', ' ').replace('\n', ' ');
+	}
+
+	/**
 	 * This methods replaces any double-escapes to single escape characters, and any
 	 * escaped double-quotes to double-quotes
 	 * @param str the string to de-escape
@@ -755,11 +941,49 @@ public class CMStrings
 	 */
 	public final static String deEscape(final String str)
 	{
+		return deEscape(str,'\"');
+	}
+
+	/**
+	 * This methods replaces any double-escapes to single escape characters, and any
+	 * escaped double-chars to double-chars
+	 * @param str the string to de-escape
+	 * @param quot the char to de-escape
+	 * @return the string, de-escaped
+	 */
+	public final static String deEscape(String str, final char quot)
+	{
 		if(str==null)
 			return str;
-		if(str.indexOf('\\')<0)
+		int i = str.indexOf('\\');
+		while((i>-1)&&(i<str.length()-1))
+		{
+			final char c = str.charAt(i+1);
+			if((quot == c)||(c=='\\'))
+				str=str.substring(0,i)+str.substring(i+1);
+			i = str.indexOf('\\',i+1);
+		}
+		return str;
+	}
+
+	/**
+	 * This methods replaces any of the given escaped chars to being de-escaped.
+	 * @param str the string to de-escape
+	 * @param chars the chars to de-escape
+	 * @return the string, de-escaped
+	 */
+	public final static String deEscape(String str, final String chars)
+	{
+		if(str==null)
 			return str;
-		return replaceAll(replaceAll(str,"\\\"","\""),"\\\\","\\");
+		int i = str.indexOf('\\');
+		while((i>-1)&&(i<str.length()-1))
+		{
+			if(chars.indexOf(str.charAt(i+1))>=0)
+				str=str.substring(0,i)+str.substring(i+1);
+			i = str.indexOf('\\',i+1);
+		}
+		return str;
 	}
 
 	/**
@@ -903,9 +1127,10 @@ public class CMStrings
 		||(thisStr.length()==0))
 			return str;
 		final String uppercaseWithThisStr=withThisStr.toUpperCase();
+		final char firstLetter = Character.toLowerCase(thisStr.charAt(0));
 		for(int i=str.length()-1;i>=0;i--)
 		{
-			if((str.charAt(i)==thisStr.charAt(0))
+			if((Character.toLowerCase(str.charAt(i))==firstLetter)
 			&&((i==0)||(!Character.isLetter(str.charAt(i-1)))))
 			{
 				if((str.substring(i).toLowerCase().startsWith(thisStr.toLowerCase()))
@@ -923,6 +1148,37 @@ public class CMStrings
 					else
 						str=str.substring(0,i)+uppercaseWithThisStr.toLowerCase()+str.substring(i+thisStr.length());
 				}
+			}
+		}
+		return str;
+	}
+
+	/**
+	 * Finds all instances of the second parameter string in the first string,
+	 * and replaces it with the third String.  Returns the first string with or without changes. The
+	 * string is only altered where the second string appears as a inside the first string with no
+	 * trailing letters to alter the word.  Preceding letters are also not OK.
+	 * @param str the string to look inside of
+	 * @param thisStr the string to look for inside the first string
+	 * @param withThisStr the string to replace the second string with, where found.
+	 * @return the string modified, or not modified if no replacements were made.
+	 */
+	public final static String replaceWhole(String str, final String thisStr, final String withThisStr)
+	{
+		if((str==null)
+		||(thisStr==null)
+		||(withThisStr==null)
+		||(str.length()==0)
+		||(thisStr.length()==0))
+			return str;
+		for(int i=str.length()-1;i>=0;i--)
+		{
+			if((str.charAt(i)==thisStr.charAt(0))
+			&&((i==0)||(!Character.isLetterOrDigit(str.charAt(i-1)))))
+			{
+				if((str.substring(i).startsWith(thisStr))
+				&&((str.length()==i+thisStr.length())||(!Character.isLetterOrDigit(str.charAt(i+thisStr.length())))))
+					str=str.substring(0,i)+withThisStr+str.substring(i+thisStr.length());
 			}
 		}
 		return str;
@@ -1005,6 +1261,38 @@ public class CMStrings
 	}
 
 	/**
+	 * Returns the number of identifiable words in the string
+	 * @param str the string to count the words in
+	 * @return the number of words
+	 */
+	public final static int numWords(String str)
+	{
+		if(str==null)
+			return 0;
+		str=str.trim();
+		if(str.length()==0)
+			return 0;
+		boolean flag=false;
+		int ct=0;
+		for(int i=0;i<str.length();i++)
+		{
+			final char c=str.charAt(i);
+			if(Character.isLetter(c))
+			{
+				if(!flag)
+				{
+					flag=true;
+					ct++;
+				}
+			}
+			else
+			if(Character.isWhitespace(c) && (flag))
+				flag=false;
+		}
+		return ct;
+	}
+
+	/**
 	 * Capitalizes the first letter in the given string, and forcibly lowercases
 	 * the remaining letters in the string.
 	 * This method respects special CoffeeMUD color codes, skipping over
@@ -1028,10 +1316,21 @@ public class CMStrings
 					switch(c[i])
 					{
 					case ColorLibrary.COLORCODE_FANSI256:
-						i += 3;
+						if((i<c.length-8)&&(c[i+1]==c[i]))
+						{
+							if(!CMath.isHexNumber(name.substring(i+2,i+8)))
+								i += 3;
+							else
+								i += 7;
+						}
+						else
+							i += 3;
 						break;
 					case ColorLibrary.COLORCODE_BANSI256:
-						i += 3;
+						if((i<c.length-1)&&(c[i+1]==c[i]))
+							i += 7;
+						else
+							i += 3;
 						break;
 					case ColorLibrary.COLORCODE_BACKGROUND:
 						i++;
@@ -1100,10 +1399,21 @@ public class CMStrings
 					switch(c[i])
 					{
 					case ColorLibrary.COLORCODE_FANSI256:
-						i += 3;
+						if((i<c.length-8)&&(c[i+1]==c[i]))
+						{
+							if(!CMath.isHexNumber(name.substring(i+2,i+8)))
+								i += 3;
+							else
+								i += 7;
+						}
+						else
+							i += 3;
 						break;
 					case ColorLibrary.COLORCODE_BANSI256:
-						i += 3;
+						if((i<c.length-1)&&(c[i+1]==c[i]))
+							i += 7;
+						else
+							i += 3;
 						break;
 					case ColorLibrary.COLORCODE_BACKGROUND:
 						i++;
@@ -1176,10 +1486,21 @@ public class CMStrings
 					switch(c.charAt(i))
 					{
 					case ColorLibrary.COLORCODE_FANSI256:
-						i += 3;
+						if((i<c.length()-8)&&(c.charAt(i+1)==c.charAt(i)))
+						{
+							if(!CMath.isHexNumber(name.substring(i+2,i+8)))
+								i += 3;
+							else
+								i += 7;
+						}
+						else
+							i += 3;
 						break;
 					case ColorLibrary.COLORCODE_BANSI256:
-						i += 3;
+						if((i<c.length()-1)&&(c.charAt(i+1)==c.charAt(i)))
+							i += 7;
+						else
+							i += 3;
 						break;
 					case ColorLibrary.COLORCODE_BACKGROUND:
 						i++;
@@ -1254,10 +1575,21 @@ public class CMStrings
 					switch(c[i])
 					{
 					case ColorLibrary.COLORCODE_FANSI256:
-						i += 3;
+						if((i<c.length-8)&&(c[i+1]==c[i]))
+						{
+							if(!CMath.isHexNumber(name.substring(i+2,i+8)))
+								i += 3;
+							else
+								i += 7;
+						}
+						else
+							i += 3;
 						break;
 					case ColorLibrary.COLORCODE_BANSI256:
-						i += 3;
+						if((i<c.length-1)&&(c[i+1]==c[i]))
+							i += 7;
+						else
+							i += 3;
 						break;
 					case ColorLibrary.COLORCODE_BACKGROUND:
 						i++;
@@ -1325,6 +1657,24 @@ public class CMStrings
 		if((start>0)&&(end>start))
 			return msg.substring(start+1,end);
 		return null;
+	}
+
+	/**
+	 * Replaces the string between the first and last ' characters in the
+	 * given string with the given string.
+	 * @param msg the string to parse out from
+	 * @param rep the string to replace
+	 * @return the new string, or unchanged if there is nothing to do
+	 */
+	public final static String replaceSayInMessage(final String msg, final String rep)
+	{
+		if(msg==null)
+			return msg;
+		final int start=msg.indexOf('\'');
+		final int end=msg.lastIndexOf('\'');
+		if((start>0)&&(end>start))
+			return msg.substring(0,start+1)+rep+msg.substring(end);
+		return msg;
 	}
 
 	/**
@@ -1506,34 +1856,62 @@ public class CMStrings
 	 * Replaces @x1 type variables inside a stringbuffer with an actual value
 	 * Not used in the main expression system, this is a stand alone function
 	 * Also uniquely, supports @x numbers above 10.  Values are *1* indexed!!
+	 *
 	 * @param str the stringbuffer to assess
 	 * @param values values to replace each variable with
 	 */
 	public final static void replaceVariables(final StringBuffer str, final String values[])
 	{
+		replaceVariables(str, values, 0);
+	}
+
+	/**
+	 * Replaces @x1 type variables inside a stringbuffer with an actual value
+	 * Not used in the main expression system, this is a stand alone function
+	 * Also uniquely, supports @x numbers above 10.  Values are *1* indexed!!
+	 *
+	 * @param str the stringbuffer to assess
+	 * @param values values to replace each variable with
+	 * @param highDex the index to use for @x1
+	 * @return the highest variable index used
+	 */
+	public final static int replaceVariables(final StringBuffer str, final String values[], int highDex)
+	{
 		final int numValues=(values==null)?0:values.length;
 		final int firstIndex=str.indexOf("@");
 		if((numValues==0)||(firstIndex<0))
-			return;
+			return highDex;
 		final int valueLen=(numValues<=10)?1:Integer.toString(numValues).length();
 		short safety=100;
 		for(int i=firstIndex;(i<str.length()-(1+valueLen));i++)
 		{
 			if((str.charAt(i)=='@')
-			&& (str.charAt(i+1)=='x')
+			&& (Character.toLowerCase(str.charAt(i+1))=='x')
 			&& (Character.isDigit(str.charAt(i+2)))
-			&&((--safety)>0))
+			&&((--safety)>0)
+			&&(values != null))
 			{
 				int endDex=1;
 				while((endDex < valueLen) && (Character.isDigit(str.charAt(i+2+endDex))))
 					endDex++;
 				final int variableIndex = Integer.valueOf(str.substring(i+2,i+2+endDex)).intValue();
 				str.delete(i, i+2+endDex);
-				if((variableIndex >0) && (variableIndex <= numValues) && (values != null))
+				if(variableIndex == 0)
+				{
+					if(highDex < values.length)
+						str.insert(i, CMParms.combineQuoted(Arrays.asList(values),highDex));
+				}
+				else
+				if(variableIndex <= numValues)
+				{
 					str.insert(i, values[variableIndex-1]);
+					if(variableIndex > highDex)
+						highDex = variableIndex;
+				}
 				i--;
 			}
 		}
+		return highDex;
 	}
 
 	/**
@@ -1544,7 +1922,7 @@ public class CMStrings
 	 * @param values values to replace each variable with
 	 * @return the string with values replaced.
 	 */
-	public final static String replaceVariables(final String str, final String values[])
+	public final static String replaceVariables(final String str, final String... values)
 	{
 		if(((values==null)||(values.length==0))&&(str.indexOf('@')<0))
 			return str;
@@ -1555,7 +1933,9 @@ public class CMStrings
 
 	/**
 	 * Strips punctuation characters, leaving only letters and
-	 * numbers and such.
+	 * numbers and such.  Removes all this:
+	 * !@#$%^&amp;*()+&lt;&gt;.,'\";:) {}[]|\\/?~
+	 * Including spaces, for some reason.
 	 * @param s the string to strip
 	 * @return the stripped string
 	 */
@@ -1565,6 +1945,25 @@ public class CMStrings
 		for(int i=str.length()-1;i>=0;i--)
 		{
 			if("!@#$%^&*()+<>.,'\";:) {}[]|\\/?~`".indexOf(str.charAt(i))>=0)
+				str.deleteCharAt(i);
+		}
+		return str.toString();
+	}
+
+	/**
+	 * Strips punctuation characters, leaving only letters and
+	 * numbers and such.  Removes all this:
+	 * !.,;:?
+	 * Including spaces, for some reason.
+	 * @param s the string to strip
+	 * @return the stripped string
+	 */
+	public final static String removePunctuationStrict(final String s)
+	{
+		final StringBuilder str=new StringBuilder(s);
+		for(int i=str.length()-1;i>=0;i--)
+		{
+			if("!.,;:?`".indexOf(str.charAt(i))>=0)
 				str.deleteCharAt(i);
 		}
 		return str.toString();
@@ -1588,6 +1987,135 @@ public class CMStrings
 	}
 
 	/**
+	 * Returns the given string, limited by the given length, with
+	 * colors accounted for.
+	 * @param s the string to limit
+	 * @param thisMuch the length to limit it to
+	 * @return the limited string
+	 */
+	private static String limitCut(final String s, final int thisMuch)
+	{
+		if(s==null)
+			return "";
+		final StringBuilder str=new StringBuilder(s);
+		int count = 0;
+		int colorStart=-1;
+		for(int i=0;i<str.length();i++)
+		{
+			switch(str.charAt(i))
+			{
+			case 'm':
+				if(colorStart>=0)
+					colorStart=-1;
+				else
+				{
+					count++;
+					if(count >= thisMuch)
+						return str.substring(0,i+1);
+				}
+				break;
+			case (char) 27:
+				colorStart = i;
+				break;
+			case '^':
+			{
+				if((i+1)<str.length())
+				{
+					final char c=str.charAt(i+1);
+					switch(c)
+					{
+					case ColorLibrary.COLORCODE_BACKGROUND:
+						if(i+3<=str.length())
+							i+=2;
+						else
+							return str.toString();
+						break;
+					case ColorLibrary.COLORCODE_FANSI256:
+					case ColorLibrary.COLORCODE_BANSI256:
+						if((i+9<=str.length())&&(str.charAt(i+2)==c))
+						{
+							if(!CMath.isHexNumber(str.substring(i+3,i+9)))
+								i+=4;
+							else
+								i += 8;
+						}
+						else
+						if(i+5<=str.length())
+							i+=4;
+						else
+							return str.toString();
+						break;
+					case '<':
+					{
+						i+=2;
+						while(i<(str.length()-1))
+						{
+							if((str.charAt(i)!='^')||(str.charAt(i+1)!='>'))
+							{
+								i++;
+								if(i>=(str.length()-1))
+									return str.toString();
+							}
+							else
+							{
+								i++;
+								break;
+							}
+						}
+						break;
+					}
+					case '&':
+					{
+						i+=2;
+						while(i<(str.length()-1))
+						{
+							if(str.charAt(i)!=';')
+							{
+								i++;
+								if(i>=(str.length()-1))
+									return str.toString();
+							}
+							else
+							{
+								// probably viewable
+								count++;
+								if(count >= thisMuch)
+									return str.substring(0,i+1);
+							}
+							break;
+						}
+						break;
+					}
+					case '^':
+					{
+						i++;
+						count++;
+						if(count >= thisMuch)
+							return str.substring(0,i+1);
+						break;
+					}
+					default:
+						i++;
+						break;
+					}
+				}
+				else
+					return str.toString();
+				break;
+			}
+			default:
+			{
+				count++;
+				if(count >= thisMuch)
+					return str.substring(0,i+1);
+				break;
+			}
+			}
+		}
+		return str.toString();
+	}
+
+	/**
 	 * Strips colors, of both the ansi, and cm code variety
 	 * @param s the string to strip
 	 * @return the stripped string
@@ -1596,7 +2124,7 @@ public class CMStrings
 	{
 		if(s==null)
 			return "";
-		if(s.indexOf('^')<0)
+		if((s.indexOf('^')<0)&&(s.indexOf((char)27)<0))
 			return s;
 		final StringBuilder str=new StringBuilder(s);
 		int colorStart=-1;
@@ -1608,6 +2136,7 @@ public class CMStrings
 				if(colorStart>=0)
 				{
 					str.delete(colorStart,i+1);
+					i=colorStart-1;
 					colorStart=-1;
 				}
 				break;
@@ -1630,6 +2159,15 @@ public class CMStrings
 						break;
 					case ColorLibrary.COLORCODE_FANSI256:
 					case ColorLibrary.COLORCODE_BANSI256:
+						if((i+9<=str.length())&&(str.charAt(i+2)==c))
+						{
+							if(!CMath.isHexNumber(str.substring(i+3,i+9)))
+								str.delete(i,i+5);
+							else
+								str.delete(i,i+9);
+							i--;
+						}
+						else
 						if(i+5<=str.length())
 						{
 							str.delete(i,i+5);
@@ -1705,6 +2243,77 @@ public class CMStrings
 		return str.toString();
 	}
 
+	/**
+	 * Strips cr and lf
+	 * @param s the string to strip
+	 * @return the stripped string
+	 */
+	public final static String removeCRLF(final String s)
+	{
+		if(s==null)
+			return "";
+		if((s.indexOf('\n')<0)&&(s.indexOf('\r')<0))
+			return s;
+		final StringBuilder str=new StringBuilder(s);
+		for(int i=0;i<str.length();i++)
+		{
+			switch(str.charAt(i))
+			{
+			case '\n':
+			case '\r':
+				str.delete(i, i+1);
+				break;
+			default:
+				break;
+			}
+		}
+		return str.toString();
+	}
+
+	/**
+	 * Strips cr and lf, replacing them with a space when necc
+	 * @param s the string to strip
+	 * @return the stripped string
+	 */
+	public final static String unWWrap(final String s)
+	{
+		if(s==null)
+			return "";
+		if((s.indexOf('\n')<0)&&(s.indexOf('\r')<0))
+			return s;
+		final StringBuilder str=new StringBuilder(s);
+		for(int i=0;i<str.length();i++)
+		{
+			final char c=str.charAt(i);
+			switch(c)
+			{
+			case '\n':
+			case '\r':
+			{
+				if((i==0)||(i==str.length()-1))
+					str.delete(i, i+1);
+				else
+				{
+					int len=1;
+					final char nc = str.charAt(i+1);
+					if((nc!=c)&&((nc=='\n')||(nc=='\r')))
+						len++;
+					if(i+len>=str.length())
+						str.delete(i, i+len);
+					else
+					if((!Character.isWhitespace(str.charAt(i-1))&&(!Character.isWhitespace(str.charAt(i+len)))))
+						str.replace(i, i+len, " ");
+					else
+						str.delete(i, i+len);
+				}
+				break;
+			}
+			default:
+				break;
+			}
+		}
+		return str.toString();
+	}
 
 	/**
 	 * Returns a boolean array of the chars marking where
@@ -1762,6 +2371,21 @@ public class CMStrings
 						break;
 					case ColorLibrary.COLORCODE_FANSI256:
 					case ColorLibrary.COLORCODE_BANSI256:
+						if((i+9<str.length())&&(str.charAt(i+2)==c))
+						{
+							nos[++i]=true;
+							nos[++i]=true;
+							nos[++i]=true;
+							nos[++i]=true;
+							if(CMath.isHexNumber(str.substring(i+3,i+9)))
+							{
+								nos[++i]=true;
+								nos[++i]=true;
+								nos[++i]=true;
+								nos[++i]=true;
+							}
+						}
+						else
 						if(i+5<=str.length())
 						{
 							nos[++i]=true;
@@ -1847,77 +2471,163 @@ public class CMStrings
 	{
 		if(thisStr==null)
 			return 0;
-		if(thisStr.indexOf('^')<0)
+		if((thisStr.indexOf('^')<0)&&(thisStr.indexOf((char)27)<0))
 			return thisStr.length();
 		int size=0;
+		boolean colorStart = false;
 		for(int i=0;i<thisStr.length();i++)
 		{
-			if(thisStr.charAt(i)=='^')
+			switch(thisStr.charAt(i))
 			{
-				i++;
-				if((i+1)<thisStr.length())
+			case 'm':
+				if(colorStart)
+					colorStart=false;
+				else
+					size++;
+				break;
+			case (char) 27:
+				colorStart = true;
+				break;
+			case '^':
+				if(!colorStart)
 				{
-					final int tagStart=i;
-					switch(thisStr.charAt(i))
+					i++;
+					if((i+1)<thisStr.length())
 					{
-					case ColorLibrary.COLORCODE_BACKGROUND:
-						i++;
-						break;
-					case ColorLibrary.COLORCODE_FANSI256:
-						i += 3;
-						break;
-					case ColorLibrary.COLORCODE_BANSI256:
-						i += 3;
-						break;
-					case '<':
-					{
-						while(i<(thisStr.length()-1))
+						final int tagStart=i;
+						switch(thisStr.charAt(i))
 						{
-							if((thisStr.charAt(i)!='^')||(thisStr.charAt(i+1)!='>'))
+						case ColorLibrary.COLORCODE_BACKGROUND:
+							i++;
+							break;
+						case ColorLibrary.COLORCODE_FANSI256:
+							if((i<thisStr.length()-8)
+							&&(thisStr.charAt(i+1)==thisStr.charAt(i)))
 							{
-								i++;
-								if(i>=(thisStr.length()-1))
+								if(!CMath.isHexNumber(thisStr.substring(i+2,i+8)))
+									i+=3;
+								else
+									i += 7;
+							}
+							else
+								i += 3;
+							break;
+						case ColorLibrary.COLORCODE_BANSI256:
+							if((i<thisStr.length()-9)
+							&&(thisStr.charAt(i+1)==thisStr.charAt(i)))
+							{
+								if(!CMath.isHexNumber(thisStr.substring(i+2,i+8)))
 								{
-									i=tagStart+1;
+									if(CMath.isHexNumber(thisStr.substring(i+2,i+4)))
+										i+=3;
+								}
+								else
+									i += 7;
+							}
+							else
+								i += 3;
+							break;
+						case '<':
+						{
+							while(i<(thisStr.length()-1))
+							{
+								if((thisStr.charAt(i)!='^')||(thisStr.charAt(i+1)!='>'))
+								{
+									i++;
+									if(i>=(thisStr.length()-1))
+									{
+										i=tagStart+1;
+										break;
+									}
+								}
+								else
+								{
+									i++;
 									break;
 								}
 							}
-							else
-							{
-								i++;
-								break;
-							}
+							break;
 						}
-						break;
-					}
-					case '&':
-					{
-						while(i<(thisStr.length()-1))
+						case '&':
 						{
-							if(thisStr.charAt(i)!=';')
+							while(i<(thisStr.length()-1))
 							{
-								i++;
-								if(i>=(thisStr.length()-1))
+								if(thisStr.charAt(i)!=';')
 								{
-									i=tagStart+1;
+									i++;
+									if(i>=(thisStr.length()-1))
+									{
+										i=tagStart+1;
+										break;
+									}
+								}
+								else
+								{
+									i++;
 									break;
 								}
 							}
-							else
-							{
-								i++;
-								break;
-							}
+							break;
 						}
-						break;
-					}
+						}
 					}
 				}
+				break;
+			default:
+				if(!colorStart)
+					size++;
+				break;
 			}
-			else
-				size++;
 		}
 		return size;
+	}
+
+	/**
+	 * This method returns the given string with any
+	 * &amp;..; entities converted to their original self
+	 * @param s the string to convert
+	 * @return the new converted string
+	 */
+	public static String convertHtmlEntities(String s)
+	{
+		if(s==null)
+			return null;
+		int x=s.indexOf('&');
+		while(x>=0)
+		{
+			final int y=s.indexOf(';',x+1);
+			if(y>x)
+			{
+				final String code=s.substring(x+1,y).toLowerCase();
+				if(code.equals("nbsp"))
+					s=s.substring(0,x)+" "+s.substring(y+1);
+				else
+				if (code.equals("amp"))
+				{
+					s=s.substring(0,x)+"&"+s.substring(y+1);
+					x++;
+				}
+				else
+				if (code.equals("lt"))
+					s=s.substring(0,x)+"<"+s.substring(y+1);
+				else
+				if (code.equals("gt"))
+					s=s.substring(0,x)+">"+s.substring(y+1);
+				else
+				if (code.equals("quot"))
+					s=s.substring(0,x)+"\""+s.substring(y+1);
+				else
+				if (code.startsWith("#")
+				&&(CMath.isInteger(code.substring(1))))
+				{
+					final int num=CMath.s_int(code.substring(1));
+					if(num<65536)
+						s=s.substring(0,x)+Character.toString((char)num)+s.substring(y+1);
+				}
+			}
+			x=s.indexOf('&',x+1);
+		}
+		return s;
 	}
 
 	/**
@@ -2546,6 +3256,60 @@ public class CMStrings
 	}
 
 	/**
+	 * If the given string ends or begins with cr or lf,
+	 * then this method removes them before returning the string, and
+	 * does nothing otherwise.
+	 * @param thisStr the string to remove cr and lf from
+	 * @return the string without cr and lf at the ends, or unchanged
+	 */
+	public final static String trimCRLF(final String thisStr)
+	{
+		while(thisStr.startsWith("\r")||thisStr.startsWith("\n"))
+			return thisStr.substring(1);
+		while(thisStr.endsWith("\r")||thisStr.endsWith("\n"))
+			return thisStr.substring(0,thisStr.length()-1);
+		return thisStr;
+	}
+
+	/**
+	 * If the given string contains cr or lf, but not both,
+	 * then this method will fix the string to use both as
+	 * per mud standard.
+	 * @param thisStr the string to fix cr and lf in
+	 * @return the string fixed, or unchanged
+	 */
+	public final static String fixMudCRLF(final String thisStr)
+	{
+		if(thisStr==null)
+			return null;
+		if((thisStr.indexOf('\n')<0)&&(thisStr.indexOf('\r')<0))
+			return thisStr;
+		final StringBuilder seq = new StringBuilder(thisStr);
+		for(int i=0;i<seq.length();i++)
+		{
+			if(seq.charAt(i)=='\n')
+			{
+				if(i==seq.length()-1)
+					seq.append('\r');
+				else
+				if(seq.charAt(i+1) != '\r')
+					seq.insert(i+1, '\r');
+				i++;
+			}
+			else
+			if(seq.charAt(i)=='\r')
+			{
+				if(i==0)
+					seq.insert(0, '\n');
+				else
+					seq.insert(i, '\n');
+				i++;
+			}
+		}
+		return thisStr;
+	}
+
+	/**
 	 * Pads the string to the right with spaces until it is the length
 	 * of the given number. If the string is already larger than the given number, the
 	 * string is truncated at the end until it is the given length.  If the string
@@ -2650,9 +3414,29 @@ public class CMStrings
 	 */
 	public final static String limit(final String thisStr, final int thisMuch)
 	{
+		if(thisMuch <= 0)
+			return thisStr;
 		final int lenMinusColors=lengthMinusColors(thisStr);
 		if(lenMinusColors>thisMuch)
 			return removeColors(thisStr).substring(0,thisMuch);
+		return thisStr;
+	}
+
+	/**
+	 * Truncates the given string if the string is larger than the given number,
+	 * or returns it unchanged otherwise. If the string is larger than the given
+	 * number, color codes are preserved.
+	 * This method preserves any special CoffeeMud/ANSI color codes before calculating
+	 * length as if colors weren't there.
+	 * @param thisStr the string to pad or truncate
+	 * @param thisMuch the final maximum length of the string.
+	 * @return the string truncated, or unchanged if not long enough
+	 */
+	public final static String limitColors(final String thisStr, final int thisMuch)
+	{
+		final int lenMinusColors=lengthMinusColors(thisStr);
+		if(lenMinusColors>thisMuch)
+			return limitCut(thisStr, thisMuch);
 		return thisStr;
 	}
 
@@ -2672,6 +3456,36 @@ public class CMStrings
 		final int lenMinusColors=lengthMinusColors(thisStr);
 		if(lenMinusColors>thisMuch)
 			return removeColors(thisStr).substring(0,thisMuch)+"...";
+		return thisStr;
+	}
+
+	/**
+	 * Returns the given string, unless it is null, in which
+	 * case it returns "".
+	 * @param str the string
+	 * @return the String, or ""
+	 */
+	public final static String emptyString(final String str)
+	{
+		return (str == null)?"":str;
+	}
+
+	/**
+	 * Pads the string to the right with three dots if the string is larger than
+	 * the given number, or returns it unchanged otherwise. If the string is
+	 * larger than the given number, the string is truncated at the end, color codes
+	 * preserved, until it is the given length, and the ellipse added.
+	 * This method preserves any special CoffeeMud/ANSI color codes while calculating
+	 * length as if they weren't there.
+	 * @param thisStr the string to pad or truncate
+	 * @param thisMuch the final maximum length of the string before ...
+	 * @return the string padded, or unchanged if not long enough
+	 */
+	public final static String ellipseColored(final String thisStr, final int thisMuch)
+	{
+		final int lenMinusColors=lengthMinusColors(thisStr);
+		if(lenMinusColors>thisMuch)
+			return limitCut(thisStr, thisMuch)+"^.^N...";
 		return thisStr;
 	}
 
@@ -2712,7 +3526,7 @@ public class CMStrings
 	{
 		final int lenMinusColors=lengthMinusColors(thisStr);
 		if(lenMinusColors>thisMuch)
-			return removeColors(thisStr);
+			return thisStr;
 		if(thisMuch-lenMinusColors >= SPACES.length())
 			return thisStr+SPACES;
 		return thisStr+SPACES.substring(0,thisMuch-lenMinusColors);
@@ -2769,6 +3583,21 @@ public class CMStrings
 		if(Character.isUpperCase(c))
 			return str.toUpperCase();
 		return str.toLowerCase();
+	}
+
+	/**
+	 * Given a string array, will return the string at the given
+	 * index, returning the def itself if out-of-range.
+	 * @param strs the string array
+	 * @param index the array index
+	 * @param def what to return if out-of-range
+	 * @return the string at index, or def if out-of-range
+	 */
+	public final static String s_indexStr(final String[] strs, final int index, final String def)
+	{
+		if((index<0)||(index>=strs.length))
+			return ""+index;
+		return strs[index];
 	}
 
 	/**
@@ -3077,6 +3906,16 @@ public class CMStrings
 			tokens.remove(--i[0]);
 			token = nextToken(tokens, i);
 			token.value="-"+token.value;
+			if(token.type==StringExpTokenType.NUMCONST)
+			{
+				try
+				{
+					token.numValue=Double.valueOf(token.value).doubleValue();
+				}
+				catch(final Exception e)
+				{
+				}
+			}
 		}
 		if((token.type != StringExpTokenType.NUMCONST)
 		&& (token.type != StringExpTokenType.STRCONST)
@@ -3208,7 +4047,7 @@ public class CMStrings
 			if (testInside != null)
 			{
 				index[0] = i[0];
-				return new Boolean(!testInside.booleanValue());
+				return Boolean.valueOf(!testInside.booleanValue());
 			}
 		}
 		else
@@ -3261,15 +4100,15 @@ public class CMStrings
 		{
 		case '>':
 			if(token.value.length()==1)
-				result = new Boolean(compare > 0);
+				result = Boolean.valueOf(compare > 0);
 			else
 			switch(token.value.charAt(1))
 			{
 			case '=':
-				result = new Boolean(compare >= 0);
+				result = Boolean.valueOf(compare >= 0);
 				break;
 			case '<':
-				result = new Boolean(compare != 0);
+				result = Boolean.valueOf(compare != 0);
 				break;
 			default:
 				return null;
@@ -3277,15 +4116,15 @@ public class CMStrings
 			break;
 		case '<':
 			if(token.value.length()==1)
-				result = new Boolean(compare < 0);
+				result = Boolean.valueOf(compare < 0);
 			else
 			switch(token.value.charAt(1))
 			{
 			case '=':
-				result = new Boolean(compare <= 0);
+				result = Boolean.valueOf(compare <= 0);
 				break;
 			case '>':
-				result = new Boolean(compare != 0);
+				result = Boolean.valueOf(compare != 0);
 				break;
 			default:
 				return null;
@@ -3293,18 +4132,18 @@ public class CMStrings
 			break;
 		case '=':
 			if(token.value.length()==1)
-				result = new Boolean(compare == 0);
+				result = Boolean.valueOf(compare == 0);
 			else
 			switch(token.value.charAt(1))
 			{
 			case '=':
-				result = new Boolean(compare == 0);
+				result = Boolean.valueOf(compare == 0);
 				break;
 			case '<':
-				result = new Boolean(compare <= 0);
+				result = Boolean.valueOf(compare <= 0);
 				break;
 			case '>':
-				result = new Boolean(compare >= 0);
+				result = Boolean.valueOf(compare >= 0);
 				break;
 			default:
 				return null;
@@ -3317,13 +4156,13 @@ public class CMStrings
 			switch(token.value.charAt(1))
 			{
 			case '=':
-				result = new Boolean(compare != 0);
+				result = Boolean.valueOf(compare != 0);
 				break;
 			case '<':
-				result = new Boolean(compare > 0);
+				result = Boolean.valueOf(compare > 0);
 				break;
 			case '>':
-				result = new Boolean(compare < 0);
+				result = Boolean.valueOf(compare < 0);
 				break;
 			default:
 				return null;
@@ -3332,7 +4171,7 @@ public class CMStrings
 		case 'I':
 		case 'i':
 			if (token.value.equalsIgnoreCase("IN"))
-				result = new Boolean(rightValue.value.toUpperCase().indexOf(leftValue.value.toUpperCase())>=0);
+				result = Boolean.valueOf(rightValue.value.toUpperCase().indexOf(leftValue.value.toUpperCase())>=0);
 			else
 				return null;
 			break;
@@ -3341,6 +4180,116 @@ public class CMStrings
 		}
 		index[0] = i[0];
 		return result;
+	}
+
+	/**
+	 * Normalizes line endings in the given stringbuilder by replacing
+	 * all carriage returns with only linefeeds.
+	 *
+	 * @param str the modified string
+	 */
+	public static void normalizeLineEndings(final StringBuffer str)
+	{
+		for(int i=0;i<str.length();i++)
+		{
+			// if contains even a single linefeed, destroy all crs
+			if(str.charAt(i)=='\n')
+			{
+				for(i=str.length()-1;i>=0;i--)
+				{
+					if(str.charAt(i)=='\r')
+						str.deleteCharAt(i);
+				}
+				return;
+			}
+		}
+		// otherwise, convert all crs to lfs
+		for(int i=0;i<str.length();i++)
+		{
+			if(str.charAt(i)=='\r')
+				str.setCharAt(i,'\n');
+		}
+	}
+
+
+	/**
+	 * Normalizes line endings in the given stringbuilder by replacing
+	 * all linefeeds with linefeed + carriage return.
+	 *
+	 * @param str the modified string
+	 */
+	public static void dikufyLineEndings(final StringBuffer str)
+	{
+		for(int i=0;i<str.length();i++)
+		{
+			final char c = str.charAt(i);
+			switch(c)
+			{
+			case '\n':
+				if((i < str.length()-1)
+				&&(str.charAt(i+1)=='\r')) // already normalized
+					return;
+				if(i == str.length()-1)
+				{
+					str.append('\r');
+					return;
+				}
+				str.insert(++i, '\r');
+				break;
+			case '\r':
+				if((i<str.length()-1)
+				&&(str.charAt(i+1)=='\n'))
+				{
+					str.setCharAt(i, '\n');
+					str.setCharAt(++i, '\r');
+				}
+				else
+					str.insert(i++, '\n');
+				break;
+			}
+		}
+	}
+
+	/**
+	 * Converts various unicode look-alike or invalid characters
+	 * to something more displayable.  Also does the normal conversion
+	 * of coffeemud quotes to ` characters.
+	 * @param str the stringbuffer to convert
+	 */
+	public static void normalizeCharacters(final StringBuffer str)
+	{
+		if(str == null)
+			return;
+		final char[] chars = str.toString().toCharArray();
+		str.setLength(0);
+		for(final char c : chars)
+			switch(c)
+			{
+			case '\u2018': case '\u2019':
+			case '\'':
+				str.append('`');
+				break;
+			case '\u2212': case '\u2010':
+			case '\u2013': case '\u2014':
+			case '\u2015':
+				str.append('-');
+				break;
+			case '\u200B': case '\u200C':
+			case '\u200D': case '\uFFFD':
+				break;
+			case '\u00A0':
+				str.append(' ');
+				break;
+			case '\u2026':
+				str.append("...");
+				break;
+			case '\u201C': case '\u201D':
+				str.append('"');
+				break;
+			default:
+				str.append(c);
+				break;
+			}
 	}
 
 	/**
@@ -3367,7 +4316,7 @@ public class CMStrings
 			if (testInside != null)
 			{
 				index[0] = i[0];
-				leftExpression = new Boolean(!testInside.booleanValue());
+				leftExpression = Boolean.valueOf(!testInside.booleanValue());
 			}
 		}
 		else
@@ -3388,7 +4337,8 @@ public class CMStrings
 			i = index.clone();
 			leftExpression = matchValueEvaluation(tokens, i, variables);
 		}
-		if (leftExpression == null) return null;
+		if (leftExpression == null)
+			return null;
 		final int[] i2 = i.clone();
 		token = nextToken(tokens, i2);
 		if ((token == null) || (token.type != StringExpTokenType.WORD))
@@ -3406,27 +4356,27 @@ public class CMStrings
 		case 'a':
 		case 'A':
 			if (token.value.equalsIgnoreCase("AND"))
-				result = new Boolean(leftExpression.booleanValue() && rightExpression.booleanValue());
+				result = Boolean.valueOf(leftExpression.booleanValue() && rightExpression.booleanValue());
 			else
 				throw new Exception("Parse Exception: Illegal expression evaluation combiner: " + token.value);
 			break;
 		case '&':
-			result = new Boolean(leftExpression.booleanValue() && rightExpression.booleanValue());
+			result = Boolean.valueOf(leftExpression.booleanValue() && rightExpression.booleanValue());
 			break;
 		case '|':
-			result = new Boolean(leftExpression.booleanValue() || rightExpression.booleanValue());
+			result = Boolean.valueOf(leftExpression.booleanValue() || rightExpression.booleanValue());
 			break;
 		case 'O':
 		case 'o':
 			if (token.value.equalsIgnoreCase("OR"))
-				result = new Boolean(leftExpression.booleanValue() || rightExpression.booleanValue());
+				result = Boolean.valueOf(leftExpression.booleanValue() || rightExpression.booleanValue());
 			else
 				throw new Exception("Parse Exception: Illegal expression evaluation combiner: " + token.value);
 			break;
 		case 'X':
 		case 'x':
 			if (token.value.equalsIgnoreCase("XOR"))
-				result = new Boolean(leftExpression.booleanValue() != rightExpression.booleanValue());
+				result = Boolean.valueOf(leftExpression.booleanValue() != rightExpression.booleanValue());
 			else
 				throw new Exception("Parse Exception: Illegal expression evaluation combiner: " + token.value);
 			break;
@@ -3501,6 +4451,95 @@ public class CMStrings
 		return total;
 	}
 
+	public final static boolean matches(final String str, final String mask, final boolean caseSensitive)
+	{
+		if(str==null)
+			return false;
+		if((mask==null)||(mask.length()==0))
+			return true;
+		final char[] cstr=caseSensitive?str.toCharArray():str.toLowerCase().toCharArray();
+		final char[] mfix=caseSensitive?mask.toCharArray():mask.toLowerCase().toCharArray();
+		// mstr needs 'fixing'
+		final char[] macc=new char[mfix.length];
+		int adex=0;
+		for(int i=0;i<mfix.length;i++)
+		{
+			if((mfix[i]=='\\')
+			&&(i<mfix.length))
+				macc[adex++]=mfix[++i];
+			else
+			if(mfix[i]=='*')
+				macc[adex++]=(char)0;
+			else
+			if(mfix[i]=='?')
+				macc[adex++]=(char)1;
+			else
+				macc[adex++]=mfix[i];
+		}
+		final char[] mstr = Arrays.copyOf(macc, adex);
+
+		int cpos = 0;
+		int mpos = 0;
+		int cend = cstr.length-1;
+		int mend = mstr.length-1;
+		while((mend>=mpos)||(cend>=cpos))
+		{
+			for(;mpos<=mend;mpos++)
+			{
+				final char c = mstr[mpos];
+				if(c==(char)0)
+					break;
+				if(cpos>cend)
+					return false;
+				if((c!=(char)1)
+				&&(c != cstr[cpos]))
+					return false;
+				cpos++;
+			}
+			for(;mend>=mpos;mend--)
+			{
+				final char c = mstr[mend];
+				if(c==(char)0)
+					break;
+				if(cpos > cend)
+					return false;
+				if((c!=(char)1)
+				&&(c != cstr[cend]))
+					return false;
+				cend--;
+			}
+			if(mend<mpos)
+			{
+				if(cpos>cend)
+					return true;
+				return false;
+			}
+			if(mend==mpos) // it must be a *
+				return true;
+			if(mend<mpos-1) // it must be **
+				return true;
+			while((mpos<=mend)&&(mstr[mpos]==(char)0))
+				mpos++;
+			if(mend<mpos)
+				return true;
+			while((mpos<=mend)&&(mstr[mend]==(char)0))
+				mend--;
+			if(mend<mpos)
+				return true;
+			char c=mstr[mpos];
+			if(c!=(char)1)
+				cpos = String.valueOf(cstr).indexOf(c,cpos);
+			if((cpos<0)||(cpos>cend))
+				return false;
+			c=mstr[mend];
+			if(c!=(char)1)
+				cend = String.valueOf(cstr).lastIndexOf(c,cend);
+			if((cend<0)||(cpos>cend))
+				return false;
+		}
+		return true;
+	}
+
 	/**
 	 * Counts the number of times the given character appears in the given string.
 	 * @param str the string to search through
@@ -3560,10 +4599,10 @@ public class CMStrings
 	/**
 	 * Number of seconds to map a diff before giving up (0 for infinity).
 	 */
-	private static float Diff_Timeout = 1.0f;
+	private static float DIFF_TIMEOUT = 1.0f;
 
 	/**
-	 * Internal class for returning results from diff_linesToChars().
+	 * Internal class for returning results from diffLinesToChars().
 	 * Other less paranoid languages just use a three-element array.
 	 * @author fraser@google.com (Neil Fraser)
 	 */
@@ -3594,16 +4633,16 @@ public class CMStrings
 	/**
 	 * Find the differences between two texts.
 	 * Run a faster, slightly less optimal diff.
-	 * This method allows the 'checklines' of diff_main() to be optional.
+	 * This method allows the 'checklines' of diffMain() to be optional.
 	 * Most of the time checklines is wanted, so default to true.
 	 * @author fraser@google.com (Neil Fraser)
 	 * @param text1 Old string to be diffed.
 	 * @param text2 New string to be diffed.
 	 * @return Linked List of Diff objects.
 	 */
-	public static LinkedList<Diff> diff_main(final String text1, final String text2)
+	public static LinkedList<Diff> diffMain(final String text1, final String text2)
 	{
-		return diff_main(text1, text2, true);
+		return diffMain(text1, text2, true);
 	}
 
 	/**
@@ -3616,19 +4655,19 @@ public class CMStrings
 	 *		 If true, then run a faster slightly less optimal diff.
 	 * @return Linked List of Diff objects.
 	 */
-	public static LinkedList<Diff> diff_main(final String text1, final String text2, final boolean checklines)
+	public static LinkedList<Diff> diffMain(final String text1, final String text2, final boolean checklines)
 	{
 		// Set a deadline by which time the diff must be complete.
 		long deadline;
-		if (Diff_Timeout <= 0)
+		if (DIFF_TIMEOUT <= 0)
 		{
 			deadline = Long.MAX_VALUE;
 		}
 		else
 		{
-			deadline = System.currentTimeMillis() + (long) (Diff_Timeout * 1000);
+			deadline = System.currentTimeMillis() + (long) (DIFF_TIMEOUT * 1000);
 		}
-		return diff_main(text1, text2, checklines, deadline);
+		return diffMain(text1, text2, checklines, deadline);
 	}
 
 	/**
@@ -3644,12 +4683,12 @@ public class CMStrings
 	 *		 internally for recursive calls.	Users should set DiffTimeout instead.
 	 * @return Linked List of Diff objects.
 	 */
-	private static LinkedList<Diff> diff_main(String text1, String text2, final boolean checklines, final long deadline)
+	private static LinkedList<Diff> diffMain(String text1, String text2, final boolean checklines, final long deadline)
 	{
 		// Check for null inputs.
 		if (text1 == null || text2 == null)
 		{
-			throw new IllegalArgumentException("Null inputs. (diff_main)");
+			throw new IllegalArgumentException("Null inputs. (diffMain)");
 		}
 
 		// Check for equality (speedup).
@@ -3665,19 +4704,19 @@ public class CMStrings
 		}
 
 		// Trim off common prefix (speedup).
-		int commonlength = diff_commonPrefix(text1, text2);
+		int commonlength = diffCommonPrefix(text1, text2);
 		final String commonprefix = text1.substring(0, commonlength);
 		text1 = text1.substring(commonlength);
 		text2 = text2.substring(commonlength);
 
 		// Trim off common suffix (speedup).
-		commonlength = diff_commonSuffix(text1, text2);
+		commonlength = diffCommonSuffix(text1, text2);
 		final String commonsuffix = text1.substring(text1.length() - commonlength);
 		text1 = text1.substring(0, text1.length() - commonlength);
 		text2 = text2.substring(0, text2.length() - commonlength);
 
 		// Compute the diff on the middle block.
-		diffs = diff_compute(text1, text2, checklines, deadline);
+		diffs = diffCompute(text1, text2, checklines, deadline);
 
 		// Restore the prefix and suffix.
 		if (commonprefix.length() != 0)
@@ -3689,7 +4728,7 @@ public class CMStrings
 			diffs.addLast(new Diff(DiffOperation.EQUAL, commonsuffix));
 		}
 
-		diff_cleanupMerge(diffs);
+		diffCleanupMerge(diffs);
 		return diffs;
 	}
 
@@ -3705,7 +4744,7 @@ public class CMStrings
 	 * @param deadline Time when the diff should be complete by.
 	 * @return Linked List of Diff objects.
 	 */
-	private static LinkedList<Diff> diff_compute(final String text1, final String text2, final boolean checklines, final long deadline)
+	private static LinkedList<Diff> diffCompute(final String text1, final String text2, final boolean checklines, final long deadline)
 	{
 		LinkedList<Diff> diffs = new LinkedList<Diff>();
 
@@ -3746,31 +4785,31 @@ public class CMStrings
 		}
 
 		// Check to see if the problem can be split in two.
-		final String[] hm = diff_halfMatch(text1, text2);
+		final String[] hm = diffHalfMatch(text1, text2);
 		if (hm != null)
 		{
 			// A half-match was found, sort out the return data.
-			final String text1_a = hm[0];
-			final String text1_b = hm[1];
-			final String text2_a = hm[2];
-			final String text2_b = hm[3];
-			final String mid_common = hm[4];
+			final String text1a = hm[0];
+			final String text1b = hm[1];
+			final String text2a = hm[2];
+			final String text2b = hm[3];
+			final String midcommon = hm[4];
 			// Send both pairs off for separate processing.
-			final LinkedList<Diff> diffs_a = diff_main(text1_a, text2_a, checklines, deadline);
-			final LinkedList<Diff> diffs_b = diff_main(text1_b, text2_b, checklines, deadline);
+			final LinkedList<Diff> diffsa = diffMain(text1a, text2a, checklines, deadline);
+			final LinkedList<Diff> diffsb = diffMain(text1b, text2b, checklines, deadline);
 			// Merge the results.
-			diffs = diffs_a;
-			diffs.add(new Diff(DiffOperation.EQUAL, mid_common));
-			diffs.addAll(diffs_b);
+			diffs = diffsa;
+			diffs.add(new Diff(DiffOperation.EQUAL, midcommon));
+			diffs.addAll(diffsb);
 			return diffs;
 		}
 
 		if (checklines && text1.length() > 100 && text2.length() > 100)
 		{
-			return diff_lineMode(text1, text2, deadline);
+			return diffLineMode(text1, text2, deadline);
 		}
 
-		return diff_bisect(text1, text2, deadline);
+		return diffBisect(text1, text2, deadline);
 	}
 
 	/**
@@ -3783,28 +4822,28 @@ public class CMStrings
 	 * @param deadline Time when the diff should be complete by.
 	 * @return Linked List of Diff objects.
 	 */
-	private static LinkedList<Diff> diff_lineMode(String text1, String text2, final long deadline)
+	private static LinkedList<Diff> diffLineMode(String text1, String text2, final long deadline)
 	{
 		// Scan the text on a line-by-line basis first.
-		final LinesToCharsResult b = diff_linesToChars(text1, text2);
+		final LinesToCharsResult b = diffLinesToChars(text1, text2);
 		text1 = b.chars1;
 		text2 = b.chars2;
 		final List<String> linearray = b.lineArray;
 
-		final LinkedList<Diff> diffs = diff_main(text1, text2, false, deadline);
+		final LinkedList<Diff> diffs = diffMain(text1, text2, false, deadline);
 
 		// Convert the diff back to original text.
-		diff_charsToLines(diffs, linearray);
+		diffCharsToLines(diffs, linearray);
 		// Eliminate freak matches (e.g. blank lines)
-		diff_cleanupSemantic(diffs);
+		diffCleanupSemantic(diffs);
 
 		// Rediff any replacement blocks, this time character-by-character.
 		// Add a dummy entry at the end.
 		diffs.add(new Diff(DiffOperation.EQUAL, ""));
-		int count_delete = 0;
-		int count_insert = 0;
-		String text_delete = "";
-		String text_insert = "";
+		int countdelete = 0;
+		int countinsert = 0;
+		String textdelete = "";
+		String textinsert = "";
 		final ListIterator<Diff> pointer = diffs.listIterator();
 		Diff thisDiff = pointer.next();
 		while (thisDiff != null)
@@ -3812,33 +4851,33 @@ public class CMStrings
 			switch (thisDiff.operation)
 			{
 			case INSERT:
-				count_insert++;
-				text_insert += thisDiff.text;
+				countinsert++;
+				textinsert += thisDiff.text;
 				break;
 			case DELETE:
-				count_delete++;
-				text_delete += thisDiff.text;
+				countdelete++;
+				textdelete += thisDiff.text;
 				break;
 			case EQUAL:
 				// Upon reaching an equality, check for prior redundancies.
-				if (count_delete >= 1 && count_insert >= 1)
+				if (countdelete >= 1 && countinsert >= 1)
 				{
 					// Delete the offending records and add the merged ones.
 					pointer.previous();
-					for (int j = 0; j < count_delete + count_insert; j++)
+					for (int j = 0; j < countdelete + countinsert; j++)
 					{
 						pointer.previous();
 						pointer.remove();
 					}
-					for (final Diff newDiff : diff_main(text_delete, text_insert, false, deadline))
+					for (final Diff newDiff : diffMain(textdelete, textinsert, false, deadline))
 					{
 						pointer.add(newDiff);
 					}
 				}
-				count_insert = 0;
-				count_delete = 0;
-				text_delete = "";
-				text_insert = "";
+				countinsert = 0;
+				countdelete = 0;
+				textdelete = "";
+				textinsert = "";
 				break;
 			}
 			thisDiff = pointer.hasNext() ? pointer.next() : null;
@@ -3858,24 +4897,24 @@ public class CMStrings
 	 * @param deadline Time at which to bail if not yet complete.
 	 * @return LinkedList of Diff objects.
 	 */
-	private static LinkedList<Diff> diff_bisect(final String text1, final String text2, final long deadline)
+	private static LinkedList<Diff> diffBisect(final String text1, final String text2, final long deadline)
 	{
 		// Cache the text lengths to prevent multiple calls.
-		final int text1_length = text1.length();
-		final int text2_length = text2.length();
-		final int max_d = (text1_length + text2_length + 1) / 2;
-		final int v_offset = max_d;
-		final int v_length = 2 * max_d;
-		final int[] v1 = new int[v_length];
-		final int[] v2 = new int[v_length];
-		for (int x = 0; x < v_length; x++)
+		final int text1length = text1.length();
+		final int text2length = text2.length();
+		final int maxd = (text1length + text2length + 1) / 2;
+		final int voffset = maxd;
+		final int vlength = 2 * maxd;
+		final int[] v1 = new int[vlength];
+		final int[] v2 = new int[vlength];
+		for (int x = 0; x < vlength; x++)
 		{
 			v1[x] = -1;
 			v2[x] = -1;
 		}
-		v1[v_offset + 1] = 0;
-		v2[v_offset + 1] = 0;
-		final int delta = text1_length - text2_length;
+		v1[voffset + 1] = 0;
+		v2[voffset + 1] = 0;
+		final int delta = text1length - text2length;
 		// If the total number of characters is odd, then the front path will
 		// collide with the reverse path.
 		final boolean front = (delta % 2 != 0);
@@ -3885,7 +4924,7 @@ public class CMStrings
 		int k1end = 0;
 		int k2start = 0;
 		int k2end = 0;
-		for (int d = 0; d < max_d; d++)
+		for (int d = 0; d < maxd; d++)
 		{
 			// Bail out if deadline is reached.
 			if (System.currentTimeMillis() > deadline)
@@ -3896,31 +4935,31 @@ public class CMStrings
 			// Walk the front path one step.
 			for (int k1 = -d + k1start; k1 <= d - k1end; k1 += 2)
 			{
-				final int k1_offset = v_offset + k1;
+				final int k1offset = voffset + k1;
 				int x1;
-				if (k1 == -d || (k1 != d && v1[k1_offset - 1] < v1[k1_offset + 1]))
+				if (k1 == -d || (k1 != d && v1[k1offset - 1] < v1[k1offset + 1]))
 				{
-					x1 = v1[k1_offset + 1];
+					x1 = v1[k1offset + 1];
 				}
 				else
 				{
-					x1 = v1[k1_offset - 1] + 1;
+					x1 = v1[k1offset - 1] + 1;
 				}
 				int y1 = x1 - k1;
-				while (x1 < text1_length && y1 < text2_length
+				while (x1 < text1length && y1 < text2length
 				&& text1.charAt(x1) == text2.charAt(y1))
 				{
 					x1++;
 					y1++;
 				}
-				v1[k1_offset] = x1;
-				if (x1 > text1_length)
+				v1[k1offset] = x1;
+				if (x1 > text1length)
 				{
 					// Ran off the right of the graph.
 					k1end += 2;
 				}
 				else
-				if (y1 > text2_length)
+				if (y1 > text2length)
 				{
 					// Ran off the bottom of the graph.
 					k1start += 2;
@@ -3928,15 +4967,15 @@ public class CMStrings
 				else
 				if (front)
 				{
-					final int k2_offset = v_offset + delta - k1;
-					if (k2_offset >= 0 && k2_offset < v_length && v2[k2_offset] != -1)
+					final int k2offset = voffset + delta - k1;
+					if (k2offset >= 0 && k2offset < vlength && v2[k2offset] != -1)
 					{
 						// Mirror x2 onto top-left coordinate system.
-						final int x2 = text1_length - v2[k2_offset];
+						final int x2 = text1length - v2[k2offset];
 						if (x1 >= x2)
 						{
 							// Overlap detected.
-							return diff_bisectSplit(text1, text2, x1, y1, deadline);
+							return diffBisectSplit(text1, text2, x1, y1, deadline);
 						}
 					}
 				}
@@ -3945,31 +4984,31 @@ public class CMStrings
 			// Walk the reverse path one step.
 			for (int k2 = -d + k2start; k2 <= d - k2end; k2 += 2)
 			{
-				final int k2_offset = v_offset + k2;
+				final int k2offset = voffset + k2;
 				int x2;
-				if (k2 == -d || (k2 != d && v2[k2_offset - 1] < v2[k2_offset + 1]))
+				if (k2 == -d || (k2 != d && v2[k2offset - 1] < v2[k2offset + 1]))
 				{
-					x2 = v2[k2_offset + 1];
+					x2 = v2[k2offset + 1];
 				}
 				else
 				{
-					x2 = v2[k2_offset - 1] + 1;
+					x2 = v2[k2offset - 1] + 1;
 				}
 				int y2 = x2 - k2;
-				while (x2 < text1_length && y2 < text2_length
-				&& text1.charAt(text1_length - x2 - 1) == text2.charAt(text2_length - y2 - 1))
+				while (x2 < text1length && y2 < text2length
+				&& text1.charAt(text1length - x2 - 1) == text2.charAt(text2length - y2 - 1))
 				{
 					x2++;
 					y2++;
 				}
-				v2[k2_offset] = x2;
-				if (x2 > text1_length)
+				v2[k2offset] = x2;
+				if (x2 > text1length)
 				{
 					// Ran off the left of the graph.
 					k2end += 2;
 				}
 				else
-				if (y2 > text2_length)
+				if (y2 > text2length)
 				{
 					// Ran off the top of the graph.
 					k2start += 2;
@@ -3977,17 +5016,17 @@ public class CMStrings
 				else
 				if (!front)
 				{
-					final int k1_offset = v_offset + delta - k2;
-					if (k1_offset >= 0 && k1_offset < v_length && v1[k1_offset] != -1)
+					final int k1offset = voffset + delta - k2;
+					if (k1offset >= 0 && k1offset < vlength && v1[k1offset] != -1)
 					{
-						final int x1 = v1[k1_offset];
-						final int y1 = v_offset + x1 - k1_offset;
+						final int x1 = v1[k1offset];
+						final int y1 = voffset + x1 - k1offset;
 						// Mirror x2 onto top-left coordinate system.
-						x2 = text1_length - x2;
+						x2 = text1length - x2;
 						if (x1 >= x2)
 						{
 							// Overlap detected.
-							return diff_bisectSplit(text1, text2, x1, y1, deadline);
+							return diffBisectSplit(text1, text2, x1, y1, deadline);
 						}
 					}
 				}
@@ -4012,7 +5051,7 @@ public class CMStrings
 	 * @param deadline Time at which to bail if not yet complete.
 	 * @return LinkedList of Diff objects.
 	 */
-	private static LinkedList<Diff> diff_bisectSplit(final String text1, final String text2, final int x, final int y, final long deadline)
+	private static LinkedList<Diff> diffBisectSplit(final String text1, final String text2, final int x, final int y, final long deadline)
 	{
 		final String text1a = text1.substring(0, x);
 		final String text2a = text2.substring(0, y);
@@ -4020,8 +5059,8 @@ public class CMStrings
 		final String text2b = text2.substring(y);
 
 		// Compute both diffs serially.
-		final LinkedList<Diff> diffs = diff_main(text1a, text2a, false, deadline);
-		final LinkedList<Diff> diffsb = diff_main(text1b, text2b, false, deadline);
+		final LinkedList<Diff> diffs = diffMain(text1a, text2a, false, deadline);
+		final LinkedList<Diff> diffsb = diffMain(text1b, text2b, false, deadline);
 
 		diffs.addAll(diffsb);
 		return diffs;
@@ -4037,7 +5076,7 @@ public class CMStrings
 	 *		 the List of unique strings.	The zeroth element of the List of
 	 *		 unique strings is intentionally blank.
 	 */
-	private static LinesToCharsResult diff_linesToChars(final String text1, final String text2)
+	private static LinesToCharsResult diffLinesToChars(final String text1, final String text2)
 	{
 		final List<String> lineArray = new ArrayList<String>();
 		final Map<String, Integer> lineHash = new HashMap<String, Integer>();
@@ -4048,8 +5087,8 @@ public class CMStrings
 		// So we'll insert a junk entry to avoid generating a null character.
 		lineArray.add("");
 
-		final String chars1 = diff_linesToCharsMunge(text1, lineArray, lineHash);
-		final String chars2 = diff_linesToCharsMunge(text2, lineArray, lineHash);
+		final String chars1 = diffLinesToCharsMunge(text1, lineArray, lineHash);
+		final String chars2 = diffLinesToCharsMunge(text2, lineArray, lineHash);
 		return new LinesToCharsResult(chars1, chars2, lineArray);
 	}
 
@@ -4062,7 +5101,7 @@ public class CMStrings
 	 * @param lineHash Map of strings to indices.
 	 * @return Encoded string.
 	 */
-	private static String diff_linesToCharsMunge(final String text, final List<String> lineArray, final Map<String, Integer> lineHash)
+	private static String diffLinesToCharsMunge(final String text, final List<String> lineArray, final Map<String, Integer> lineHash)
 	{
 		int lineStart = 0;
 		int lineEnd = -1;
@@ -4102,7 +5141,7 @@ public class CMStrings
 	 * @param diffs LinkedList of Diff objects.
 	 * @param lineArray List of unique strings.
 	 */
-	private static void diff_charsToLines(final LinkedList<Diff> diffs, final List<String> lineArray)
+	private static void diffCharsToLines(final LinkedList<Diff> diffs, final List<String> lineArray)
 	{
 		StringBuilder text;
 		for (final Diff diff : diffs)
@@ -4123,7 +5162,7 @@ public class CMStrings
 	 * @param text2 Second string.
 	 * @return The number of characters common to the start of each string.
 	 */
-	private static int diff_commonPrefix(final String text1, final String text2)
+	private static int diffCommonPrefix(final String text1, final String text2)
 	{
 		// Performance analysis: http://neil.fraser.name/news/2007/10/09/
 		final int n = Math.min(text1.length(), text2.length());
@@ -4144,15 +5183,15 @@ public class CMStrings
 	 * @param text2 Second string.
 	 * @return The number of characters common to the end of each string.
 	 */
-	private static int diff_commonSuffix(final String text1, final String text2)
+	private static int diffCommonSuffix(final String text1, final String text2)
 	{
 		// Performance analysis: http://neil.fraser.name/news/2007/10/09/
-		final int text1_length = text1.length();
-		final int text2_length = text2.length();
-		final int n = Math.min(text1_length, text2_length);
+		final int text1length = text1.length();
+		final int text2length = text2.length();
+		final int n = Math.min(text1length, text2length);
 		for (int i = 1; i <= n; i++)
 		{
-			if (text1.charAt(text1_length - i) != text2.charAt(text2_length - i))
+			if (text1.charAt(text1length - i) != text2.charAt(text2length - i))
 			{
 				return i - 1;
 			}
@@ -4168,31 +5207,31 @@ public class CMStrings
 	 * @return The number of characters common to the end of the first
 	 *		 string and the start of the second string.
 	 */
-	private static int diff_commonOverlap(String text1, String text2)
+	private static int diffCommonOverlap(String text1, String text2)
 	{
 		// Cache the text lengths to prevent multiple calls.
-		final int text1_length = text1.length();
-		final int text2_length = text2.length();
+		final int text1length = text1.length();
+		final int text2length = text2.length();
 		// Eliminate the null case.
-		if (text1_length == 0 || text2_length == 0)
+		if (text1length == 0 || text2length == 0)
 		{
 			return 0;
 		}
 		// Truncate the longer string.
-		if (text1_length > text2_length)
+		if (text1length > text2length)
 		{
-			text1 = text1.substring(text1_length - text2_length);
+			text1 = text1.substring(text1length - text2length);
 		}
 		else
-		if (text1_length < text2_length)
+		if (text1length < text2length)
 		{
-			text2 = text2.substring(0, text1_length);
+			text2 = text2.substring(0, text1length);
 		}
-		final int text_length = Math.min(text1_length, text2_length);
+		final int textlength = Math.min(text1length, text2length);
 		// Quick check for the worst case.
 		if (text1.equals(text2))
 		{
-			return text_length;
+			return textlength;
 		}
 
 		// Start by looking for a single character match
@@ -4202,14 +5241,14 @@ public class CMStrings
 		int length = 1;
 		while (true)
 		{
-			final String pattern = text1.substring(text_length - length);
+			final String pattern = text1.substring(textlength - length);
 			final int found = text2.indexOf(pattern);
 			if (found == -1)
 			{
 				return best;
 			}
 			length += found;
-			if (found == 0 || text1.substring(text_length - length).equals(text2.substring(0, length)))
+			if (found == 0 || text1.substring(textlength - length).equals(text2.substring(0, length)))
 			{
 				best = length;
 				length++;
@@ -4228,9 +5267,9 @@ public class CMStrings
 	 *		 suffix of text1, the prefix of text2, the suffix of text2 and the
 	 *		 common middle.	Or null if there was no match.
 	 */
-	private static String[] diff_halfMatch(final String text1, final String text2)
+	private static String[] diffHalfMatch(final String text1, final String text2)
 	{
-		if (Diff_Timeout <= 0)
+		if (DIFF_TIMEOUT <= 0)
 		{
 			// Don't risk returning a non-optimal diff if we have unlimited time.
 			return null;
@@ -4243,9 +5282,9 @@ public class CMStrings
 		}
 
 		// First check if the second quarter is the seed for a half-match.
-		final String[] hm1 = diff_halfMatchI(longtext, shorttext, (longtext.length() + 3) / 4);
+		final String[] hm1 = diffHalfMatchI(longtext, shorttext, (longtext.length() + 3) / 4);
 		// Check again based on the third quarter.
-		final String[] hm2 = diff_halfMatchI(longtext, shorttext, (longtext.length() + 1) / 2);
+		final String[] hm2 = diffHalfMatchI(longtext, shorttext, (longtext.length() + 1) / 2);
 		String[] hm;
 		if (hm1 == null && hm2 == null)
 		{
@@ -4295,30 +5334,30 @@ public class CMStrings
 	 *		 suffix of longtext, the prefix of shorttext, the suffix of shorttext
 	 *		 and the common middle.	Or null if there was no match.
 	 */
-	private static String[] diff_halfMatchI(final String longtext, final String shorttext, final int i)
+	private static String[] diffHalfMatchI(final String longtext, final String shorttext, final int i)
 	{
 		// Start with a 1/4 length substring at position i as a seed.
 		final String seed = longtext.substring(i, i + longtext.length() / 4);
 		int j = -1;
-		String best_common = "";
-		String best_longtext_a = "", best_longtext_b = "";
-		String best_shorttext_a = "", best_shorttext_b = "";
+		String bestcommon = "";
+		String bestlongtexta = "", bestlongtextb = "";
+		String bestshorttexta = "", bestshorttextb = "";
 		while ((j = shorttext.indexOf(seed, j + 1)) != -1)
 		{
-			final int prefixLength = diff_commonPrefix(longtext.substring(i), shorttext.substring(j));
-			final int suffixLength = diff_commonSuffix(longtext.substring(0, i), shorttext.substring(0, j));
-			if (best_common.length() < suffixLength + prefixLength)
+			final int prefixLength = diffCommonPrefix(longtext.substring(i), shorttext.substring(j));
+			final int suffixLength = diffCommonSuffix(longtext.substring(0, i), shorttext.substring(0, j));
+			if (bestcommon.length() < suffixLength + prefixLength)
 			{
-				best_common = shorttext.substring(j - suffixLength, j) + shorttext.substring(j, j + prefixLength);
-				best_longtext_a = longtext.substring(0, i - suffixLength);
-				best_longtext_b = longtext.substring(i + prefixLength);
-				best_shorttext_a = shorttext.substring(0, j - suffixLength);
-				best_shorttext_b = shorttext.substring(j + prefixLength);
+				bestcommon = shorttext.substring(j - suffixLength, j) + shorttext.substring(j, j + prefixLength);
+				bestlongtexta = longtext.substring(0, i - suffixLength);
+				bestlongtextb = longtext.substring(i + prefixLength);
+				bestshorttexta = shorttext.substring(0, j - suffixLength);
+				bestshorttextb = shorttext.substring(j + prefixLength);
 			}
 		}
-		if (best_common.length() * 2 >= longtext.length())
+		if (bestcommon.length() * 2 >= longtext.length())
 		{
-			return new String[]{best_longtext_a, best_longtext_b, best_shorttext_a, best_shorttext_b, best_common};
+			return new String[]{bestlongtexta, bestlongtextb, bestshorttexta, bestshorttextb, bestcommon};
 		}
 		else
 		{
@@ -4331,7 +5370,7 @@ public class CMStrings
 	 * @author fraser@google.com (Neil Fraser)
 	 * @param diffs LinkedList of Diff objects.
 	 */
-	private static void diff_cleanupSemantic(final LinkedList<Diff> diffs)
+	private static void diffCleanupSemantic(final LinkedList<Diff> diffs)
 	{
 		if (diffs.isEmpty())
 		{
@@ -4342,11 +5381,11 @@ public class CMStrings
 		String lastequality = null; // Always equal to equalities.lastElement().text
 		ListIterator<Diff> pointer = diffs.listIterator();
 		// Number of characters that changed prior to the equality.
-		int length_insertions1 = 0;
-		int length_deletions1 = 0;
+		int lengthinsertions1 = 0;
+		int lengthdeletions1 = 0;
 		// Number of characters that changed after the equality.
-		int length_insertions2 = 0;
-		int length_deletions2 = 0;
+		int lengthinsertions2 = 0;
+		int lengthdeletions2 = 0;
 		Diff thisDiff = pointer.next();
 		while (thisDiff != null)
 		{
@@ -4354,10 +5393,10 @@ public class CMStrings
 			{
 				// Equality found.
 				equalities.push(thisDiff);
-				length_insertions1 = length_insertions2;
-				length_deletions1 = length_deletions2;
-				length_insertions2 = 0;
-				length_deletions2 = 0;
+				lengthinsertions1 = lengthinsertions2;
+				lengthdeletions1 = lengthdeletions2;
+				lengthinsertions2 = 0;
+				lengthdeletions2 = 0;
 				lastequality = thisDiff.text;
 			}
 			else
@@ -4365,16 +5404,16 @@ public class CMStrings
 				// An insertion or deletion.
 				if (thisDiff.operation == DiffOperation.INSERT)
 				{
-					length_insertions2 += thisDiff.text.length();
+					lengthinsertions2 += thisDiff.text.length();
 				}
 				else
 				{
-					length_deletions2 += thisDiff.text.length();
+					lengthdeletions2 += thisDiff.text.length();
 				}
 				// Eliminate an equality that is smaller or equal to the edits on both
 				// sides of it.
-				if (lastequality != null && (lastequality.length() <= Math.max(length_insertions1, length_deletions1))
-				&& (lastequality.length() <= Math.max(length_insertions2, length_deletions2)))
+				if (lastequality != null && (lastequality.length() <= Math.max(lengthinsertions1, lengthdeletions1))
+				&& (lastequality.length() <= Math.max(lengthinsertions2, lengthdeletions2)))
 				{
 					// Walk back to offending equality.
 					while (thisDiff != equalities.lastElement())
@@ -4412,10 +5451,10 @@ public class CMStrings
 						}
 					}
 
-					length_insertions1 = 0;	// Reset the counters.
-					length_insertions2 = 0;
-					length_deletions1 = 0;
-					length_deletions2 = 0;
+					lengthinsertions1 = 0;	// Reset the counters.
+					lengthinsertions2 = 0;
+					lengthdeletions1 = 0;
+					lengthdeletions2 = 0;
 					lastequality = null;
 					changes = true;
 				}
@@ -4426,9 +5465,9 @@ public class CMStrings
 		// Normalize the diff.
 		if (changes)
 		{
-			diff_cleanupMerge(diffs);
+			diffCleanupMerge(diffs);
 		}
-		diff_cleanupSemanticLossless(diffs);
+		diffCleanupSemantiCLossless(diffs);
 
 		// Find any overlaps between deletions and insertions.
 		// e.g: <del>abcxxx</del><ins>xxxdef</ins>
@@ -4449,37 +5488,39 @@ public class CMStrings
 		}
 		while (thisDiff != null)
 		{
-			if ((prevDiff!=null)&&(prevDiff.operation == DiffOperation.DELETE && thisDiff.operation == DiffOperation.INSERT))
+			if ((prevDiff!=null)
+			&&(prevDiff.operation == DiffOperation.DELETE)
+			&&(thisDiff.operation == DiffOperation.INSERT))
 			{
 				final String deletion = prevDiff.text;
 				final String insertion = thisDiff.text;
-				final int overlap_length1 = diff_commonOverlap(deletion, insertion);
-				final int overlap_length2 = diff_commonOverlap(insertion, deletion);
-				if (overlap_length1 >= overlap_length2)
+				final int overlaplength1 = diffCommonOverlap(deletion, insertion);
+				final int overlaplength2 = diffCommonOverlap(insertion, deletion);
+				if (overlaplength1 >= overlaplength2)
 				{
-					if (overlap_length1 >= deletion.length() / 2.0 || overlap_length1 >= insertion.length() / 2.0)
+					if (overlaplength1 >= deletion.length() / 2.0 || overlaplength1 >= insertion.length() / 2.0)
 					{
 						// Overlap found. Insert an equality and trim the surrounding edits.
 						pointer.previous();
-						pointer.add(new Diff(DiffOperation.EQUAL, insertion.substring(0, overlap_length1)));
-						prevDiff.text = deletion.substring(0, deletion.length() - overlap_length1);
-						thisDiff.text = insertion.substring(overlap_length1);
+						pointer.add(new Diff(DiffOperation.EQUAL, insertion.substring(0, overlaplength1)));
+						prevDiff.text = deletion.substring(0, deletion.length() - overlaplength1);
+						thisDiff.text = insertion.substring(overlaplength1);
 						// pointer.add inserts the element before the cursor, so there is
 						// no need to step past the new element.
 					}
 				}
 				else
 				{
-					if (overlap_length2 >= deletion.length() / 2.0 || overlap_length2 >= insertion.length() / 2.0)
+					if (overlaplength2 >= deletion.length() / 2.0 || overlaplength2 >= insertion.length() / 2.0)
 					{
 						// Reverse overlap found.
 						// Insert an equality and swap and trim the surrounding edits.
 						pointer.previous();
-						pointer.add(new Diff(DiffOperation.EQUAL, deletion.substring(0, overlap_length2)));
+						pointer.add(new Diff(DiffOperation.EQUAL, deletion.substring(0, overlaplength2)));
 						prevDiff.operation = DiffOperation.INSERT;
-						prevDiff.text = insertion.substring(0, insertion.length() - overlap_length2);
+						prevDiff.text = insertion.substring(0, insertion.length() - overlaplength2);
 						thisDiff.operation = DiffOperation.DELETE;
-						thisDiff.text = deletion.substring(overlap_length2);
+						thisDiff.text = deletion.substring(overlaplength2);
 						// pointer.add inserts the element before the cursor, so there is
 						// no need to step past the new element.
 					}
@@ -4498,7 +5539,7 @@ public class CMStrings
 	 * @author fraser@google.com (Neil Fraser)
 	 * @param diffs LinkedList of Diff objects.
 	 */
-	private static void diff_cleanupSemanticLossless(final LinkedList<Diff> diffs)
+	private static void diffCleanupSemantiCLossless(final LinkedList<Diff> diffs)
 	{
 		String equality1, edit, equality2;
 		String commonString;
@@ -4521,7 +5562,7 @@ public class CMStrings
 				equality2 = nextDiff.text;
 
 				// First, shift the edit as far left as possible.
-				commonOffset = diff_commonSuffix(equality1, edit);
+				commonOffset = diffCommonSuffix(equality1, edit);
 				if (commonOffset != 0)
 				{
 					commonString = edit.substring(edit.length() - commonOffset);
@@ -4534,14 +5575,14 @@ public class CMStrings
 				bestEquality1 = equality1;
 				bestEdit = edit;
 				bestEquality2 = equality2;
-				bestScore = diff_cleanupSemanticScore(equality1, edit) + diff_cleanupSemanticScore(edit, equality2);
+				bestScore = diffCleanupSemanticScore(equality1, edit) + diffCleanupSemanticScore(edit, equality2);
 				while (edit.length() != 0 && equality2.length() != 0
 				&& edit.charAt(0) == equality2.charAt(0))
 				{
 					equality1 += edit.charAt(0);
 					edit = edit.substring(1) + equality2.charAt(0);
 					equality2 = equality2.substring(1);
-					score = diff_cleanupSemanticScore(equality1, edit) + diff_cleanupSemanticScore(edit, equality2);
+					score = diffCleanupSemanticScore(equality1, edit) + diffCleanupSemanticScore(edit, equality2);
 					// The >= encourages trailing rather than leading whitespace on edits.
 					if (score >= bestScore)
 					{
@@ -4596,7 +5637,7 @@ public class CMStrings
 	 * @param two Second string.
 	 * @return The score.
 	 */
-	private static int diff_cleanupSemanticScore(final String one, final String two)
+	private static int diffCleanupSemanticScore(final String one, final String two)
 	{
 		if (one.length() == 0 || two.length() == 0)
 		{
@@ -4661,14 +5702,14 @@ public class CMStrings
 	 * Any edit section can move as long as it doesn't cross an equality.
 	 * @param diffs LinkedList of Diff objects.
 	 */
-	private static void diff_cleanupMerge(final LinkedList<Diff> diffs)
+	private static void diffCleanupMerge(final LinkedList<Diff> diffs)
 	{
 		diffs.add(new Diff(DiffOperation.EQUAL, ""));	// Add a dummy entry at the end.
 		ListIterator<Diff> pointer = diffs.listIterator();
-		int count_delete = 0;
-		int count_insert = 0;
-		String text_delete = "";
-		String text_insert = "";
+		int countdelete = 0;
+		int countinsert = 0;
+		String textdelete = "";
+		String textinsert = "";
 		Diff thisDiff = pointer.next();
 		Diff prevEqual = null;
 		int commonlength;
@@ -4677,70 +5718,70 @@ public class CMStrings
 			switch (thisDiff.operation)
 			{
 			case INSERT:
-				count_insert++;
-				text_insert += thisDiff.text;
+				countinsert++;
+				textinsert += thisDiff.text;
 				prevEqual = null;
 				break;
 			case DELETE:
-				count_delete++;
-				text_delete += thisDiff.text;
+				countdelete++;
+				textdelete += thisDiff.text;
 				prevEqual = null;
 				break;
 			case EQUAL:
-				if (count_delete + count_insert > 1)
+				if (countdelete + countinsert > 1)
 				{
-					final boolean both_types = count_delete != 0 && count_insert != 0;
+					final boolean bothtypes = countdelete != 0 && countinsert != 0;
 					// Delete the offending records.
 					pointer.previous();	// Reverse direction.
-					while (count_delete-- > 0)
+					while (countdelete-- > 0)
 					{
 						pointer.previous();
 						pointer.remove();
 					}
-					while (count_insert-- > 0)
+					while (countinsert-- > 0)
 					{
 						pointer.previous();
 						pointer.remove();
 					}
-					if (both_types)
+					if (bothtypes)
 					{
 						// Factor out any common prefixies.
-						commonlength = diff_commonPrefix(text_insert, text_delete);
+						commonlength = diffCommonPrefix(textinsert, textdelete);
 						if (commonlength != 0)
 						{
 							if (pointer.hasPrevious())
 							{
 								thisDiff = pointer.previous();
 								assert thisDiff.operation == DiffOperation.EQUAL : "Previous diff should have been an equality.";
-								thisDiff.text += text_insert.substring(0, commonlength);
+								thisDiff.text += textinsert.substring(0, commonlength);
 								pointer.next();
 							}
 							else
 							{
-								pointer.add(new Diff(DiffOperation.EQUAL, text_insert.substring(0, commonlength)));
+								pointer.add(new Diff(DiffOperation.EQUAL, textinsert.substring(0, commonlength)));
 							}
-							text_insert = text_insert.substring(commonlength);
-							text_delete = text_delete.substring(commonlength);
+							textinsert = textinsert.substring(commonlength);
+							textdelete = textdelete.substring(commonlength);
 						}
 						// Factor out any common suffixies.
-						commonlength = diff_commonSuffix(text_insert, text_delete);
+						commonlength = diffCommonSuffix(textinsert, textdelete);
 						if (commonlength != 0)
 						{
 							thisDiff = pointer.next();
-							thisDiff.text = text_insert.substring(text_insert.length() - commonlength) + thisDiff.text;
-							text_insert = text_insert.substring(0, text_insert.length() - commonlength);
-							text_delete = text_delete.substring(0, text_delete.length() - commonlength);
+							thisDiff.text = textinsert.substring(textinsert.length() - commonlength) + thisDiff.text;
+							textinsert = textinsert.substring(0, textinsert.length() - commonlength);
+							textdelete = textdelete.substring(0, textdelete.length() - commonlength);
 							pointer.previous();
 						}
 					}
 					// Insert the merged records.
-					if (text_delete.length() != 0)
+					if (textdelete.length() != 0)
 					{
-						pointer.add(new Diff(DiffOperation.DELETE, text_delete));
+						pointer.add(new Diff(DiffOperation.DELETE, textdelete));
 					}
-					if (text_insert.length() != 0)
+					if (textinsert.length() != 0)
 					{
-						pointer.add(new Diff(DiffOperation.INSERT, text_insert));
+						pointer.add(new Diff(DiffOperation.INSERT, textinsert));
 					}
 					// Step forward to the equality.
 					thisDiff = pointer.hasNext() ? pointer.next() : null;
@@ -4754,10 +5795,10 @@ public class CMStrings
 					thisDiff = pointer.previous();
 					pointer.next();	// Forward direction
 				}
-				count_insert = 0;
-				count_delete = 0;
-				text_delete = "";
-				text_insert = "";
+				countinsert = 0;
+				countdelete = 0;
+				textdelete = "";
+				textinsert = "";
 				prevEqual = thisDiff;
 				break;
 			}
@@ -4818,7 +5859,7 @@ public class CMStrings
 		// If shifts were made, the diff needs reordering and another shift sweep.
 		if (changes)
 		{
-			diff_cleanupMerge(diffs);
+			diffCleanupMerge(diffs);
 		}
 	}
 

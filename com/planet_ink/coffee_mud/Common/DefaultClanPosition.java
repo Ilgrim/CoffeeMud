@@ -17,7 +17,7 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ public class DefaultClanPosition implements ClanPosition
 	{
 		try
 		{
-			return getClass().newInstance();
+			return getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -220,7 +220,15 @@ public class DefaultClanPosition implements ClanPosition
 	}
 
 	private static enum POS_STAT_CODES {
-		ID,RANK,NAME,PLURALNAME,MAX,INNERMASK,ISPUBLIC,FUNCTIONS,TITLES
+		ID,
+		RANK,
+		NAME,
+		PLURALNAME,
+		MAX,
+		INNERMASK,
+		ISPUBLIC,
+		FUNCTIONS,
+		TITLES
 	}
 
 	@Override

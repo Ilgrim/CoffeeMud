@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -108,6 +108,12 @@ public class Thief_Lore extends ThiefSkill
 				}
 			}
 		}
+		boolean report=false;
+		if((commands.size()>1)&&(commands.get(commands.size()-1).equalsIgnoreCase("REPORT")))
+		{
+			commands.remove(commands.size()-1);
+			report=true;
+		}
 		final Item target=getTarget(mob,mob.location(),givenTarget,commands,Wearable.FILTER_ANY);
 		if(target==null)
 			return false;
@@ -128,7 +134,10 @@ public class Thief_Lore extends ThiefSkill
 			{
 				mob.location().send(mob,msg);
 				final String identity=target.secretIdentity();
-				mob.tell(identity);
+				if(report)
+					CMLib.commands().postSay(mob, L("@x1 idenfies as @x2",target.name(),identity));
+				else
+					mob.tell(identity);
 
 			}
 		}

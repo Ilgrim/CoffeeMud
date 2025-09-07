@@ -1,7 +1,7 @@
 package com.planet_ink.coffee_mud.core.collections;
 import java.util.*;
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -15,12 +15,25 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+/**
+ * A Map implementation that keeps a second map of the values to the keys,
+ * allowing for reverse lookups.
+ *
+ * @param <K> the key type
+ * @param <F> the value type
+ */
 public class DoubleMap<K,F> implements java.util.Map<K,F>, java.io.Serializable
 {
 	private static final long serialVersionUID = 6687178785122561993L;
 	private volatile Map<K,F> H1;
 	private volatile Map<F,K> H2;
 
+	/**
+	 * Construct a new DoubleMap
+	 *
+	 * @param map1 the map to use for key to value lookups
+	 * @param map2 the map to use for value to key lookups
+	 */
 	public DoubleMap(final Map<K,F> map1, final Map<F,K> map2)
 	{
 		super();
@@ -28,6 +41,33 @@ public class DoubleMap<K,F> implements java.util.Map<K,F>, java.io.Serializable
 		H2=map2;
 	}
 
+	/**
+	 * Construct a new DoubleMap
+	 *
+	 * @param clas the class of map to use for both lookups
+	 */
+	@SuppressWarnings("unchecked")
+	public DoubleMap(final Class<?> clas)
+	{
+		super();
+		try
+		{
+			H1=(Map<K,F>)clas.newInstance();
+			H2=(Map<F,K>)clas.newInstance();
+		}
+		catch (final Exception e)
+		{
+			throw new IllegalArgumentException(e);
+		}
+	}
+
+	/**
+	 * Returns a vector of strings, each of which is the key.toString() +
+	 * divider + value.toString()
+	 *
+	 * @param divider the string divider
+	 * @return the vector of strings
+	 */
 	public synchronized Vector<String> toStringVector(final String divider)
 	{
 		final Vector<String> V=new Vector<String>(size());
@@ -52,6 +92,11 @@ public class DoubleMap<K,F> implements java.util.Map<K,F>, java.io.Serializable
 		H2.clear();
 	}
 
+	/**
+	 * Checks both maps for the given object, either as a key or a value.
+	 * @param arg0 the object to check for
+	 * @return true if found
+	 */
 	public synchronized boolean contains(final Object arg0)
 	{
 		return H1.containsKey(arg0) || H2.containsKey(arg0);
@@ -69,6 +114,11 @@ public class DoubleMap<K,F> implements java.util.Map<K,F>, java.io.Serializable
 		return H2.containsKey(arg0);
 	}
 
+	/**
+	 * Returns an enumeration of the values in this map
+	 *
+	 * @return the enumeration of values
+	 */
 	public synchronized Enumeration<F> elements()
 	{
 		return new IteratorEnumeration<F>(H1.values().iterator());
@@ -90,6 +140,17 @@ public class DoubleMap<K,F> implements java.util.Map<K,F>, java.io.Serializable
 	public synchronized F get(final Object arg0)
 	{
 		return H1.get(arg0);
+	}
+
+	/**
+	 * Gets the key associated with the given value
+	 *
+	 * @param arg0 the value to look up
+	 * @return the key associated with the value
+	 */
+	public synchronized K getValue(final Object arg0)
+	{
+		return H2.get(arg0);
 	}
 
 	@Override
@@ -114,7 +175,7 @@ public class DoubleMap<K,F> implements java.util.Map<K,F>, java.io.Serializable
 	public synchronized F put(final K arg0, final F arg1)
 	{
 		final F f=H1.put(arg0, arg1);
-		if(f!=null)
+		if(arg1!=null)
 			H2.put(arg1, arg0);
 		return f;
 	}

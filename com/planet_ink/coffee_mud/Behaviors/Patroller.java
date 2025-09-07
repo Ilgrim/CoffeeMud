@@ -21,7 +21,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -145,7 +145,7 @@ public class Patroller extends ActiveTicker
 		&&((msg.targetMinor()==CMMsg.TYP_ENTER)||(msg.targetMinor()==CMMsg.TYP_LEAVE))
 		&&(msg.source()!=host)
 		&&(msg.source().riding()==host)
-		&&(!(host instanceof BoardableShip)))
+		&&(!(host instanceof Boardable)))
  		{
 			if(host instanceof MOB)
 				msg.source().tell(L("You must dismount before you can do that."));
@@ -192,10 +192,10 @@ public class Patroller extends ActiveTicker
 				return true;
 			}
 
-			if((ticking instanceof BoardableShip)
-			&&(((BoardableShip)ticking).getShipItem() instanceof SailingShip))
+			if((ticking instanceof Boardable)
+			&&(((Boardable)ticking).getBoardableItem() instanceof NavigableItem))
 			{
-				final SailingShip ship=(SailingShip)((BoardableShip)ticking).getShipItem();
+				final NavigableItem ship=(NavigableItem)((Boardable)ticking).getBoardableItem();
 				if((ship.isInCombat())
 				||((ship.subjectToWearAndTear())&&(ship.usesRemaining()<=0))
 				||(CMLib.flags().isFalling(ship)))
@@ -208,7 +208,7 @@ public class Patroller extends ActiveTicker
 			tickStatus=Tickable.STATUS_MISC+1;
 			ArrayList<Rider> riders=null;
 			if((ticking instanceof Rideable)
-			&&(!(ticking instanceof BoardableShip)))
+			&&(!(ticking instanceof Boardable)))
 			{
 				riders=new ArrayList<Rider>(((Rideable)ticking).numRiders());
 				for(int i=0;i<((Rideable)ticking).numRiders();i++)
@@ -308,7 +308,7 @@ public class Patroller extends ActiveTicker
 						thisRoom = CMLib.map().getRoom(thisRoom);
 						if((ticking instanceof Physical)&&(((Physical)ticking).amDestroyed()))
 						{
-							CMLib.threads().deleteAllTicks(ticking);
+							CMLib.threads().unTickAll(ticking);
 							((Physical)ticking).destroy();
 							Log.errOut("Patroller","'"+nxt+"' for "+ticking.name()+" at "+CMLib.map().getDescriptiveExtendedRoomID(thisRoom)+" is destroyed!");
 						}
@@ -359,8 +359,8 @@ public class Patroller extends ActiveTicker
 				if(R!=null)
 				{
 					final boolean airOk=(((ticking instanceof Physical)&&CMLib.flags().isFlying((Physical)ticking))
-						||((ticking instanceof Rider)&&(((Rider)ticking).riding()!=null)&&(((Rider)ticking).riding().rideBasis()==Rideable.RIDEABLE_AIR))
-						||((ticking instanceof Rideable)&&(((Rideable)ticking).rideBasis()==Rideable.RIDEABLE_AIR)));
+						||((ticking instanceof Rider)&&(((Rider)ticking).riding()!=null)&&(((Rider)ticking).riding().rideBasis()==Rideable.Basis.AIR_FLYING))
+						||((ticking instanceof Rideable)&&(((Rideable)ticking).rideBasis()==Rideable.Basis.AIR_FLYING)));
 					final boolean waterOk=((ticking instanceof Physical)&&CMLib.flags().isWaterWorthy((Physical)ticking));
 
 					tickStatus=Tickable.STATUS_MISC+6;
@@ -400,6 +400,7 @@ public class Patroller extends ActiveTicker
 					if((direction<0)||(thatRoom==null))
 					{
 						final TrackingLibrary.TrackingFlags flags=CMLib.tracking().newFlags();
+						flags.plus(TrackingLibrary.TrackingFlag.PASSABLE);
 						if(ticking instanceof Item)
 							flags.plus(TrackingLibrary.TrackingFlag.OPENONLY);
 						flags.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS);
@@ -446,30 +447,18 @@ public class Patroller extends ActiveTicker
 			}
 
 			tickStatus=Tickable.STATUS_MISC+14;
-			final Set<MOB> mobsHere=CMLib.players().getPlayersHere(thisRoom);
-			if(mobsHere.size()>0)
-			{
-				for(final MOB inhab : mobsHere)
-				{
-					if((!inhab.isMonster())
-					&&(CMSecurity.isAllowed(inhab,thisRoom,CMSecurity.SecFlag.CMDMOBS)
-					   ||CMSecurity.isAllowed(inhab,thisRoom,CMSecurity.SecFlag.CMDROOMS)))
-					{
-						tickStatus=Tickable.STATUS_NOT;
-						return true;
-					}
-				}
-			}
+			if(CMLib.hunt().isAnAdminHere(thisRoom, true))
+				return true;
 
 			tickStatus=Tickable.STATUS_MISC+15;
 			if(ticking instanceof Item)
 			{
 				final Item I=(Item)ticking;
-				if((ticking instanceof BoardableShip)
-				&&(((BoardableShip)ticking).getShipItem() instanceof SailingShip)
+				if((ticking instanceof Boardable)
+				&&(((Boardable)ticking).getBoardableItem() instanceof NavigableItem)
 				&&(thatRoom!=null))
 				{
-					final SailingShip ship = (SailingShip)((BoardableShip)ticking).getShipItem();
+					final NavigableItem ship = (NavigableItem)((Boardable)ticking).getBoardableItem();
 					if(ship.isAnchorDown())
 						ship.setAnchorDown(false);
 					ship.setCurrentCourse(new XVector<Integer>(Integer.valueOf(direction)));
@@ -554,11 +543,12 @@ public class Patroller extends ActiveTicker
 								final Rider R=riders.get(i);
 								if(CMLib.map().roomLocation(R)!=thatRoom)
 								{
-									if((((Rideable)ticking).rideBasis()!=Rideable.RIDEABLE_SIT)
-									&&(((Rideable)ticking).rideBasis()!=Rideable.RIDEABLE_TABLE)
-									&&(((Rideable)ticking).rideBasis()!=Rideable.RIDEABLE_ENTERIN)
-									&&(((Rideable)ticking).rideBasis()!=Rideable.RIDEABLE_SLEEP)
-									&&(((Rideable)ticking).rideBasis()!=Rideable.RIDEABLE_LADDER))
+									if((((Rideable)ticking).rideBasis()!=Rideable.Basis.FURNITURE_SIT)
+									&&(((Rideable)ticking).rideBasis()!=Rideable.Basis.FURNITURE_TABLE)
+									&&(((Rideable)ticking).rideBasis()!=Rideable.Basis.FURNITURE_HOOK)
+									&&(((Rideable)ticking).rideBasis()!=Rideable.Basis.ENTER_IN)
+									&&(((Rideable)ticking).rideBasis()!=Rideable.Basis.FURNITURE_SLEEP)
+									&&(((Rideable)ticking).rideBasis()!=Rideable.Basis.LADDER))
 									{
 										if((R instanceof MOB)
 										&&(CMLib.flags().isInTheGame((MOB)R,true)))

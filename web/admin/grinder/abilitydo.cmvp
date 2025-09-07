@@ -4,7 +4,9 @@
 @if?!CheckAuthCode?AUTH_CMDABILITIES=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <html>
 <head>
+	<META CHARSET="utf-8"/>
     <link rel="grinder icon" href="/images/grinder.ico" >
+    <link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
 </head>
 <body BGCOLOR=BLACK>
 <SCRIPT LANGUAGE=JavaScript>
@@ -28,20 +30,6 @@
         alert('Ability created/modified.');
     opener.Refresh();
     window.close();
-@endif@
-@if?CheckReqParm?FUNCTION=REABILITY@
-    @if?CheckReqParm?NEWABILITYID=@
-        document.location.href='ability.cmvp?AUTH=@Authenticate?AUTH@&ABILITY=@AbilityID@';
-    @else@
-    	var atype='NEWABILITY';
-    	@if?AbilityData?ISLANGUAGE@
-	    	atype='NEWLANGUAGE';
-    	@endif@
-    	@if?AbilityData?IFCRAFTSKILL@
-	    	atype='NEWCRAFTSKILL';
-    	@endif@
-        document.location.href='ability.cmvp?AUTH=@Authenticate?AUTH@&ABILITY=@RequestParameterEncoded?NEWABILITYID@&'+atype+'=@RequestParameterEncoded?NEWABILITYID@';
-    @endif@
 @endif@
 //-->
 </SCRIPT>

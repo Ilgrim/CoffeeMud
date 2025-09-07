@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,10 +60,10 @@ public class Trap_Vanishing extends StdTrap
 		return 0;
 	}
 
-	@Override
-	protected int trapLevel()
+	public Trap_Vanishing()
 	{
-		return 24;
+		super();
+		trapLevel = 24;
 	}
 
 	@Override
@@ -78,15 +78,22 @@ public class Trap_Vanishing extends StdTrap
 		if((target!=invoker())&&(target.location()!=null))
 		{
 			if(doesSaveVsTraps(target))
-				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> foil(s) a trap on @x1!",affected.name()));
-			else
-			if(target.location().show(target,target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> notice(s) something about @x1 .. it's fading away.",affected.name())))
 			{
-				super.spring(target);
-				affected.basePhyStats().setDisposition(affected.basePhyStats().disposition()|PhyStats.IS_INVISIBLE);
-				affected.recoverPhyStats();
-				if((canBeUninvoked())&&(affected instanceof Item))
-					disable();
+				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,
+						getAvoidMsg(L("<S-NAME> foil(s) a trap on @x1!",affected.name())));
+			}
+			else
+			{
+				if(target.location().show(target,target,this,
+						CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,
+						getTrigMsg(L("<S-NAME> notice(s) something about @x1 .. it's fading away.",affected.name()))))
+				{
+					super.spring(target);
+					affected.basePhyStats().setDisposition(affected.basePhyStats().disposition()|PhyStats.IS_INVISIBLE);
+					affected.recoverPhyStats();
+					if((canBeUninvoked())&&(affected instanceof Item))
+						disable();
+				}
 			}
 		}
 	}

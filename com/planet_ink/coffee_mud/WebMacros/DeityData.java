@@ -20,7 +20,7 @@ import java.net.URLEncoder;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -154,7 +154,7 @@ public class DeityData extends StdWebMacro
 							httpReq.getRequestObjects().put(roomID,R);
 							D=CMLib.map().getDeity(last);
 						}
-						synchronized(("SYNC"+roomID).intern())
+						synchronized(CMClass.getSync(("SYNC"+roomID)))
 						{
 							R=CMLib.map().getRoom(R);
 							for(int m=0;m<R.numInhabitants();m++)
@@ -163,7 +163,7 @@ public class DeityData extends StdWebMacro
 								if(M.isSavable())
 									classes.add(M);
 							}
-							RoomData.contributeMOBs(classes);
+							CMLib.webMacroFilter().contributeMOBsToWebCache(classes);
 						}
 						httpReq.getRequestObjects().put("DEITYLIST-"+roomID,classes);
 					}
@@ -171,14 +171,14 @@ public class DeityData extends StdWebMacro
 					{
 						try
 						{
-							str.append(URLEncoder.encode(RoomData.getMOBCode(classes,D),"UTF-8")+", ");
+							str.append(URLEncoder.encode(CMLib.webMacroFilter().findMOBWebCacheCode(classes,D),"UTF-8")+", ");
 						}
 						catch(final Exception e)
 						{
 						}
 					}
 					else
-						str.append(RoomData.getMOBCode(classes,D)+", ");
+						str.append(CMLib.webMacroFilter().findMOBWebCacheCode(classes,D)+", ");
 				}
 				if(parms.containsKey("WORSHIPREQ"))
 					str.append(D.getWorshipRequirementsDesc()+", ");

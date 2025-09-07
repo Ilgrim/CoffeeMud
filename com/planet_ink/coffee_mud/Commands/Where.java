@@ -9,8 +9,10 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.Session.InputCallback;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.UpdateSet;
 import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
@@ -22,7 +24,7 @@ import java.util.*;
 import java.util.regex.Pattern;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,16 +52,16 @@ public class Where extends StdCommand
 		return access;
 	}
 
-	protected void whereAdd(final DVector V, final Area area, final int i)
+	protected void whereAdd(final PairList<Area,Integer> V, final Area area, final int i)
 	{
-		if(V.contains(area))
+		if(V.containsFirst(area))
 			return;
 
 		for(int v=0;v<V.size();v++)
 		{
-			if(((Integer)V.get(v,2)).intValue()>i)
+			if(V.get(v).second.intValue()>i)
 			{
-				V.insertElementAt(v,area,Integer.valueOf(i));
+				V.add(v,area,Integer.valueOf(i));
 				return;
 			}
 		}
@@ -85,6 +87,26 @@ public class Where extends StdCommand
 		if(CMLib.catalog().isCatalogObj(E))
 			return "^g";
 		return "";
+	}
+
+	public String getRoomDesc(final MOB mob, final Room R, final Environmental E)
+	{
+		if((mob!=null)
+		&&(mob.location()==R)
+		&&(E instanceof Item)
+		&&(((Item)E).container()!=null))
+		{
+			String msg = "^H*HERE*^?";
+			Container C=((Item)E).container();
+			int tries=99;
+			while((C!=null)&&((--tries)>0))
+			{
+				msg += "@"+C.name();
+				C=C.container();
+			}
+			return msg;
+		}
+		return CMLib.map().getDescriptiveExtendedRoomID(R);
 	}
 
 	@Override
@@ -117,7 +139,7 @@ public class Where extends StdCommand
 							if(R != null )
 							{
 								lines.append(R.displayText(mob));
-								lines.append(" (^<LSTROOMID^>"+CMLib.map().getDescriptiveExtendedRoomID(R)+"^</LSTROOMID^>)");
+								lines.append(" (^<LSTROOMID^>"+getRoomDesc(mob,R,mob)+"^</LSTROOMID^>)");
 							}
 							else
 								lines.append("^!(no location)^?");
@@ -167,8 +189,120 @@ public class Where extends StdCommand
 										lines.append("    "+CMStrings.padRight(E.ID(), 10)+": "+E.name()+loc+"\n\r");
 									}
 									else
+									if((o instanceof List)
+									&&(((List<?>)o).size()==2)
+									&&(((List<?>)o).get(0) instanceof Modifiable)
+									&&(((List<?>)o).get(1) instanceof String))
+									{
+										final Modifiable M = (Modifiable)((List<?>)o).get(0);
+										final String parm = (String)((List<?>)o).get(1);
+										final String parmName = (key.equals(".")?parm:key);
+										lines.append("     "+CMStrings.padRight(parmName, 10)+": "+M.getStat(parm)+"\n\r");
+									}
+									else
 										lines.append("     "+CMStrings.padRight(key, 10)+": "+o.toString()+"\n\r");
 								}
+							}
+						}
+					}
+					catch(final MQLException e)
+					{
+						lines.append(e.getMessage());
+					}
+				}
+				else
+				if(who.toUpperCase().startsWith("UPDATE:"))
+				{
+					lines.setLength(0);
+					try
+					{
+						final List<UpdateSet> res=CMLib.percolator().doMQLUpdateObjects(areaFlag?(mob.location().getArea()):null, who);
+						if(res.size()==0)
+							lines.append("(nothing to do)");
+						else
+						{
+							lines.append("Update preview:\n\r");
+							for(final UpdateSet o : res)
+							{
+								if(o.first instanceof Environmental)
+									lines.append(o.first.name()+" ("+o.first.ID()+") @"+CMLib.map().getApproximateExtendedRoomID(CMLib.map().roomLocation((Environmental)o.first))+":\n\r");
+								else
+									lines.append(o.first.name()+" ("+o.first.ID()+"):\n\r");
+								lines.append("  OLD: "+o.second+"="+o.first.getStat(o.second)).append("\n\r");
+								lines.append("  NEW: "+o.second+"="+o.third).append("\n\r");
+							}
+							final Runnable doUpdate = new Runnable()
+							{
+								final List<UpdateSet> todo=res;
+
+								@Override
+								public void run()
+								{
+									for(final UpdateSet o : todo)
+									{
+										o.first.setStat(o.second, o.third);
+										if(o.first instanceof Environmental)
+										{
+											Environmental E=(Environmental)o.first;
+											final Room R=CMLib.map().roomLocation(E);
+											if((R!=null) && R.isSavable() && (R.roomID().length()>0))
+											{
+												Log.infoOut(mob.name()+" modified "+E.name()+" at "+R.roomID());
+												if(E instanceof Ability)
+													E=((Ability)E).affecting();
+												if(E instanceof Room)
+													CMLib.database().DBUpdateRoom(R);
+												else
+												if(E instanceof Item)
+												{
+													final Item I=(Item)E;
+													if((I.owner() instanceof Room)
+													&&(I.databaseID().length()>0))
+														CMLib.database().DBUpdateItem(R.roomID(), I);
+													else
+													if((I.owner() instanceof MOB)
+													&&(((MOB)I.owner()).databaseID().length()>0)
+													&&(((MOB)I.owner()).getStartRoom()!=null)
+													&&(((MOB)I.owner()).getStartRoom().roomID().length()>0))
+														CMLib.database().DBUpdateMOB(((MOB)I.owner()).getStartRoom().roomID(), (MOB)I.owner());
+												}
+												else
+												if((E instanceof MOB)
+												&&(((MOB)E).databaseID().length()>0))
+													CMLib.database().DBUpdateMOB(R.roomID(), (MOB)E);
+											}
+										}
+									}
+								}
+							};
+							final Session session = mob.session();
+							if(session!=null)
+							{
+								final InputCallback callBack = new InputCallback(InputCallback.Type.CONFIRM,"N",0)
+								{
+									@Override
+									public void showPrompt()
+									{
+										session.promptPrint(L("\n\rSave the above changes (y/N)? "));
+									}
+
+									@Override
+									public void timedOut()
+									{
+									}
+
+									@Override
+									public void callBack()
+									{
+										if(this.input.equals("Y"))
+										{
+											doUpdate.run();
+										}
+									}
+								};
+								session.wraplessPrintln(lines.toString());
+								lines.setLength(0);
+								session.prompt(callBack);
 							}
 						}
 					}
@@ -225,7 +359,7 @@ public class Where extends StdCommand
 						zapperMask=true;
 						who=who.substring(8).trim();
 						String desc=CMLib.masking().maskDesc(who);
-						if(desc.equalsIgnoreCase("Anyone") && (who.length()>0))
+						if(desc.toLowerCase().startsWith("anyone") && (who.length()>0))
 						{
 							desc+="... and I doubt you meant that.";
 							mob.tell(L("^xMask entered:^?^.^N @x1\n\r",desc));
@@ -241,7 +375,7 @@ public class Where extends StdCommand
 						zapperMask=true;
 						who=who.substring(9).trim();
 						String desc=CMLib.masking().maskDesc(who);
-						if(desc.equalsIgnoreCase("Anyone") && (who.length()>0))
+						if(desc.toLowerCase().startsWith("anyone") && (who.length()>0))
 						{
 							desc+="... and I doubt you meant that.";
 							mob.tell(L("^xMask entered:^?^.^N @x1\n\r",desc));
@@ -293,8 +427,13 @@ public class Where extends StdCommand
 
 					try
 					{
+						if(who.startsWith("\"")&&who.endsWith("\"")&&(who.length()>2))
+							who=who.substring(1,who.length()-1);
+						final Session sess = mob.session();
 						for(;r.hasMoreElements();)
 						{
+							if((sess != null)&&(sess.isStopped()))
+								break;
 							R=r.nextElement();
 							if((R!=null)&&(CMSecurity.isAllowed(mob,R,CMSecurity.SecFlag.WHERE))&&(CMLib.flags().canAccess(mob,R.getArea())))
 							{
@@ -306,7 +445,7 @@ public class Where extends StdCommand
 									{
 										lines.append("^!"+CMStrings.padRight("*",firstColWidth)+"^?| ");
 										lines.append(R.displayText(mob));
-										lines.append(" (^<LSTROOMID^>"+CMLib.map().getDescriptiveExtendedRoomID(R)+"^</LSTROOMID^>)");
+										lines.append(" (^<LSTROOMID^>"+getRoomDesc(mob,R,R)+"^</LSTROOMID^>)");
 										lines.append("\n\r");
 									}
 								}
@@ -322,7 +461,7 @@ public class Where extends StdCommand
 											||(CMLib.english().containsString(E.viewableText(mob,R).toString(),who))))
 										{
 											lines.append("^!"+CMStrings.padRight(CMLib.directions().getDirectionName(d),firstColWidth)+"^N| ");
-											lines.append(" (^<LSTROOMID^>"+CMLib.map().getDescriptiveExtendedRoomID(R)+"^</LSTROOMID^>)");
+											lines.append(" (^<LSTROOMID^>"+getRoomDesc(mob,R,E)+"^</LSTROOMID^>)");
 											lines.append("\n\r");
 										}
 									}
@@ -333,9 +472,9 @@ public class Where extends StdCommand
 									{
 										final Item I=R.getItem(i);
 										if((areaFlag)
-										&&(I instanceof BoardableShip))
+										&&(I instanceof Boardable))
 										{
-											final Area A=((BoardableShip)I).getShipArea();
+											final Area A=((Boardable)I).getArea();
 											final Enumeration<Room> Ar=(A==null)?null:A.getProperMap();
 											if(Ar!=null)
 												r.addEnumeration(Ar);
@@ -346,7 +485,7 @@ public class Where extends StdCommand
 											{
 												lines.append("^!"+CMStrings.padRight(cataMark(I)+I.name(mob),firstColWidth)+"^N| ");
 												lines.append(R.displayText(mob));
-												lines.append(" (^<LSTROOMID^>"+CMLib.map().getDescriptiveExtendedRoomID(R)+"^</LSTROOMID^>)");
+												lines.append(" (^<LSTROOMID^>"+getRoomDesc(mob,R,I)+"^</LSTROOMID^>)");
 												lines.append("\n\r");
 											}
 										}
@@ -357,7 +496,7 @@ public class Where extends StdCommand
 											{
 												lines.append("^!"+CMStrings.padRight(cataMark(I)+I.name(mob),firstColWidth)+"^N| ");
 												lines.append(R.displayText(mob));
-												lines.append(" (^<LSTROOMID^>"+CMLib.map().getDescriptiveExtendedRoomID(R)+"^</LSTROOMID^>)");
+												lines.append(" (^<LSTROOMID^>"+getRoomDesc(mob,R,I)+"^</LSTROOMID^>)");
 												lines.append("\n\r");
 											}
 										}
@@ -369,7 +508,7 @@ public class Where extends StdCommand
 										{
 											lines.append("^!"+CMStrings.padRight(cataMark(I)+I.name(mob),firstColWidth)+"^N| ");
 											lines.append(R.displayText(mob));
-											lines.append(" (^<LSTROOMID^>"+CMLib.map().getDescriptiveExtendedRoomID(R)+"^</LSTROOMID^>)");
+											lines.append(" (^<LSTROOMID^>"+getRoomDesc(mob,R,I)+"^</LSTROOMID^>)");
 											lines.append("\n\r");
 										}
 									}
@@ -387,7 +526,7 @@ public class Where extends StdCommand
 												{
 													lines.append("^!"+CMStrings.padRight(cataMark(M)+M.name(mob),firstColWidth)+"^N| ");
 													lines.append(R.displayText(mob));
-													lines.append(" (^<LSTROOMID^>"+CMLib.map().getDescriptiveExtendedRoomID(R)+"^</LSTROOMID^>)");
+													lines.append(" (^<LSTROOMID^>"+getRoomDesc(mob,R,M)+"^</LSTROOMID^>)");
 													lines.append("\n\r");
 												}
 											}
@@ -398,7 +537,7 @@ public class Where extends StdCommand
 												{
 													lines.append("^!"+CMStrings.padRight(cataMark(M)+M.name(mob),firstColWidth)+"^N| ");
 													lines.append(R.displayText(mob));
-													lines.append(" (^<LSTROOMID^>"+CMLib.map().getDescriptiveExtendedRoomID(R)+"^</LSTROOMID^>)");
+													lines.append(" (^<LSTROOMID^>"+getRoomDesc(mob,R,M)+"^</LSTROOMID^>)");
 													lines.append("\n\r");
 												}
 											}
@@ -410,7 +549,7 @@ public class Where extends StdCommand
 											{
 												lines.append("^!"+CMStrings.padRight(cataMark(M)+M.name(mob),firstColWidth)+"^N| ");
 												lines.append(R.displayText(mob));
-												lines.append(" (^<LSTROOMID^>"+CMLib.map().getDescriptiveExtendedRoomID(R)+"^</LSTROOMID^>)");
+												lines.append(" (^<LSTROOMID^>"+getRoomDesc(mob,R,M)+"^</LSTROOMID^>)");
 												lines.append("\n\r");
 											}
 										}
@@ -420,9 +559,9 @@ public class Where extends StdCommand
 											{
 												final Item I=M.getItem(i);
 												if((areaFlag)
-												&&(I instanceof BoardableShip))
+												&&(I instanceof Boardable))
 												{
-													final Area A=((BoardableShip)I).getShipArea();
+													final Area A=((Boardable)I).getArea();
 													final Enumeration<Room> Ar=(A==null)?null:A.getProperMap();
 													if(Ar!=null)
 														r.addEnumeration(Ar);
@@ -433,7 +572,7 @@ public class Where extends StdCommand
 													{
 														lines.append("^!"+CMStrings.padRight(cataMark(I)+I.name(mob),firstColWidth)+"^N| ");
 														lines.append("INV: "+cataMark(M)+M.name(mob)+"^N");
-														lines.append(" (^<LSTROOMID^>"+CMLib.map().getDescriptiveExtendedRoomID(R)+"^</LSTROOMID^>)");
+														lines.append(" (^<LSTROOMID^>"+getRoomDesc(mob,R,I)+"^</LSTROOMID^>)");
 														lines.append("\n\r");
 													}
 												}
@@ -444,7 +583,7 @@ public class Where extends StdCommand
 													{
 														lines.append("^!"+CMStrings.padRight(cataMark(I)+I.name(mob),firstColWidth)+"^N| ");
 														lines.append("INV: "+cataMark(M)+M.name(mob)+"^N");
-														lines.append(" (^<LSTROOMID^>"+CMLib.map().getDescriptiveExtendedRoomID(R)+"^</LSTROOMID^>)");
+														lines.append(" (^<LSTROOMID^>"+getRoomDesc(mob,R,I)+"^</LSTROOMID^>)");
 														lines.append("\n\r");
 													}
 												}
@@ -456,7 +595,7 @@ public class Where extends StdCommand
 												{
 													lines.append("^!"+CMStrings.padRight(cataMark(I)+I.name(mob),firstColWidth)+"^N| ");
 													lines.append("INV: "+cataMark(M)+M.name(mob)+"^N");
-													lines.append(" (^<LSTROOMID^>"+CMLib.map().getDescriptiveExtendedRoomID(R)+"^</LSTROOMID^>)");
+													lines.append(" (^<LSTROOMID^>"+getRoomDesc(mob,R,I)+"^</LSTROOMID^>)");
 													lines.append("\n\r");
 												}
 											}
@@ -466,9 +605,9 @@ public class Where extends StdCommand
 											{
 												final Environmental E=i.next();
 												if((areaFlag)
-												&&(E instanceof BoardableShip))
+												&&(E instanceof Boardable))
 												{
-													final Area A=((BoardableShip)E).getShipArea();
+													final Area A=((Boardable)E).getArea();
 													final Enumeration<Room> Ar=(A==null)?null:A.getProperMap();
 													if(Ar!=null)
 														r.addEnumeration(Ar);
@@ -479,7 +618,7 @@ public class Where extends StdCommand
 													{
 														lines.append("^!"+CMStrings.padRight(cataMark(E)+E.name(),firstColWidth)+"^N| ");
 														lines.append("SHOP: "+cataMark(M)+M.name(mob)+"^N");
-														lines.append(" (^<LSTROOMID^>"+CMLib.map().getDescriptiveExtendedRoomID(R)+"^</LSTROOMID^>)");
+														lines.append(" (^<LSTROOMID^>"+getRoomDesc(mob,R,E)+"^</LSTROOMID^>)");
 														lines.append("\n\r");
 													}
 												}
@@ -490,7 +629,7 @@ public class Where extends StdCommand
 													{
 														lines.append("^!"+CMStrings.padRight(cataMark(E)+E.name(),firstColWidth)+"^N| ");
 														lines.append("SHOP: "+cataMark(M)+M.name(mob)+"^N");
-														lines.append(" (^<LSTROOMID^>"+CMLib.map().getDescriptiveExtendedRoomID(R)+"^</LSTROOMID^>)");
+														lines.append(" (^<LSTROOMID^>"+getRoomDesc(mob,R,E)+"^</LSTROOMID^>)");
 														lines.append("\n\r");
 													}
 												}
@@ -501,7 +640,7 @@ public class Where extends StdCommand
 													{
 														lines.append("^!"+CMStrings.padRight(cataMark(E)+E.name(),firstColWidth)+"^N| ");
 														lines.append("SHOP: "+cataMark(M)+M.name(mob)+"^N");
-														lines.append(" (^<LSTROOMID^>"+CMLib.map().getDescriptiveExtendedRoomID(R)+"^</LSTROOMID^>)");
+														lines.append(" (^<LSTROOMID^>"+getRoomDesc(mob,R,E)+"^</LSTROOMID^>)");
 														lines.append("\n\r");
 													}
 												}
@@ -512,7 +651,7 @@ public class Where extends StdCommand
 													{
 														lines.append("^!"+CMStrings.padRight(cataMark(E)+E.name(),firstColWidth)+"^N| ");
 														lines.append("SHOP: "+cataMark(M)+M.name(mob)+"^N");
-														lines.append(" (^<LSTROOMID^>"+CMLib.map().getDescriptiveExtendedRoomID(R)+"^</LSTROOMID^>)");
+														lines.append(" (^<LSTROOMID^>"+getRoomDesc(mob,R,E)+"^</LSTROOMID^>)");
 														lines.append("\n\r");
 													}
 												}
@@ -524,7 +663,7 @@ public class Where extends StdCommand
 												{
 													lines.append("^!"+CMStrings.padRight(cataMark(E)+E.name(),firstColWidth)+"^N| ");
 													lines.append("SHOP: "+cataMark(M)+M.name(mob)+"^N");
-													lines.append(" (^<LSTROOMID^>"+CMLib.map().getDescriptiveExtendedRoomID(R)+"^</LSTROOMID^>)");
+													lines.append(" (^<LSTROOMID^>"+getRoomDesc(mob,R,E)+"^</LSTROOMID^>)");
 													lines.append("\n\r");
 												}
 											}
@@ -567,20 +706,19 @@ public class Where extends StdCommand
 			}
 
 			final int adjust=CMath.s_int(CMParms.combine(commands,1));
-			final DVector levelsVec=new DVector(2);
-			final DVector mobsVec=new DVector(2);
-			final DVector alignVec=new DVector(2);
+			final PairArrayList<Area,Integer> levelsV=new PairArrayList<Area,Integer>();
+			final PairArrayList<Area,Integer> mobsV=new PairArrayList<Area,Integer>();
+			final PairArrayList<Area,Integer> alignV=new PairArrayList<Area,Integer>();
 			final int moblevel=mob.phyStats().level()+adjust;
 			for(final Enumeration<Area> a=CMLib.map().areas();a.hasMoreElements();)
 			{
 				final Area A=a.nextElement();
 				if((CMLib.flags().canAccess(mob,A))
-				&&(CMLib.flags().canBeLocated(A))
-				&&(A.getAreaIStats()!=null))
+				&&(CMLib.flags().canBeLocated(A)))
 				{
 					int median=A.getPlayerLevel();
 					if(median==0)
-						median=A.getAreaIStats()[Area.Stats.MED_LEVEL.ordinal()];
+						median=A.getIStat(Area.Stats.MED_LEVEL);
 					int medianDiff=0;
 					final int diffLimit=6;
 					if((median<(moblevel+diffLimit))
@@ -591,13 +729,13 @@ public class Where extends StdCommand
 						else
 							medianDiff=(int)Math.round(10.0*CMath.div(moblevel,median));
 					}
-					whereAdd(levelsVec,A,medianDiff);
+					whereAdd(levelsV,A,medianDiff);
 
-					whereAdd(mobsVec,A,A.getAreaIStats()[Area.Stats.POPULATION.ordinal()]);
+					whereAdd(mobsV,A,A.getIStat(Area.Stats.POPULATION));
 
-					final int align=A.getAreaIStats()[Area.Stats.MED_ALIGNMENT.ordinal()];
+					final int align=A.getIStat(Area.Stats.MED_ALIGNMENT);
 					final int alignDiff=((int)Math.abs((double)(alignment-align)));
-					whereAdd(alignVec,A,alignDiff);
+					whereAdd(alignV,A,alignDiff);
 				}
 			}
 			final StringBuffer msg=new StringBuffer(L("You are currently in: ^H@x1^?\n\r",mob.location().getArea().name()));
@@ -608,24 +746,24 @@ public class Where extends StdCommand
 						""+mob.playerStats().percentVisited(mob,mob.location().getArea()),
 						""+mob.playerStats().percentVisited(mob,null)));
 			}
-			final DVector scores=new DVector(2);
+			final PairArrayList<Area,Integer> scores=new PairArrayList<Area,Integer>();
 			for(final Enumeration<Area> a=CMLib.map().areas();a.hasMoreElements();)
 			{
 				final Area A=a.nextElement();
 				if(CMLib.flags().canAccess(mob,A))
 				{
-					int index=levelsVec.indexOf(A);
+					int index=levelsV.indexOfFirst(A);
 					if(index>=0)
 					{
-						final Integer I=(Integer)levelsVec.get(index,2);
+						final Integer I=levelsV.get(index).second;
 						if((I!=null)&&(I.intValue()!=0))
 						{
 							int score=(index+1);
-							index=mobsVec.indexOf(A);
+							index=mobsV.indexOfFirst(A);
 							if(index>=0)
 								score+=(index+1);
 
-							index=alignVec.indexOf(A);
+							index=alignV.indexOfFirst(A);
 							if(index>=0)
 								score+=(index+1);
 							whereAdd(scores,A,score);
@@ -641,7 +779,7 @@ public class Where extends StdCommand
 				msg.append("^x"+CMStrings.padRight(L("Area Name"),35)+CMStrings.padRight(L("Level"),6)+CMStrings.padRight(L("Alignment"),20)+CMStrings.padRight(L("Pop"),10)+"^.^?\n\r");
 				final List<Area> finalScoreList = new ArrayList<Area>();
 				for(int i=scores.size()-1;((i>=0)&&(i>=(scores.size()-15)));i--)
-					finalScoreList.add((Area)scores.get(i,1));
+					finalScoreList.add(scores.get(i).first);
 				final int mobLevel=mob.phyStats().level();
 				Collections.sort(finalScoreList,new Comparator<Area>()
 				{
@@ -650,10 +788,10 @@ public class Where extends StdCommand
 					{
 						int median1=o1.getPlayerLevel();
 						if(median1==0)
-							median1=o1.getAreaIStats()[Area.Stats.MED_LEVEL.ordinal()];
+							median1=o1.getIStat(Area.Stats.MED_LEVEL);
 						int median2=o2.getPlayerLevel();
 						if(median2==0)
-							median2=o2.getAreaIStats()[Area.Stats.MED_LEVEL.ordinal()];
+							median2=o2.getIStat(Area.Stats.MED_LEVEL);
 						final int lvlDiff1=Math.abs(mobLevel - median1);
 						final int lvlDiff2=Math.abs(mobLevel - median2);
 						return lvlDiff1==lvlDiff2?0:(lvlDiff1>lvlDiff2)?1:-1;
@@ -664,13 +802,13 @@ public class Where extends StdCommand
 				{
 					int lvl=A.getPlayerLevel();
 					if(lvl==0)
-						lvl=A.getAreaIStats()[Area.Stats.MED_LEVEL.ordinal()];
-					final int align=A.getAreaIStats()[Area.Stats.MED_ALIGNMENT.ordinal()];
+						lvl=A.getIStat(Area.Stats.MED_LEVEL);
+					final int align=A.getIStat(Area.Stats.MED_ALIGNMENT);
 
-					msg.append(CMStrings.padRight(A.name(),35))
+					msg.append(CMStrings.padRight(A.name().replace('`', '\''),35))
 					   .append(CMStrings.padRight(Integer.toString(lvl),6))
 					   .append(CMStrings.padRight(CMLib.factions().getRange(CMLib.factions().getAlignmentID(), align).name(),20))
-					   .append(CMStrings.padRight(Integer.toString(A.getAreaIStats()[Area.Stats.POPULATION.ordinal()]),10))
+					   .append(CMStrings.padRight(Integer.toString(A.getIStat(Area.Stats.POPULATION)),10))
 					   .append("\n\r");
 				}
 				msg.append(L("\n\r\n\r^HEnter 'HELP (AREA NAME) for more information.^?"));

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -76,6 +76,12 @@ public class Thief_Robbery extends ThiefSkill
 	public int classificationCode()
 	{
 		return Ability.ACODE_THIEF_SKILL|Ability.DOMAIN_STEALING;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_STEALING;
 	}
 
 	private static final String[] triggerStrings =I(new String[] {"ROBBERY","ROB"});
@@ -171,7 +177,7 @@ public class Thief_Robbery extends ThiefSkill
 		if((givenTarget!=null)&&(givenTarget instanceof MOB))
 			target=(MOB)givenTarget;
 		else
-			target=mob.location().fetchInhabitant(CMParms.combine(commands,1));
+			target=getVisibleRoomTarget(mob,CMParms.combine(commands,1));
 		if((target==null)||(target.amDead())||(!CMLib.flags().canBeSeenBy(target,mob)))
 		{
 			mob.tell(L("You don't see '@x1' here.",CMParms.combine(commands,1)));

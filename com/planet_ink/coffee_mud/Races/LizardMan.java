@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -197,16 +197,24 @@ public class LizardMan extends StdRace
 	public void affectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
 		super.affectCharStats(affectedMOB, affectableStats);
-		affectableStats.setStat(CharStats.STAT_INTELLIGENCE,affectableStats.getStat(CharStats.STAT_INTELLIGENCE)-1);
-		affectableStats.setStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ,affectableStats.getStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ)-1);
-		affectableStats.setStat(CharStats.STAT_CHARISMA,affectableStats.getStat(CharStats.STAT_CHARISMA)-1);
-		affectableStats.setStat(CharStats.STAT_MAX_CHARISMA_ADJ,affectableStats.getStat(CharStats.STAT_MAX_CHARISMA_ADJ)-1);
-		affectableStats.setStat(CharStats.STAT_STRENGTH,affectableStats.getStat(CharStats.STAT_STRENGTH)+1);
-		affectableStats.setStat(CharStats.STAT_MAX_STRENGTH_ADJ,affectableStats.getStat(CharStats.STAT_MAX_STRENGTH_ADJ)+1);
-		affectableStats.setStat(CharStats.STAT_CONSTITUTION,affectableStats.getStat(CharStats.STAT_CONSTITUTION)+1);
-		affectableStats.setStat(CharStats.STAT_MAX_CONSTITUTION_ADJ,affectableStats.getStat(CharStats.STAT_MAX_CONSTITUTION_ADJ)+1);
+		affectableStats.adjStat(CharStats.STAT_INTELLIGENCE,-1);
+		affectableStats.adjStat(CharStats.STAT_CHARISMA,-1);
+		affectableStats.adjStat(CharStats.STAT_STRENGTH,1);
+		affectableStats.adjStat(CharStats.STAT_CONSTITUTION,1);
 		affectableStats.setStat(CharStats.STAT_SAVE_ELECTRIC,affectableStats.getStat(CharStats.STAT_SAVE_ELECTRIC)+10);
 		affectableStats.setStat(CharStats.STAT_SAVE_WATER,affectableStats.getStat(CharStats.STAT_SAVE_WATER)-10);
+	}
+
+	@Override
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
+	{
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.adjStat(CharStats.STAT_INTELLIGENCE,+1);
+		affectableStats.adjStat(CharStats.STAT_CHARISMA,+1);
+		affectableStats.adjStat(CharStats.STAT_STRENGTH,-1);
+		affectableStats.adjStat(CharStats.STAT_CONSTITUTION,-1);
+		affectableStats.setStat(CharStats.STAT_SAVE_ELECTRIC,affectableStats.getStat(CharStats.STAT_SAVE_ELECTRIC)-10);
+		affectableStats.setStat(CharStats.STAT_SAVE_WATER,affectableStats.getStat(CharStats.STAT_SAVE_WATER)+10);
 	}
 
 	@Override
@@ -231,24 +239,30 @@ public class LizardMan extends StdRace
 			p1.setName(L("a loincloth"));
 			p1.setDisplayText(L("a simple loincloth sits here."));
 			p1.setDescription(L("A simple piece of cloth for wrapping around your mid-parts."));
+			p1.setRawProperLocationBitmap(Wearable.WORN_WAIST);
+			p1.basePhyStats().setAbility(0);
+			((Container)p1).setCapacity(20);
+			((Container)p1).setContainTypes(Container.CONTAIN_DAGGERS|Container.CONTAIN_ONEHANDWEAPONS|Container.CONTAIN_SWORDS|Container.CONTAIN_OTHERWEAPONS);
 			p1.text();
 			outfitChoices.add(p1);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public Weapon[] getNaturalWeapons()
 	{
-		if(naturalWeapon==null)
+		if(this.naturalWeaponChoices.length==0)
 		{
-			naturalWeapon=CMClass.getWeapon("StdWeapon");
+			final Weapon naturalWeapon=CMClass.getWeapon("GenWeapon");
 			naturalWeapon.setName(L("sharp claws"));
 			naturalWeapon.setMaterial(RawMaterial.RESOURCE_BONE);
 			naturalWeapon.setUsesRemaining(1000);
 			naturalWeapon.setWeaponDamageType(Weapon.TYPE_SLASHING);
+			this.naturalWeaponChoices = new Weapon[] { naturalWeapon };
 		}
-		return naturalWeapon;
+		return super.getNaturalWeapons();
 	}
 
 	@Override

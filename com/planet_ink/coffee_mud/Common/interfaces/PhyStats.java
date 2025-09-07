@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -177,14 +177,18 @@ public interface PhyStats extends CMCommon, Modifiable
 	public void setHeight(int newHeight);
 
 	/**
-	 * Returns the defensive capability number of this Physical.
+	 * Returns the defensive capability number of this Physical, unless the item
+	 * is a weapon, in which case this is a 32 bit masked flag representing
+	 * min/max range, and ammo capacity.  See {@link Weapon#MASK_MAXRANGEBITS}
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats#setArmor(int)
 	 * @return the raw defensive capability of this Physical
 	 */
 	public int armor(); // armor items, mobs
 
 	/**
-	 * Sets the defensive capability number of this Physical.
+	 * Sets the defensive capability number of this Physical, unless the item
+	 * is a weapon, in which case this is a 32 bit masked flag representing
+	 * min/max range, and ammo capacity.  See {@link Weapon#MASK_MAXRANGEBITS}
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats#armor()
 	 * @param newArmor the defensive capability number of this Physical
 	 */
@@ -263,10 +267,24 @@ public interface PhyStats extends CMCommon, Modifiable
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats#addAmbiance(String)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats#delAmbiance(String)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats#ambiances()
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats.Ambiance
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats#isAmbiance(Ambiance)
 	 * @param ambiance the ambiance to look for
 	 * @return true if its in there, false otherwise
 	 */
 	public boolean isAmbiance(String ambiance);
+
+	/**
+	 * Check to see if the given ambiance exists in the list.
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats#addAmbiance(String)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats#delAmbiance(String)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats#ambiances()
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats.Ambiance
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats#isAmbiance(String)
+	 * @param ambiance the ambiance to look for
+	 * @return true if its in there, false otherwise
+	 */
+	public boolean isAmbiance(final PhyStats.Ambiance ambiance);
 
 	/**
 	 * Adds an ambiance (extra word, visible field) to the list that are tacked
@@ -274,6 +292,8 @@ public interface PhyStats extends CMCommon, Modifiable
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats#ambiances()
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats#delAmbiance(String)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats#isAmbiance(String)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats#isAmbiance(Ambiance)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PhyStats.Ambiance
 	 * @param ambiance a new ambiance string
 	 */
 	public void addAmbiance(String ambiance);
@@ -312,6 +332,23 @@ public interface PhyStats extends CMCommon, Modifiable
 	 * @param def a value to set all the stats to
 	 */
 	public void setAllValues(int def);
+
+
+	/**
+	 * Get the value of one of the STAT_ constants from the PhyStats interface.
+	 * @see PhyStats
+	 * @param statNum which STAT_ constant to get a value for
+	 * @return the value of the given STAT
+	 */
+	public int getStat(int statNum);
+
+	/**
+	 * Set the value of one of the STAT_ constants from the PhyStats interface.
+	 * @see PhyStats
+	 * @param statNum which STAT_ constant to get a value for
+	 * @param value the value of the given STAT
+	 */
+	public void setStat(int statNum, int value);
 
 	/**
 	 * Resets all the stats in this object to their factory defaults.
@@ -396,14 +433,17 @@ public interface PhyStats extends CMCommon, Modifiable
 	public final static int CAN_NOT_TRACK=262144;
 	/** a bit setting, as from sensesMask(), flagging this mob as unable to engage in standard combat ticks*/
 	public final static int CAN_NOT_AUTO_ATTACK=524288;
-	/** a bit setting, as from sensesMask(), flagging this mob as not respawning when being camped*/
+	/** a bit setting, as from sensesMask(), flagging this mob as not respawning when being camped
+	 * , or is a player exempt from pvp level limits */
 	public final static int CAN_NOT_BE_CAMPED=1048576;
 	/** a bit setting, as from sensesMask(), flagging this mob being able to grunt, when sufficiently stupid */
 	public final static int CAN_GRUNT_WHEN_STUPID=2097152;
 	/** a bit setting, as from sensesMask(), flagging this mob as able to see hidden items */
 	public final static int CAN_SEE_HIDDEN_ITEMS=4194304;
 
-	/** STAT codes list, indexed by the 2nd root of the various sensesMask() CAN_SEE bitmasks */
+	/**
+	 * STAT codes list, indexed by the 2nd root of the various sensesMask() CAN SEE bitmasks
+	 */
 	public static final String[] CAN_SEE_CODES={
 		"CANNOTSEE",
 		"CANSEEHIDDEN",
@@ -423,69 +463,20 @@ public interface PhyStats extends CMCommon, Modifiable
 		"CANSEEVICTIM",
 		"CANSEEMETAL",
 		"CANNOTTHINK",
-		"CANNOTWORK",
+		"CANNOTTRACK",
 		"CANNOTAUTOATTACK",
 		"CANNOTBECAMPED",
+		"CANGRUNTWHENSTUPID",
 		"CANSEEITEMSHIDDEN",
-	};
-
-	/** Descriptions, indexed by the 2nd root of the various CAN_SEE sensesMask() bitmasks */
-	public static final String[] CAN_SEE_DESCS={
-		"Is Blind",
-		"Can see hidden",
-		"Can see invisible",
-		"Can see evil",
-		"Can see good",
-		"Can detect sneakers",
-		"Can see magic",
-		"Can see in the dark",
-		"Has infravision",
-		"Is Deaf",
-		"Is Paralyzed",
-		"Can not smell",
-		"Can not eat",
-		"Is Mute",
-		"Can not breathe",
-		"Can detect victims",
-		"Can detect metal",
-		"Can not concentrate",
-		"Is too busy",
-		"Is not auto-attacking",
-		"Can not be camped on"
-	};
-
-	/** Descriptive verbs, indexed by the 2nd root of the various CAN_SEE sensesMask() bitmasks */
-	public static final String[] CAN_SEE_VERBS={
-		"Causes Blindness",
-		"Allows see hidden",
-		"Allows see invisible",
-		"Allows see evil",
-		"Allows see good",
-		"Allows detect sneakers",
-		"Allows see magic",
-		"Allows darkvision",
-		"Allows infravision",
-		"Causes Deafness",
-		"Causes Paralyzation",
-		"Deadens smell",
-		"Disallows eating",
-		"Causes Mutemess",
-		"Causes choking",
-		"Allows detect victims",
-		"Allows detect metal",
-		"Befuddles the mind",
-		"Occupies time",
-		"Prevents auto attacking",
-		"Prevents camping"
 	};
 
 	// sensemask stuff not applicable to mobs
 	/** a bit setting, as from sensesMask(), flagging this item/room as being unlocatable */
 	public final static int SENSE_UNLOCATABLE=1;
-	/** a bit setting, as from sensesMask(), flagging this item/room */
-	public final static int SENSE_ITEMNOMINRANGE=2;
-	/** a bit setting, as from sensesMask(), flagging this item/room  */
-	public final static int SENSE_ITEMNOMAXRANGE=4;
+	/** a bit setting, as from sensesMask(), flagging that this item is always ruined */
+	public final static int SENSE_ALWAYSRUIN=2;
+	/** a bit setting, as from sensesMask(), unused  */
+	//public final static int SENSE_ITEMNOMAXRANGE=4;
 	/** a bit setting, as from sensesMask(), flagging this item/room as readable */
 	public final static int SENSE_ITEMREADABLE=8;
 	/** a bit setting, as from sensesMask(), flagging this item/room as ungettable */
@@ -502,8 +493,10 @@ public interface PhyStats extends CMCommon, Modifiable
 	public final static int SENSE_ITEMNOAUTOWEAR=256;
 	/** a bit setting, as from sensesMask(), flagging this item/room as being unexplorable */
 	public final static int SENSE_ROOMUNEXPLORABLE=512;
+	public final static int SENSE_ITEMUNLEARNABLE=512;
 	/** a bit setting, as from sensesMask(), flagging this item/room as not allowing movement */
 	public final static int SENSE_ROOMNOMOVEMENT=1024;
+	public final static int SENSE_ITEMDEATHKEEPER=1024;
 	/** a bit setting, as from sensesMask(), flagging this item/room as being unmappable */
 	public final static int SENSE_ROOMUNMAPPABLE=2048;
 	/** a bit setting, as from sensesMask(), flagging this item/room as being flagged for synchronization */
@@ -518,18 +511,18 @@ public interface PhyStats extends CMCommon, Modifiable
 	public final static int SENSE_UNDESTROYABLE=65536;
 	/** a bit setting, as from sensesMask(), flagging this ...  */
 	public final static int SENSE_INSIDEACCESSIBLE=131072;
-	/** a bit setting, as from sensesMask(), flagging this as a busy item that can't do other things ...  */
-	//public final static int SENSE_CAN_NOT_WORK=262144;
+	/** a bit setting, as from sensesMask(), flagging this as being unscrappable ...  */
+	public final static int SENSE_ITEMNOSCRAP=262144;
 	/** a bit setting, as from sensesMask(), flagging this ...  */
-	//public final static int SENSE_ROOMCIRCUITED=524288;
+	public final static int SENSE_HIDDENINPLAINSIGHT=524288;
 	/** a bit setting, as from sensesMask(), flagging this mob as not respawning when being camped*/
-	public final static int SENSE_UNCAMPABLE=1048576;
+	public final static int SENSE_UNCAMPABLE=1048576; // must match the normal mob version also
 
 	/** STAT codes list, indexed by the 2nd root of the various sensesMask() SENSE_ bitmasks */
 	public static final String[] SENSE_CODES={
 		"UNLOCATABLE",
-		"ITEMNOMINRANGE",
-		"ITEMNOMAXRANGE",
+		"ALWAYSRUIN",
+		"UNUSED",
 		"ITEMREADABLE",
 		"ITEMNOTGET",
 		"ITEMNODROP",
@@ -545,8 +538,8 @@ public interface PhyStats extends CMCommon, Modifiable
 		"ALWAYSCOMPRESSED",
 		"UNDESTROYABLE",
 		"INSIDEACCESSIBLE",
-		"CANNOTWORK",
-		"UNUSEDMASK",
+		"ITEMNOSCRAP",
+		"HIDDENINPLAINSIGHT",
 		"UNCAMPABLE"
 	};
 
@@ -600,10 +593,18 @@ public interface PhyStats extends CMCommon, Modifiable
 	public final static int IS_UNATTACKABLE=2097152;
 	/** a bit setting, as from disposition(), flagging this object as a custom word for the above */
 	public final static int IS_CUSTOM=4194304;
-	/** a bit setting, as from disposition(), flagging this object as a non-helping follower */
-	public final static int IS_UNHELPFUL=4194304;
+	/** a bit setting, as from disposition(), flagging this object as a non-helping follower, or non-useful exits */
+	public final static int IS_UNHELPFUL=8388608;
+	/** a bit setting, as from disposition(), flagging this object as an interesting disposition*/
+	public final static int IS_UNNORMAL=IS_SITTING|IS_SLEEPING|IS_CLIMBING|IS_FALLING|IS_SWIMMING|IS_CLIMBING;
+	/** a bit setting, as from disposition(), flagging this object as an interesting disposition*/
+	public final static int IS_VISIBLYACTIVE=IS_CLIMBING|IS_FALLING|IS_SWIMMING|IS_CLIMBING;
 
-	/** STAT codes, indexed by the 2nd root of the various IS_ disposition() bitmasks */
+	/**
+	 * STAT codes, indexed by the 2nd root of the various IS_ disposition() bitmasks
+	 * See also:
+	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.CMFlagLibrary
+	 */
 	public static final String[] IS_CODES={
 		"ISUNSEEN",
 		"ISHIDDEN",
@@ -631,60 +632,59 @@ public interface PhyStats extends CMCommon, Modifiable
 		"ISUNHELPFUL"
 	};
 
-	/** Descriptions, indexed by the 2nd root of the various IS_ disposition() bitmasks */
-	public static final String[] IS_DESCS= {
-		"Is never seen",
-		"Is hidden",
-		"Is invisible",
-		"Evil aura",
-		"Good aura",
-		"Is sneaking",
-		"Is magical",
-		"Is dark",
-		"Is golem",
-		"Is sleeping",
-		"Is sitting",
-		"Is flying",
-		"Is swimming",
-		"Is glowing",
-		"Is climbing",
-		"Is falling",
-		"Is a light source",
-		"Is binding",
-		"Is Cloaked",
-		"Is never saved",
-		"Is cataloged",
-		"Is unattackable",
-		"Is something",
-		"Is Unhelpful"
-	};
-
-	/** Descriptive verbs, indexed by the 2nd root of the various IS_ disposition() bitmasks */
-	public static final String[] IS_VERBS= {
-		"Causes Nondetectability",
-		"Causes hide",
-		"Causes invisibility",
-		"Creates Evil aura",
-		"Creates Good aura",
-		"Causes sneaking",
-		"Creates magical aura",
-		"Creates dark aura",
-		"Creates golem aura",
-		"Causes sleeping",
-		"Causes sitting",
-		"Allows flying",
-		"Causes swimming",
-		"Causes glowing aura",
-		"Allows climbing",
-		"Causes falling",
-		"Causes a light source",
-		"Causes binding",
-		"Causes cloaking",
-		"Causes disappearance",
-		"Causes unsavability",
-		"Created from a template",
-		"Prevents attackability",
-		"Causes something...",
-		"Prevents helpful attacks",
-	};
+	/**
+	 * Official Ambiance system strings, since this is the only
+	 * open ended modifiable system.
+	 * @see PhyStats#isAmbiance(String)
+	 * @see PhyStats#addAmbiance(String)
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public static enum Ambiance
+	{
+		CAN_SEE_CHAOS("@CHAOS"),
+		CAN_SEE_LAW("@LAW"),
+		IS_DECK_ROOM("@DECK_ROOM"),
+		IS_FLOATING("@FLOATING"),
+		IS_OFFICER("#OFFICER"),
+		IS_JUDGE("#JUDGE"),
+		SUPPRESS_WEATHER("-ANTIWEATHER"),
+		SEEMS_GOOD("#GOOD"),
+		SEEMS_EVIL("#EVIL"),
+		SEEMS_NEUTRAL("#NEUTRAL"),
+		SEEMS_LAWFUL("#LAW"),
+		SEEMS_CHAOTIC("#CHAOS"),
+		SEEMS_MODERATE("#MODERATE"),
+		SUPPRESS_MOOD("-MOOD"),
+		SUPPRESS_DRUNKENNESS("-DRUNKEN"),
+		SUPPRESS_ALL("-ALL"),
+		SUPPRESS_MOST("-MOST"),
+		SUPPRESS_OFFICIALDOM("-OFFICER"),
+		SUPPRESS_AMBIANCE_EVIL("-EVIL"),
+		SUPPRESS_AMBIANCE_GOOD("-GOOD"),
+		SUPPRESS_AMBIANCE_INVISIBLE("-INVISIBLE"),
+		SUPPRESS_AMBIANCE_SNEAKING("-SNEAKING"),
+		SUPPRESS_AMBIANCE_HIDDEN("-HIDDEN"),
+		SUPPRESS_AMBIANCE_HEAT("-HEAT"),
+		SUPPRESS_AMBIANCE_MAGIC("-MAGIC"),
+		SUPPRESS_AMBIANCE_METAL("-METAL"),
+		SUPPRESS_AMBIANCE_GLOWING("-GLOWING"),
+		SUPPRESS_AMBIANCE_BUSY("-BUSY"),
+		SUPPRESS_AMBIANCE_CHAOS("-CHAOS"),
+		SUPPRESS_AMBIANCE_LAW("-LAW"),
+		SUPPRESS_AMBIANCE_BOUND("-BOUND"),
+		SUPPRESS_AMBIANCE_FLYING("-FLYING"),
+		SUPPRESS_AMBIANCE_FALLING("-FALLING"),
+		SUPPRESS_ROBBERY("-ROBBERY")
+		;
+		private final String code;
+		private Ambiance(final String code)
+		{
+			this.code = code;
+		}
+		public String code()
+		{
+			return code;
+		}
+	}
 }

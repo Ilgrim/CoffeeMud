@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -61,6 +61,12 @@ public class Falling extends StdAbility
 	protected int canAffectCode()
 	{
 		return CAN_ITEMS | Ability.CAN_MOBS;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_NONENCHANTMENT;
 	}
 
 	@Override
@@ -164,7 +170,7 @@ public class Falling extends StdAbility
 							mob.addEffect(damage);
 							damage.makeLongLasting();
 						}
-						damage.damageLimb(limbs.get(CMLib.dice().roll(1, limbs.size(), -1)));
+						damage.damageLimb(limbs.get(CMLib.dice().roll(1, limbs.size(), -1)), false);
 					}
 				}
 			}
@@ -228,8 +234,14 @@ public class Falling extends StdAbility
 					damageToTake=reversed()?damage:(damageToTake+damage);
 				}
 				temporarilyDisable=true;
-				CMLib.tracking().walk(mob,direction,false,false);
-				temporarilyDisable=false;
+				try
+				{
+					CMLib.tracking().walk(mob,direction,false,false);
+				}
+				finally
+				{
+					temporarilyDisable=false;
+				}
 				if(!canFallFrom(mob.location(),direction))
 					return stopFalling(mob);
 				return true;

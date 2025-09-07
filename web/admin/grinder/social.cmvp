@@ -3,8 +3,10 @@
 @if?!CheckAuthCode?AUTH_CMDSOCIALS=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <META HTTP-EQUIV="Pragma" CONTENT="no-cache">
 <html>
+	<META CHARSET="utf-8"/>
 <head>
     <link rel="grinder icon" href="/images/grinder.ico" >
+    <link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
     <title>Social Manager</title>
     <script language=JavaScript>
     <!--
@@ -149,6 +151,7 @@
 <INPUT TYPE=HIDDEN NAME=FUNCTION VALUE="">
 <INPUT TYPE=HIDDEN NAME=SOCIAL VALUE="@RequestParameter?SOCIAL@">
 <INPUT TYPE=HIDDEN NAME=NEWSOCIAL VALUE="@RequestParameter?NEWSOCIAL@">
+<INPUT TYPE=HIDDEN NAME=COMPONENT VALUE="@RequestParameter?COMPONENT@">
 <CENTER>
 @if?CheckReqParm?SOCIAL=@
     Select a social above to view/edit.
@@ -170,7 +173,7 @@
                 <TABLE WIDTH=100% BORDER=1 CELLSPACING=0 CELLPADDING=0>
                 <TR>
                     <TD WIDTH=20%><FONT COLOR=YELLOW>You See: </FONT></TD>
-                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_NONE_Y VALUE="@SocialData?SDAT_NONE_Y@"></TD>
+                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_NONE_Y VALUE="@SocialData?SDAT_NONE_Y@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>You Do: </FONT></TD>
@@ -178,7 +181,7 @@
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>Others See: </FONT></TD>
-                    <TD><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_NONE_O VALUE="@SocialData?SDAT_NONE_O@"></TD>
+                    <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_NONE_O VALUE="@SocialData?SDAT_NONE_O@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>Others: </FONT></TD>
@@ -187,6 +190,14 @@
                 <TR>
                     <TD><FONT COLOR=YELLOW>MSP Filename: </FONT></TD>
                     <TD><INPUT TYPE=TEXT SIZE=40 NAME=SDAT_NONE_M VALUE="@SocialData?SDAT_NONE_M@"></TD>
+                </TR>
+                <TR>
+                    <TD><FONT COLOR=YELLOW>Zappermask: </FONT></TD>
+                    <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_NONE_Z VALUE="@SocialData?SDAT_NONE_Z@"></TD>
+                </TR>
+                <TR>
+                    <TD><FONT COLOR=YELLOW>Flags: </FONT></TD>
+                    <TD><SELECT NAME=SDAT_NONE_F MULTIPLE> @SocialData?SDAT_NONE_F@ </SELECT></TD>
                 </TR>
                 </TABLE>
                 @endif@
@@ -201,7 +212,7 @@
                 <TABLE WIDTH=100% BORDER=1 CELLSPACING=0 CELLPADDING=0>
                 <TR>
                     <TD WIDTH=20%><FONT COLOR=YELLOW>You See: </FONT></TD>
-                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_SELF_Y VALUE="@SocialData?SDAT_SELF_Y@"></TD>
+                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_SELF_Y VALUE="@SocialData?SDAT_SELF_Y@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>You Do: </FONT></TD>
@@ -209,7 +220,7 @@
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>Others See: </FONT></TD>
-                    <TD><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_SELF_O VALUE="@SocialData?SDAT_SELF_O@"></TD>
+                    <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_SELF_O VALUE="@SocialData?SDAT_SELF_O@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>Others: </FONT></TD>
@@ -218,6 +229,14 @@
                 <TR>
                     <TD><FONT COLOR=YELLOW>MSP Filename: </FONT></TD>
                     <TD><INPUT TYPE=TEXT SIZE=40 NAME=SDAT_SELF_M VALUE="@SocialData?SDAT_SELF_M@"></TD>
+                </TR>
+                <TR>
+                    <TD><FONT COLOR=YELLOW>Zappermask: </FONT></TD>
+                    <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_SELF_Z VALUE="@SocialData?SDAT_SELF_Z@"></TD>
+                </TR>
+                <TR>
+                    <TD><FONT COLOR=YELLOW>Flags: </FONT></TD>
+                    <TD><SELECT NAME=SDAT_SELF_F MULTIPLE> @SocialData?SDAT_SELF_F@ </SELECT></TD>
                 </TR>
                 </TABLE>
                 @endif@
@@ -232,7 +251,7 @@
                 <TABLE WIDTH=100% BORDER=1 CELLSPACING=0 CELLPADDING=0>
                 <TR>
                     <TD WIDTH=20%><FONT COLOR=YELLOW>You See: </FONT></TD>
-                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_TARGETMOB_Y VALUE="@SocialData?SDAT_TARGETMOB_Y@"></TD>
+                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETMOB_Y VALUE="@SocialData?SDAT_TARGETMOB_Y@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>You Do: </FONT></TD>
@@ -240,11 +259,11 @@
                 </TR>
                 <TR>
                     <TD WIDTH=20%><FONT COLOR=YELLOW>Target Sees: </FONT></TD>
-                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_TARGETMOB_T VALUE="@SocialData?SDAT_TARGETMOB_T@"></TD>
+                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETMOB_T VALUE="@SocialData?SDAT_TARGETMOB_T@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>Others See: </FONT></TD>
-                    <TD><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_TARGETMOB_O VALUE="@SocialData?SDAT_TARGETMOB_O@"></TD>
+                    <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETMOB_O VALUE="@SocialData?SDAT_TARGETMOB_O@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>Others/Target: </FONT></TD>
@@ -252,11 +271,19 @@
                 </TR>
                 <TR>
                     <TD WIDTH=20%><FONT COLOR=YELLOW>No Target Sees: </FONT></TD>
-                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_TARGETMOB_N VALUE="@SocialData?SDAT_TARGETMOB_N@"></TD>
+                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETMOB_N VALUE="@SocialData?SDAT_TARGETMOB_N@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>MSP Filename: </FONT></TD>
                     <TD><INPUT TYPE=TEXT SIZE=40 NAME=SDAT_TARGETMOB_M VALUE="@SocialData?SDAT_TARGETMOB_M@"></TD>
+                </TR>
+                <TR>
+                    <TD><FONT COLOR=YELLOW>Zappermask: </FONT></TD>
+                    <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETMOB_Z VALUE="@SocialData?SDAT_TARGETMOB_Z@"></TD>
+                </TR>
+                <TR>
+                    <TD><FONT COLOR=YELLOW>Flags: </FONT></TD>
+                    <TD><SELECT NAME=SDAT_TARGETMOB_F MULTIPLE> @SocialData?SDAT_TARGETMOB_F@ </SELECT></TD>
                 </TR>
                 </TABLE>
                 @endif@
@@ -281,7 +308,7 @@
 	                    <TABLE WIDTH=100% BORDER=1 CELLSPACING=0 CELLPADDING=0>
 	                    <TR>
 	                        <TD WIDTH=20%><FONT COLOR=YELLOW>You See: </FONT></TD>
-	                        <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_TARGETMOB_@RequestParameter?XARG@_Y VALUE="@SocialData?SDAT_TARGETMOB_@@RequestParameter?XARG@@_Y@"></TD>
+	                        <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETMOB_@RequestParameter?XARG@_Y VALUE="@SocialData?SDAT_TARGETMOB_@@RequestParameter?XARG@@_Y@"></TD>
 	                    </TR>
 	                    <TR>
 	                        <TD><FONT COLOR=YELLOW>You Do: </FONT></TD>
@@ -289,7 +316,7 @@
 	                    </TR>
 	                    <TR>
 	                        <TD><FONT COLOR=YELLOW>Others See: </FONT></TD>
-	                        <TD><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_TARGETMOB_@RequestParameter?XARG@_O VALUE="@SocialData?SDAT_TARGETMOB_@@RequestParameter?XARG@@_O@"></TD>
+	                        <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETMOB_@RequestParameter?XARG@_O VALUE="@SocialData?SDAT_TARGETMOB_@@RequestParameter?XARG@@_O@"></TD>
 	                    </TR>
 	                    <TR>
 	                        <TD><FONT COLOR=YELLOW>Others: </FONT></TD>
@@ -299,6 +326,14 @@
 	                        <TD><FONT COLOR=YELLOW>MSP Filename: </FONT></TD>
 	                        <TD><INPUT TYPE=TEXT SIZE=40 NAME=SDAT_TARGETMOB_@RequestParameter?XARG@_M VALUE="@SocialData?SDAT_TARGETMOB_@@RequestParameter?XARG@@_M@"></TD>
 	                    </TR>
+	                    <TR>
+	                        <TD><FONT COLOR=YELLOW>Zappermask: </FONT></TD>
+	                        <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETMOB_@RequestParameter?XARG@_Z VALUE="@SocialData?SDAT_TARGETMOB_@@RequestParameter?XARG@@_Z@"></TD>
+	                    </TR>
+		                <TR>
+		                    <TD><FONT COLOR=YELLOW>Flags: </FONT></TD>
+		                    <TD><SELECT NAME=SDAT_TARGETMOB_@RequestParameter?XARG@_F MULTIPLE> @SocialData?SDAT_TARGETMOB_@RequestParameter?XARG@_F@ </SELECT></TD>
+		                </TR>
 	                    </TABLE>
 	                    @endif@
 	                </TD>
@@ -321,7 +356,7 @@
                 <TABLE WIDTH=100% BORDER=1 CELLSPACING=0 CELLPADDING=0>
                 <TR>
                     <TD WIDTH=20%><FONT COLOR=YELLOW>You See: </FONT></TD>
-                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_TARGETINV_Y VALUE="@SocialData?SDAT_TARGETINV_Y@"></TD>
+                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETINV_Y VALUE="@SocialData?SDAT_TARGETINV_Y@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>You Do: </FONT></TD>
@@ -329,7 +364,7 @@
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>Others See: </FONT></TD>
-                    <TD><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_TARGETINV_O VALUE="@SocialData?SDAT_TARGETINV_O@"></TD>
+                    <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETINV_O VALUE="@SocialData?SDAT_TARGETINV_O@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>Others/Target: </FONT></TD>
@@ -337,11 +372,19 @@
                 </TR>
                 <TR>
                     <TD WIDTH=20%><FONT COLOR=YELLOW>No Target Sees: </FONT></TD>
-                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_TARGETINV_N VALUE="@SocialData?SDAT_TARGETINV_N@"></TD>
+                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETINV_N VALUE="@SocialData?SDAT_TARGETINV_N@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>MSP Filename: </FONT></TD>
                     <TD><INPUT TYPE=TEXT SIZE=40 NAME=SDAT_TARGETINV_M VALUE="@SocialData?SDAT_TARGETINV_M@"></TD>
+                </TR>
+                <TR>
+                    <TD><FONT COLOR=YELLOW>Zappermask: </FONT></TD>
+                    <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETINV_Z VALUE="@SocialData?SDAT_TARGETINV_Z@"></TD>
+                </TR>
+                <TR>
+                    <TD><FONT COLOR=YELLOW>Flags: </FONT></TD>
+                    <TD><SELECT NAME=SDAT_TARGETINV_F MULTIPLE> @SocialData?SDAT_TARGETINV_F@ </SELECT></TD>
                 </TR>
                 </TABLE>
                 @endif@
@@ -356,7 +399,7 @@
                 <TABLE WIDTH=100% BORDER=1 CELLSPACING=0 CELLPADDING=0>
                 <TR>
                     <TD WIDTH=20%><FONT COLOR=YELLOW>You See: </FONT></TD>
-                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_TARGETEQUIP_Y VALUE="@SocialData?SDAT_TARGETEQUIP_Y@"></TD>
+                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETEQUIP_Y VALUE="@SocialData?SDAT_TARGETEQUIP_Y@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>You Do: </FONT></TD>
@@ -364,7 +407,7 @@
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>Others See: </FONT></TD>
-                    <TD><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_TARGETEQUIP_O VALUE="@SocialData?SDAT_TARGETEQUIP_O@"></TD>
+                    <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETEQUIP_O VALUE="@SocialData?SDAT_TARGETEQUIP_O@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>Others/Target: </FONT></TD>
@@ -372,11 +415,19 @@
                 </TR>
                 <TR>
                     <TD WIDTH=20%><FONT COLOR=YELLOW>No Target Sees: </FONT></TD>
-                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_TARGETEQUIP_N VALUE="@SocialData?SDAT_TARGETEQUIP_N@"></TD>
+                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETEQUIP_N VALUE="@SocialData?SDAT_TARGETEQUIP_N@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>MSP Filename: </FONT></TD>
                     <TD><INPUT TYPE=TEXT SIZE=40 NAME=SDAT_TARGETEQUIP_M VALUE="@SocialData?SDAT_TARGETEQUIP_M@"></TD>
+                </TR>
+                <TR>
+                    <TD><FONT COLOR=YELLOW>Zappermask: </FONT></TD>
+                    <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETEQUIP_Z VALUE="@SocialData?SDAT_TARGETEQUIP_Z@"></TD>
+                </TR>
+                <TR>
+                    <TD><FONT COLOR=YELLOW>Flags: </FONT></TD>
+                    <TD><SELECT NAME=SDAT_TARGETEQUIP_F MULTIPLE> @SocialData?SDAT_TARGETEQUIP_F@ </SELECT></TD>
                 </TR>
                 </TABLE>
                 @endif@
@@ -391,7 +442,7 @@
                 <TABLE WIDTH=100% BORDER=1 CELLSPACING=0 CELLPADDING=0>
                 <TR>
                     <TD WIDTH=20%><FONT COLOR=YELLOW>You See: </FONT></TD>
-                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_TARGETITEM_Y VALUE="@SocialData?SDAT_TARGETITEM_Y@"></TD>
+                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETITEM_Y VALUE="@SocialData?SDAT_TARGETITEM_Y@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>You Do: </FONT></TD>
@@ -399,7 +450,7 @@
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>Others See: </FONT></TD>
-                    <TD><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_TARGETITEM_O VALUE="@SocialData?SDAT_TARGETITEM_O@"></TD>
+                    <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETITEM_O VALUE="@SocialData?SDAT_TARGETITEM_O@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>Others/Target: </FONT></TD>
@@ -408,6 +459,14 @@
                 <TR>
                     <TD><FONT COLOR=YELLOW>MSP Filename: </FONT></TD>
                     <TD><INPUT TYPE=TEXT SIZE=40 NAME=SDAT_TARGETITEM_M VALUE="@SocialData?SDAT_TARGETITEM_M@"></TD>
+                </TR>
+                <TR>
+                    <TD><FONT COLOR=YELLOW>MSP Filename: </FONT></TD>
+                    <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_TARGETITEM_Z VALUE="@SocialData?SDAT_TARGETITEM_Z@"></TD>
+                </TR>
+                <TR>
+                    <TD><FONT COLOR=YELLOW>Flags: </FONT></TD>
+                    <TD><SELECT NAME=SDAT_TARGETITEM_F MULTIPLE> @SocialData?SDAT_TARGETITEM_F@ </SELECT></TD>
                 </TR>
                 </TABLE>
                 @endif@
@@ -422,7 +481,7 @@
                 <TABLE WIDTH=100% BORDER=1 CELLSPACING=0 CELLPADDING=0>
                 <TR>
                     <TD WIDTH=20%><FONT COLOR=YELLOW>You See: </FONT></TD>
-                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_ALL_Y VALUE="@SocialData?SDAT_ALL_Y@"></TD>
+                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_ALL_Y VALUE="@SocialData?SDAT_ALL_Y@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>You Do: </FONT></TD>
@@ -430,7 +489,7 @@
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>Others See: </FONT></TD>
-                    <TD><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_ALL_O VALUE="@SocialData?SDAT_ALL_O@"></TD>
+                    <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_ALL_O VALUE="@SocialData?SDAT_ALL_O@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>Others: </FONT></TD>
@@ -438,11 +497,19 @@
                 </TR>
                 <TR>
                     <TD WIDTH=20%><FONT COLOR=YELLOW>No Target Sees: </FONT></TD>
-                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_ALL_N VALUE="@SocialData?SDAT_ALL_N@"></TD>
+                    <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_ALL_N VALUE="@SocialData?SDAT_ALL_N@"></TD>
                 </TR>
                 <TR>
                     <TD><FONT COLOR=YELLOW>MSP Filename: </FONT></TD>
                     <TD><INPUT TYPE=TEXT SIZE=40 NAME=SDAT_ALL_M VALUE="@SocialData?SDAT_ALL_M@"></TD>
+                </TR>
+                <TR>
+                    <TD><FONT COLOR=YELLOW>Zappermask: </FONT></TD>
+                    <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_ALL_Z VALUE="@SocialData?SDAT_ALL_Z@"></TD>
+                </TR>
+                <TR>
+                    <TD><FONT COLOR=YELLOW>Flags: </FONT></TD>
+                    <TD><SELECT NAME=SDAT_ALL_F MULTIPLE> @SocialData?SDAT_ALL_F@ </SELECT></TD>
                 </TR>
                 </TABLE>
                 @endif@
@@ -466,7 +533,7 @@
                     <TABLE WIDTH=100% BORDER=1 CELLSPACING=0 CELLPADDING=0>
                     <TR>
                         <TD WIDTH=20%><FONT COLOR=YELLOW>You See: </FONT></TD>
-                        <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_@RequestParameter?XSOCIAL@_Y VALUE="@SocialData?SDAT_@@RequestParameter?XSOCIAL@@_Y@"></TD>
+                        <TD WIDTH=80%><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_@RequestParameter?XSOCIAL@_Y VALUE="@SocialData?SDAT_@@RequestParameter?XSOCIAL@@_Y@"></TD>
                     </TR>
                     <TR>
                         <TD><FONT COLOR=YELLOW>You Do: </FONT></TD>
@@ -474,7 +541,7 @@
                     </TR>
                     <TR>
                         <TD><FONT COLOR=YELLOW>Others See: </FONT></TD>
-                        <TD><INPUT TYPE=TEXT SIZE=75 NAME=SDAT_@RequestParameter?XSOCIAL@_O VALUE="@SocialData?SDAT_@@RequestParameter?XSOCIAL@@_O@"></TD>
+                        <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_@RequestParameter?XSOCIAL@_O VALUE="@SocialData?SDAT_@@RequestParameter?XSOCIAL@@_O@"></TD>
                     </TR>
                     <TR>
                         <TD><FONT COLOR=YELLOW>Others: </FONT></TD>
@@ -484,6 +551,14 @@
                         <TD><FONT COLOR=YELLOW>MSP Filename: </FONT></TD>
                         <TD><INPUT TYPE=TEXT SIZE=40 NAME=SDAT_@RequestParameter?XSOCIAL@_M VALUE="@SocialData?SDAT_@@RequestParameter?XSOCIAL@@_M@"></TD>
                     </TR>
+                    <TR>
+                        <TD><FONT COLOR=YELLOW>Zappermask: </FONT></TD>
+                        <TD><INPUT TYPE=TEXT SIZE=60 NAME=SDAT_@RequestParameter?XSOCIAL@_Z VALUE="@SocialData?SDAT_@@RequestParameter?XSOCIAL@@_Z@"></TD>
+                    </TR>
+                <TR>
+                    <TD><FONT COLOR=YELLOW>Flags: </FONT></TD>
+                    <TD><SELECT NAME=SDAT_@RequestParameter?XSOCIAL@_F MULTIPLE> @SocialData?SDAT_@RequestParameter?XSOCIAL@_F@ </SELECT></TD>
+                </TR>
                     </TABLE>
                     @endif@
                 </TD>
@@ -502,12 +577,16 @@
 <TABLE WIDTH=100% BORDER=0>
 <TR>
     @if?!CheckReqParm?SOCIAL=@
-        @if?SocialData?ISNEWSOCIAL@
-            <TD ALIGN=CENTER><INPUT TYPE=BUTTON NAME=FINISHED VALUE="Create" ONCLICK="EditDone();"></TD>
+        @if?CheckReqParm?COMPONENT=true@
+            <TD ALIGN=CENTER><INPUT TYPE=BUTTON NAME=FINISHED VALUE="Submit" ONCLICK="EditDone();"></TD>
         @else@
-            <TD ALIGN=CENTER><INPUT TYPE=BUTTON NAME=FINISHED VALUE="Modify" ONCLICK="EditDone();"></TD>
-            <TD ALIGN=CENTER><INPUT TYPE=BUTTON NAME=DELETE VALUE="Delete" ONCLICK="Delete();"></TD>
-        @endif@
+	        @if?SocialData?ISNEWSOCIAL@
+	            <TD ALIGN=CENTER><INPUT TYPE=BUTTON NAME=FINISHED VALUE="Create" ONCLICK="EditDone();"></TD>
+	        @else@
+	            <TD ALIGN=CENTER><INPUT TYPE=BUTTON NAME=FINISHED VALUE="Modify" ONCLICK="EditDone();"></TD>
+	            <TD ALIGN=CENTER><INPUT TYPE=BUTTON NAME=DELETE VALUE="Delete" ONCLICK="Delete();"></TD>
+	        @endif@
+	    @endif@
         <TD ALIGN=CENTER><INPUT TYPE=BUTTON NAME=CANCEL VALUE="Cancel" ONCLICK="Cancel();"></TD>
     @endif@
 </TR>

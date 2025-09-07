@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ public class Spell_RepairingAura extends Spell
 	@Override
 	protected int canTargetCode()
 	{
-		return CAN_ITEMS;
+		return CAN_ITEMS|CAN_MOBS;
 	}
 
 	@Override
@@ -70,7 +70,7 @@ public class Spell_RepairingAura extends Spell
 	@Override
 	public int abstractQuality()
 	{
-		return Ability.QUALITY_INDIFFERENT;
+		return Ability.QUALITY_OK_SELF;
 	}
 
 	@Override
@@ -79,15 +79,24 @@ public class Spell_RepairingAura extends Spell
 		return 50;
 	}
 
-	public static final int	REPAIR_MAX		= 30;
-	public int				repairDown		= REPAIR_MAX;
-	public int				adjustedLevel	= 1;
+	protected static final int	REPAIR_MAX		= 30;
+	protected int				repairDown		= REPAIR_MAX;
+	protected int				adjustedLevel	= 1;
+	protected boolean			everTicked		= false;
 
 	@Override
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
 		super.affectPhyStats(affected,affectableStats);
 		affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_BONUS);
+		if((!canBeUninvoked())&&(affected instanceof Item))
+		{
+			final Item I=(Item)affected;
+			if((I.subjectToWearAndTear())
+			&&(I.usesRemaining()<100)
+			&&(I.phyStats().weight()<=500))
+				I.setUsesRemaining(100);
+		}
 	}
 
 	@Override
@@ -114,8 +123,10 @@ public class Spell_RepairingAura extends Spell
 	}
 
 	@Override
-	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
+	public boolean invoke(final MOB mob, final List<String> commands, Physical givenTarget, final boolean auto, final int asLevel)
 	{
+		if((commands.size()==0)&&(givenTarget==null))
+			givenTarget=mob;
 		final Physical target=getAnyTarget(mob,commands,givenTarget,Wearable.FILTER_ANY);
 		if(target==null)
 			return false;
@@ -129,6 +140,12 @@ public class Spell_RepairingAura extends Spell
 		if((!(target instanceof Item))&&(!(target instanceof MOB)))
 		{
 			mob.tell(L("@x1 would not be affected by this spell.",target.name(mob)));
+			return false;
+		}
+		if((target instanceof Item)
+		&&(target.phyStats().weight()>500))
+		{
+			mob.tell(L("@x1 is too large to be affected by this magic.",target.name(mob)));
 			return false;
 		}
 
@@ -170,8 +187,8 @@ public class Spell_RepairingAura extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAMESELF>, incanting.^?"));
-			final CMMsg msg2=(target==realTarget)?null:CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),null);
+			final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAMESELF>, incanting.^?"));
+			final CMMsg msg2=(target==realTarget)?null:CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),null);
 			if(mob.location().okMessage(mob,msg)
 			&&(realTarget!=null)
 			&&((msg2==null)||mob.location().okMessage(mob,msg2)))

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ public class Dance_Manipuri extends Dance
 	@Override
 	protected String danceOf()
 	{
-		return name()+" Dance";
+		return L("@x1 Dance",name());
 	}
 
 	protected Room lastRoom=null;
@@ -88,7 +88,7 @@ public class Dance_Manipuri extends Dance
 		if(((msg.targetMajor()&CMMsg.MASK_MALICIOUS)>0)
 		&&(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_ALWAYS))
 		&&(mob.location()!=null)
-		&&((msg.amITarget(mob)))
+		&&(msg.amITarget(mob))
 		&&((count>0)||(lastRoom==null)||(lastRoom!=mob.location())))
 		{
 			final MOB target=(MOB)msg.target();

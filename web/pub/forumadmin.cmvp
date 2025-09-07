@@ -2,6 +2,7 @@
 
 <html>
 <head>
+	<META CHARSET="utf-8"/>
 	<link rel="coffeemud icon" href="images/coffeemud.ico" >
 	<!-- tell spiders to sod off -->
 	<meta name="ROBOTS" content="NOINDEX, NOFOLLOW">
@@ -154,6 +155,13 @@
 	<FONT SIZE=-1><I>See Control Panel</I></B>
 	</TD>
 	<TD><FONT COLOR=BLACK><PRE>@ForumInfo?POSTMASK@</PRE></FONT></TD>
+</TR>
+<TR BGCOLOR=LIGHTGREY>
+	<TD VALIGN=TOP>
+	<FONT SIZE=4><B>Attaching Mask</B>
+	<FONT SIZE=-1><I>See Control Panel</I></B>
+	</TD>
+	<TD><FONT COLOR=BLACK><PRE>@ForumInfo?ATTACHMASK@</PRE></FONT></TD>
 </TR>
 <TR BGCOLOR=LIGHTGREY>
 	<TD VALIGN=TOP>

@@ -6,7 +6,6 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.Experti
 import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.Tracker;
 import com.planet_ink.coffee_mud.Libraries.interfaces.ExpertiseLibrary.ExpertiseDefinition;
 import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
-import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.CMSecurity.SecGroup;
@@ -18,7 +17,7 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
-import com.planet_ink.coffee_mud.Common.interfaces.AccountStats.PrideStat;
+import com.planet_ink.coffee_mud.Common.interfaces.PrideStats.PrideStat;
 import com.planet_ink.coffee_mud.Common.interfaces.PlayerAccount.AccountFlag;
 import com.planet_ink.coffee_mud.Common.interfaces.TimeClock.TimePeriod;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
@@ -32,7 +31,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -46,7 +45,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class DefaultPlayerStats implements PlayerStats
+public class DefaultPlayerStats extends DefaultPrideStats implements PlayerStats
 {
 	@Override
 	public String ID()
@@ -60,8 +59,8 @@ public class DefaultPlayerStats implements PlayerStats
 		return ID();
 	}
 
-	protected final static int TELL_STACK_MAX_SIZE=50;
-	protected final static int GTELL_STACK_MAX_SIZE=50;
+	protected final static int	TELL_STACK_MAX_SIZE		= 50;
+	protected final static int	GTELL_STACK_MAX_SIZE	= 50;
 
 	protected long			 hygiene		= 0;
 	protected int			 theme			= Area.THEME_FANTASY;
@@ -75,6 +74,7 @@ public class DefaultPlayerStats implements PlayerStats
 	protected long			 lastRolePlayTm = System.currentTimeMillis();
 	protected int			 deferredXP		= 0;
 	protected int			 maxDeferredXP	= 0;
+	protected int			 deathCounter	= 0;
 	protected int   		 channelMask;
 	protected String		 email			= "";
 	protected String		 password		= "";
@@ -87,8 +87,10 @@ public class DefaultPlayerStats implements PlayerStats
 	protected String		 deathPoof		= "";
 	protected String		 announceMsg	= "";
 	protected String		 savedPose		= "";
+	protected boolean		 poseConstant	= true; // makes the location change a bit faster
 	protected String		 notes			= "";
-	protected int   		 wrap			= 78;
+	private volatile String  actTitle		= null;
+	protected int   		 wrap			= DEFAULT_WORDWRAP;
 	protected int			 bonusCommonSk	= 0;
 	protected int			 bonusCraftSk	= 0;
 	protected int			 bonusNonCraftSk= 0;
@@ -102,18 +104,18 @@ public class DefaultPlayerStats implements PlayerStats
 	protected Set<String>	 friends		= new SHashSet<String>();
 	protected Set<String>	 ignored		= new SHashSet<String>();
 	protected Set<String>	 subscriptions	= new SHashSet<String>();
-	protected List<String>	 tellStack		= new SVector<String>();
-	protected List<String>	 gtellStack		= new SVector<String>();
-	protected List<String>	 titles			= new SVector<String>();
+	protected List<TellMsg>	 tellStack		= new SVector<TellMsg>();
+	protected List<TellMsg>	 gtellStack		= new SVector<TellMsg>();
+	protected List<Title>	 titles			= new SVector<Title>();
 	protected Set<String>	 autoInvokeSet	= new TreeSet<String>();
 	protected PlayerAccount  account		= null;
 	protected SecGroup		 securityFlags	= new SecGroup(new CMSecurity.SecFlag[]{});
 	protected long			 accountExpires	= 0;
 	protected RoomnumberSet  visitedRoomSet	= null;
+	protected RoomnumberSet  tVisitedRoomSet= null;
 	protected Set<String>	 introductions	= new SHashSet<String>();
-	protected long[]	 	 prideExpireTime= new long[TimeClock.TimePeriod.values().length];
-	protected int[][]		 prideStats		= new int[TimeClock.TimePeriod.values().length][AccountStats.PrideStat.values().length];
 	protected long[][]		 combatStats	= new long[0][PlayerCombatStat.values().length];
+	protected TimeClock		 birthdayClock	= null;
 
 	protected ItemCollection extItems;
 
@@ -123,12 +125,41 @@ public class DefaultPlayerStats implements PlayerStats
 	protected Map<String,Integer>	legacy			= new STreeMap<String,Integer>();
 	protected Map<String,int[]>		combatSpams		= new STreeMap<String,int[]>();
 	protected Set<PlayerFlag>		playFlags		= new SHashSet<PlayerFlag>();
+	protected List<LevelInfo>		levelInfo		= new SVector<LevelInfo>();
 
 	protected Map<String, AbilityMapping>		ableMap		= new SHashtable<String, AbilityMapping>();
 	protected Map<String, ExpertiseDefinition>	experMap	= new SHashtable<String, ExpertiseDefinition>();
 	protected Map<CharClass,Map<String,Object>>	classMap	= new STreeMap<CharClass,Map<String,Object>>();
 
-	protected QuadVector<Integer, Long, String, Long>		levelInfo	= new QuadVector<Integer, Long, String, Long>();
+	private class Title
+	{
+		public String	s;
+		public boolean	r	= false;
+
+		protected Title(final String s)
+		{
+			this.s=s;
+		}
+	}
+
+	private static final Converter<Title, String> titleConverter = new Converter<Title, String>()
+	{
+		@Override
+		public String convert(final Title obj)
+		{
+			return obj.s;
+		}
+
+	};
+
+	private class LevelInfo
+	{
+		public int		level;
+		public long		time;
+		public String	roomID;
+		public long		mins;
+		public int[]	costGains	= new int[CostDef.CostType.values().length];
+	}
 
 	public DefaultPlayerStats()
 	{
@@ -142,7 +173,7 @@ public class DefaultPlayerStats implements PlayerStats
 	{
 		try
 		{
-			return getClass().newInstance();
+			return getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -161,19 +192,20 @@ public class DefaultPlayerStats implements PlayerStats
 		try
 		{
 			final DefaultPlayerStats O=(DefaultPlayerStats)this.clone();
-			O.levelInfo=new QuadVector<Integer, Long, String, Long>();
+			O.levelInfo=new SVector<LevelInfo>();
 			O.levelInfo.addAll(levelInfo);
 			if(visitedRoomSet!=null)
 				O.visitedRoomSet=(RoomnumberSet)visitedRoomSet.copyOf();
 			else
 				O.visitedRoomSet=null;
+			O.tVisitedRoomSet = null;
 			O.securityFlags=securityFlags.copyOf();
 			O.friends=new SHashSet<String>(friends);
 			O.ignored=new SHashSet<String>(ignored);
 			O.subscriptions=new SHashSet<String>(subscriptions);
-			O.tellStack=new SVector<String>(tellStack);
-			O.gtellStack=new SVector<String>(gtellStack);
-			O.titles=new SVector<String>(titles);
+			O.tellStack=new SVector<TellMsg>(tellStack);
+			O.gtellStack=new SVector<TellMsg>(gtellStack);
+			O.titles=new SVector<Title>(titles);
 			O.alias=new SHashtable<String,String>(alias);
 			O.legacy=new SHashtable<String,Integer>(legacy);
 			O.xtraValues=(xtraValues==null)?null:(String[])xtraValues.clone();
@@ -268,11 +300,7 @@ public class DefaultPlayerStats implements PlayerStats
 	@Override
 	public void setPassword(final String newPassword)
 	{
-		if(CMProps.getBoolVar(CMProps.Bool.HASHPASSWORDS)
-		&&(!CMLib.encoder().isARandomHashString(newPassword)))
-			password=CMLib.encoder().makeRandomHashString(newPassword);
-		else
-			password=newPassword;
+		password = CMLib.encoder().makeFinalPasswordString(newPassword);
 		if(account != null)
 			account.setPassword(password);
 	}
@@ -412,9 +440,19 @@ public class DefaultPlayerStats implements PlayerStats
 	}
 
 	@Override
-	public void setSavedPose(final String msg)
+	public void setSavedPose(final String msg, final boolean constant)
 	{
-		savedPose=msg;
+		if(msg == null)
+			savedPose="";
+		else
+			savedPose=msg;
+		poseConstant = constant;
+	}
+
+	@Override
+	public boolean isPoseConstant()
+	{
+		return poseConstant;
 	}
 
 	@Override
@@ -470,17 +508,31 @@ public class DefaultPlayerStats implements PlayerStats
 	}
 
 	@Override
-	public void addTellStack(final String msg)
+	public void addTellStack(final String from, final String to, final String msg)
 	{
 		if(tellStack.size()>TELL_STACK_MAX_SIZE)
 			tellStack.remove(0);
-		tellStack.add(msg);
+		tellStack.add(makeTellMsg(from,to,msg));
 	}
 
 	@Override
-	public List<String> getTellStack()
+	public List<TellMsg> queryTellStack(final String fromName, final String toName, final Long sinceTime)
 	{
-		return new ReadOnlyList<String>(tellStack);
+		final List<TellMsg> msgs=new Vector<TellMsg>();
+		for(final PlayerStats.TellMsg M : getTellStack())
+		{
+			if(((sinceTime == null)||(M.time()>=sinceTime.longValue()))
+			&&((fromName==null)||(M.from().equalsIgnoreCase(fromName)))
+			&&((toName==null)||(M.to().equalsIgnoreCase(toName))))
+				msgs.add(M);
+		}
+		return msgs;
+	}
+
+	@Override
+	public List<TellMsg> getTellStack()
+	{
+		return new ReadOnlyList<TellMsg>(tellStack);
 	}
 
 	private RoomnumberSet roomSet()
@@ -490,18 +542,78 @@ public class DefaultPlayerStats implements PlayerStats
 		return visitedRoomSet;
 	}
 
-	@Override
-	public void addGTellStack(final String msg)
+	private RoomnumberSet tempRoomSet()
 	{
-		if(gtellStack.size()>GTELL_STACK_MAX_SIZE)
-			gtellStack.remove(0);
-		gtellStack.add(msg);
+		if(tVisitedRoomSet==null)
+		{
+			tVisitedRoomSet=((RoomnumberSet)CMClass.getCommon("DefaultRoomnumberSet"));
+			tVisitedRoomSet.setSingleAreaFlag(true);
+		}
+		return tVisitedRoomSet;
+	}
+
+	protected TellMsg makeTellMsg(final String from, final String to, final String msg)
+	{
+		return new TellMsg()
+		{
+			private final String fromName = from;
+			private final String toName = to;
+			private final String msgStr = msg;
+			private final long time = System.currentTimeMillis();
+
+			@Override
+			public String to()
+			{
+				return toName;
+			}
+
+			@Override
+			public String from()
+			{
+				return fromName;
+			}
+
+			@Override
+			public long time()
+			{
+				return time;
+			}
+
+			@Override
+			public String message()
+			{
+				return msgStr;
+			}
+
+		};
 	}
 
 	@Override
-	public List<String> getGTellStack()
+	public void addGTellStack(final String from, final String to, final String msg)
 	{
-		return new ReadOnlyList<String>(gtellStack);
+		if(gtellStack.size()>GTELL_STACK_MAX_SIZE)
+			gtellStack.remove(0);
+		gtellStack.add(makeTellMsg(from,to,msg));
+	}
+
+	@Override
+	public List<TellMsg> queryGTellStack(final String fromName, final String toName, final Long sinceTime)
+	{
+		final List<TellMsg> msgs = new Vector<TellMsg>(1);
+		for(final PlayerStats.TellMsg M : getGTellStack())
+		{
+			if(((sinceTime == null)||(M.time()>=sinceTime.longValue()))
+			&&((fromName==null)||(M.from().equalsIgnoreCase(fromName)))
+			&&((toName==null)||(M.to().equalsIgnoreCase(toName))))
+				msgs.add(M);
+		}
+		return msgs;
+	}
+
+	@Override
+	public List<TellMsg> getGTellStack()
+	{
+		return new ReadOnlyList<TellMsg>(gtellStack);
 	}
 
 	@Override
@@ -529,23 +641,31 @@ public class DefaultPlayerStats implements PlayerStats
 	}
 
 	@Override
-	public boolean isIgnored(MOB mob)
+	public boolean isIgnored(final String cat, MOB mob)
 	{
 		if(mob==null)
 			return false;
-		if(account != null)
-			return account.isIgnored(mob);
-		if (mob.soulMate() != null)
-			mob=mob.soulMate();
+		synchronized(mob)
+		{
+			if (mob.soulMate() != null)
+				mob=mob.soulMate();
+		}
+		if((account != null) && (account.isIgnored(cat, mob)))
+			return true;
+		if(ignored.size()==0)
+			return false;
 		if(ignored.contains(mob.Name()))
 			return true;
-		final PlayerStats stats=mob.playerStats();
-		if(stats ==null)
+		final PlayerAccount acct = (mob.playerStats()!=null)?mob.playerStats().getAccount():null;
+		if((acct!=null) &&(ignored.contains(acct.getAccountName()+"*")))
+			return true;
+		if(cat == null)
 			return false;
-		final PlayerAccount account=stats.getAccount();
-		if(account == null)
-			return false;
-		return ignored.contains(account.getAccountName()+"*");
+		if(ignored.contains(cat+"."+mob.Name()))
+			return true;
+		if((acct != null)&&(ignored.contains(cat+"."+acct.getAccountName()+"*")))
+			return true;
+		return false;
 	}
 
 	@Override
@@ -553,8 +673,8 @@ public class DefaultPlayerStats implements PlayerStats
 	{
 		if(name==null)
 			return false;
-		if(account != null)
-			return account.isIgnored(name);
+		if((account != null)&&account.isIgnored(name))
+			return true;
 		return (ignored.contains(name) || ignored.contains(name+"*"));
 	}
 
@@ -625,20 +745,139 @@ public class DefaultPlayerStats implements PlayerStats
 	}
 
 	@Override
+	public boolean getTitleRandom(final String title, final Boolean changeTF)
+	{
+		for(final Iterator<Title> t = titles.iterator();t.hasNext();)
+		{
+			final Title T = t.next();
+			if(T.s.equals(title))
+			{
+				if(changeTF != null)
+					T.r = changeTF.booleanValue();
+				return T.r;
+			}
+		}
+		return false;
+	}
+
+	@Override
 	public String getActiveTitle()
 	{
-		if((titles==null)||(titles.size()==0))
-			return null;
-		final String s=titles.get(0);
-		if((s.length()<2)||(s.charAt(0)!='{')||(s.charAt(s.length()-1)!='}'))
-			return s;
-		return s.substring(1,s.length()-1);
+		if(titles.size()==0)
+			return "*";
+		synchronized(this)
+		{
+			final String oActiveTitle=actTitle;
+			if(oActiveTitle != null)
+				return oActiveTitle;
+		}
+
+		final String s=titles.get(0).s;
+		if((s.length()>2)&&(s.charAt(0)=='{')&&(s.charAt(s.length()-1)=='}'))
+			this.actTitle = s.substring(1,s.length()-1);
+		else
+		if((titles.size()==1)
+		||(s.equals("*"))
+		||(!s.endsWith("*"))
+		||(titles.get(1).s.length()==0)
+		||(titles.get(1).s.equals("*"))
+		||(!titles.get(1).s.startsWith("*")))
+			this.actTitle = s;
+		else
+			this.actTitle=s.substring(0,s.length()-1)+titles.get(1).s;
+		return this.actTitle;
 	}
 
 	@Override
 	public List<String> getTitles()
 	{
-		return titles;
+		return new ConvertingList<Title,String>(titles,titleConverter);
+	}
+
+	@Override
+	public boolean delTitle(final String s)
+	{
+		synchronized(titles)
+		{
+			if((titles.size()==0)||(s.equals("*")))
+				return false;
+			for(final Iterator<Title> t = titles.iterator();t.hasNext();)
+			{
+				final Title T = t.next();
+				if(T.s.equals(s))
+				{
+					this.actTitle = null;
+					titles.remove(T);
+					return true;
+				}
+			}
+			for(final Iterator<Title> i=titles.iterator();i.hasNext();)
+			{
+				final Title s1=i.next();
+				if(s1.s.equalsIgnoreCase(s))
+				{
+					this.actTitle = null;
+					titles.remove(s1);
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	@Override
+	public void addTitle(final String s)
+	{
+		synchronized(titles)
+		{
+			if(titles.size()==0)
+			{
+				if(!s.equals("*"))
+					titles.add(new Title("*"));
+				titles.add(new Title(s));
+				this.actTitle=null;
+			}
+			else
+			{
+				final int oldTitleSize = titles.size();
+				int earliestIndex = -1;
+				for(int i=titles.size()-1;i>=0;i--)
+				{
+					final Title t1 = titles.get(i);
+					final String s1 = t1.s;
+					if(s1.equalsIgnoreCase(s))
+					{
+						if(earliestIndex>0)
+							titles.remove(earliestIndex);
+						earliestIndex=i;
+					}
+				}
+				if(earliestIndex ==0)
+					return;
+				else
+				if(earliestIndex>0)
+				{
+					final Title t1 = titles.get(earliestIndex);
+					this.actTitle = null;
+					titles.remove(earliestIndex);
+					if(s.endsWith("*"))
+						titles.add(0, t1);
+					else
+					if(s.startsWith("*")
+					&&(s.length()>1)
+					&&(titles.get(0).s.endsWith("*"))
+					&&(titles.get(0).s.length()>1))
+						titles.add(1, t1);
+					else
+						titles.add(0, t1);
+					if(titles.size()!=oldTitleSize)
+						Log.errOut("DefaultPlayerStats", titles.size()+"!="+oldTitleSize);
+					return;
+				}
+				titles.add(new Title(s));
+				this.actTitle = null;
+			}
+		}
 	}
 
 	private String getTitleXML()
@@ -647,15 +886,16 @@ public class DefaultPlayerStats implements PlayerStats
 			return "";
 		for(int t=titles.size()-1;t>=0;t--)
 		{
-			final String s=titles.get(t);
+			final String s=titles.get(t).s;
 			if(s.length()==0)
 				titles.remove(t);
 		}
 		final StringBuilder str=new StringBuilder("");
 		for(int t=0;t<titles.size();t++)
 		{
-			final String s=titles.get(t);
-			str.append("<TITLE>"+CMLib.xml().parseOutAngleBrackets(CMLib.coffeeFilter().safetyFilter(s))+"</TITLE>");
+			final Title T=titles.get(t);
+			final String titleXMLStr = CMLib.xml().parseOutAngleBrackets(CMLib.coffeeFilter().safetyInFilter(T.s));
+			str.append("<TITLE").append(T.r?" RAND=1":"").append(">").append(titleXMLStr).append("</TITLE>");
 		}
 		return str.toString();
 	}
@@ -704,6 +944,19 @@ public class DefaultPlayerStats implements PlayerStats
 	}
 
 	@Override
+	public TimeClock getBirthdayClock(final TimeClock clock)
+	{
+		if(birthdayClock == null)
+		{
+			birthdayClock = (TimeClock)clock.copyOf();
+			birthdayClock.setYear(birthday[2]);
+			birthdayClock.setMonth(birthday[1]);
+			birthdayClock.setDayOfMonth(birthday[0]);
+		}
+		return birthdayClock;
+	}
+
+	@Override
 	public int initializeBirthday(TimeClock clock, int ageHours, final Race R)
 	{
 		if(clock == null)
@@ -741,36 +994,6 @@ public class DefaultPlayerStats implements PlayerStats
 	}
 
 	@Override
-	public void bumpPrideStat(final PrideStat stat, final int amt)
-	{
-		final long now=System.currentTimeMillis();
-		if(stat!=null)
-		for(final TimeClock.TimePeriod period : TimeClock.TimePeriod.values())
-		{
-			if(period==TimeClock.TimePeriod.ALLTIME)
-				prideStats[period.ordinal()][stat.ordinal()]+=amt;
-			else
-			{
-				if(now>prideExpireTime[period.ordinal()])
-				{
-					for(final AccountStats.PrideStat stat2 : AccountStats.PrideStat.values())
-						prideStats[period.ordinal()][stat2.ordinal()]=0;
-					prideExpireTime[period.ordinal()]=period.nextPeriod();
-				}
-				prideStats[period.ordinal()][stat.ordinal()]+=amt;
-			}
-		}
-	}
-
-	@Override
-	public int getPrideStat(final TimePeriod period, final PrideStat stat)
-	{
-		if((period==null)||(stat==null))
-			return 0;
-		return prideStats[period.ordinal()][stat.ordinal()];
-	}
-
-	@Override
 	public String getXML()
 	{
 		final String friendsStr=getPrivateList(getFriends());
@@ -784,18 +1007,13 @@ public class DefaultPlayerStats implements PlayerStats
 			final String code=codes[x].toUpperCase();
 			rest.append("<"+code+">"+CMLib.xml().parseOutAngleBrackets(getStat(code))+"</"+code+">");
 		}
-		rest.append("<NEXTPRIDEPERIODS>").append(CMParms.toTightListString(prideExpireTime)).append("</NEXTPRIDEPERIODS>");
-		rest.append("<PRIDESTATS>");
-		for(final TimeClock.TimePeriod period : TimeClock.TimePeriod.values())
-			rest.append(CMParms.toTightListString(prideStats[period.ordinal()])).append(";");
-		rest.append("</PRIDESTATS>");
-
+		rest.append(super.getXML());
 		rest.append("<ACHIEVEMENTS");
 		for(final Iterator<Tracker> i=achievementers.values().iterator();i.hasNext();)
 		{
 			final Tracker T = i.next();
 			if(T.getAchievement().isSavableTracker() && (T.getCount(null) != 0))
-				rest.append(" ").append(T.getAchievement().getTattoo()).append("=").append(T.getCount(null));
+				rest.append(" ").append(T.getAchievement().getTattoo()).append("=").append(T.getCountParms(null));
 			// getCount(null) should be ok, because it's only the un-savable trackers that need the mob obj
 		}
 		rest.append(" />");
@@ -826,6 +1044,7 @@ public class DefaultPlayerStats implements PlayerStats
 			+((poofout.length()>0)?"<POOFOUT>"+CMLib.xml().parseOutAngleBrackets(poofout)+"</POOFOUT>":"")
 			+((announceMsg.length()>0)?"<ANNOUNCE>"+CMLib.xml().parseOutAngleBrackets(announceMsg)+"</ANNOUNCE>":"")
 			+((savedPose.length()>0)?"<POSE>"+CMLib.xml().parseOutAngleBrackets(savedPose)+"</POSE>":"")
+			+((savedPose.length()>0)?"<POSECONST>"+poseConstant+"</POSECONST>":"")
 			+((tranpoofin.length()>0)?"<TRANPOOFIN>"+CMLib.xml().parseOutAngleBrackets(tranpoofin)+"</TRANPOOFIN>":"")
 			+((tranpoofout.length()>0)?"<TRANPOOFOUT>"+CMLib.xml().parseOutAngleBrackets(tranpoofout)+"</TRANPOOFOUT>":"")
 			+"<DATES>"+CMLib.xml().parseOutAngleBrackets(this.getLevelDateTimesStr())+"</DATES>"
@@ -833,6 +1052,7 @@ public class DefaultPlayerStats implements PlayerStats
 			+"<AUTOINVSET>"+CMLib.xml().parseOutAngleBrackets(getStat("AUTOINVSET"))+"</AUTOINVSET>"
 			+"<XP RP="+this.rolePlayXP+" MAXRP="+this.maxRolePlayXP+" DEF="+this.deferredXP+" MAXDEF="+this.maxDeferredXP+" />"
 			+"<LASTXPMILLIS>"+this.lastXPDateTime+"</LASTXPMILLIS>"
+			+"<NUMDEATHS>"+this.deathCounter+"</NUMDEATHS>"
 			+((playFlags.size()>0)?"<FLAGS>"+this.getStat("FLAGS")+"</FLAGS>":"")
 			+roomSet().xml()
 			+rest.toString();
@@ -896,26 +1116,57 @@ public class DefaultPlayerStats implements PlayerStats
 	private void setTitleXML(final List<XMLTag> xml)
 	{
 		titles.clear();
+		final XMLLibrary xmlLib = CMLib.xml();
+		final Set<String> alreadyAdded = new HashSet<String>();
 		for (final XMLTag piece : xml)
 		{
 			if(piece.tag().equals("TITLE"))
-				titles.add(CMLib.xml().restoreAngleBrackets(piece.value()));
+			{
+				final String titleStr = xmlLib.restoreAngleBrackets(piece.value());
+				if(alreadyAdded.contains(titleStr))
+					continue;
+				alreadyAdded.add(titleStr);
+				final Title T = new Title(titleStr);
+				if(piece.parms().containsKey("RAND"))
+					T.r=true;
+				titles.add(T);
+			}
 		}
 		int t=-1;
 		while((++t)>=0)
 		{
-			final String title=CMLib.xml().restoreAngleBrackets(CMLib.xml().getValFromPieces(xml,"TITLE"+t));
-			if(title.length()==0)
+			final XMLLibrary.XMLTag tag = xmlLib.getPieceFromPieces(xml,"TITLE"+t);
+			if(tag == null)
 				break;
-			titles.add(title);
+			final String titleStr = xmlLib.restoreAngleBrackets(tag.value());
+			if(titleStr.length()==0)
+				break;
+			if(alreadyAdded.contains(titleStr))
+				continue;
+			alreadyAdded.add(titleStr);
+			final Title T = new Title(titleStr);
+			if(tag.parms().containsKey("RAND"))
+				T.r=true;
+			titles.add(T);
 		}
-
+		this.actTitle = null;
 	}
 
 	@Override
 	public Map<String, AbilityMapping> getExtraQualifiedSkills()
 	{
 		return ableMap;
+	}
+
+	protected void addBlankLevelInfo()
+	{
+		final LevelInfo info = new LevelInfo();
+		info.level = 0;
+		info.time = System.currentTimeMillis();
+		info.roomID = "";
+		info.mins = 0;
+		info.costGains = new int[CostDef.CostType.values().length];
+		levelInfo.add(info);
 	}
 
 	@Override
@@ -991,7 +1242,10 @@ public class DefaultPlayerStats implements PlayerStats
 			pageBreak=CMath.s_int(str);
 		else
 			pageBreak=CMProps.getIntVar(CMProps.Int.PAGEBREAK);
-		str=xmlLib.restoreAngleBrackets(xmlLib.getValFromPieces(xml,"SECGRPS"));
+		if(xmlLib.getValFromPieces(xml, "SECGRPS", null) == null)
+			Log.debugOut("DefaultPlayerStats","MISSING SECGRPS XML="+xmlStr);
+		str=xmlLib.getValFromPieces(xml,"SECGRPS");
+		str=xmlLib.restoreAngleBrackets(str);
 		if(debug)
 			Log.debugOut("SECGRPS="+str);
 		getSetSecurityFlags(str);
@@ -1051,6 +1305,11 @@ public class DefaultPlayerStats implements PlayerStats
 		if(savedPose==null)
 			savedPose="";
 		savedPose=xmlLib.restoreAngleBrackets(savedPose);
+		if(savedPose.length()>0)
+		{
+			final String c = xmlLib.getValFromPieces(xml, "POSECONST");
+			poseConstant = (c.length()>0) ? CMath.s_bool(c) : true;
+		}
 
 		notes=xmlLib.getValFromPieces(xml,"NOTES");
 		if(debug)
@@ -1076,20 +1335,28 @@ public class DefaultPlayerStats implements PlayerStats
 			{
 				final String sStr=sets.get(ss);
 				final List<String> twin=CMParms.parseCommas(sStr,true);
-				if((twin.size()!=2)&&(twin.size()!=3)&&(twin.size()!=4))
+				if(twin.size()<2)
 					continue;
 				if(CMath.s_int(twin.get(0))>=lastNum)
 				{
 					lastNum=CMath.s_int(twin.get(0));
-					levelInfo.addElement(Integer.valueOf(lastNum),
-										 Long.valueOf(CMath.s_long(twin.get(1))),
-										 (twin.size()>2)?(String)twin.get(2):"",
-										 (twin.size()>3)?Long.valueOf(CMath.s_long(twin.get(3))):Long.valueOf(0));
+					final LevelInfo info = new LevelInfo();
+					info.level = lastNum;
+					info.time = CMath.s_long(twin.get(1));
+					info.roomID = (twin.size()>2)?twin.get(2):"";
+					info.mins = (twin.size()>3)?CMath.s_long(twin.get(3)):0;
+					info.costGains = new int[CostDef.CostType.values().length];
+					for(int i=4;i<4+info.costGains.length;i++)
+					{
+						if(twin.size()>i)
+							info.costGains[i-4]=CMath.s_int(twin.get(i));
+					}
+					levelInfo.add(info);
 				}
 			}
 		}
 		if(levelInfo.size()==0)
-			levelInfo.addElement(Integer.valueOf(0),Long.valueOf(System.currentTimeMillis()),"",Long.valueOf(0));
+			addBlankLevelInfo();
 		str = xmlLib.getValFromPieces(xml,"AREAS");
 		if(debug)
 			Log.debugOut("AREAS="+str);
@@ -1103,9 +1370,9 @@ public class DefaultPlayerStats implements PlayerStats
 		{
 			final Achievement A=a.nextElement();
 			if((achievePiece != null) && achievePiece.parms().containsKey(A.getTattoo()))
-				achievementers.put(A.getTattoo(), A.getTracker(CMath.s_int(achievePiece.parms().get(A.getTattoo()).trim())));
+				achievementers.put(A.getTattoo(), A.getTracker(achievePiece.parms().get(A.getTattoo()).trim()));
 			else
-				achievementers.put(A.getTattoo(), A.getTracker(0));
+				achievementers.put(A.getTattoo(), A.getTracker("0"));
 		}
 
 		final String[] codes=getStatCodes();
@@ -1116,18 +1383,7 @@ public class DefaultPlayerStats implements PlayerStats
 				str="";
 			setStat(codes[i].toUpperCase(),xmlLib.restoreAngleBrackets(str));
 		}
-		final String[] nextPeriods=xmlLib.getValFromPieces(xml, "NEXTPRIDEPERIODS").split(",");
-		final String[] prideStats=xmlLib.getValFromPieces(xml, "PRIDESTATS").split(";");
-		final Pair<Long,int[]>[] finalPrideStats = CMLib.players().parsePrideStats(nextPeriods, prideStats);
-		for(final TimeClock.TimePeriod period : TimeClock.TimePeriod.values())
-		{
-			if(period.ordinal()<finalPrideStats.length)
-			{
-				this.prideExpireTime[period.ordinal()]=finalPrideStats[period.ordinal()].first.longValue();
-				this.prideStats[period.ordinal()]=finalPrideStats[period.ordinal()].second;
-			}
-		}
-
+		super.setXML(xmlLib, xml);
 		str = xmlLib.getValFromPieces(xml,"ACCOUNT");
 		if(debug)
 			Log.debugOut("ACCOUNT="+str);
@@ -1158,19 +1414,21 @@ public class DefaultPlayerStats implements PlayerStats
 			this.deferredXP = CMath.s_int(xpPiece.getParmValue("DEF"));
 		}
 		this.lastXPDateTime=CMath.s_long(xmlLib.getValFromPieces(xml, "LASTXPMILLIS"));
+		this.deathCounter=CMath.s_int(xmlLib.getValFromPieces(xml, "NUMDEATHS"));
 	}
 
 	private String getLevelDateTimesStr()
 	{
 		if(levelInfo.size()==0)
-			levelInfo.add(Integer.valueOf(0),Long.valueOf(System.currentTimeMillis()),"",Long.valueOf(0));
+			addBlankLevelInfo();
 		final StringBuilder buf=new StringBuilder("");
-		for(int ss=0;ss<levelInfo.size();ss++)
+		for(final LevelInfo info : levelInfo)
 		{
-			buf.append(levelInfo.elementAtFirst(ss).toString()).append(",");
-			buf.append(levelInfo.elementAtSecond(ss).toString()).append(",");
-			buf.append(levelInfo.elementAtThird(ss).toString()).append(",");
-			buf.append(levelInfo.elementAtFourth(ss).toString()).append(";");
+			buf.append(info.level).append(",")
+				.append(info.time).append(",")
+				.append(info.roomID).append(",")
+				.append(info.mins).append(",")
+				.append(CMParms.toTightListString(info.costGains)).append(";");
 		}
 		return buf.toString();
 	}
@@ -1252,11 +1510,13 @@ public class DefaultPlayerStats implements PlayerStats
 		if((!CMSecurity.isDisabled(CMSecurity.DisFlag.ROOMVISITS))
 		&&(R!=null)
 		&&(!CMath.bset(R.phyStats().sensesMask(),PhyStats.SENSE_ROOMUNEXPLORABLE))
-		&&(!(R.getArea() instanceof AutoGenArea))
 		&&(R.getArea()!=null)
 		&&(!hasVisited(R)))
 		{
-			roomSet().add(CMLib.map().getExtendedRoomID(R));
+			if((R.getArea() instanceof SubArea)||(R.getArea() instanceof AutoGenArea))
+				tempRoomSet().add(CMLib.map().getExtendedRoomID(R));
+			else
+				roomSet().add(CMLib.map().getExtendedRoomID(R));
 			return true;
 		}
 		return false;
@@ -1265,16 +1525,17 @@ public class DefaultPlayerStats implements PlayerStats
 	@Override
 	public boolean hasVisited(final Room R)
 	{
-		return roomSet().contains(CMLib.map().getExtendedRoomID(R));
+		final String roomID=CMLib.map().getExtendedRoomID(R);
+		return roomSet().contains(roomID) || tempRoomSet().contains(roomID);
 	}
 
 	@Override
 	public boolean hasVisited(final Area A)
 	{
-		final int numRooms=A.getAreaIStats()[Area.Stats.VISITABLE_ROOMS.ordinal()];
+		final int numRooms=A.getIStat(Area.Stats.VISITABLE_ROOMS);
 		if(numRooms<=0)
 			return true;
-		return roomSet().roomCount(A.Name())>0;
+		return (roomSet().roomCount(A.Name())>0) || (tempRoomSet().roomCount(A.Name())>0);
 	}
 
 	@Override
@@ -1282,8 +1543,11 @@ public class DefaultPlayerStats implements PlayerStats
 	{
 		if(R != null)
 		{
-			if(roomSet().contains(CMLib.map().getExtendedRoomID(R)))
-				roomSet().remove(CMLib.map().getExtendedRoomID(R));
+			final String roomID=CMLib.map().getExtendedRoomID(R);
+			if(roomSet().contains(roomID))
+				roomSet().remove(roomID);
+			if(tempRoomSet().contains(roomID))
+				tempRoomSet().remove(roomID);
 		}
 	}
 
@@ -1292,14 +1556,30 @@ public class DefaultPlayerStats implements PlayerStats
 	{
 		if(A != null)
 		{
-			Room R;
 			for(final Enumeration<Room> r=A.getCompleteMap();r.hasMoreElements();)
-			{
-				R=r.nextElement();
-				if(roomSet().contains(CMLib.map().getExtendedRoomID(R)))
-					roomSet().remove(CMLib.map().getExtendedRoomID(R));
-			}
+				unVisit(r.nextElement());
 		}
+	}
+
+	@Override
+	public int totalVisitedRooms(final MOB mob, Area A)
+	{
+		if(A==null)
+		{
+			int totalVisits=0;
+			for(final Enumeration<Area> e=CMLib.map().areas();e.hasMoreElements();)
+			{
+				A=e.nextElement();
+				if((!CMLib.flags().isHidden(A))
+				&&(!CMath.bset(A.flags(),Area.FLAG_INSTANCE_CHILD)))
+				{
+					if(A.getIStat(Area.Stats.VISITABLE_ROOMS)>0)
+						totalVisits+=roomSet().roomCount(A.Name()) + tempRoomSet().roomCount(A.Name());
+				}
+			}
+			return totalVisits;
+		}
+		return roomSet().roomCount(A.Name()) + tempRoomSet().roomCount(A.Name());
 	}
 
 	@Override
@@ -1315,11 +1595,11 @@ public class DefaultPlayerStats implements PlayerStats
 				if((!CMLib.flags().isHidden(A))
 				&&(!CMath.bset(A.flags(),Area.FLAG_INSTANCE_CHILD)))
 				{
-					final int[] stats=A.getAreaIStats();
-					if(stats[Area.Stats.VISITABLE_ROOMS.ordinal()]>0)
+					final int visitable = A.getIStat(Area.Stats.VISITABLE_ROOMS);
+					if(visitable>0)
 					{
-						totalRooms+=stats[Area.Stats.VISITABLE_ROOMS.ordinal()];
-						totalVisits+=roomSet().roomCount(A.Name());
+						totalRooms+=visitable;
+						totalVisits+=roomSet().roomCount(A.Name()) + tempRoomSet().roomCount(A.Name());
 					}
 				}
 			}
@@ -1328,10 +1608,10 @@ public class DefaultPlayerStats implements PlayerStats
 			final double pct=CMath.div(totalVisits,totalRooms);
 			return (int)Math.round(100.0*pct);
 		}
-		final int numRooms=A.getAreaIStats()[Area.Stats.VISITABLE_ROOMS.ordinal()];
+		final int numRooms=A.getIStat(Area.Stats.VISITABLE_ROOMS);
 		if(numRooms<=0)
 			return 100;
-		final double pct=CMath.div(roomSet().roomCount(A.Name()),numRooms);
+		final double pct=CMath.div(roomSet().roomCount(A.Name()) + tempRoomSet().roomCount(A.Name()),numRooms);
 		return (int)Math.round(100.0*pct);
 	}
 
@@ -1358,7 +1638,7 @@ public class DefaultPlayerStats implements PlayerStats
 		}
 		else
 		{
-			T=A.getTracker(0);
+			T=A.getTracker("0");
 			achievementers.put(A.getTattoo(), T);
 		}
 		return T;
@@ -1371,97 +1651,97 @@ public class DefaultPlayerStats implements PlayerStats
 		if(A!=null)
 		{
 			if(achievementers.containsKey(A.getTattoo()))
-				achievementers.put(A.getTattoo(), A.getTracker(achievementers.get(A.getTattoo()).getCount(mob)));
+				achievementers.put(A.getTattoo(), A.getTracker(achievementers.get(A.getTattoo()).getCountParms(mob)));
 			else
-				achievementers.put(A.getTattoo(), A.getTracker(0));
+				achievementers.put(A.getTattoo(), A.getTracker("0"));
 		}
 		else
 			achievementers.remove(achievementTattoo);
 	}
 
-	@Override
-	public long leveledDateTime(final int level)
+	protected LevelInfo getLevelInfo(final int level)
 	{
 		if(levelInfo.size()==0)
-			levelInfo.add(Integer.valueOf(0),Long.valueOf(System.currentTimeMillis()),"",Long.valueOf(0));
-		long lowest=levelInfo.elementAtSecond(0).longValue();
-		for(int l=1;l<levelInfo.size();l++)
+			addBlankLevelInfo();
+		LevelInfo lowest = levelInfo.get(0);
+		for(final LevelInfo info : levelInfo)
 		{
-			if(level==levelInfo.elementAtFirst(l).intValue())
-				return levelInfo.elementAtSecond(l).longValue();
-			else
-			if(level<levelInfo.elementAtFirst(l).intValue())
+			if(info.level==level)
+				return info;
+			if(level < info.level)
 				return lowest;
-			lowest=levelInfo.elementAtSecond(l).longValue();
+			lowest = info;
 		}
 		return lowest;
 	}
 
 	@Override
+	public long leveledDateTime(final int level)
+	{
+		return getLevelInfo(level).time;
+	}
+
+	@Override
 	public String leveledRoomID(final int level)
 	{
-		if(levelInfo.size()==0)
-			levelInfo.add(Integer.valueOf(0),Long.valueOf(System.currentTimeMillis()),"",Long.valueOf(0));
-		for(int l=1;l<levelInfo.size();l++)
-		{
-			if(level==levelInfo.elementAtFirst(l).intValue())
-				return levelInfo.elementAtThird(l);
-			else
-			if(level<levelInfo.elementAtFirst(l).intValue())
-				return levelInfo.elementAtThird(l-1);
-		}
-		return "";
+		return getLevelInfo(level).roomID;
 	}
 
 	@Override
 	public long leveledMinutesPlayed(final int level)
 	{
-		if(levelInfo.size()==0)
-			levelInfo.add(Integer.valueOf(0),Long.valueOf(System.currentTimeMillis()),"",Long.valueOf(0));
-		long age=levelInfo.elementAtFourth(0).longValue();
-		for(int l=1;l<levelInfo.size();l++)
-		{
-			if(level<levelInfo.elementAtFirst(l).intValue())
-				return age;
-			age=levelInfo.elementAtFourth(l).longValue();
-		}
-		return age;
+		return getLevelInfo(level-1).mins;
 	}
 
 	@Override
-	public void setLeveledDateTime(final int level, final long ageHours, final Room R)
+	public int[] leveledCostGains(final int level)
+	{
+		return getLevelInfo(level).costGains;
+	}
+
+	@Override
+	public void recordLevelData(final int level, final long ageHours, final Room R, final int[] costGains)
 	{
 		if(levelInfo.size()==0)
-			levelInfo.add(Integer.valueOf(0),Long.valueOf(System.currentTimeMillis()),"",Long.valueOf(0));
+			addBlankLevelInfo();
 		long lastTime=0;
 		for(int l=0;l<levelInfo.size();l++)
 		{
-			final Quad<Integer, Long, String, Long> quad = levelInfo.elementAt(l);
-			if(level==quad.first.intValue())
+			final LevelInfo info = levelInfo.get(l);
+			if(level==info.level)
 			{
-				quad.second = Long.valueOf(System.currentTimeMillis());
-				quad.third = CMLib.map().getExtendedRoomID(R);
-				quad.fourth = Long.valueOf(ageHours);
+				info.time = System.currentTimeMillis();
+				info.roomID = CMLib.map().getExtendedRoomID(R);
+				info.mins = ageHours;
+				info.costGains = costGains;
 				return;
 			}
 			else
 			if((System.currentTimeMillis()-lastTime)<TimeManager.MILI_SECOND)
 				return;
 			else
-			if(level<quad.first.intValue())
+			if(level<info.level)
 			{
-				levelInfo.insertElementAt(new Quad<Integer,Long,String,Long>(
-											Integer.valueOf(level),
-											Long.valueOf(System.currentTimeMillis()),
-											CMLib.map().getExtendedRoomID(R),
-											Long.valueOf(ageHours)),l);
+				final LevelInfo newInfo = new LevelInfo();
+				newInfo.level = level;
+				newInfo.time = System.currentTimeMillis();
+				newInfo.roomID = CMLib.map().getExtendedRoomID(R);
+				newInfo.mins = ageHours;
+				newInfo.costGains = costGains;
+				levelInfo.add(newInfo);
 				return;
 			}
-			lastTime=quad.second.longValue();
+			lastTime=info.time;
 		}
 		if((System.currentTimeMillis()-lastTime)<TimeManager.MILI_SECOND)
 			return;
-		levelInfo.addElement(Integer.valueOf(level),Long.valueOf(System.currentTimeMillis()),CMLib.map().getExtendedRoomID(R),Long.valueOf(ageHours));
+		final LevelInfo newInfo = new LevelInfo();
+		newInfo.level = level;
+		newInfo.time = System.currentTimeMillis();
+		newInfo.roomID = CMLib.map().getExtendedRoomID(R);
+		newInfo.mins = ageHours;
+		newInfo.costGains = costGains;
+		levelInfo.add(newInfo);
 	}
 
 	@Override
@@ -1656,6 +1936,14 @@ public class DefaultPlayerStats implements PlayerStats
 		this.lastXPDateTime = time;
 	}
 
+	@Override
+	public synchronized int deathCounter(final int bump)
+	{
+		deathCounter += bump;
+		return deathCounter;
+	}
+
+
 	protected static String[] CODES={"CLASS","FRIENDS","IGNORE","TITLES",
 									 "ALIAS","LASTIP","LASTDATETIME",
 									 "CHANNELMASK",
@@ -1669,7 +1957,7 @@ public class DefaultPlayerStats implements PlayerStats
 									 "MAXRPXP","CURRRPXP",
 									 "MAXDEFXP","CURRDEFXP",
 									 "LASTXPAWARD","FLAGS","SUBSCRIPTIONS",
-									 "COMBATSTATS"};
+									 "COMBATSTATS","DEATHS"};
 
 	@Override
 	public String getStat(final String code)
@@ -1767,6 +2055,8 @@ public class DefaultPlayerStats implements PlayerStats
 			}
 			return str.toString();
 		}
+		case 38:
+			return Integer.toString(this.deathCounter);
 		default:
 			return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
 		}
@@ -1849,7 +2139,10 @@ public class DefaultPlayerStats implements PlayerStats
 			pageBreak = CMath.s_parseIntExpression(val);
 			break;
 		case 21:
-			savedPose = val;
+			if(val == null)
+				savedPose = "";
+			else
+				savedPose = val;
 			break;
 		case 22:
 			theme = CMath.s_parseIntExpression(val);
@@ -1938,6 +2231,9 @@ public class DefaultPlayerStats implements PlayerStats
 			break;
 
 		}
+		case 38:
+			this.deathCounter = CMath.s_parseIntExpression(val);
+			break;
 		default:
 			CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);
 			break;
@@ -2055,6 +2351,7 @@ public class DefaultPlayerStats implements PlayerStats
 		autoInvokeSet.clear();
 		account = null;
 		visitedRoomSet	= null;
+		tVisitedRoomSet	= null;
 		introductions.clear();
 		extItems.delAllItems(true);
 		achievementers.clear();

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,6 +57,7 @@ public class MobileAggressive extends Mobile
 	protected boolean			levelcheck			= false;
 	protected VeryAggressive	veryA				= new VeryAggressive();
 	protected CompiledZMask		mask				= null;
+	protected String			maskStr				= "";
 
 	public MobileAggressive()
 	{
@@ -69,8 +70,8 @@ public class MobileAggressive extends Mobile
 	@Override
 	public String accountForYourself()
 	{
-		if(getParms().trim().length()>0)
-			return "wandering aggression against "+CMLib.masking().maskDesc(getParms(),true).toLowerCase();
+		if(maskStr.trim().length()>0)
+			return "wandering aggression against "+CMLib.masking().maskDesc(maskStr,true).toLowerCase();
 		else
 			return "wandering aggressiveness";
 	}
@@ -83,12 +84,32 @@ public class MobileAggressive extends Mobile
 		attackMsg=CMParms.getParmStr(newParms,"MESSAGE",null);
 		tickDown=tickWait;
 		aggressiveTickDown=tickWait;
-		final Vector<String> V=CMParms.parse(newParms.toUpperCase());
-		levelcheck=V.contains("CHECKLEVEL");
-		mobkill=V.contains("MOBKILL");
-		noGangUp=V.contains("NOGANG")||V.contains("NOGANGUP");
-		misbehave=V.contains("MISBEHAVE");
-		this.mask=CMLib.masking().getPreCompiledMask(newParms);
+		final List<String> V=CMParms.parse(newParms.toUpperCase());
+		levelcheck=V.remove("CHECKLEVEL");
+		mobkill=V.remove("MOBKILL");
+		noGangUp=V.remove("NOGANG")||V.remove("NOGANGUP");
+		misbehave=V.remove("MISBEHAVE");
+		V.removeAll(getMobileRemovables());
+		maskStr = CMLib.masking().separateZapperMask(V);
+		final Collection<String> removables = getMobileRemovables();
+		this.mask=null;
+		if(maskStr.length()>0)
+			this.mask=CMLib.masking().getPreCompiledMask(maskStr);
+		String fixedParms = newParms;
+		for(int i=0;i<fixedParms.length();i++)
+		{
+			final char c=fixedParms.charAt(i);
+			if((c=='+')||(c=='-'))
+			{
+				int sp = fixedParms.indexOf(' ',i);
+				if(sp<0)
+					sp=fixedParms.length();
+				final String chk = fixedParms.substring(i,sp).toUpperCase();
+				if(removables.contains(chk))
+					fixedParms = fixedParms.substring(0,i)+fixedParms.substring(sp);
+			}
+		}
+		this.veryA.setParms(fixedParms);
 	}
 
 	@Override
@@ -96,7 +117,7 @@ public class MobileAggressive extends Mobile
 	{
 		if(M==null)
 			return true;
-		return CMLib.masking().maskCheck(getParms(),M,false);
+		return CMLib.masking().maskCheck(mask,M,false);
 	}
 
 	@Override

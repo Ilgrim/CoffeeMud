@@ -20,7 +20,7 @@ import java.util.Comparator;
 import java.util.Vector;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -237,6 +237,22 @@ public class DefaultPhyStats implements PhyStats
 	}
 
 	@Override
+	public int getStat(final int statNum)
+	{
+		if(statNum<PhyStats.NUM_STATS)
+			return stats[statNum];
+		return 0;
+	}
+
+	@Override
+	public void setStat(final int statNum, final int value)
+	{
+		if(statNum<PhyStats.NUM_STATS)
+			stats[statNum] = value;
+	}
+
+
+	@Override
 	public String getCombatStats()
 	{
 		return "L" + stats[STAT_LEVEL] + ":A" + stats[STAT_ARMOR] + ":K" + stats[STAT_ATTACK] + ":D" + stats[STAT_DAMAGE];
@@ -296,6 +312,15 @@ public class DefaultPhyStats implements PhyStats
 	}
 
 	@Override
+	public boolean isAmbiance(final PhyStats.Ambiance ambiance)
+	{
+		final String[] ambiances=this.ambiances;
+		if((ambiances==null)||(ambiance==null))
+			return false;
+		return Arrays.binarySearch(ambiances, ambiance.code(), ambiComp) >=0;
+	}
+
+	@Override
 	public int movesReqToPull()
 	{
 		return 1 + (weight() / 3);
@@ -312,7 +337,7 @@ public class DefaultPhyStats implements PhyStats
 	{
 		try
 		{
-			return getClass().newInstance();
+			return getClass().getDeclaredConstructor().newInstance();
 		}
 		catch (final Exception e)
 		{

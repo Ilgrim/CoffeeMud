@@ -4,6 +4,7 @@
 @if?!CheckAuthCode?ANYMODAREAS=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <html>
 <head>
+	<META CHARSET="utf-8"/>
 	<!-- tell spiders to sod off -->
 	<meta name="ROBOTS" content="NOINDEX, NOFOLLOW">
 	<link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="/grinder/grinder.css">
@@ -88,6 +89,12 @@
 			document.AREAEDIT.target='MAP';
 			document.AREAEDIT.submit();
 		}
+		function OpenDevs()
+		{
+			var strFeatures="top=200,left=50,resizeable=no,scrollbars=yes,height=400,width=650,alwaysRaised=yes,dependent=yes";
+			w=window.open("/grinder/deviations.cmvp?@RequestParametersEncoded@",
+			            "Deviations",strFeatures, false);
+		}
 	//-->
 	</SCRIPT>
 </head>
@@ -119,7 +126,6 @@
 	<SELECT NAME=CLASSES ONCHANGE="ChangedClass();">
 	@RoomData?CLASSES@
 	</SELECT>
-	</TD>
 </TR>
 <TR>
 	<TD><FONT COLOR="#66FFFF"><B>Room Title:</B></FONT></TD>
@@ -144,6 +150,18 @@
     Y:<INPUT TYPE=TEXT NAME=YGRID SIZE=5 MAXLENGTH=2 VALUE="@RoomData?YGRID@">
     </TD>
 </TR>
+@if?AreaData?ISAUTOGEN@
+	<TR>
+		<TD><FONT COLOR="#66FFFF"><B>AutoGen<BR>XML resources file:</B></FONT></TD>
+	    <TD COLSPAN=2><INPUT TYPE=TEXT NAME=AGXMLPATH SIZE=60 VALUE="@RoomData?AGXMLPATH@"></TD>
+	</TR>
+	<TR>
+		<TD><FONT COLOR="#66FFFF"><B>AutoGen<BR>Variables &nbsp;<a href="javascript:OpenUp('ahelp.cmvp','GENERATE');"><FONT COLOR=WHITE><I>?</I></FONT></a> :<BR><BR>&nbsp;<FONT SIZE=-2><i>VAR=VAL VAR2=VAL</i></B></FONT></TD>
+	    <TD COLSPAN=2>
+        <TEXTAREA ROWS=5 COLS=55 NAME=AGAUTOVAR>@RoomData?AGAUTOVAR@</TEXTAREA>
+	    </TD>
+	</TR>
+@endif@
 @endif@
 <TR>
 	<TD><FONT COLOR="#66FFFF"><B>Behaviors:</B></FONT>
@@ -172,6 +190,10 @@
     </TD>
 </TR>
 <TR>
+	<TD WIDTH=600 COLSPAN=3 ALIGN=LEFT>
+		<a href="javascript:OpenDevs()"><FONT COLOR="#77FFFF"><B>Deviations</B></FONT></a>
+    </TD>
+<TR>
     <TD WIDTH=600 COLSPAN=3 ALIGN=CENTER>
 	<INPUT TYPE=SUBMIT NAME=FINISHED VALUE="Finished">
 	</CENTER>
@@ -189,7 +211,6 @@
 	//-->
 	</SCRIPT>
 @endif@
-<SCRIPT
 </BODY>
 </HTML>
 @endif@

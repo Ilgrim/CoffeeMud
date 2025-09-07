@@ -5,6 +5,7 @@ import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftParms;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftingActivity;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftorType;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
@@ -22,7 +23,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -61,23 +62,29 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 	}
 
 	@Override
+	public CraftorType getCraftorType()
+	{
+		return CraftorType.Weapons;
+	}
+
+	@Override
 	public String supportedResourceString()
 	{
 		return "WOODEN";
 	}
 
 	@Override
-	public String parametersFormat()
+	public String getRecipeFormat()
 	{
 		return
 		"ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\tMATERIALS_REQUIRED\tITEM_BASE_VALUE\t"
-		+"ITEM_CLASS_ID\tAMMO_TYPE\tAMMO_CAPACITY\tBASE_DAMAGE\tMAXIMUM_RANGE\t"
-		+"OPTIONAL_RESOURCE_OR_MATERIAL\tCODED_SPELL_LIST";
+		+"ITEM_CLASS_ID\tAMMO_TYPE\tAMMO_CAPACITY\tBASE_DAMAGE\tMIN_MAX_RANGE\t"
+		+"OPTIONAL_RESOURCE_OR_MATERIAL\tCODED_SPELL_LIST\tWEAPON_HANDS_REQUIRED";
 	}
 
 	//protected static final int RCP_FINALNAME=0;
 	//protected static final int RCP_LEVEL=1;
-	//protected static final int RCP_TICKS=2;
+	protected static final int	RCP_TICKS		= 2;
 	protected static final int	RCP_WOOD		= 3;
 	protected static final int	RCP_VALUE		= 4;
 	protected static final int	RCP_CLASSTYPE	= 5;
@@ -87,9 +94,10 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 	protected static final int	RCP_MAXRANGE	= 9;
 	protected static final int	RCP_EXTRAREQ	= 10;
 	protected static final int	RCP_SPELL		= 11;
+	protected static final int	RCP_HANDS		= 12;
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return "fletching.txt";
 	}
@@ -97,7 +105,7 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 	@Override
 	protected List<List<String>> loadRecipes()
 	{
-		return super.loadRecipes(parametersFile());
+		return super.loadRecipes(getRecipeFilename());
 	}
 
 	@Override
@@ -118,17 +126,21 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 						if(activity == CraftingActivity.LEARNING)
 						{
 							commonEmote(mob,L("<S-NAME> fail(s) to learn how to make @x1.",buildingI.name()));
+							dropALoser(mob,buildingI);
 							buildingI.destroy();
 						}
 						else
+						{
 							commonEmote(mob,L("<S-NAME> mess(es) up making @x1.",buildingI.name()));
+							dropALoser(mob,buildingI);
+						}
 					}
 					else
 					{
 						if(activity == CraftingActivity.MENDING)
 						{
 							buildingI.setUsesRemaining(100);
-							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.MENDER, 1, this);
+							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.MENDER, 1, this, buildingI);
 						}
 						else
 						if(activity==CraftingActivity.LEARNING)
@@ -139,7 +151,7 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 						else
 						{
 							dropAWinner(mob,buildingI);
-							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this);
+							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this, buildingI);
 						}
 					}
 				}
@@ -153,7 +165,7 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			if(buildingI==null)
 				unInvoke();
@@ -195,7 +207,7 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 		||(!mayICraft((Item)E)))
 		{
 			if(!quiet)
-				commonTell(mob,L("That's not a @x1 item.",name()));
+				commonTelL(mob,"That's not a @x1 item.",name());
 			return false;
 		}
 		return true;
@@ -210,7 +222,7 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new Vector<Item>(0));
+		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new ArrayList<CraftedItem>(0));
 	}
 
 	protected int getOtherRscAmtRequired(final MOB mob, final String req)
@@ -239,7 +251,7 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 
 	@Override
 	protected boolean autoGenInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto,
-								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<Item> crafted)
+								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<CraftedItem> crafted)
 	{
 		if(super.checkStop(mob, commands))
 			return true;
@@ -247,13 +259,14 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 		if(super.checkInfo(mob, commands))
 			return true;
 
+		final String woodName=(supportedResourceString().indexOf("METAL")>=0)?L("Metal"):L("Wood");
 		final PairVector<EnhancedExpertise,Integer> enhancedTypes=enhancedTypes(mob,commands);
 		int recipeLevel = 1;
 		randomRecipeFix(mob,addRecipes(mob,loadRecipes()),commands,autoGenerate);
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Make what? Enter \"@x1 list\" for a list, \"@x1 scan\", \"@x1 info <item>\", \"@x1 learn <item>\","
-							+ " \"@x1 mend <item>\", or \"@x1 stop\" to cancel.",commandWord()));
+			commonTelL(mob,"Make what? Enter \"@x1 list\" for a list, \"@x1 scan\", \"@x1 info <item>\", \"@x1 learn <item>\","
+							+ " \"@x1 mend <item>\", or \"@x1 stop\" to cancel.",commandWord());
 			return false;
 		}
 		if((!auto)
@@ -270,7 +283,7 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 		String startStr=null;
 		bundling=false;
 		int duration=4;
-		if(str.equalsIgnoreCase("list"))
+		if(str.equalsIgnoreCase("list") && (autoGenerate <= 0))
 		{
 			String mask=CMParms.combine(commands,1);
 			boolean allFlag=false;
@@ -281,16 +294,18 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 			}
 			final int toggleTop=getNumberOfColumns();
 			int toggler=1;
-			final StringBuffer buf=new StringBuffer("");
+			final StringBuffer buf=new StringBuffer("^H");
 			final int[] cols={
 				CMLib.lister().fixColWidth(27,mob.session()),
 				CMLib.lister().fixColWidth(3,mob.session()),
 				CMLib.lister().fixColWidth(5,mob.session())
 			};
 			for(int r=0;r<toggleTop;r++)
-				buf.append((r>0?" ":"")+CMStrings.padRight(L("Item"),cols[0])+" "+CMStrings.padRight(L("Lvl"),cols[1])+" "+CMStrings.padRight(L("Wood"),cols[2]));
-			buf.append("\n\r");
-			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipeNames(recipes, mask, true);
+				buf.append((r>0?" ":"")+CMStrings.padRight(L("Item"),cols[0])+" "
+									    +CMStrings.padRight(L("Lvl"),cols[1])+" "
+									    +CMStrings.padRight(woodName,cols[2]));
+			buf.append("^N\n\r");
+			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipes(recipes, mask, true);
 			for(int r=0;r<listRecipes.size();r++)
 			{
 				final List<String> V=listRecipes.get(r);
@@ -299,15 +314,15 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 					final String item=replacePercent(V.get(RCP_FINALNAME),"");
 					final int level=CMath.s_int(V.get(RCP_LEVEL));
 					final String wood=getComponentDescription(mob,V,RCP_WOOD);
-					if(wood.length()>5)
-					{
-						if(toggler>1)
-							buf.append("\n\r");
-						toggler=toggleTop;
-					}
 					if((level<=xlevel(mob))||allFlag)
 					{
-						buf.append(CMStrings.padRight(item,cols[0])+" "+
+						if(wood.length()>5)
+						{
+							if(toggler>1)
+								buf.append("\n\r");
+							toggler=toggleTop;
+						}
+						buf.append("^w"+CMStrings.padRight(item,cols[0])+"^N "+
 									CMStrings.padRight(""+level,cols[1])+" "+
 									CMStrings.padRightPreserve(""+wood,cols[2])+
 									((toggler!=toggleTop)?" ":"\n\r"));
@@ -358,9 +373,16 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 				amount=CMath.s_int(commands.get(commands.size()-1));
 				commands.remove(commands.size()-1);
 			}
+			final int[] matCat = (this.supportedResourceString().indexOf("METAL")>=0)?
+					new int[]{RawMaterial.MATERIAL_METAL}:new int[]{RawMaterial.MATERIAL_WOODEN};
+			final int[] pm=checkMaterialFrom(mob,commands,matCat);
+			if(pm==null)
+				return false;
 			final String recipeName=CMParms.combine(commands,0);
 			List<String> foundRecipe=null;
-			final List<List<String>> matches=matchingRecipeNames(recipes,recipeName,true);
+			final List<List<String>> matches=matchingRecipes(recipes,recipeName,false);
+			if(matches.size()==0)
+				matches.addAll(matchingRecipes(recipes,recipeName,true));
 			for(int r=0;r<matches.size();r++)
 			{
 				final List<String> V=matches.get(r);
@@ -377,7 +399,7 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 			}
 			if(foundRecipe==null)
 			{
-				commonTell(mob,L("You don't know how to make a '@x1'.  Try \"@x2 list\" for a list.",recipeName,commandWord()));
+				commonTelL(mob,"You don't know how to make a '@x1'.  Try \"@x2 list\" for a list.",recipeName,commandWord());
 				return false;
 			}
 
@@ -394,9 +416,8 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 				woodRequired=amount;
 			final String otherRequired=getOtherRscRequired(foundRecipe.get(RCP_EXTRAREQ));
 			final int otherAmtRequired=getOtherRscAmtRequired(mob,foundRecipe.get(RCP_EXTRAREQ));
-			final int[] pm={RawMaterial.MATERIAL_WOODEN};
 			final int[][] data=fetchFoundResourceData(mob,
-													  woodRequired,"wood",pm,
+													  woodRequired,woodName.toLowerCase(),pm,
 													  otherAmtRequired,otherRequired,null,
 													  false,
 													  autoGenerate,
@@ -422,7 +443,7 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 					}
 					if((fire==null)||(!mob.location().isContent(fire)))
 					{
-						commonTell(mob,L("You'll need to build a fire first."));
+						commonTelL(mob,"You'll need to build a fire first.");
 						return false;
 					}
 				}
@@ -433,19 +454,19 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 				return false;
 			final MaterialLibrary.DeadResourceRecord deadMats;
 			if((componentsFoundList.size() > 0)||(autoGenerate>0))
-				deadMats = new MaterialLibrary.DeadResourceRecord();
+				deadMats = deadRecord;
 			else
 			{
 				deadMats = CMLib.materials().destroyResources(mob.location(),woodRequired,
 						data[0][FOUND_CODE],data[0][FOUND_SUB],data[1][FOUND_CODE],data[1][FOUND_SUB]);
 			}
 			final MaterialLibrary.DeadResourceRecord deadComps = CMLib.ableComponents().destroyAbilityComponents(componentsFoundList);
-			final int lostValue=autoGenerate>0?0:(deadMats.lostValue + deadComps.lostValue);
+			final int lostValue=autoGenerate>0?0:(deadMats.getLostValue() + deadComps.getLostValue());
 			buildingI=CMClass.getItem(foundRecipe.get(RCP_CLASSTYPE));
 			final Item buildingI=this.buildingI;
 			if(buildingI==null)
 			{
-				commonTell(mob,L("There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE)));
+				commonTelL(mob,"There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE));
 				return false;
 			}
 			duration=getDuration(CMath.s_int(foundRecipe.get(RCP_TICKS)),mob,CMath.s_int(foundRecipe.get(RCP_LEVEL)),4);
@@ -467,11 +488,23 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 			setBrand(mob, buildingI);
 			final String ammotype=foundRecipe.get(RCP_AMMOTYPE);
 			final int capacity=CMath.s_int(foundRecipe.get(RCP_AMOCAPACITY));
-			final int maxrange=CMath.s_int(foundRecipe.get(RCP_MAXRANGE));
+			final String maxRangeStr=foundRecipe.get(RCP_MAXRANGE);
+			final int maxrange;
+			final int minrange;
+			if(maxRangeStr.indexOf(',')>0)
+			{
+				minrange=CMath.s_int(maxRangeStr.substring(0,maxRangeStr.indexOf(',')).trim());
+				maxrange=CMath.s_int(maxRangeStr.substring(maxRangeStr.indexOf(',')+1).trim());
+			}
+			else
+			{
+				minrange=-1;
+				maxrange=CMath.s_int(maxRangeStr);
+			}
 			final int armordmg=CMath.s_int(foundRecipe.get(RCP_ARMORDMG));
 			if(bundling)
 				buildingI.setBaseValue(lostValue);
-			addSpells(buildingI,spell,deadMats.lostProps,deadComps.lostProps);
+			addSpellsOrBehaviors(buildingI,spell,deadMats.getLostProps(),deadComps.getLostProps());
 			if(buildingI instanceof Weapon)
 			{
 				if(buildingI instanceof AmmunitionWeapon)
@@ -480,19 +513,29 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 					{
 						((AmmunitionWeapon)buildingI).setAmmoCapacity(capacity);
 						((AmmunitionWeapon)buildingI).setAmmoRemaining(0);
-						((AmmunitionWeapon)buildingI).setAmmunitionType(ammotype);
+						if(!ammotype.equalsIgnoreCase("nada"))
+							((AmmunitionWeapon)buildingI).setAmmunitionType(ammotype);
 					}
 				}
 				buildingI.basePhyStats().setAttackAdjustment((baseYield()+abilityCode()-1+(hardness*5)));
 				buildingI.basePhyStats().setDamage(armordmg+hardness);
-				((Weapon)buildingI).setRanges(((Weapon)buildingI).minRange(),maxrange);
+				if(minrange<0)
+					((Weapon)buildingI).setRanges(((Weapon)buildingI).minRange(),maxrange);
+				else
+					((Weapon)buildingI).setRanges(minrange,maxrange);
 			}
 			else
-			if((ammotype.length()>0)&&(buildingI instanceof Ammunition))
+			if((ammotype.length()>0)
+			&&(buildingI instanceof Ammunition))
 			{
-				((Ammunition)buildingI).setAmmunitionType(ammotype);
+				if(!ammotype.equalsIgnoreCase("nada"))
+					((Ammunition)buildingI).setAmmunitionType(ammotype);
 				((Ammunition)buildingI).setAmmoRemaining(capacity);
 			}
+			if(buildingI.subjectToWearAndTear())
+				buildingI.setUsesRemaining(100);
+			final int hands=foundRecipe.size()>RCP_HANDS?CMath.s_int(foundRecipe.get(RCP_HANDS)):0;
+			buildingI.setRawLogicalAnd((hands==1)?false:(hands==2)?true:buildingI.rawLogicalAnd());
 			buildingI.recoverPhyStats();
 			buildingI.text();
 			buildingI.recoverPhyStats();
@@ -511,7 +554,7 @@ public class Fletching extends EnhancedCraftingSkill implements ItemCraftor, Men
 
 		if(autoGenerate>0)
 		{
-			crafted.add(buildingI);
+			crafted.add(new CraftedItem(buildingI,null,duration));
 			return true;
 		}
 

@@ -15,7 +15,7 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -151,7 +151,7 @@ public interface CharState extends CMCommon, Modifiable
 	 * @param maxHunger the highest amount to allow the hunger number to reach
 	 * @return whether the highest or lowest boundary was reached
 	 */
-	public boolean adjHunger(int byThisMuch, int maxHunger);
+	public boolean adjHunger(double byThisMuch, int maxHunger);
 	/**
 	 * This method is used to recalculate the maximum thirhungerst for a mob, based
 	 * on their weight and the default maximum hunger
@@ -176,7 +176,7 @@ public interface CharState extends CMCommon, Modifiable
 	 * @param maxThirst the highest amount to allow the thirst number to reach
 	 * @return whether the highest or lowest boundary was reached
 	 */
-	public boolean adjThirst(int byThisMuch, int maxThirst);
+	public boolean adjThirst(double byThisMuch, int maxThirst);
 	/**
 	 * This method is used to recalculate the maximum thirst for a mob, based
 	 * on their weight and the default maximum thirst
@@ -226,6 +226,22 @@ public interface CharState extends CMCommon, Modifiable
 	 * @param def the value to give to all
 	 */
 	public void setAllValues(int def);
+
+	/**
+	 * Get the value of one of the STAT_ constants from the CharState interface.
+	 * @see CharState
+	 * @param statNum which STAT_ constant to get a value for
+	 * @return the value of the given STAT
+	 */
+	public int getStat(int statNum);
+
+	/**
+	 * Set the value of one of the STAT_ constants from the CharState interface.
+	 * @see CharState
+	 * @param statNum which STAT_ constant to get a value for
+	 * @param value the value of the given STAT
+	 */
+	public void setStat(int statNum, int value);
 
 	/**
 	 * Resets all the stats in this object to their factory defaults.

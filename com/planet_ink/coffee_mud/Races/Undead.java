@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -139,8 +139,6 @@ public class Undead extends StdRace
 		return agingChart;
 	}
 
-	private static Vector<RawMaterial>	resources	= new Vector<RawMaterial>();
-
 	@Override
 	public int availabilityCode()
 	{
@@ -184,9 +182,8 @@ public class Undead extends StdRace
 			final MOB mob=(MOB)ticking;
 			mob.curState().setHunger(mob.maxState().getHunger());
 			mob.curState().setThirst(mob.maxState().getThirst());
-			final MOB followingM = mob.amUltimatelyFollowing();
-			if((followingM!=null)
-			&&(followingM!=mob))
+			final MOB followingM = mob.getGroupLeader();
+			if(followingM!=mob)
 			{
 				if((mob.location() == followingM.location())
 				&&(CMLib.dice().rollPercentage()==1)
@@ -221,6 +218,14 @@ public class Undead extends StdRace
 	}
 
 	@Override
+	public Weapon[] getNaturalWeapons()
+	{
+		if(this.naturalWeaponChoices.length==0)
+			this.naturalWeaponChoices = super.getHumanoidWeapons();
+		return super.getNaturalWeapons();
+	}
+
+	@Override
 	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(myHost instanceof MOB)
@@ -234,16 +239,22 @@ public class Undead extends StdRace
 					{
 						final int amount=msg.value();
 						if((amount>0)
-						&&(msg.tool() instanceof Ability)
-						&&(CMath.bset(((Ability)msg.tool()).flags(),Ability.FLAG_HEALINGMAGIC|Ability.FLAG_HOLY))
-						&&(!CMath.bset(((Ability)msg.tool()).flags(),Ability.FLAG_UNHOLY)))
+						&&(msg.tool() instanceof Ability))
 						{
-							CMLib.combat().postDamage(msg.source(),mob,msg.tool(),amount,CMMsg.MASK_ALWAYS|CMMsg.TYP_ACID,Weapon.TYPE_BURNING,L("The healing magic from <S-NAME> <DAMAGES> <T-NAMESELF>."));
-							if((mob.getVictim()==null)&&(mob!=msg.source())&&(mob.isMonster()))
-								mob.setVictim(msg.source());
+							if((((Ability)msg.tool()).classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_DISEASE)
+								break;
+							if((CMath.bset(((Ability)msg.tool()).flags(),Ability.FLAG_HEALINGMAGIC|Ability.FLAG_HOLY))
+							&&(!CMath.bset(((Ability)msg.tool()).flags(),Ability.FLAG_UNHOLY)))
+							{
+								CMLib.combat().postDamage(msg.source(),mob,msg.tool(),amount,CMMsg.MASK_ALWAYS|CMMsg.TYP_ACID,Weapon.TYPE_BURNING,L("The healing magic from <S-NAME> <DAMAGES> <T-NAMESELF>."));
+								if((mob.getVictim()==null)&&(mob!=msg.source())&&(mob.isMonster()))
+									mob.setVictim(msg.source());
+							}
 						}
 					}
-					return false;
+					if(!(msg.tool() instanceof MOB))
+						return false;
+					break;
 				default:
 					if((msg.tool() instanceof Ability)
 					&&(CMath.bset(((Ability)msg.tool()).flags(),Ability.FLAG_UNHOLY))
@@ -266,7 +277,8 @@ public class Undead extends StdRace
 						final int amount=msg.value();
 						if(amount>0)
 						{
-							msg.modify(msg.source(),mob,msg.tool(),CMMsg.MASK_ALWAYS|CMMsg.TYP_CAST_SPELL,CMMsg.MSG_HEALING,CMMsg.MASK_ALWAYS|CMMsg.TYP_CAST_SPELL,L("The harming magic heals <T-NAMESELF>."));
+							msg.modify(msg.source(),mob,msg.tool(),CMMsg.MASK_ALWAYS|CMMsg.TYP_CAST_SPELL,CMMsg.MSG_HEALING,
+									CMMsg.MASK_ALWAYS|CMMsg.TYP_CAST_SPELL,L("The harming magic heals <T-NAME>."));
 							msg.addTrailerRunnable(new Runnable()
 							{
 								private final MOB me = mob;
@@ -279,7 +291,6 @@ public class Undead extends StdRace
 									&&(src.getVictim()==null))
 									{
 										me.setVictim(null);
-										System.out.println("Setting "+mob.name()+" follower to "+follower);
 										me.setFollowing(follower);
 									}
 								}
@@ -293,9 +304,14 @@ public class Undead extends StdRace
 				case CMMsg.TYP_POISON:
 				case CMMsg.TYP_DISEASE:
 					if((!mob.amDead())
-					&&(CMath.bset(msg.targetMajor(),CMMsg.MASK_MALICIOUS)))
+					&&(CMath.bset(msg.targetMajor(),CMMsg.MASK_MALICIOUS))
+					&&(!msg.sourceMajor(CMMsg.MASK_CNTRLMSG) && !msg.targetMajor(CMMsg.MASK_CNTRLMSG)))
 					{
+						if((msg.tool()==msg.source())&&(msg.sourceMinor()==CMMsg.TYP_GAS))
+							return false;
 						String immunityName="certain";
+						if(msg.tool() instanceof MOB)
+							Log.debugOut("Got a weird Undead Immunity: "+msg.toFlatString());
 						if(msg.tool()!=null)
 							immunityName=msg.tool().name();
 						if(mob!=msg.source())
@@ -320,6 +336,8 @@ public class Undead extends StdRace
 						String immunityName="certain";
 						if(msg.tool()!=null)
 							immunityName=msg.tool().name();
+						if((msg.tool()==msg.source())&&(msg.sourceMinor()==CMMsg.TYP_GAS))
+							return false;
 						if(mob!=msg.source())
 							mob.location().show(mob,msg.source(),CMMsg.MSG_OK_VISUAL,L("<S-NAME> seem(s) immune to @x1 attacks from <T-NAME>.",immunityName));
 						else
@@ -345,7 +363,6 @@ public class Undead extends StdRace
 									&&(src.getVictim()==null))
 									{
 										me.setVictim(null);
-										System.out.println("Setting "+mob.name()+" follower to "+follower);
 										me.setFollowing(follower);
 									}
 								}
@@ -357,6 +374,11 @@ public class Undead extends StdRace
 					break;
 				}
 			}
+			else
+			if((msg.source()==mob)
+			&&(msg.tool() instanceof Ability)
+			&&(msg.tool().ID().equals("Bleeding")))
+				return false;
 		}
 		return super.okMessage(myHost,msg);
 	}
@@ -453,6 +475,8 @@ public class Undead extends StdRace
 			return L("^c@x1^c is in perfect condition.^N",mob.name(viewer));
 	}
 
+	private static Vector<RawMaterial>	resources	= new Vector<RawMaterial>();
+
 	@Override
 	public List<RawMaterial> myResources()
 	{
@@ -462,6 +486,14 @@ public class Undead extends StdRace
 			{
 				resources.addElement(makeResource
 				(L("some @x1 blood",name().toLowerCase()),RawMaterial.RESOURCE_BLOOD));
+				final RawMaterial flesh = makeResource
+						(L("some @x1 flesh",name().toLowerCase()),RawMaterial.RESOURCE_MEAT);
+				final Ability A=CMClass.getAbility("Prop_Smell");
+				flesh.addNonUninvokableEffect(A);
+				A.setMiscText(flesh.name()+" SMELLS HORRIBLE!");
+				final Ability dA=CMClass.getAbility("Disease_Nausea");
+				flesh.addNonUninvokableEffect(dA);
+				resources.addElement(flesh);
 			}
 		}
 		return resources;

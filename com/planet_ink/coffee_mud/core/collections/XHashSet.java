@@ -3,7 +3,7 @@ import java.io.Serializable;
 import java.util.*;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -26,6 +26,9 @@ import java.util.*;
 public class XHashSet<T> extends HashSet<T>
 {
 	private static final long serialVersionUID = 6687178785122563992L;
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public static final ReadOnlySet empty = new ReadOnlySet(new HashSet());
 
 	public XHashSet(final List<T> V)
 	{

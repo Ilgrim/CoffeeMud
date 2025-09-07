@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -166,11 +166,9 @@ public class StdElecCompContainer extends StdElecContainer implements TechCompon
 
 	public static final boolean isAllWiringHot(final Electronics E)
 	{
-		if(E instanceof ElecPanel)
-			return isThisPanelActivated((ElecPanel)E);
 		if(E.container() instanceof ElecPanel)
 			return isThisPanelActivated((ElecPanel)E.container());
-		return E instanceof ShipEngine; // the only thing allowed to be non-paneled
+		return !CMLib.flags().isGettable(E); // the only thing allowed to be non-paneled
 	}
 
 	@Override
@@ -246,7 +244,7 @@ public class StdElecCompContainer extends StdElecContainer implements TechCompon
 					msg.source().location().show(msg.source(), this, CMMsg.MSG_OK_VISUAL, L("<S-NAME> deactivate(s) <T-NAME>."));
 				this.activate(false);
 				break;
-			case CMMsg.TYP_LOOK:
+			case CMMsg.TYP_EXAMINE:
 				super.executeMsg(host, msg);
 				if(CMLib.flags().canBeSeenBy(this, msg.source()))
 					msg.source().tell(L("@x1 is currently @x2",name(),(activated()?"connected.\n\r":"deactivated/disconnected.\n\r")));
@@ -286,6 +284,33 @@ public class StdElecCompContainer extends StdElecContainer implements TechCompon
 				else
 				{
 					msg.source().tell(msg.source(),this,null,L("Your attempt to enhance <T-NAME> has failed.\n\r"));
+				}
+				break;
+			case CMMsg.TYP_DAMAGE:
+				if(subjectToWearAndTear() && (usesRemaining()>0))
+				{
+					if(msg.value()>usesRemaining())
+					{
+						final Room R=CMLib.map().roomLocation(this);
+						final CMMsg msg2=CMClass.getMsg(msg.source(), CMMsg.MSG_DEACTIVATE, L("@x1 sparks and fizzes out.",name()));
+						if((R!=null)
+						&&(R.okMessage(msg.source(), msg2)))
+						{
+							R.send(msg.source(), msg2);
+							setUsesRemaining(0);
+						}
+					}
+					else
+					{
+						final Room R=CMLib.map().roomLocation(this);
+						final CMMsg msg2=CMClass.getMsg(msg.source(), CMMsg.MSG_OK_VISUAL, L("@x1 sparks.",name()));
+						if((R!=null)
+						&&(R.okMessage(msg.source(), msg2)))
+						{
+							R.send(msg.source(), msg2);
+							setUsesRemaining(this.usesRemaining()-msg.value());
+						}
+					}
 				}
 				break;
 			}

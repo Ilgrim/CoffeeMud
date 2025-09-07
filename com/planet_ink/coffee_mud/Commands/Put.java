@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -159,7 +159,7 @@ public class Put extends StdCommand
 		commands.remove(0);
 		if(commands.size()<2)
 		{
-			CMLib.commands().postCommandFail(mob,origCmds,L("Where should I put the @x1",commands.get(0)));
+			CMLib.commands().postCommandFail(mob,origCmds,L("Where should I put the @x1?",commands.get(0)));
 			return false;
 		}
 
@@ -227,21 +227,23 @@ public class Put extends StdCommand
 		}
 		boolean doBugFix = true;
 		if(V.size()==0)
-		while(doBugFix || ((allFlag)&&(addendum<=maxToPut)))
 		{
-			doBugFix=false;
-			putThis=mob.fetchItem(null,Wearable.FILTER_UNWORNONLY,thingToPut+addendumStr);
-			if((allFlag)&&(!onlyGoldFlag)&&(putThis instanceof Coins)&&(thingToPut.equalsIgnoreCase("ALL")))
-				putThis=null;
-			else
+			while(doBugFix || ((allFlag)&&(addendum<=maxToPut)))
 			{
-				if(putThis==null)
-					break;
-				if((CMLib.flags().canBeSeenBy(putThis,mob))
-				&&(!V.contains(putThis)))
-					V.add(putThis);
+				doBugFix=false;
+				putThis=mob.fetchItem(null,Wearable.FILTER_UNWORNONLY,thingToPut+addendumStr);
+				if((allFlag)&&(!onlyGoldFlag)&&(putThis instanceof Coins)&&(thingToPut.equalsIgnoreCase("ALL")))
+					putThis=null;
+				else
+				{
+					if(putThis==null)
+						break;
+					if((CMLib.flags().canBeSeenBy(putThis,mob))
+					&&(!V.contains(putThis)))
+						V.add(putThis);
+				}
+				addendumStr="."+(++addendum);
 			}
-			addendumStr="."+(++addendum);
 		}
 
 		if(V.contains(container))

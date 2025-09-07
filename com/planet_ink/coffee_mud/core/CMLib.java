@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ public class CMLib
 	{
 		DATABASE(DatabaseEngine.class),
 		THREADS(ThreadEngine.class),
-		INTERMUD(I3Interface.class),
+		INTERMUD(IntermudInterface.class),
 		WEBMACS(WebMacroLibrary.class),
 		LISTER(ListingLibrary.class),
 		MONEY(MoneyLibrary.class),
@@ -139,14 +139,17 @@ public class CMLib
 		LANGUAGE(LanguageLibrary.class),
 		CATALOG(CatalogLibrary.class),
 		PLAYERS(PlayerLibrary.class),
-		TITLES(AutoTitlesLibrary.class),
+		AUTOAWARDS(AutoAwardsLibrary.class),
 		ABLEPARMS(AbilityParameters.class),
 		GENEDITOR(GenericEditor.class),
 		AREAGEN(AreaGenerationLibrary.class),
 		TECH(TechLibrary.class),
 		PROTOCOL(ProtocolLibrary.class),
 		ACHIEVEMENTS(AchievementLibrary.class),
-		ABLECOMP(AbilityComponents.class)
+		ABLECOMP(AbilityComponents.class),
+		GALACTIC(GalacticMap.class),
+		CITY(CityMap.class),
+		WORLDHUNT(WorldHuntLibrary.class)
 		;
 
 		public final Class<?> ancestor;
@@ -305,7 +308,8 @@ public class CMLib
 		else
 		for(int i=0;i<mudThreads.size();i++)
 		{
-			if(mudThreads.elementAt(i).getPort()==port)
+			if((mudThreads.elementAt(i).getPort()==port)
+			||(mudThreads.elementAt(i).getPublicPort()==port))
 				return mudThreads.elementAt(i);
 		}
 		return null;
@@ -380,12 +384,12 @@ public class CMLib
 
 	/**
 	 * Returns a reference to this threads Intermud3 access library.
-	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.I3Interface
+	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.IntermudInterface
 	 * @return a reference to this threads Intermud3 access library.
 	 */
-	public static final I3Interface intermud()
+	public static final IntermudInterface intermud()
 	{
-		return (I3Interface)l().libraries[Library.INTERMUD.ordinal()];
+		return (IntermudInterface)l().libraries[Library.INTERMUD.ordinal()];
 	}
 
 	/**
@@ -549,6 +553,26 @@ public class CMLib
 	}
 
 	/**
+	 * Returns a reference to this threads space mapping library.
+	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.GalacticMap
+	 * @return a reference to this threads space mapping library.
+	 */
+	public static final GalacticMap space()
+	{
+		return (GalacticMap)l().libraries[Library.GALACTIC.ordinal()];
+	}
+
+	/**
+	 * Returns a reference to this threads city objects library.
+	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.CityMap
+	 * @return a reference to this threads city objects library.
+	 */
+	public static final CityMap city()
+	{
+		return (CityMap)l().libraries[Library.CITY.ordinal()];
+	}
+
+	/**
 	 * Returns a reference to this threads message board and journal library.
 	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.JournalsLibrary
 	 * @return a reference to this threads message board and journal library.
@@ -657,6 +681,17 @@ public class CMLib
 	{
 		return (WorldMap)l().libraries[Library.MAP.ordinal()];
 	}
+
+	/**
+	 * Returns a reference to this threads areas and rooms searching library.
+	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.WorldHuntLibrary
+	 * @return a reference to this threads areas and rooms searching library.
+	 */
+	public static final WorldHuntLibrary hunt()
+	{
+		return (WorldHuntLibrary)l().libraries[Library.WORLDHUNT.ordinal()];
+	}
+
 
 	/**
 	 * Returns a reference to this threads quest collection/management library.
@@ -829,13 +864,13 @@ public class CMLib
 	}
 
 	/**
-	 * Returns a reference to this threads player titles collection/management library.
-	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.AutoTitlesLibrary
+	 * Returns a reference to this threads player awards collection/management library.
+	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.AutoAwardsLibrary
 	 * @return a reference to this threads player titles collection/management library.
 	 */
-	public static final AutoTitlesLibrary titles()
+	public static final AutoAwardsLibrary awards()
 	{
-		return (AutoTitlesLibrary)l().libraries[Library.TITLES.ordinal()];
+		return (AutoAwardsLibrary)l().libraries[Library.AUTOAWARDS.ordinal()];
 	}
 
 	/**
@@ -901,12 +936,12 @@ public class CMLib
 
 	/**
 	 * Returns a reference to this instances Intermud3 access library.
-	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.I3Interface
+	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.IntermudInterface
 	 * @return a reference to this instances Intermud3 access library.
 	 */
-	public final I3Interface _intermud()
+	public final IntermudInterface _intermud()
 	{
-		return (I3Interface)libraries[Library.INTERMUD.ordinal()];
+		return (IntermudInterface)libraries[Library.INTERMUD.ordinal()];
 	}
 
 	/**
@@ -1097,6 +1132,26 @@ public class CMLib
 	public final GenericBuilder _coffeeMaker()
 	{
 		return (GenericBuilder)libraries[Library.OBJBUILDERS.ordinal()];
+	}
+
+	/**
+	 * Returns a reference to this instances space mapping library.
+	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.GalacticMap
+	 * @return a reference to this instances space mapping library.
+	 */
+	public final GalacticMap _space()
+	{
+		return (GalacticMap)libraries[Library.GALACTIC.ordinal()];
+	}
+
+	/**
+	 * Returns a reference to this instances city objects library.
+	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.CityMap
+	 * @return a reference to this instances city objects library.
+	 */
+	public final CityMap _city()
+	{
+		return (CityMap)libraries[Library.CITY.ordinal()];
 	}
 
 	/**
@@ -1351,12 +1406,12 @@ public class CMLib
 
 	/**
 	 * Returns a reference to this instances player titles collection/management library.
-	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.AutoTitlesLibrary
+	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.AutoAwardsLibrary
 	 * @return a reference to this instances player titles collection/management library.
 	 */
-	public final AutoTitlesLibrary _titles()
+	public final AutoAwardsLibrary _titles()
 	{
-		return (AutoTitlesLibrary)libraries[Library.TITLES.ordinal()];
+		return (AutoAwardsLibrary)libraries[Library.AUTOAWARDS.ordinal()];
 	}
 
 	/**
@@ -1613,7 +1668,7 @@ public class CMLib
 	 */
 	public final static Enumeration<CMLibrary> libraries(final Library code)
 	{
-		final Vector<CMLibrary> V=new Vector<CMLibrary>();
+		final LinkedList<CMLibrary> V=new LinkedList<CMLibrary>();
 		for(int l=0;l<libs.length;l++)
 		{
 			if((libs[l]!=null)
@@ -1621,7 +1676,7 @@ public class CMLib
 			&&(!V.contains(libs[l].libraries[code.ordinal()])))
 				V.add(libs[l].libraries[code.ordinal()]);
 		}
-		return V.elements();
+		return new IteratorEnumeration<CMLibrary>(V.iterator());
 	}
 
 	/**

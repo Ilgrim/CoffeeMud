@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,6 +60,49 @@ public class StdClanItem extends StdItem implements ClanItem
 		baseGoldValue = 1;
 		material = RawMaterial.RESOURCE_OAK;
 		recoverPhyStats();
+	}
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())
+		&&((this.clanID().length()==0)||(name().toLowerCase().indexOf(this.clanID().toLowerCase())<0)))
+			return CMStrings.removeColors(name());
+		switch(this.ciType)
+		{
+		case ANTI_PROPAGANDA:
+			return L("a paper");
+		case BANNER:
+			return L("a banner");
+		case CRAFTITEM:
+			return L("a clan thing");
+		case DONATIONJOURNAL:
+			return L("a journal");
+		case FLAG:
+			return L("a flat");
+		case GATHERITEM:
+			return L("a clan thing");
+		case GAVEL:
+			return L("a gavel");
+		case LEGALBADGE:
+			return L("a badge");
+		case PROPAGANDA:
+			return L("a paper");
+		case SAILORSCAP:
+			return L("a cap");
+		case SPECIALAPRON:
+			return L("an apron");
+		case SPECIALOTHER:
+			return L("a clan thing");
+		case SPECIALSCALES:
+			return L("some scales");
+		case SPECIALSCAVENGER:
+			return L("a clan thing");
+		case SPECIALTAXER:
+			return L("a clan thing");
+		case TABBARD:
+			return L("a tabbard");
+		}
+		return L("a clan thing");
 	}
 
 	@Override
@@ -263,8 +306,13 @@ public class StdClanItem extends StdItem implements ClanItem
 		List<List<String>> V = (List<List<String>>) Resources.getResource("PARSED: clancraft.txt");
 		if (V == null)
 		{
-			final StringBuffer str = new CMFile(Resources.buildResourcePath("skills") + "clancraft.txt", null, CMFile.FLAG_LOGERRORS).text();
-			V = loadList(str);
+			V = new Vector<List<String>>();
+			for(final CMFile F : CMFile.getExistingExtendedFiles(Resources.buildResourcePath("skills")+"clancraft.txt",null,CMFile.FLAG_LOGERRORS))
+			{
+				final StringBuffer str = F.text();
+				V.addAll(loadList(str));
+			}
+			V=new ReadOnlyList<List<String>>(V);
 			if (V.size() == 0)
 				Log.errOut("StdClanItem", "Recipes not found!");
 			Resources.submitResource("PARSED: clancrtaft.txt", V);
@@ -359,7 +407,7 @@ public class StdClanItem extends StdItem implements ClanItem
 			{
 				if (CMLib.clans().findRivalrousClan(msg.source()) == null)
 				{
-					msg.source().tell(CMLib.lang().L("You must belong to an elligible clan to do that to a clan item."));
+					msg.source().tell(CMLib.lang().L("You must belong to an eligible clan to do that to a clan item."));
 					return false;
 				}
 				else
@@ -405,7 +453,8 @@ public class StdClanItem extends StdItem implements ClanItem
 								}
 							}
 							else
-							if (relation != Clan.REL_WAR)
+							if((relation != Clan.REL_WAR)
+							&&(!CMSecurity.isAllowed(msg.source(), msg.source().location(), CMSecurity.SecFlag.CMDITEMS)))
 							{
 								msg.source().tell(CMLib.lang().L("You must be at war with this clan to take one of their items."));
 								return false;

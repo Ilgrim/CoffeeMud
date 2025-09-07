@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ public class Dance_Swing extends Dance
 	@Override
 	protected String danceOf()
 	{
-		return name()+" Dancing";
+		return L("@x1 Dancing",name());
 	}
 
 	@Override
@@ -97,7 +97,9 @@ public class Dance_Swing extends Dance
 				&&(((Weapon)attackerWeapon).weaponClassification()!=Weapon.CLASS_RANGED)
 				&&(((Weapon)attackerWeapon).weaponClassification()!=Weapon.CLASS_THROWN))
 				{
-					if(proficiencyCheck(null,mob.charStats().getStat(CharStats.STAT_DEXTERITY)+(getXLEVELLevel(invoker())*2)-70,false))
+					final double pct = super.statBonusPct();
+					final int dex = (int)Math.round(CMath.mul(mob.charStats().getStat(CharStats.STAT_DEXTERITY),pct));
+					if(proficiencyCheck(null,dex+(getXLEVELLevel(invoker())*2)-70,false))
 					{
 						final CMMsg msg2=CMClass.getMsg(mob,msg.source(),null,CMMsg.MSG_NOISYMOVEMENT,L("<S-NAME> parr(ys) @x1 attack from <T-NAME>!",attackerWeapon.name()));
 						if(mob.location().okMessage(mob,msg2))

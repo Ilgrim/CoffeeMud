@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Prop_UseSpellCast2 extends Prop_UseSpellCast
 	@Override
 	public String name()
 	{
-		return "Casting spells when used";
+		return "Casting spells when used differently";
 	}
 
 	@Override
@@ -89,6 +89,12 @@ public class Prop_UseSpellCast2 extends Prop_UseSpellCast
 				  &&(!(myItem instanceof Food))
 				  &&(msg.amITarget(myItem)))
 					addMeIfNeccessary(msg.source(),msg.source(),0,maxTicks);
+				break;
+			case CMMsg.TYP_DROP:
+				if((!(myItem instanceof Drink))
+				  &&(!(myItem instanceof Food))
+				  &&(msg.amITarget(myItem)))
+					this.removeMyAffectsFrom(msg.source());
 				break;
 			}
 		}

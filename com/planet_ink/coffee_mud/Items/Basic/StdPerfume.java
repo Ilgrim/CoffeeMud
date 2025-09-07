@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ public class StdPerfume extends StdDrink implements Perfume
 		else
 		{
 			E=CMClass.getAbility("Prop_MOBEmoter");
-			String s=getSmellList();
+			String s=";"+getSmellList();
 			if(s.toUpperCase().indexOf("EXPIRES")<0)
 				s="expires=50 "+s;
 			if(s.toUpperCase().trim().startsWith("SMELL "))
@@ -149,7 +149,7 @@ public class StdPerfume extends StdDrink implements Perfume
 				}
 				amountOfLiquidRemaining-=amountOfThirstQuenched;
 				wearIfAble(msg.source());
-				if(disappearsAfterDrinking)
+				if((liquidRemaining()<=0) && disappearsAfterDrinking)
 					destroy();
 				return;
 			}

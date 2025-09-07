@@ -21,7 +21,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,12 +51,10 @@ public class Loyalty extends StdAbility
 		return localizedName;
 	}
 
-	private final static String	localizedStaticDisplay	= "(Loyal to @x1)";
-
 	@Override
 	public String displayText()
 	{
-		return CMLib.lang().L(localizedStaticDisplay, loyaltyName);
+		return CMLib.lang().L("(Loyal to @x1)", loyaltyName);
 	}
 
 	@Override
@@ -127,6 +125,18 @@ public class Loyalty extends StdAbility
 	}
 
 	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
+	{
+		super.executeMsg(myHost, msg);
+
+		if((msg.target()==affected)
+		&&((msg.targetMinor()==CMMsg.TYP_LOOK)
+			||(msg.targetMinor()==CMMsg.TYP_EXAMINE))
+		&&(msg.source().Name().equals(loyaltyName)))
+			msg.addTrailerMsg(CMClass.getMsg(msg.source(),null,affected,CMMsg.MSG_OK_VISUAL,L("^H<O-NAME> is loyal to you.^?"),CMMsg.NO_EFFECT,null,CMMsg.NO_EFFECT,null));
+	}
+
+	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
 		if((ticking instanceof MOB)
@@ -142,11 +152,17 @@ public class Loyalty extends StdAbility
 				if(CMLib.flags().canFreelyBehaveNormal(M) && (player != null))
 				{
 					watchForMaster = true;
-					if(CMLib.flags().isInTheGame(player, true) && (player.location()!=null) && (!M.isAttributeSet(Attrib.AUTOGUARD)) && teleport)
-						CMLib.tracking().wanderCheckedFromTo(M, player.location(), true);
+					if(CMLib.flags().isInTheGame(player, true)
+					&& (player.location()!=null)
+					&& (!M.isAttributeSet(Attrib.AUTOGUARD))
+					&& teleport)
+						CMLib.tracking().wanderCheckedFromTo(M, player.location(), false);
 				}
 			}
-			if((watchForMaster) && (player != null) && (player.location()==M.location()) && (M.amFollowing()==null))
+			if((watchForMaster)
+			&& (player != null)
+			&& (player.location()==M.location())
+			&& (M.amFollowing()==null))
 			{
 				CMLib.commands().postFollow(M,player,false);
 				if(M.amFollowing()==player)

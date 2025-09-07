@@ -17,7 +17,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -146,6 +146,7 @@ public interface CharClass extends Tickable, StatsAffecting, MsgListener, CMObje
 	 * @return a generic version of this class.
 	 */
 	public CharClass makeGenCharClass();
+
 	/**
 	 * Returns a read only set of security flags granted to all mobs/players
 	 * who are this class, and the given class level or lower.
@@ -259,13 +260,13 @@ public interface CharClass extends Tickable, StatsAffecting, MsgListener, CMObje
 	/**
 	 * Whenever a uses a skill, this method can return any additional expertise
 	 * granted explicitly by the class.
-	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.ExpertiseLibrary.Flag
+	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.ExpertiseLibrary.XType
 	 * @param host the player or mob whose class is being queried
 	 * @param expertiseCode the expertise code
 	 * @param abilityID the Ability ID
 	 * @return the inherent expertise level for this
 	 */
-	public int addedExpertise(MOB host, ExpertiseLibrary.Flag expertiseCode, final String abilityID);
+	public int addedExpertise(MOB host, ExpertiseLibrary.XType expertiseCode, final String abilityID);
 
 	/**
 	 * This method is called whenever a player loses a level while a member of this class.  If
@@ -305,6 +306,7 @@ public interface CharClass extends Tickable, StatsAffecting, MsgListener, CMObje
 	 * @return usually, it just returns level again
 	 */
 	public int classLevelModifier(MOB myChar, Ability skill, int level);
+
 	/**
 	 * Returns the number of bonus practices received by members of
 	 * this class when they gain a level.  This is over and above
@@ -312,6 +314,7 @@ public interface CharClass extends Tickable, StatsAffecting, MsgListener, CMObje
 	 * @return the number of bonus practices to grant
 	 */
 	public int getBonusPracLevel();
+
 	/**
 	 * Returns the number of bonus attack points received by members of
 	 * this class when they gain a level.  This is over and above
@@ -319,6 +322,7 @@ public interface CharClass extends Tickable, StatsAffecting, MsgListener, CMObje
 	 * @return the number of bonus attack points to grant
 	 */
 	public int getBonusAttackLevel();
+
 	/**
 	 * Returns which of the CharStats.STAT_* constants should be
 	 * used to calculate the standard attack prowess points given
@@ -327,18 +331,21 @@ public interface CharClass extends Tickable, StatsAffecting, MsgListener, CMObje
 	 * @return a CharStats.STAT_* attribute constant code
 	 */
 	public int getAttackAttribute();
+
 	/**
 	 * Returns the number of practices received by members of
 	 * this class when they are first created.
 	 * @return the number of initial practices to grant
 	 */
 	public int getPracsFirstLevel();
+
 	/**
-	 * Returns the number of training points received by members of
+	 * Returns the number of training sessions received by members of
 	 * this class when they are first created.
 	 * @return the number of initial trains to grant
 	 */
 	public int getTrainsFirstLevel();
+
 	/**
 	 * Returns the number of levels which must be gained by a member
 	 * of this class before they gain 1 more point of default damage
@@ -449,65 +456,76 @@ public interface CharClass extends Tickable, StatsAffecting, MsgListener, CMObje
 	 * @return a text description of weapon retrictions
 	 */
 	public String getWeaponLimitDesc();
+
 	/**
 	 * Returns a text description of any armor restrictions
 	 * imposed by this class upon its members.
 	 * @return a text description of armor retrictions
 	 */
 	public String getArmorLimitDesc();
+
 	/**
 	 * Returns a text description of any misc restrictions
 	 * imposed by this class upon its members.
 	 * @return a text description of misc retrictions
 	 */
 	public String getOtherLimitsDesc();
+
 	/**
 	 * Returns a text description of any bonus properties
 	 * granted by this class to its members.
 	 * @return a text description of bonus properties
 	 */
 	public String getOtherBonusDesc();
+
 	/**
 	 * Returns a text description of the stat qualifications
 	 * required to become a member of this character class
 	 * @return a txt description of stat qualifications
 	 */
 	public String getStatQualDesc();
+
 	/**
 	 * Returns a text description of the race requirements
 	 * required to become a member of this character class
 	 * @return a txt description of race requirements
 	 */
 	public String getRaceQualDesc();
+
 	/**
 	 * Returns a text description of the attack bonuses
 	 * gained by members of this class.
 	 * @return a text description of the attack bonuses
 	 */
 	public String getAttackDesc();
+
 	/**
 	 * Returns the prime statistic of this class
 	 * @return the prime statistic of this class
 	 */
 	public String getPrimeStatDesc();
+
 	/**
 	 * Returns a text description of the damage bonuses
 	 * gained by members of this class.
 	 * @return a text description of the damage bonuses
 	 */
 	public String getDamageDesc();
+
 	/**
 	 * Returns a text description of the train bonuses
 	 * gained by members of this class.
 	 * @return a text description of the train bonuses
 	 */
 	public String getTrainDesc();
+
 	/**
 	 * Returns a text description of the practice bonuses
 	 * gained by members of this class.
 	 * @return a text description of the practice bonuses
 	 */
 	public String getPracticeDesc();
+
 	/**
 	 * Returns the list of max stats for members of this
 	 * class.
@@ -548,11 +566,13 @@ public interface CharClass extends Tickable, StatsAffecting, MsgListener, CMObje
 	 * @return whether this class can have a class
 	 */
 	public boolean raceless();
+
 	/**
 	 * Whether players of this class can be associated with an experience level.
 	 * @return whether players of this class can have a level
 	 */
 	public boolean leveless();
+
 	/**
 	 * Whether players of this class can gain or lose experience points.
 	 * @return whether players of this class can gain or lose experience points
@@ -631,7 +651,7 @@ public interface CharClass extends Tickable, StatsAffecting, MsgListener, CMObje
 	{
 		NONE, /* cannot train away from this class, ever */
 		ANY, /* can train away from this class to any other */
-		BASEONLY, /* can train away from this class, only if the same base class */
+		BASEONLY /* can train away from this class, only if the same base class */
 	}
 
 	/** constant returned by allowedArmorLevel() to designate any allowed armors. @see com.planet_ink.coffee_mud.CharClass.StdCharClass#allowedArmorLevel() */
@@ -655,15 +675,15 @@ public interface CharClass extends Tickable, StatsAffecting, MsgListener, CMObje
 		"ANY","CLOTH","LEATHER","NONMETAL","VEGAN","METALONLY","OREONLY"
 	};
 	/** list of long string descriptions for the CharClass.ARMOR_* constants, ordered by their value.  @see CharClass */
-	public static final String[] ARMOR_LONGDESC=CMLib.lang().sessionTranslation(new String[]{
-		"May wear any armor.",
-		"Must wear cloth, vegetation, or paper based armor.",
-		"Must wear leather, cloth, or vegetation based armor.",
-		"Must wear non-metal armor.",
-		"Must wear wood or vegetation based armor.",
-		"Must wear metal armor",
-		"Must wear stone, crystal, or metal armor."
-	});
+	public static final String[] ARMOR_LONGDESC=new String[]{
+		CMLib.lang().L("May wear any armor."),
+		CMLib.lang().L("Must wear cloth, vegetation, or paper based armor."),
+		CMLib.lang().L("Must wear leather, cloth, or vegetation based armor."),
+		CMLib.lang().L("Must wear non-metal armor."),
+		CMLib.lang().L("Must wear wood or vegetation based armor."),
+		CMLib.lang().L("Must wear metal armor"),
+		CMLib.lang().L("Must wear stone, crystal, or metal armor.")
+	};
 
 	/** constant returned by allowedWeaponLevel() to designate any weapons. @see com.planet_ink.coffee_mud.CharClass.StdCharClass#allowedWeaponLevel() */
 	public static final int WEAPONS_ANY=0;
@@ -693,40 +713,54 @@ public interface CharClass extends Tickable, StatsAffecting, MsgListener, CMObje
 	public static final int WEAPONS_MERLIKE=12;
 	/** constant returned by allowedWeaponLevel() to designate staffs only. @see com.planet_ink.coffee_mud.CharClass.StdCharClass#allowedWeaponLevel() */
 	public static final int WEAPONS_STAFFONLY=13;
+	/** constant returned by allowedWeaponLevel() to designate gypsy weapons only. @see com.planet_ink.coffee_mud.CharClass.StdCharClass#allowedWeaponLevel() */
+	public static final int WEAPONS_GYPSY=14;
+	/** constant returned by allowedWeaponLevel() to designate reliquist weapons only. @see com.planet_ink.coffee_mud.CharClass.StdCharClass#allowedWeaponLevel() */
+	public static final int WEAPONS_RELIQUIST=15;
 	/** constant set of integer arrays defining the Weapon.CLASS_* constants for the CharClass.WEAPONS_* constants, ordered by CharClass.WEAPONS_* values. */
 	public static final int[][] WEAPONS_SETS={
-/*0*/{Weapon.CLASS_AXE,Weapon.CLASS_BLUNT,Weapon.CLASS_DAGGER,Weapon.CLASS_EDGED,Weapon.CLASS_FLAILED,Weapon.CLASS_HAMMER,Weapon.CLASS_NATURAL,Weapon.CLASS_POLEARM,Weapon.CLASS_RANGED,Weapon.CLASS_STAFF,Weapon.CLASS_SWORD,Weapon.CLASS_THROWN},
+/*0*/{Weapon.CLASS_AXE,Weapon.CLASS_BLUNT,Weapon.CLASS_DAGGER,Weapon.CLASS_EDGED,Weapon.CLASS_FLAILED,Weapon.CLASS_HAMMER,
+		Weapon.CLASS_NATURAL,Weapon.CLASS_POLEARM,Weapon.CLASS_RANGED,Weapon.CLASS_STAFF,Weapon.CLASS_SWORD,Weapon.CLASS_THROWN},
 /*1*/{Weapon.CLASS_NATURAL,Weapon.CLASS_DAGGER},
 /*2*/{Weapon.CLASS_SWORD,Weapon.CLASS_RANGED,Weapon.CLASS_THROWN,Weapon.CLASS_NATURAL,Weapon.CLASS_DAGGER,Weapon.CLASS_EDGED},
-/*3*/{RawMaterial.MATERIAL_WOODEN,RawMaterial.MATERIAL_UNKNOWN,RawMaterial.MATERIAL_VEGETATION,RawMaterial.MATERIAL_FLESH,RawMaterial.MATERIAL_LEATHER},
+/*3*/{RawMaterial.MATERIAL_WOODEN,RawMaterial.MATERIAL_UNKNOWN,RawMaterial.MATERIAL_VEGETATION,RawMaterial.MATERIAL_FLESH,
+		RawMaterial.MATERIAL_LEATHER},
 /*4*/{Weapon.CLASS_NATURAL,Weapon.CLASS_SWORD,Weapon.CLASS_FLAILED,Weapon.CLASS_BLUNT,Weapon.CLASS_DAGGER,Weapon.CLASS_EDGED},
-/*5*/{RawMaterial.MATERIAL_ROCK,RawMaterial.MATERIAL_UNKNOWN,RawMaterial.MATERIAL_GLASS,RawMaterial.MATERIAL_METAL,RawMaterial.MATERIAL_MITHRIL,RawMaterial.MATERIAL_PRECIOUS},
+/*5*/{RawMaterial.MATERIAL_ROCK,RawMaterial.MATERIAL_UNKNOWN,RawMaterial.MATERIAL_GLASS,RawMaterial.MATERIAL_METAL,
+		RawMaterial.MATERIAL_MITHRIL,RawMaterial.MATERIAL_PRECIOUS},
 /*6*/{Weapon.CLASS_NATURAL,Weapon.CLASS_DAGGER,Weapon.CLASS_STAFF},
 /*7*/{Weapon.CLASS_EDGED,Weapon.CLASS_POLEARM,Weapon.CLASS_AXE,Weapon.CLASS_SWORD,Weapon.CLASS_DAGGER},
 /*8*/{Weapon.CLASS_BLUNT,Weapon.CLASS_HAMMER,Weapon.CLASS_FLAILED,Weapon.CLASS_NATURAL,Weapon.CLASS_STAFF},
 /*9*/{Weapon.CLASS_BLUNT,Weapon.CLASS_RANGED,Weapon.CLASS_THROWN,Weapon.CLASS_STAFF,Weapon.CLASS_NATURAL,Weapon.CLASS_SWORD},
-/*10*/{Weapon.CLASS_AXE,Weapon.CLASS_BLUNT,Weapon.CLASS_DAGGER,Weapon.CLASS_EDGED,Weapon.CLASS_FLAILED,Weapon.CLASS_HAMMER,Weapon.CLASS_NATURAL,Weapon.CLASS_POLEARM,Weapon.CLASS_RANGED,Weapon.CLASS_STAFF,Weapon.CLASS_SWORD,Weapon.CLASS_THROWN},
+/*10*/{Weapon.CLASS_AXE,Weapon.CLASS_BLUNT,Weapon.CLASS_DAGGER,Weapon.CLASS_EDGED,Weapon.CLASS_FLAILED,Weapon.CLASS_HAMMER,
+		Weapon.CLASS_NATURAL,Weapon.CLASS_POLEARM,Weapon.CLASS_RANGED,Weapon.CLASS_STAFF,Weapon.CLASS_SWORD,Weapon.CLASS_THROWN},
 /*11*/{Weapon.CLASS_NATURAL,Weapon.CLASS_FLAILED},
-/*12*/{Weapon.CLASS_POLEARM,RawMaterial.MATERIAL_WOODEN,RawMaterial.MATERIAL_UNKNOWN,RawMaterial.MATERIAL_VEGETATION,RawMaterial.MATERIAL_FLESH,RawMaterial.MATERIAL_LEATHER},
+/*12*/{Weapon.CLASS_POLEARM,RawMaterial.MATERIAL_WOODEN,RawMaterial.MATERIAL_UNKNOWN,RawMaterial.MATERIAL_VEGETATION,
+		RawMaterial.MATERIAL_FLESH,RawMaterial.MATERIAL_LEATHER},
 /*13*/{Weapon.CLASS_NATURAL,Weapon.CLASS_STAFF},
+/*14*/{Weapon.CLASS_NATURAL,Weapon.CLASS_STAFF, Weapon.CLASS_SWORD, Weapon.CLASS_DAGGER, Weapon.CLASS_BLUNT, Weapon.CLASS_AXE},
+/*15*/{Weapon.CLASS_NATURAL,Weapon.CLASS_EDGED,Weapon.CLASS_DAGGER, Weapon.CLASS_BLUNT, Weapon.CLASS_HAMMER, Weapon.CLASS_POLEARM,
+			Weapon.CLASS_STAFF, Weapon.CLASS_FLAILED},
 	};
 	/** list of string descriptions for the CharClass.WEAPONS_* constants, ordered by their value.  @see CharClass */
-	public static final String[] WEAPONS_LONGDESC=CMLib.lang().sessionTranslation(new String[]{
-/*0*/"May use any weapons.",
-/*1*/"Must use dagger-like or natural weapons.",
-/*2*/"Must use swords, daggers, natural, or ranged weapons.",
-/*3*/"Must use wooden, plant-based, or leather weapons.",
-/*4*/"Must use sword, daggers, flailed, blunt, or natural weapons.",
-/*5*/"Must use stone, crystal, metal, or glass weapons.",
-/*6*/"Must use daggers, staves, or natural weapons.",
-/*7*/"Must use polearms, axes, swords, daggers, or edged weapons.",
-/*8*/"Must use hammers, staves, flailed, natural, or blunt weapons.",
-/*9*/"Must use swords, staves, natural, ranged, or blunt weapons",
-/*10*/"Evil must use polearm, sword, axe, edged, or daggers.  Neutral must use blunt, ranged, thrown, staff, natural, or sword.  Good must use blunt, flailed, natural, staff, or hammer.",
-/*11*/"Must use flailed weapons.",
-/*12*/"May use polearms of any kind or other weapons made from wood, plant-based materials, or leather.",
-/*13*/"Must use staffs or natural weapons.",
-	});
+	public static final String[] WEAPONS_LONGDESC=new String[]{
+/*0*/CMLib.lang().L("May use any weapons."),
+/*1*/CMLib.lang().L("Must use dagger-like or natural weapons."),
+/*2*/CMLib.lang().L("Must use swords, daggers, natural, or ranged weapons."),
+/*3*/CMLib.lang().L("Must use wooden, plant-based, or leather weapons."),
+/*4*/CMLib.lang().L("Must use sword, daggers, flailed, blunt, or natural weapons."),
+/*5*/CMLib.lang().L("Must use stone, crystal, metal, or glass weapons."),
+/*6*/CMLib.lang().L("Must use daggers, staves, or natural weapons."),
+/*7*/CMLib.lang().L("Must use polearms, axes, swords, daggers, or edged weapons."),
+/*8*/CMLib.lang().L("Must use hammers, staves, flailed, natural, or blunt weapons."),
+/*9*/CMLib.lang().L("Must use swords, staves, natural, ranged, or blunt weapons"),
+/*10*/CMLib.lang().L("Evil must use polearm, sword, axe, edged, or daggers.  Neutral must use blunt, ranged, thrown, staff, natural, or sword.  Good must use blunt, flailed, natural, staff, or hammer."),
+/*11*/CMLib.lang().L("Must use flailed weapons."),
+/*12*/CMLib.lang().L("May use polearms of any kind or other weapons made from wood, plant-based materials, or leather."),
+/*13*/CMLib.lang().L("Must use staffs or natural weapons."),
+/*14*/CMLib.lang().L("Must use staves, swords, daggers, axes, or blunt weapons."),
+/*15*/CMLib.lang().L("Must use edged, dagger, blunt, hamer, polearm, staff, or flailed weapons.")
+	};
 
 	/** for character classes that define themselves using getParms, this can designate racelessness bitmaps */
 	public final static int GENFLAG_NORACE=1;

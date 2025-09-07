@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -72,6 +72,7 @@ public class AutoInvoke extends StdCommand
 					foundA=mob.fetchEffect(foundA.ID());
 					if(foundA!=null)
 					{
+						foundA.unInvoke();
 						mob.delEffect(foundA);
 						if(mob.fetchEffect(foundA.ID())!=null)
 							mob.tell(L("@x1 failed to successfully deactivate.",foundA.name()));
@@ -100,7 +101,7 @@ public class AutoInvoke extends StdCommand
 	public boolean execute(final MOB mob, final List<String> commands, final int metaFlags)
 		throws java.io.IOException
 	{
-		final List<Ability> abilities=new Vector<Ability>();
+		final List<Ability> abilities=new ArrayList<Ability>();
 		final Set<String> abilityids=new TreeSet<String>();
 		for(int a=0;a<mob.numAbilities();a++)
 		{

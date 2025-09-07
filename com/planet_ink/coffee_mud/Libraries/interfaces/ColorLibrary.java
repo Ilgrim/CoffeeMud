@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,56 +50,86 @@ public interface ColorLibrary extends CMLibrary
 	 */
 	public enum Color
 	{
-		WHITE("\033[1;37m","<FONT COLOR=WHITE",'w'),
-		LIGHTGREEN("\033[1;32m","<FONT COLOR=LIGHTGREEN",'g'),
-		LIGHTBLUE("\033[1;34m","<FONT COLOR=BLUE",'b'),
-		LIGHTRED("\033[1;31m","<FONT COLOR=RED",'r'),
-		YELLOW("\033[1;33m","<FONT COLOR=YELLOW",'y'),
-		LIGHTCYAN("\033[1;36m","<FONT COLOR=CYAN",'c'),
-		LIGHTPURPLE("\033[1;35m","<FONT COLOR=VIOLET",'p'),
-		GREY("\033[0;37m","<FONT COLOR=LIGHTGREY",'W'),
-		GREEN("\033[0;32m","<FONT COLOR=GREEN",'G'),
-		BLUE("\033[0;34m","<FONT COLOR=#000099",'B'),
-		RED("\033[0;31m","<FONT COLOR=#993300",'R'),
-		BROWN("\033[0;33m","<FONT COLOR=#999966",'Y'),
-		CYAN("\033[0;36m","<FONT COLOR=DARKCYAN",'C'),
-		PURPLE("\033[0;35m","<FONT COLOR=PURPLE",'P'),
-		DARKGREY("\033[1;30m","<FONT COLOR=GRAY",'k'),
-		BLACK("\033[0;30m","<FONT COLOR=BLACK",'K'),
-		NONE("\033[0;0m","</I></U></BLINK></B></FONT"),
-		BOLD("\033[1m","<B"),
-		UNDERLINE("\033[4m","<U"),
-		BLINK("\033[5m","<BLINK"),
-		ITALICS("\033[6m","<I"),
-		BGWHITE("\033[47m"," style=\"background-color: white\""),
-		BGGREEN("\033[42m"," style=\"background-color: green\""),
-		BGBLUE("\033[44m"," style=\"background-color: #000099\""),
-		BGRED("\033[41m"," style=\"background-color: #993300\""),
-		BGYELLOW("\033[43m"," style=\"background-color: #999966\""),
-		BGCYAN("\033[46m"," style=\"background-color: darkcyan\""),
-		BGPURPLE("\033[45m"," style=\"background-color: purple\""),
-		BGBLACK("\033[40m"," style=\"background-color: black\""),
-		BGDEFAULT("\033[49m"," style=\"background-color: white\""),
+		WHITE("\033[1;37m","<FONT COLOR=WHITE",'w','w'),
+		LIGHTGREEN("\033[1;32m","<FONT COLOR=LIGHTGREEN",'g','g'),
+		LIGHTBLUE("\033[1;34m","<FONT COLOR=BLUE",'b','b'),
+		LIGHTRED("\033[1;31m","<FONT COLOR=RED",'r','r'),
+		YELLOW("\033[1;33m","<FONT COLOR=YELLOW",'y','y'),
+		LIGHTCYAN("\033[1;36m","<FONT COLOR=CYAN",'c','c'),
+		LIGHTPURPLE("\033[1;35m","<FONT COLOR=VIOLET",'p','p'),
+		GREY("\033[0;37m","<FONT COLOR=LIGHTGREY",'W','w'),
+		GREEN("\033[0;32m","<FONT COLOR=GREEN",'G','g'),
+		BLUE("\033[0;34m","<FONT COLOR=#000099",'B','b'),
+		RED("\033[0;31m","<FONT COLOR=#993300",'R','r'),
+		BROWN("\033[0;33m","<FONT COLOR=#999966",'Y','y'),
+		CYAN("\033[0;36m","<FONT COLOR=DARKCYAN",'C','c'),
+		PURPLE("\033[0;35m","<FONT COLOR=PURPLE",'P','p'),
+		DARKGREY("\033[1;30m","<FONT COLOR=GRAY",'k','w'),
+		BLACK("\033[0;30m","<FONT COLOR=BLACK",'K','k'),
+		NONE("\033[0;0m","</I></U></BLINK></B></FONT",'\0','\0'),
+		BOLD("\033[1m","<B",'\0','\0'),
+		UNDERLINE("\033[4m","<U",'\0','\0'),
+		BLINK("\033[5m","<BLINK",'\0','\0'),
+		ITALICS("\033[6m","<I",'\0','\0'),
+		BGWHITE("\033[47m"," style=\"background-color: white\"",'\0','w'),
+		BGGREEN("\033[42m"," style=\"background-color: green\"",'\0','g'),
+		BGBLUE("\033[44m"," style=\"background-color: #000099\"",'\0','b'),
+		BGRED("\033[41m"," style=\"background-color: #993300\"",'\0','r'),
+		BGYELLOW("\033[43m"," style=\"background-color: #999966\"",'\0','y'),
+		BGCYAN("\033[46m"," style=\"background-color: darkcyan\"",'\0','c'),
+		BGPURPLE("\033[45m"," style=\"background-color: purple\"",'\0','p'),
+		BGBLACK("\033[40m"," style=\"background-color: black\"",'\0','k'),
+		BGDEFAULT("\033[49m"," style=\"background-color: white\"",'\0','k'),
 		;
+
+		public final static String[] html256 = new String[] {
+			"#000000", "#800000", "#008000", "#808000", "#000080", "#800080", "#008080", "#C0C0C0",
+			"#808080", "#FF0000", "#00FF00", "#FFFF00", "#0000FF", "#FF00FF", "#00FFFF", "#FFFFFF",
+			"#000000", "#00005f", "#000087", "#0000af", "#0000d7", "#0000ff", "#005f00", "#005f5f",
+			"#005f87", "#005faf", "#005fd7", "#005fff", "#008700", "#00875f", "#008787", "#0087af",
+			"#0087d7", "#0087ff", "#00af00", "#00af5f", "#00af87", "#00afaf", "#00afd7", "#00afff",
+			"#00d700", "#00d75f", "#00d787", "#00d7af", "#00d7d7", "#00d7ff", "#00ff00", "#00ff5f",
+			"#00ff87", "#00ffaf", "#00ffd7", "#00ffff", "#5f0000", "#5f005f", "#5f0087", "#5f00af",
+			"#5f00d7", "#5f00ff", "#5f5f00", "#5f5f5f", "#5f5f87", "#5f5faf", "#5f5fd7", "#5f5fff",
+			"#5f8700", "#5f875f", "#5f8787", "#5f87af", "#5f87d7", "#5f87ff", "#5faf00", "#5faf5f",
+			"#5faf87", "#5fafaf", "#5fafd7", "#5fafff", "#5fd700", "#5fd75f", "#5fd787", "#5fd7af",
+			"#5fd7d7", "#5fd7ff", "#5fff00", "#5fff5f", "#5fff87", "#5fffaf", "#5fffd7", "#5fffff",
+			"#870000", "#87005f", "#870087", "#8700af", "#8700d7", "#8700ff", "#875f00", "#875f5f",
+			"#875f87", "#875faf", "#875fd7", "#875fff", "#878700", "#87875f", "#878787", "#8787af",
+			"#8787d7", "#8787ff", "#87af00", "#87af5f", "#87af87", "#87afaf", "#87afd7", "#87afff",
+			"#87d700", "#87d75f", "#87d787", "#87d7af", "#87d7d7", "#87d7ff", "#87ff00", "#87ff5f",
+			"#87ff87", "#87ffaf", "#87ffd7", "#87ffff", "#af0000", "#af005f", "#af0087", "#af00af",
+			"#af00d7", "#af00ff", "#af5f00", "#af5f5f", "#af5f87", "#af5faf", "#af5fd7", "#af5fff",
+			"#af8700", "#af875f", "#af8787", "#af87af", "#af87d7", "#af87ff", "#afaf00", "#afaf5f",
+			"#afaf87", "#afafaf", "#afafd7", "#afafff", "#afd700", "#afd75f", "#afd787", "#afd7af",
+			"#afd7d7", "#afd7ff", "#afff00", "#afff5f", "#afff87", "#afffaf", "#afffd7", "#afffff",
+			"#d70000", "#d7005f", "#d70087", "#d700af", "#d700d7", "#d700ff", "#d75f00", "#d75f5f",
+			"#d75f87", "#d75faf", "#d75fd7", "#d75fff", "#d78700", "#d7875f", "#d78787", "#d787af",
+			"#d787d7", "#d787ff", "#d7af00", "#d7af5f", "#d7af87", "#d7afaf", "#d7afd7", "#d7afff",
+			"#d7d700", "#d7d75f", "#d7d787", "#d7d7af", "#d7d7d7", "#d7d7ff", "#d7ff00", "#d7ff5f",
+			"#d7ff87", "#d7ffaf", "#d7ffd7", "#d7ffff", "#ff0000", "#ff005f", "#ff0087", "#ff00af",
+			"#ff00d7", "#ff00ff", "#ff5f00", "#ff5f5f", "#ff5f87", "#ff5faf", "#ff5fd7", "#ff5fff",
+			"#ff8700", "#ff875f", "#ff8787", "#ff87af", "#ff87d7", "#ff87ff", "#ffaf00", "#ffaf5f",
+			"#ffaf87", "#ffafaf", "#ffafd7", "#ffafff", "#ffd700", "#ffd75f", "#ffd787", "#ffd7af",
+			"#ffd7d7", "#ffd7ff", "#ffff00", "#ffff5f", "#ffff87", "#ffffaf", "#ffffd7", "#ffffff",
+			"#080808", "#121212", "#1C1C1C", "#262626", "#303030", "#3A3A3A", "#444444", "#4E4E4E",
+			"#585858", "#626262", "#6C6C6C", "#767676", "#808080", "#8A8A8A", "#949494", "#9E9E9E",
+			"#A8A8A8", "#B2B2B2", "#BCBCBC", "#C6C6C6", "#D0D0D0", "#DADADA", "#E4E4E4", "#EEEEEE"
+		};
 
 		private final String	ansiCode;
 		private final String	htmlTag;
 		private final char		codeLetter;
+		private final char		bgLetter;
 		private final boolean	isBasicColor;
-		private final boolean	isExtendedColor;
 
-		private Color(final String ansiCode, final String htmlTag, final char codeLetter)
+		private Color(final String ansiCode, final String htmlTag, final char codeLetter, final char bgColor)
 		{
 			this.ansiCode = ansiCode;
 			this.codeLetter = codeLetter;
 			this.htmlTag = htmlTag;
+			this.bgLetter = bgColor;
 			isBasicColor = ((this.codeLetter != 'K') && (this.codeLetter != '\0'));
-			isExtendedColor = (this.codeLetter != '\0');
-		}
-
-		private Color(final String ansiCode, final String htmlTag)
-		{
-			this(ansiCode, htmlTag, '\0');
 		}
 
 		/**
@@ -109,15 +139,6 @@ public interface ColorLibrary extends CMLibrary
 		public final boolean isBasicColor()
 		{
 			return isBasicColor;
-		}
-
-		/**
-		 * True if its a basic 16 color, including black.
-		 * @return its a basic 16 color, including black.
-		 */
-		public final boolean isExtendedColor()
-		{
-			return isExtendedColor;
 		}
 
 		/**
@@ -148,6 +169,15 @@ public interface ColorLibrary extends CMLibrary
 		}
 
 		/**
+		 * Returns the ^~ char code, or 0 if its not a basic color
+		 * @return the ^~ char code, or 0 if its not a basic color
+		 */
+		public final char getBGCodeChar()
+		{
+			return bgLetter;
+		}
+
+		/**
 		 * Returns the name, but with - instead of _
 		 * @return the name, but with - instead of _
 		 */
@@ -155,7 +185,6 @@ public interface ColorLibrary extends CMLibrary
 		{
 			return name();
 		}
-
 	}
 
 	/**
@@ -174,31 +203,6 @@ public interface ColorLibrary extends CMLibrary
 		null,
 		null
 	};
-
-	/**
-	 * A mapping of the escape codes for the basic 16 ansi
-	 * colors to the basic 16 background ansi color codes
-	 */
-	public static final Map<String,String> MAP_ANSICOLOR_TO_ANSIBGCOLOR=new SHashtable<String,String>(new Object[][]{
-		{   Color.WHITE.getANSICode(), Color.BGWHITE.getANSICode()},
-		{   Color.LIGHTGREEN.getANSICode(), Color.BGGREEN.getANSICode()},
-		{   Color.LIGHTBLUE.getANSICode(), Color.BGBLUE.getANSICode()},
-		{   Color.LIGHTRED.getANSICode(), Color.BGRED.getANSICode()},
-		{   Color.YELLOW.getANSICode(), Color.BGYELLOW.getANSICode()},
-		{   Color.LIGHTCYAN.getANSICode(), Color.BGCYAN.getANSICode()},
-		{   Color.LIGHTPURPLE.getANSICode(), Color.BGPURPLE.getANSICode()},
-		{   Color.GREY.getANSICode(), Color.BGWHITE.getANSICode()},
-		{   Color.GREEN.getANSICode(), Color.BGGREEN.getANSICode()},
-		{   Color.BLUE.getANSICode(), Color.BGBLUE.getANSICode()},
-		{   Color.RED.getANSICode(), Color.BGRED.getANSICode()},
-		{   Color.BROWN.getANSICode(), Color.BGYELLOW.getANSICode()},
-		{   Color.CYAN.getANSICode(), Color.BGCYAN.getANSICode()},
-		{   Color.PURPLE.getANSICode(), Color.BGPURPLE.getANSICode()},
-		{   Color.DARKGREY.getANSICode(), Color.BGDEFAULT.getANSICode()},
-		{
-			Color.BLACK.getANSICode(), Color.BGBLACK.getANSICode()
-		}
-	});
 
 	//remaining=aijlnoszAJV
 	/**
@@ -222,15 +226,16 @@ public interface ColorLibrary extends CMLibrary
 		IMPORTANT1('x'),
 		IMPORTANT2('X'),
 		IMPORTANT3('Z'),
+		DING('z'),
 		ROOMTITLE('O'),
 		ROOMDESC('L'),
 		DIRECTION('D'),
 		DOORDESC('d'),
 		ITEM('I'),
 		MOB('M'),
-		HITPOINTS('h'),
-		MANA('m'),
-		MOVES('v'),
+		HITPOINTS('h',"HITS"),
+		MANA('m',"MANA"),
+		MOVES('v',"MOVE"),
 		NORMAL('N'),
 		HIGHLIGHT('H'),
 		UNEXPDIRECTION('U'),
@@ -238,15 +243,49 @@ public interface ColorLibrary extends CMLibrary
 		WEATHER('J')
 		;
 
+		private static SpecialColor[] charMap = null;
+
 		private final char		cchar;
 		private final String	underStr;
 		private final String	escapeCode;
+		private final String	charStateStat;
 
-		private SpecialColor(final char escapeChar)
+		private SpecialColor(final char escapeChar, final String charStateStat)
 		{
 			this.cchar = escapeChar;
 			this.underStr = name().replace('_', '-');
 			this.escapeCode = "^"+cchar;
+			this.charStateStat = charStateStat;
+		}
+
+		private SpecialColor(final char escapeChar)
+		{
+			this(escapeChar, null);
+		}
+
+		/**
+		 * Returns a mapped object based on escape char
+		 * @param escapeChar the char to look for
+		 * @return a special color obj, or null
+		 */
+		public static SpecialColor get(final char escapeChar)
+		{
+			if(charMap == null)
+			{
+				charMap = new SpecialColor[256];
+				for(final SpecialColor c : SpecialColor.values())
+					charMap[c.getCodeChar() & 0xff] = c;
+			}
+			return charMap[escapeChar & 0xff];
+		}
+
+		/**
+		 * Returns the char state stat
+		 * @return the char state stat
+		 */
+		public String getCharStateStat()
+		{
+			return charStateStat;
 		}
 
 		/**
@@ -318,7 +357,7 @@ public interface ColorLibrary extends CMLibrary
 	 * The object with information about all
 	 * supported ANSI-256 colors
 	 *
-	 * @author BZ
+	 * @author Bo Zimmerman
 	 *
 	 */
 	public interface Color256
@@ -418,6 +457,24 @@ public interface ColorLibrary extends CMLibrary
 	public String mixColorCodes(String code1, String code2);
 
 	/**
+	 * Given the ansi code for a foreground color, this method
+	 * will return the corresponding ansi code for the background
+	 * character.
+	 * @param ansi the foreground ansi color
+	 * @return the background ansi color
+	 */
+	public String getBackgroundAnsiCode(final String ansi);
+
+	/**
+	 * Given a color code (bg or fg), this method will return
+	 * the appropriate html tag for the background color.
+	 *
+	 * @param codeC the color code
+	 * @return the html tag, or null
+	 */
+	public String getBackgroundHtmlTag(final char codeC);
+
+	/**
 	 * Does nothing more impressive than adding the color codes
 	 * for combat to the source and target messages if possible.
 	 * @param msg the message to colorize
@@ -464,6 +521,7 @@ public interface ColorLibrary extends CMLibrary
 	/**
 	 * Returns an enumeration of the supported ansi-256 colors
 	 * that are supported by the system in general.
+	 * @return the enumeration of all the ansi 256 colors
 	 */
 	public Enumeration<Color256> getColors256();
 

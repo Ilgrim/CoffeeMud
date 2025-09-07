@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,6 +70,12 @@ public class Spell_DetectUndead extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	protected int canAffectCode()
 	{
 		return CAN_MOBS;
@@ -109,8 +115,10 @@ public class Spell_DetectUndead extends Spell
 			for(int i=0;i<lastRoom.numInhabitants();i++)
 			{
 				final MOB mob=lastRoom.fetchInhabitant(i);
-				if((mob!=null)&&(mob!=affected)&&(mob.charStats()!=null)&&(mob.charStats().getMyRace()!=null)&&(mob.charStats().getMyRace().racialCategory().equalsIgnoreCase("Undead")))
-					((MOB)affected).tell(mob,null,null,L("<S-NAME> gives off a cold dark vibe."));
+				if((mob!=null)
+				&&(mob!=affected)
+				&&(CMLib.flags().isUndead(mob)))
+					commonTelL((MOB)affected,mob,null,"<T-NAME> gives off a cold dark vibe.");
 			}
 		}
 		return true;
@@ -138,7 +146,7 @@ public class Spell_DetectUndead extends Spell
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> detecting undead things."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> detecting undead things."));
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))

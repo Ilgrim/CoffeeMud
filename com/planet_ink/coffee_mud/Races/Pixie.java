@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -105,7 +105,7 @@ public class Pixie extends SmallElfKin
 		return localizedStaticRacialCat;
 	}
 
-	//                                     an ey ea he ne ar ha to le fo no gi mo wa ta wi
+	//  								   an ey ea he ne ar ha to le fo no gi mo wa ta wi
 	private static final int[]	parts	= { 0, 2, 2, 1, 1, 2, 2, 1, 2, 2, 1, 0, 1, 1, 0, 2 };
 
 	@Override
@@ -175,16 +175,24 @@ public class Pixie extends SmallElfKin
 	public void affectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
 		super.affectCharStats(affectedMOB, affectableStats);
-		affectableStats.setStat(CharStats.STAT_DEXTERITY,affectableStats.getStat(CharStats.STAT_DEXTERITY)+4);
-		affectableStats.setStat(CharStats.STAT_MAX_DEXTERITY_ADJ,affectableStats.getStat(CharStats.STAT_MAX_DEXTERITY_ADJ)+4);
-		affectableStats.setStat(CharStats.STAT_STRENGTH,affectableStats.getStat(CharStats.STAT_STRENGTH)-6);
-		affectableStats.setStat(CharStats.STAT_MAX_STRENGTH_ADJ,affectableStats.getStat(CharStats.STAT_MAX_STRENGTH_ADJ)-6);
-		affectableStats.setStat(CharStats.STAT_CONSTITUTION,affectableStats.getStat(CharStats.STAT_CONSTITUTION)-4);
-		affectableStats.setStat(CharStats.STAT_MAX_CONSTITUTION_ADJ,affectableStats.getStat(CharStats.STAT_MAX_CONSTITUTION_ADJ)-4);
-		affectableStats.setStat(CharStats.STAT_CHARISMA,affectableStats.getStat(CharStats.STAT_CHARISMA)+2);
-		affectableStats.setStat(CharStats.STAT_MAX_CHARISMA_ADJ,affectableStats.getStat(CharStats.STAT_MAX_CHARISMA_ADJ)+2);
+		affectableStats.adjStat(CharStats.STAT_DEXTERITY,4);
+		affectableStats.adjStat(CharStats.STAT_STRENGTH,-6);
+		affectableStats.adjStat(CharStats.STAT_CONSTITUTION,-4);
+		affectableStats.adjStat(CharStats.STAT_CHARISMA,2);
 		affectableStats.setStat(CharStats.STAT_SAVE_POISON,affectableStats.getStat(CharStats.STAT_SAVE_POISON)+10);
 		affectableStats.setStat(CharStats.STAT_SAVE_MAGIC,affectableStats.getStat(CharStats.STAT_SAVE_MAGIC)+25);
+	}
+
+	@Override
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
+	{
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.adjStat(CharStats.STAT_DEXTERITY,-4);
+		affectableStats.adjStat(CharStats.STAT_STRENGTH,+6);
+		affectableStats.adjStat(CharStats.STAT_CONSTITUTION,+4);
+		affectableStats.adjStat(CharStats.STAT_CHARISMA,-2);
+		affectableStats.setStat(CharStats.STAT_SAVE_POISON,affectableStats.getStat(CharStats.STAT_SAVE_POISON)-10);
+		affectableStats.setStat(CharStats.STAT_SAVE_MAGIC,affectableStats.getStat(CharStats.STAT_SAVE_MAGIC)-25);
 	}
 
 	@Override
@@ -250,52 +258,17 @@ public class Pixie extends SmallElfKin
 
 			final Armor s3=CMClass.getArmor("GenBelt");
 			outfitChoices.add(s3);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public Weapon[] getNaturalWeapons()
 	{
-		return funHumanoidWeapon();
-	}
-
-	@Override
-	public String healthText(final MOB viewer, final MOB mob)
-	{
-		final double pct=(CMath.div(mob.curState().getHitPoints(),mob.maxState().getHitPoints()));
-
-		if(pct<.10)
-			return L("^r@x1^r is facing mortality!^N",mob.name(viewer));
-		else
-		if(pct<.20)
-			return L("^r@x1^r is covered in blood.^N",mob.name(viewer));
-		else
-		if(pct<.30)
-			return L("^r@x1^r is bleeding badly from lots of wounds.^N",mob.name(viewer));
-		else
-		if(pct<.40)
-			return L("^y@x1^y has numerous bloody wounds and gashes.^N",mob.name(viewer));
-		else
-		if(pct<.50)
-			return L("^y@x1^y has some bloody wounds and gashes.^N",mob.name(viewer));
-		else
-		if(pct<.60)
-			return L("^p@x1^p has a few bloody wounds.^N",mob.name(viewer));
-		else
-		if(pct<.70)
-			return L("^p@x1^p is cut and bruised.^N",mob.name(viewer));
-		else
-		if(pct<.80)
-			return L("^g@x1^g has some minor cuts and bruises.^N",mob.name(viewer));
-		else
-		if(pct<.90)
-			return L("^g@x1^g has a few bruises and scratches.^N",mob.name(viewer));
-		else
-		if(pct<.99)
-			return L("^g@x1^g has a few small bruises.^N",mob.name(viewer));
-		else
-			return L("^c@x1^c is in perfect health.^N",mob.name(viewer));
+		if(naturalWeaponChoices.length==0)
+			naturalWeaponChoices = getHumanoidWeapons();
+		return super.getNaturalWeapons();
 	}
 
 	private static Vector<RawMaterial>	resources	= new Vector<RawMaterial>();

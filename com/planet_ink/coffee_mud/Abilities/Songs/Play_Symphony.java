@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -34,10 +34,12 @@ import java.util.*;
 */
 public class Play_Symphony extends Play
 {
+	private String id = "Play_Symphony";
+
 	@Override
 	public String ID()
 	{
-		return "Play_Symphony";
+		return id;
 	}
 
 	private final static String localizedName = CMLib.lang().L("Symphony");
@@ -46,6 +48,14 @@ public class Play_Symphony extends Play
 	public String name()
 	{
 		return localizedName;
+	}
+
+	private String playInstName = "";
+
+	@Override
+	public String displayText()
+	{
+		return "(" + songOf() + playInstName + ")";
 	}
 
 	@Override
@@ -60,22 +70,23 @@ public class Play_Symphony extends Play
 			return Ability.QUALITY_BENEFICIAL_OTHERS;
 	}
 
-	public final static int CODE_UPSAVE=1;
-	public final static int CODE_UPDAMAGEPER3=2;
-	public final static int CODE_UPSTAT=3;
-	public final static int CODE_DOWNDAMAGEPER5=4;
-	public final static int CODE_CASTMALICIOUSSPELLPER10=5;
-	public final static int CODE_CASTFRIENDLYSPELLPER2=6;
-	public final static int CODE_UPENVPER2=7;
-	public final static int CODE_UPENVPER5=8;
-	public final static int CODE_REMOVESPELLTYPE=9;
-	public final static int CODE_SPEEDCOMMONSKILLS=10;
-	public final static int CODE_UPMOVEMENT=11;
-	public final static int CODE_CASTFRIENDLYSPELLPER5=12;
-	public final static int CODE_CASTFRIENDLYSPELLPER10=13;
-	public final static int CODE_CASTFRIENDLYSPELLPER20=14;
-	public final static int CODE_DOWNSAVE=15;
-	public final static int CODE_UPDAMAGEPER5=16;
+	public final static int	CODE_UPSAVE						= 1;
+	public final static int	CODE_UPDAMAGEPER3				= 2;
+	public final static int	CODE_UPSTAT						= 3;
+	public final static int	CODE_DOWNDAMAGEPER5				= 4;
+	public final static int	CODE_CASTMALICIOUSSPELLPER10	= 5;
+	public final static int	CODE_CASTFRIENDLYSPELLPER2		= 6;
+	public final static int	CODE_UPENVPER2					= 7;
+	public final static int	CODE_UPENVPER5					= 8;
+	public final static int	CODE_REMOVESPELLTYPE			= 9;
+	public final static int	CODE_SPEEDCOMMONSKILLS			= 10;
+	public final static int	CODE_UPMOVEMENT					= 11;
+	public final static int	CODE_CASTFRIENDLYSPELLPER5		= 12;
+	public final static int	CODE_CASTFRIENDLYSPELLPER10		= 13;
+	public final static int	CODE_CASTFRIENDLYSPELLPER20		= 14;
+	public final static int	CODE_DOWNSAVE					= 15;
+	public final static int	CODE_UPDAMAGEPER5				= 16;
+
 	public int toDoCode=-1;
 	public String toDoString="";
 	public int toDoVal=0;
@@ -245,7 +256,7 @@ public class Play_Symphony extends Play
 			else
 			{
 				toDoCode=CODE_CASTMALICIOUSSPELLPER10;
-				toDoString="Spell_Thirst";
+				toDoString="Spell_InsatiableThirst";
 			}
 			break;
 		}
@@ -787,6 +798,12 @@ public class Play_Symphony extends Play
 	}
 
 	@Override
+	protected boolean isMine(final MOB mob)
+	{
+		return mob.fetchAbility("Play_Symphony")==this;
+	}
+
+	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		instrument=null;
@@ -797,7 +814,20 @@ public class Play_Symphony extends Play
 			if(instrument!=null)
 				getToDoCode();
 		}
-		return super.invoke(mob,commands,givenTarget,auto,asLevel);
+		try
+		{
+			playInstName="";
+			if(instrument != null)
+			{
+				id = "Play_Symphony_"+instrument.getInstrumentTypeName().replace(' ', '_');
+				playInstName=": "+instrument.getInstrumentTypeName();
+			}
+			return super.invoke(mob,commands,givenTarget,auto,asLevel);
+		}
+		finally
+		{
+			id = "Play_Symphony";
+		}
 	}
 }
 

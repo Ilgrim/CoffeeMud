@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2020-2020 Bo Zimmerman
+   Copyright 2020-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class Prayer_ReadPrayer extends Prayer
+public class Prayer_ReadPrayer extends Prayer implements Scroll.ScrollUsage
 {
 
 	@Override
@@ -64,9 +64,15 @@ public class Prayer_ReadPrayer extends Prayer
 	}
 
 	@Override
+	public int getReadMagicType()
+	{
+		return Ability.ACODE_PRAYER;
+	}
+
+	@Override
 	public long flags()
 	{
-		return Ability.FLAG_HOLY|Ability.FLAG_UNHOLY;
+		return Ability.FLAG_NEUTRAL;
 	}
 
 	@Override
@@ -80,7 +86,6 @@ public class Prayer_ReadPrayer extends Prayer
 	{
 		return Ability.QUALITY_INDIFFERENT;
 	}
-
 
 	@Override
 	public boolean appropriateToMyFactions(final MOB mob)
@@ -118,7 +123,7 @@ public class Prayer_ReadPrayer extends Prayer
 			}
 		}
 		else
-			return beneficialWordsFizzle(mob,target,L("<S-NAME> incant(s) and gaze(s) over <T-NAMESELF>, but nothing more happens."));
+			return beneficialWordsFizzle(mob,target,L("<S-NAME> pray(s) and gaze(s) over <T-NAMESELF>, but nothing more happens."));
 
 		// return whether it worked
 		return success;

@@ -16,6 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Although at one time a simple public variable object, the Social became an environmental
@@ -57,7 +58,14 @@ public interface Social extends Environmental, CMCommon
 	public String tailName();
 
 	/**
-	 * Target name is the social's target argument only, such as <T-NAME>.
+	 * Returns a friendly description of the target, including any argument
+	 *
+	 * @return a friendly description of the target, including any argument
+	 */
+	public String getTargetDesc();
+
+	/**
+	 * Target name is the social's target argument only, such as &lt;T-NAME&gt;.
 	 * It is NOT unique to a social object however, since a socials name usually
 	 * includes their target extension.
 	 *
@@ -66,7 +74,7 @@ public interface Social extends Environmental, CMCommon
 	public String targetName();
 
 	/**
-	 * Returns whether targetName is an -NAME> code, meaning it is targettable
+	 * Returns whether targetName is an -NAME&gt; code, meaning it is targettable
 	 * at a person or mob or something.
 	 *
 	 * @return true if this social is targetable at someone other than the user
@@ -262,6 +270,28 @@ public interface Social extends Environmental, CMCommon
 	public void setSoundFile(String newFile);
 
 	/**
+	 * Returns whether the given mob meets the criteria necessary to use
+	 * this social at this time.
+	 * @param mob the mob to check
+	 * @return true if they can use this social
+	 */
+	public boolean meetsCriteriaToUse(final MOB mob);
+
+	/**
+	 * Sets the zapper mask for whether a mob meets the critera necessary
+	 * to use this social at the moment.
+	 * @param mask the zapper mask to use
+	 */
+	public void setCriteriaZappermask(final String mask);
+
+	/**
+	 * Gets the zapper mask for whether a mob meets the critera necessary
+	 * to use this social at the moment.
+	 * @return mask the zapper mask to use
+	 */
+	public String getCriteriaZappermask();
+
+	/**
 	 * Executes this social by the given mob, using the target provided, with
 	 * help from the provided command line strings in a vector,
 	 * and with override message code flag.  It will generate a proper message
@@ -312,7 +342,7 @@ public interface Social extends Environmental, CMCommon
 	 * @param srcMask the src mask to logically OR with the generated message source code
 	 * @param fullCode the override target and others code from the one in this social
 	 * @param commands the commands as a string vector entered by the user
-	 * @param I3channelName the i3channel name or null if n/a
+	 * @param imudChanName the i3channel name or null if n/a
 	 * @param makeTarget true to manufacture a target, or false to use a real one
 	 *
 	 * @return the CMMsg that can now be sent to the world as a chat channel message
@@ -323,7 +353,7 @@ public interface Social extends Environmental, CMCommon
 							 int srcMask,
 							 int fullCode,
 							 List<String> commands,
-							 String I3channelName,
+							 String imudChanName,
 							 boolean makeTarget);
 
 	/**
@@ -338,6 +368,7 @@ public interface Social extends Environmental, CMCommon
 	 * @return the number of player free actions required to do this
 	 */
 	public double actionsCost(final MOB mob, final List<String> cmds);
+
 	/**
 	 * Returns the number of actions required to completely
 	 * activate this social. A value of 0.0 means perform
@@ -350,6 +381,7 @@ public interface Social extends Environmental, CMCommon
 	 * @return the number of player free actions required to do this
 	 */
 	public double combatActionsCost(final MOB mob, final List<String> cmds);
+
 	/**
 	 * Returns the number of actions required to completely
 	 * activate this social. A value of 0.0 means perform
@@ -362,4 +394,29 @@ public interface Social extends Environmental, CMCommon
 	 * @return the number of player free actions required to do this
 	 */
 	public double checkedActionsCost(final MOB mob, final List<String> cmds);
+
+	/**
+	 * Returns the encoded social line.  This will have the EOLN, so trim
+	 * it if that is something you don't want.
+	 *
+	 * @return this social, encoded as a string
+	 */
+	public String getEncodedLine();
+
+	/**
+	 * Returns the readable/writeable flag set for this social.
+	 *
+	 * @return the readable/writeable flag set for this social.
+	 */
+	public Set<SocialFlag> getFlags();
+
+	/**
+	 * Flags that apply to a particular social
+	 * @author Bo Zimmerman
+	 */
+	public static enum SocialFlag
+	{
+		CONFIRM, TARG_CONFIRM
+		;
+	}
 }

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -74,6 +74,12 @@ public class Chant_SenseWater extends Chant
 		return CAN_MOBS;
 	}
 
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
 	Room	lastRoom	= null;
 
 	@Override
@@ -102,7 +108,7 @@ public class Chant_SenseWater extends Chant
 		if(I.container()==container)
 		{
 			if(((I instanceof Drink))
-			&&(((Drink)I).containsDrink())
+			&&(((Drink)I).containsLiquid())
 			&&((((Drink)I).liquidType() == RawMaterial.RESOURCE_FRESHWATER)
 				||(((Drink)I).liquidType() == RawMaterial.RESOURCE_SALTWATER))
 			&&(CMLib.flags().canBeSeenBy(I,mob)))
@@ -312,7 +318,7 @@ public class Chant_SenseWater extends Chant
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already sensing water."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already sensing water."));
 			return false;
 		}
 		final boolean success=proficiencyCheck(mob,0,auto);

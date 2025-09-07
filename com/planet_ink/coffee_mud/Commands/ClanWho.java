@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ public class ClanWho extends Who
 				{
 					for(final Pair<Clan,Integer> c : mob.clans())
 					{
-						if(c.first.getAuthority(c.second.intValue(), Clan.Function.CLAN_BENEFITS) != Clan.Authority.CAN_NOT_DO)
+						if(c.first.getAuthority(c.second.intValue(), Clan.Function.LIST_MEMBERS) != Clan.Authority.CAN_NOT_DO)
 						{
 							final MOB M = CMLib.players().getLoadPlayer(clanName);
 							if(M!=null)
@@ -108,26 +108,26 @@ public class ClanWho extends Who
 					final Clan.MemberRecord M=C.getMember(whoM.Name());
 					if(M != null)
 					{
-						msg.append(CMStrings.padRight("^HName", 10)).append(": ^N").append(whoM.name(mob)).append("\n\r");
-						msg.append(CMStrings.padRight("^HLevel", 10)).append(": ^N").append(whoM.phyStats().level()).append("\n\r");
-						msg.append(CMStrings.padRight("^HRace", 10)).append(": ^N")
+						msg.append(CMStrings.padRight(L("^HName"), 10)).append(": ^N").append(whoM.name(mob)).append("\n\r");
+						msg.append(CMStrings.padRight(L("^HLevel"), 10)).append(": ^N").append(whoM.phyStats().level()).append("\n\r");
+						msg.append(CMStrings.padRight(L("^HRace"), 10)).append(": ^N")
 							.append(whoM.charStats().raceName()).append(" (").append(whoM.baseCharStats().genderName()).append(") ")
 							.append("\n\r");
 						for(final CharClass lC : whoM.charStats().getCharClasses())
 						{
-							msg.append(CMStrings.padRight("^HClass", 10)).append(": ^N")
+							msg.append(CMStrings.padRight(L("^HClass"), 10)).append(": ^N")
 								.append(lC.name(whoM.charStats().getClassLevel(lC)))
 								.append(" (").append(whoM.charStats().getClassLevel(lC)).append(")")
 								.append("\n\r");
 						}
-						msg.append(CMStrings.padRight("^HRank", 10)).append(": ^N").append(C.getRoleName(M.role, true, false)).append("\n\r");
-						msg.append(CMStrings.padRight("^HJoined", 10)).append(": ^N").append(CMLib.time().date2String(M.joinDate)).append("\n\r");
-						msg.append(CMStrings.padRight("^HPC Kills", 10)).append(": ^N").append(M.playerpvps).append("\n\r");
-						msg.append(CMStrings.padRight("^HNPC Kills", 10)).append(": ^N").append(M.mobpvps).append("\n\r");
-						msg.append(CMStrings.padRight("^H$ Donated", 10)).append(": ^N")
+						msg.append(CMStrings.padRight(L("^HRank"), 10)).append(": ^N").append(C.getRoleName(M.role, true, false)).append("\n\r");
+						msg.append(CMStrings.padRight(L("^HJoined"), 10)).append(": ^N").append(CMLib.time().date2String(M.joinDate)).append("\n\r");
+						msg.append(CMStrings.padRight(L("^HPC Kills"), 10)).append(": ^N").append(M.playerpvps).append("\n\r");
+						msg.append(CMStrings.padRight(L("^HNPC Kills"), 10)).append(": ^N").append(M.mobpvps).append("\n\r");
+						msg.append(CMStrings.padRight(L("^H$ Donated"), 10)).append(": ^N")
 							.append(CMLib.beanCounter().abbreviatedPrice(whoM, M.donatedGold))
 							.append("\n\r");
-						msg.append(CMStrings.padRight("^HXP Donated", 10)).append(": ^N").append(M.donatedXP).append("\n\r");
+						msg.append(CMStrings.padRight(L("^HXP Donated"), 10)).append(": ^N").append(M.donatedXP).append("\n\r");
 					}
 				}
 				else
@@ -148,7 +148,7 @@ public class ClanWho extends Who
 						&&(CMLib.flags().isInTheGame(mob2,true))
 						&&(mob2.phyStats().level()>0))
 						{
-							msg.append(showWhoShort(mob2,colWidths));
+							msg.append(showWhoShort(mob2,mob,colWidths));
 							alreadyDone.add(mob2);
 						}
 					}

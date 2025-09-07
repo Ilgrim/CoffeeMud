@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 /**
  * Portions Copyright (c) 2003 Jeremy Vyska
- * Portions Copyright (c) 2004-2020 Bo Zimmerman
+ * Portions Copyright (c) 2004-2025 Bo Zimmerman
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -52,6 +52,18 @@ public class FactionList extends StdCommand
 		boolean none=true;
 		final String args = CMParms.combine(commands,1).toUpperCase();
 		final Enumeration<String> factions;
+		if(args.equals("HERE"))
+		{
+			final XVector<String> fs=new XVector<String>();
+			final Faction[] Fs = CMLib.factions().getSpecialFactions(mob, mob.location());
+			if(Fs != null)
+			{
+				for(final Faction F : Fs)
+					fs.add(F.factionID());
+			}
+			factions=fs.elements();
+		}
+		else
 		if(args.length()==0)
 			factions=mob.factions();
 		else
@@ -91,13 +103,20 @@ public class FactionList extends StdCommand
 
 		final XVector<String> list=new XVector<String>(factions);
 		list.sort();
+		final int prowessCode = CMProps.getIntVar(CMProps.Int.COMBATPROWESS);
+		final boolean useFactionWords=CMProps.Int.Prowesses.FACTION_RANGE.is(prowessCode);
+		final int[] cols={
+				CMLib.lister().fixColWidth(28,mob.session()),
+				CMLib.lister().fixColWidth(17,mob.session()),
+				CMLib.lister().fixColWidth(25,mob.session())
+			};
 		for (final String name : list)
 		{
 			final Faction F=CMLib.factions().getFaction(name);
 			if((F!=null)&&(F.showInFactionsCommand()))
 			{
 				none=false;
-				msg.append(formatFactionLine(name,mob.fetchFaction(name)));
+				msg.append(formatFactionLine(cols,name,mob.fetchFaction(name),useFactionWords));
 			}
 		}
 		if(!mob.isMonster())
@@ -108,17 +127,22 @@ public class FactionList extends StdCommand
 		return false;
 	}
 
-	public String formatFactionLine(final String name,final int faction)
+	public String formatFactionLine(final int[] cols, final String name, final int faction, final boolean showWords)
 	{
 		final StringBuffer line=new StringBuffer();
-		line.append("  "+CMStrings.padRight(CMStrings.capitalizeAndLower(CMLib.factions().getName(name).toLowerCase()),21)+" ");
+		line.append("  "+CMStrings.padRight(CMStrings.capitalizeAllFirstLettersAndLower(CMLib.factions().getName(name).toLowerCase()),cols[0])+" ");
 		final Faction.FRange FR=CMLib.factions().getRange(name,faction);
 		if(FR==null)
-			line.append(CMStrings.padRight(""+faction,17)+" ");
+			line.append(CMStrings.padRight(""+faction,cols[1])+" ");
 		else
-			line.append(CMStrings.padRight(FR.name(),17)+" ");
+		{
+			if(showWords)
+				line.append(CMStrings.padRight(FR.name(),cols[1])+" ");
+			else
+				line.append(CMStrings.padRight(FR.name()+" ("+faction+")",cols[1])+" ");
+		}
 		line.append("[");
-		line.append(CMStrings.padRight(calcRangeBar(name,faction),25));
+		line.append(CMStrings.padRight(calcRangeBar(name,faction),cols[2]));
 		line.append("]\n\r");
 		return line.toString();
 	}
@@ -129,24 +153,13 @@ public class FactionList extends StdCommand
 		final Faction F=CMLib.factions().getFaction(factionID);
 		if(F==null)
 			return bar.toString();
-		double numLower=0;
-		double numTotal=0;
-		double pctThisFaction = 0;
-		for(final Enumeration<Faction.FRange> r=F.ranges(); r.hasMoreElements();)
-		{
-			final Faction.FRange range=r.nextElement();
-			if(range.low() > faction)
-				numLower+=1.0;
-			numTotal+=1.0;
-		}
-		final Faction.FRange FR=F.fetchRange(faction);
-		if((FR!=null)&&(FR.high() > FR.low()))
-			pctThisFaction = (faction - FR.low()) / (FR.high() - FR.low());
-		final double fillBit=(25.0 / numTotal);
-		final double fill = (fillBit * (numTotal - numLower)) + (fillBit * pctThisFaction);
-		for(int i=0;i<fill;i++)
-			bar.append("*");
-		return bar.toString();
+		final double totalRange = F.maximum() - F.minimum();
+		if(totalRange == 0)
+			return "";
+		final double absFaction = faction-F.minimum();
+		final double pct = absFaction/totalRange;
+		final int numStars = (int)Math.round(pct * 25.0);
+		return CMStrings.repeat('*', numStars);
 	}
 
 	@Override

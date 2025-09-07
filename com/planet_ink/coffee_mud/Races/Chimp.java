@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ public class Chimp extends Monkey
 		return localizedStaticRacialCat;
 	}
 
-	private final String[]	racialAbilityNames			= { "ChimpSpeak", "Thief_Swipe" };
+	private final String[]	racialAbilityNames			= { "ChimpSpeak", "QuickSwipe" };
 	private final int[]		racialAbilityLevels			= { 1, 9 };
 	private final int[]		racialAbilityProficiencies	= { 100, 100 };
 	private final boolean[]	racialAbilityQuals			= { false, false };
@@ -140,6 +140,18 @@ public class Chimp extends Monkey
 		affectableStats.setRacialStat(CharStats.STAT_STRENGTH,15);
 		affectableStats.setRacialStat(CharStats.STAT_DEXTERITY,15);
 		affectableStats.setRacialStat(CharStats.STAT_INTELLIGENCE,1);
+	}
+
+	@Override
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
+	{
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.setStat(CharStats.STAT_STRENGTH,affectedMOB.baseCharStats().getStat(CharStats.STAT_STRENGTH));
+		affectableStats.setStat(CharStats.STAT_MAX_STRENGTH_ADJ,affectedMOB.baseCharStats().getStat(CharStats.STAT_MAX_STRENGTH_ADJ));
+		affectableStats.setStat(CharStats.STAT_DEXTERITY,affectedMOB.baseCharStats().getStat(CharStats.STAT_DEXTERITY));
+		affectableStats.setStat(CharStats.STAT_MAX_DEXTERITY_ADJ,affectedMOB.baseCharStats().getStat(CharStats.STAT_MAX_DEXTERITY_ADJ));
+		affectableStats.setStat(CharStats.STAT_INTELLIGENCE,affectedMOB.baseCharStats().getStat(CharStats.STAT_INTELLIGENCE));
+		affectableStats.setStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ,affectedMOB.baseCharStats().getStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ));
 	}
 
 	@Override

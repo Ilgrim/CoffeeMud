@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -34,8 +34,6 @@ import java.util.*;
 */
 public class Prayer_ReligiousDoubt extends Prayer
 {
-	public static final long DOUBT_TIME=TimeManager.MILI_HOUR;
-
 	@Override
 	public String ID()
 	{
@@ -59,7 +57,7 @@ public class Prayer_ReligiousDoubt extends Prayer
 	@Override
 	public String displayText()
 	{
-		if(otherSide)
+		if(hasThoughtItOver)
 			return "";
 		return "(Religious Doubt)";
 	}
@@ -70,8 +68,28 @@ public class Prayer_ReligiousDoubt extends Prayer
 		return Ability.QUALITY_INDIFFERENT;
 	}
 
+	@Override
+	public long flags()
+	{
+		return 0; // no, part of its skillness is being unaligned
+	}
+
 	protected int tickUp=0;
-	protected boolean otherSide=false;
+	protected boolean hasThoughtItOver=false;
+	protected Ability moodA=null;
+
+	public Ability getMood()
+	{
+		if((moodA==null)
+		&&(this.affected!=null)
+		&&(!affected.phyStats().isAmbiance(PhyStats.Ambiance.SUPPRESS_MOOD)))
+		{
+			moodA=CMClass.getAbility("Mood");
+			moodA.setAffectedOne(this.affected);
+			moodA.setMiscText("REFLECTIVE");
+		}
+		return moodA;
+	}
 
 	@Override
 	public void affectCharStats(final MOB affected, final CharStats affectableStats)
@@ -79,10 +97,11 @@ public class Prayer_ReligiousDoubt extends Prayer
 		super.affectCharStats(affected,affectableStats);
 		if(super.canBeUninvoked())
 		{
-			if(!otherSide)
-				affectableStats.setStat(CharStats.STAT_FAITH,affectableStats.getStat(CharStats.STAT_FAITH)-100);
+			if(hasThoughtItOver)
+				affectableStats.setStat(CharStats.STAT_SAVE_DOUBT,affectableStats.getStat(CharStats.STAT_SAVE_DOUBT)+100);
 			else
-				affectableStats.setStat(CharStats.STAT_FAITH,affectableStats.getStat(CharStats.STAT_FAITH)+100);
+				affectableStats.setStat(CharStats.STAT_SAVE_DOUBT,affectableStats.getStat(CharStats.STAT_SAVE_DOUBT)-100);
+			affectableStats.setWorshipCharID("");
 		}
 	}
 
@@ -92,10 +111,13 @@ public class Prayer_ReligiousDoubt extends Prayer
 		if((tickID==Tickable.TICKID_MOB)
 		&&(super.canBeUninvoked()))
 		{
-			final boolean oldOther=otherSide;
-			otherSide=(++tickUp)>tickDown;
-			if((oldOther!=otherSide)&&(affected instanceof MOB))
+			final boolean oldOther=hasThoughtItOver;
+			hasThoughtItOver=(++tickUp)>=(tickDown/2);
+			if((oldOther!=hasThoughtItOver)&&(affected instanceof MOB))
 				((MOB)affected).recoverCharStats();
+			final Ability moodA=this.getMood();
+			if(moodA!=null)
+				moodA.tick(ticking, tickID);
 		}
 		return super.tick(ticking,tickID);
 	}
@@ -105,22 +127,51 @@ public class Prayer_ReligiousDoubt extends Prayer
 	{
 		if(!super.okMessage(myHost,msg))
 			return false;
-		if(otherSide)
+		if(hasThoughtItOver)
 			return true;
-		if(msg.target()==affected)
+		final Physical affected=this.affected;
+		if((msg.target()==affected)
+		&&(affected instanceof MOB))
 		{
-			if(!(affected instanceof MOB))
-				return true;
+			final MOB mob=(MOB)affected;
 			if((msg.source()!=msg.target())
 			&&(msg.tool() instanceof Ability)
 			&&(msg.tool().ID().equalsIgnoreCase("Skill_Convert"))
 			&&(msg.sourceMinor()!=CMMsg.TYP_TEACH))
 			{
-				msg.source().tell((MOB)msg.target(),null,null,L("<S-NAME> is not interested in hearing your religious beliefs."));
+				msg.source().tell(mob,null,null,L("<S-NAME> is not interested in hearing your religious beliefs."));
+				return false;
+			}
+			if((msg.source() instanceof Deity)
+			&&(mob.baseCharStats().getMyDeity()==msg.source())
+			&&(!CMath.bset(msg.targetMajor(),CMMsg.MASK_MALICIOUS))
+			&&(msg.targetMinor()==CMMsg.TYP_CAST_SPELL)
+			&&(msg.tool() instanceof Ability)
+			&&(invoker!=null))
+			{
+				mob.location().show(mob,msg.source(),CMMsg.MSG_OK_VISUAL,L("The shadow of doubt around <S-NAME> inhibits @x1 from <T-NAME>!",msg.tool().name()));
 				return false;
 			}
 		}
+		final Ability moodA=this.getMood();
+		if((moodA!=null)&&(!moodA.okMessage(myHost, msg)))
+			return false;
 		return true;
+	}
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
+	{
+		super.executeMsg(myHost, msg);
+		final Ability moodA=this.getMood();
+		if(moodA!=null)
+			moodA.executeMsg(myHost, msg);
+	}
+
+	@Override
+	public void unInvoke()
+	{
+		super.unInvoke();
 	}
 
 	@Override
@@ -130,10 +181,23 @@ public class Prayer_ReligiousDoubt extends Prayer
 		if(target==null)
 			return false;
 
+		if((target.isPlayer())
+		&&(mob.isPlayer())
+		&&(!mob.getGroupMembers(new HashSet<MOB>()).contains(target))
+		&&(!mob.mayIFight(target)))
+		{
+			mob.tell(mob,target,null,L("You are not permitted to sow doubt in <T-NAMESELF>."));
+			return false;
+		}
+
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		final boolean success=proficiencyCheck(mob,0,auto);
+		int levelDiff=0;
+		levelDiff=target.phyStats().level()-(mob.phyStats().level()+(2*getXLEVELLevel(mob)));
+		if(levelDiff<0)
+			levelDiff=0;
+		final boolean success=proficiencyCheck(mob,-(levelDiff*15),auto);
 		if(success)
 		{
 			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> @x1 for <T-NAMESELF>.^?",prayWord(mob)));
@@ -141,11 +205,19 @@ public class Prayer_ReligiousDoubt extends Prayer
 			{
 				mob.location().send(mob,msg);
 				mob.location().show(target,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> <S-IS-ARE> questioning <S-HIS-HER> faith, but does not seem convinced yet."));
-				beneficialAffect(mob,target,asLevel,(int)(DOUBT_TIME/CMProps.getTickMillis()));
+				beneficialAffect(mob,target,asLevel,0);
+				if(target != mob)
+				{
+					if(mob.fetchFaction(CMLib.factions().getInclinationID())!=Integer.MAX_VALUE)
+						CMLib.factions().postSkillFactionChange(mob,this, CMLib.factions().getInclinationID(), -25);
+				}
 			}
 		}
 		else
-			return beneficialWordsFizzle(mob,target,L("<S-NAME> @x1 for <T-NAMESELF>, but the magic fades.",prayWord(mob)));
+		if(auto)
+			return beneficialWordsFizzle(mob,target,L("<T-NAME> <T-IS-ARE> unconvinced about doubting <T-HIS-HER> beliefs."));
+		else
+			return beneficialWordsFizzle(mob,target,L("<S-NAME> @x1 for <T-NAMESELF>, but <T-HIS-HER> doubt fades.",prayWord(mob)));
 
 		// return whether it worked
 		return success;

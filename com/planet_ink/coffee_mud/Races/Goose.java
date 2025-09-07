@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ public class Goose extends WaterFowl
 	@Override
 	public String ID()
 	{
-		return "Duck";
+		return "Goose";
 	}
 
 	private final static String localizedStaticName = CMLib.lang().L("Duck");

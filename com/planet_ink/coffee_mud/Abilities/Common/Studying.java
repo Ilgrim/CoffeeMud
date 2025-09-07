@@ -22,7 +22,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.io.IOException;
 import java.util.*;
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -212,6 +212,23 @@ public class Studying extends CommonSkill implements AbilityContainer
 		}
 	}
 
+	protected synchronized void checkedDistributeSkills(final MOB mob)
+	{
+		boolean doWorkOn = false;
+		synchronized(skillList)
+		{
+			if(!distributed)
+			{
+				distributed=true;
+				doWorkOn=true;
+			}
+		}
+		if(doWorkOn)
+		{
+			distributeSkills(mob);
+		}
+	}
+
 	protected boolean forget(final MOB mob, final String abilityID)
 	{
 		if(mob == null)
@@ -305,21 +322,7 @@ public class Studying extends CommonSkill implements AbilityContainer
 			if((!distributed)
 			&&(affected instanceof MOB)
 			&&(isNowAnAutoEffect()))
-			{
-				boolean doWorkOn = false;
-				synchronized(skillList)
-				{
-					if(!distributed)
-					{
-						distributed=true;
-						doWorkOn=true;
-					}
-				}
-				if(doWorkOn)
-				{
-					distributeSkills(mob);
-				}
-			}
+				checkedDistributeSkills(mob);
 			if((this.teacherP != null)
 			&&(this.teachingA!=null)
 			&&(this.affected instanceof MOB))
@@ -365,6 +368,7 @@ public class Studying extends CommonSkill implements AbilityContainer
 			this.teachingA=null;
 			this.activityRoom=null;
 			this.tickDown=Integer.MAX_VALUE/2;
+			this.tickUp=0;
 			final MOB teacherM;
 			if(this.teacherP instanceof MOB)
 				teacherM=(MOB)this.teacherP;
@@ -391,8 +395,8 @@ public class Studying extends CommonSkill implements AbilityContainer
 				{
 					if(this.successfullyTaught)
 					{
-						final Ability A=mob.fetchAbility(ID());
-						final Ability fA=mob.fetchEffect(ID());
+						final Studying A=(Studying)mob.fetchAbility(ID());
+						final Studying fA=(Studying)mob.fetchEffect(ID());
 						final Ability mTeachingA=teacherM.fetchAbility(teachingA.ID());
 						if((A==null)||(fA==null)||(mTeachingA==null)||(!A.isSavable())||(!fA.isNowAnAutoEffect()))
 							aborted=true;
@@ -401,10 +405,12 @@ public class Studying extends CommonSkill implements AbilityContainer
 							final StringBuilder str=new StringBuilder(A.text());
 							if(str.length()>0)
 								str.append(';');
-							final int prof = mTeachingA.proficiency() + (5 * super.expertise(mob, mTeachingA, ExpertiseLibrary.Flag.LEVEL));
+							final int prof = mTeachingA.proficiency() + (5 * super.expertise(mob, mTeachingA, ExpertiseLibrary.XType.LEVEL));
 							str.append(mTeachingA.ID()).append(',').append(prof);
 							fA.setMiscText(str.toString()); // and this should do it.
 							A.setMiscText(str.toString()); // and this should be savable
+							if(fA.isNowAnAutoEffect())
+								fA.checkedDistributeSkills(mob);
 						}
 					}
 					else
@@ -520,12 +526,12 @@ public class Studying extends CommonSkill implements AbilityContainer
 								eA.unInvoke();
 								mob.delEffect(eA);
 							}
-							str.append(CMStrings.padRight(L(Ability.ACODE_DESCS[A.classificationCode()&Ability.ALL_ACODES]), 12)+": "+A.Name()+"\n\r");
+							str.append(CMStrings.padRight(L(Ability.ACODE.DESCS.get(A.classificationCode()&Ability.ALL_ACODES)), 12)+": "+A.Name()+"\n\r");
 						}
 					}
 				}
-				str.append("\n\rYou may learn ");
-				for(int i=0;i<Ability.ACODE_DESCS.length;i++)
+				str.append(L("\n\rYou may learn "));
+				for(int i=0;i<Ability.ACODE.DESCS.size();i++)
 				{
 					perLevelLimits limitObj = null;
 					for(final perLevelLimits l : perLevelLimits.values())
@@ -549,7 +555,7 @@ public class Studying extends CommonSkill implements AbilityContainer
 								numHas++;
 						}
 					}
-					str.append(numAllowed-numHas).append(" more ").append(CMLib.english().makePlural(Ability.ACODE_DESCS[i].toLowerCase())).append(", ");
+					str.append(numAllowed-numHas).append(" more ").append(CMLib.english().makePlural(Ability.ACODE.DESCS.get(i).toLowerCase())).append(", ");
 				}
 				final String fstr=str.toString();
 				if(fstr.endsWith(", "))
@@ -563,7 +569,7 @@ public class Studying extends CommonSkill implements AbilityContainer
 		{
 			final String combStr=CMParms.combine(commands);
 			final List<List<String>> taughts = CMParms.parseDoubleDelimited(text(), ';', ',');
-			for(int i=0;i<Ability.ACODE_DESCS.length;i++)
+			for(int i=0;i<Ability.ACODE.DESCS.size();i++)
 			{
 				perLevelLimits limitObj = null;
 				for(final perLevelLimits l : perLevelLimits.values())
@@ -575,8 +581,8 @@ public class Studying extends CommonSkill implements AbilityContainer
 					continue;
 				if((getSupportedSkillType()!=null) && (getSupportedSkillType()!=limitObj))
 					continue;
-				if(Ability.ACODE_DESCS[i].equalsIgnoreCase(combStr)
-				||CMLib.english().makePlural(Ability.ACODE_DESCS[i].toLowerCase()).equalsIgnoreCase(combStr))
+				if(Ability.ACODE.DESCS.get(i).equalsIgnoreCase(combStr)
+				||CMLib.english().makePlural(Ability.ACODE.DESCS.get(i).toLowerCase()).equalsIgnoreCase(combStr))
 				{
 					final int classLevel = CMLib.ableMapper().qualifyingClassLevel(mob, this);
 					final int numAllowed = limitObj.numAllowed(classLevel);
@@ -591,8 +597,8 @@ public class Studying extends CommonSkill implements AbilityContainer
 						}
 					}
 					final StringBuilder str=new StringBuilder("You may learn ");
-					str.append(numAllowed-numHas).append(" more ").append(CMLib.english().makePlural(Ability.ACODE_DESCS[i].toLowerCase())).append(". ");
-					str.append("\n\rAvailable ").append(CMLib.english().makePlural(Ability.ACODE_DESCS[i].toLowerCase())).append(" include: ");
+					str.append(numAllowed-numHas).append(" more ").append(CMLib.english().makePlural(Ability.ACODE.DESCS.get(i).toLowerCase())).append(". ");
+					str.append("\n\rAvailable ").append(CMLib.english().makePlural(Ability.ACODE.DESCS.get(i).toLowerCase())).append(" include: ");
 					final List<String> all=new ArrayList<String>(100);
 					for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
 					{
@@ -655,12 +661,12 @@ public class Studying extends CommonSkill implements AbilityContainer
 		{
 			if(!(target instanceof SpellHolder))
 			{
-				commonTell(mob,L("You aren't going to learn much from @x1.",target.Name()));
+				commonTelL(mob,"You aren't going to learn much from @x1.",target.Name());
 				return false;
 			}
 			if(target.ID().indexOf("issertation")<0)
 			{
-				commonTell(mob,L("You don't know how to learn from @x1.",target.Name()));
+				commonTelL(mob,"You don't know how to learn from @x1.",target.Name());
 				return false;
 			}
 			final SpellHolder aC=(SpellHolder)target;
@@ -669,7 +675,7 @@ public class Studying extends CommonSkill implements AbilityContainer
 				possA=(Ability)CMLib.english().fetchEnvironmental(aC.getSpells(),skillName,false);
 			if(possA==null)
 			{
-				commonTell(mob,L("@x1 doesn't seem to be about '@x2'.",target.Name(),skillName));
+				commonTelL(mob,"@x1 doesn't seem to be about '@x2'.",target.Name(),skillName);
 				return false;
 			}
 			A=possA;
@@ -704,7 +710,7 @@ public class Studying extends CommonSkill implements AbilityContainer
 		else
 		{
 			if(target != null)
-				commonTell(mob,L("You can't learn anything from '@x1'.",target.Name()));
+				commonTelL(mob,"You can't learn anything from '@x1'.",target.Name());
 			return false;
 		}
 		if(mob.fetchAbility(A.ID())!=null)
@@ -757,7 +763,7 @@ public class Studying extends CommonSkill implements AbilityContainer
 		}
 		if(numHas >= numAllowed)
 		{
-			mob.tell(L("You may not study any more @x1 at this time.",CMLib.english().makePlural(Ability.ACODE_DESCS[A.classificationCode()&Ability.ALL_ACODES])));
+			mob.tell(L("You may not study any more @x1 at this time.",CMLib.english().makePlural(Ability.ACODE.DESCS.get(A.classificationCode()&Ability.ALL_ACODES))));
 			return false;
 		}
 
@@ -822,12 +828,13 @@ public class Studying extends CommonSkill implements AbilityContainer
 							oA.teachingA=tA;
 							oA.teacherP=tP;
 							oA.successfullyTaught=ss;
+							oA.setTickUp(0);
 							//oA.activityRoom=mR;
 							int ticks=duration;
 							if(ticks < 1)
 								ticks = 1;
 							ticks = getBeneficialTickdownTime(mob,mob,ticks,asLevel);
-							oA.tickDown=ticks;
+							oA.setTickDown(ticks);
 						}
 					}
 				}

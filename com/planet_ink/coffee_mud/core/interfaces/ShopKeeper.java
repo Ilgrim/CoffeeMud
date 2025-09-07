@@ -14,10 +14,12 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
+
+import java.util.Set;
 import java.util.Vector;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -108,6 +110,8 @@ public interface ShopKeeper extends Environmental, Economics
 	public final static int DEAL_READABLES=33;
 	/** shopkeeper type constant, means they buy and sell any readables*/
 	public final static int DEAL_CLOTHSPINNER=34;
+	/** shopkeeper type constant, means they buy and sell any children*/
+	public final static int DEAL_CHILDREN=35;
 
 	/** shopkeeper integer sets denoting the DEAL_* constants which conflict with each other */
 	public final static int[][] DEAL_CONFLICTS={
@@ -127,8 +131,19 @@ public interface ShopKeeper extends Environmental, Economics
 		"VEGETABLES","HIDES","LUMBER","METALS","ROCKS",
 		"CLAN BANKER", "INN KEEPER", "SHIP SELLER",
 		"CLAN SHIP SELLER", "SLAVES", "POSTMAN", "CLAN POSTMAN",
-		"AUCTIONEER","INSTRUMENTS","BOOKS","READABLES","CLOTHS"
+		"AUCTIONEER","INSTRUMENTS","BOOKS","READABLES","CLOTHS",
+		"CHILDREN"
 	};
+
+	/**
+	 * How much information is given by this shopkeeper when viewing items
+	 */
+	public enum ViewType
+	{
+		BASIC,
+		FALSE,
+		IDENTIFY
+	}
 
 	/**
 	 * This class represents a given price for a given item in the shopkeepers inventory. It is usually
@@ -145,11 +160,20 @@ public interface ShopKeeper extends Environmental, Economics
 	}
 
 	/**
-	 * the CoffeeShop method to access the shopkeepers store of goods
+	 * The Main CoffeeShop method to access the shopkeepers store of goods
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.CoffeeShop
 	 * @return the CoffeeShop object
 	 */
 	public CoffeeShop getShop();
+
+	/**
+	 * Alternative CoffeeShop method to access the shopkeepers store of goods
+	 * for a specific person.
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.CoffeeShop
+	 * @param mob the shop mob
+	 * @return the CoffeeShop object
+	 */
+	public CoffeeShop getShop(final MOB mob);
 
 	/**
 	 * Returns the ShopKeeper DEAL_* mask describing what is sold or bought by this ShopKeeper
@@ -184,12 +208,22 @@ public interface ShopKeeper extends Environmental, Economics
 	public void addSoldType(int dealType);
 
 	/**
+	 * The ShopKeeper item view flags for determining what a player sees
+	 * from items in this shopkeepers inventory.  This list is dynamic and
+	 * can be changed at will... no protections whatever.
+	 *
+	 * @return the set of valid view type flags.
+	 */
+	public Set<ViewType> viewFlags();
+
+	/**
 	 * Based on the value of this ShopKeepers whatIsSold() method, this will return a displayable string
 	 * describing that type.
 	 * @see ShopKeeper#isSold(int)
 	 * @return a description of the whatIsSold() code
 	 */
 	public String storeKeeperString();
+
 	/**
 	 * Returns whether this ShopKeeper deals in the type of item passed in.  The determination is based
 	 * on the whatIsSold() code.
@@ -200,7 +234,7 @@ public interface ShopKeeper extends Environmental, Economics
 	public boolean doISellThis(Environmental thisThang);
 
 	/**
-	 * Sets the zapper mask which applies to items to determine whether they are bought and solid
+	 * Sets the zapper mask which applies to items to determine whether they are bought and sold
 	 * by this shopkeeper.
 	 * @see ShopKeeper#isSold(int)
 	 * @see ShopKeeper#getWhatIsSoldZappermask()
@@ -210,7 +244,7 @@ public interface ShopKeeper extends Environmental, Economics
 	public void setWhatIsSoldZappermask(String newSellMask);
 
 	/**
-	 * Returns the zapper mask which applies to items to determine whether they are bought and solid
+	 * Returns the zapper mask which applies to items to determine whether they are bought and sold
 	 * by this shopkeeper.
 	 * @see ShopKeeper#isSold(int)
 	 * @see ShopKeeper#setWhatIsSoldZappermask(String)

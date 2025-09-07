@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -179,6 +179,13 @@ public class Skill_Trip extends StdSkill
 				return Ability.QUALITY_INDIFFERENT;
 			if(CMLib.flags().isInFlight(target))
 				return Ability.QUALITY_INDIFFERENT;
+			if(target instanceof MOB)
+			{
+				final Rideable targetR = ((MOB)target).riding();
+				if((targetR != null)
+				&&(mob.riding() != targetR))
+					return Ability.QUALITY_INDIFFERENT;
+			}
 		}
 		return super.castingQuality(mob,target);
 	}
@@ -190,13 +197,22 @@ public class Skill_Trip extends StdSkill
 		if(target==null)
 			return false;
 
-		if((CMLib.flags().isSitting(target)||CMLib.flags().isSleeping(target)))
+		if(CMLib.flags().isSitting(target)
+		||CMLib.flags().isSleeping(target))
 		{
-			mob.tell(target,null,null,L("<S-NAME> is already on the floor!"));
+			failureTell(mob,target,auto,L("<S-NAME> is already on the floor!"));
 			return false;
 		}
 
-		if((!CMLib.flags().isAliveAwakeMobile(mob,true)||(CMLib.flags().isSitting(mob))))
+		final Rideable targetR = target.riding();
+		if((targetR != null)
+		&&(mob.riding() != targetR))
+		{
+			mob.tell(L("You can't trip someone @x1 @x2!",target.riding().stateString(target),target.riding().name()));
+			return false;
+		}
+
+		if((!CMLib.flags().isAliveAwakeMobile(mob,true)||(!CMLib.flags().isStanding(mob))))
 		{
 			mob.tell(L("You need to stand up!"));
 			return false;
@@ -235,7 +251,8 @@ public class Skill_Trip extends StdSkill
 		success=success&&(target.charStats().getBodyPart(Race.BODY_LEG)>0);
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE|(auto?CMMsg.MASK_ALWAYS:0),auto?L("<T-NAME> trip(s)!"):L("^F^<FIGHT^><S-NAME> trip(s) <T-NAMESELF>!^</FIGHT^>^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE|(auto?CMMsg.MASK_ALWAYS:0),
+					auto?L("<T-NAME> trip(s)!"):L("^F^<FIGHT^><S-NAME> trip(s) <T-NAMESELF>!^</FIGHT^>^?"));
 			CMLib.color().fixSourceFightColor(msg);
 			if(mob.location().okMessage(mob,msg))
 			{

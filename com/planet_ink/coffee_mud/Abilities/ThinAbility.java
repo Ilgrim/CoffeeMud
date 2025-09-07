@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.CostDef.CostType;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -20,7 +21,7 @@ import java.util.Enumeration;
 import java.util.List;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -115,6 +116,12 @@ public class ThinAbility implements Ability
 	}
 
 	@Override
+	public int getTicksBetweenCasts()
+	{
+		return 0;
+	}
+
+	@Override
 	public void setAbilityCode(final int newCode)
 	{
 	}
@@ -155,15 +162,15 @@ public class ThinAbility implements Ability
 	}
 
 	@Override
-	public ExpertiseLibrary.SkillCost getTrainingCost(final MOB mob)
+	public CostManager getTrainingCost(final MOB mob)
 	{
-		return CMLib.expertises().createNewSkillCost(ExpertiseLibrary.CostType.TRAIN, Double.valueOf(1.0));
+		return CMLib.utensils().createCostManager(CostType.TRAIN, Double.valueOf(1.0));
 	}
 
 	@Override
 	public String L(final String str, final String... xs)
 	{
-		return CMLib.lang().fullSessionTranslation(str, xs);
+		return CMLib.lang().fullSessionTranslation(getClass(), str, xs);
 	}
 
 	@Override
@@ -436,7 +443,7 @@ public class ThinAbility implements Ability
 	{
 		try
 		{
-			return this.getClass().newInstance();
+			return this.getClass().getDeclaredConstructor().newInstance();
 		}
 		catch (final Exception e)
 		{
@@ -646,6 +653,12 @@ public class ThinAbility implements Ability
 
 	@Override
 	public boolean isGeneric()
+	{
+		return false;
+	}
+
+	@Override
+	public boolean mayBeEnchanted()
 	{
 		return false;
 	}

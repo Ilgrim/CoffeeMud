@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -66,6 +66,12 @@ public class ExtraData extends ThinAbility
 	public int classificationCode()
 	{
 		return Ability.ACODE_PROPERTY;
+	}
+
+	@Override
+	public long flags()
+	{
+		return Ability.FLAG_NODISENCHANT;
 	}
 
 	protected Map<String,String> data = new Hashtable<String,String>();
@@ -179,7 +185,7 @@ public class ExtraData extends ThinAbility
 	@Override
 	public boolean sameAs(final Environmental E)
 	{
-		if(!(E instanceof ThinAbility))
+		if(!(E instanceof ExtraData))
 			return false;
 		final String[] CODES=this.getStatCodes();
 		for(int i=0;i<CODES.length;i++)

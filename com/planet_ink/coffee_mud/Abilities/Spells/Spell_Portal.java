@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -79,8 +79,8 @@ public class Spell_Portal extends Spell
 		return Ability.QUALITY_INDIFFERENT;
 	}
 
-	Room newRoom=null;
-	Room oldRoom=null;
+	protected volatile Room newRoom=null;
+	protected volatile Room oldRoom=null;
 
 	@Override
 	public void unInvoke()
@@ -146,9 +146,18 @@ public class Spell_Portal extends Spell
 		{
 			try
 			{
-				final List<Room> rooms=CMLib.map().findRooms(CMLib.map().rooms(), mob, areaName, true, 10);
+				final List<Room> rooms=CMLib.hunt().findRooms(CMLib.map().rooms(), mob, areaName, true, 10);
 				if(rooms.size()>0)
-					newRoom=rooms.get(CMLib.dice().roll(1,rooms.size(),-1));
+				{
+					tries=0;
+					while(((++tries)<rooms.size()*10))
+					{
+						newRoom=rooms.get(CMLib.dice().roll(1,rooms.size(),-1));
+						if(CMLib.flags().canAccess(mob,newRoom))
+							break;
+						newRoom=null;
+					}
+				}
 			}
 			catch(final NoSuchElementException nse)
 			{

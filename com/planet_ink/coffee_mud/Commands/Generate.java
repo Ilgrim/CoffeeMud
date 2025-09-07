@@ -2,7 +2,6 @@ package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.exceptions.CMException;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
-import com.planet_ink.coffee_mud.core.CMClass.CMObjectType;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -24,7 +23,7 @@ import com.planet_ink.coffee_mud.WebMacros.interfaces.WebMacro;
 import java.util.*;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,14 +43,16 @@ public class Generate extends StdCommand
 	{
 	}
 
-	private static final SHashtable<String,CMClass.CMObjectType> OBJECT_TYPES=new SHashtable<String,CMClass.CMObjectType>(new Object[][]{
-			{"STRING",CMClass.CMObjectType.LIBRARY},
-			{"AREA",CMClass.CMObjectType.AREA},
-			{"MOB",CMClass.CMObjectType.MOB},
-			{"ROOM",CMClass.CMObjectType.LOCALE},
-			{"ITEM",CMClass.CMObjectType.ITEM},
-			{"QUEST",CMClass.CMObjectType.WEBMACRO},
-	});
+	enum PercObjectType
+	{
+		STRING,
+		AREA,
+		MOB,
+		ROOM,
+		ITEM,
+		QUEST,
+		SCRIPT
+	}
 
 	private final String[]	access	= I(new String[] { "GENERATE" });
 
@@ -83,16 +84,17 @@ public class Generate extends StdCommand
 		}
 		if(save)
 			CMLib.database().DBUpdateExits(oldR);
-		final String dirName=((R instanceof BoardableShip)||(R.getArea() instanceof BoardableShip))?
-				CMLib.directions().getShipDirectionName(direction):CMLib.directions().getDirectionName(direction);
+		final String dirName=CMLib.directions().getDirectionName(direction, CMLib.flags().getDirType(R));
 		oldR.showHappens(CMMsg.MSG_OK_VISUAL,L("A new place materializes to the @x1",dirName));
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public boolean execute(final MOB mob, final List<String> commands, final int metaFlags)
 		throws java.io.IOException
 	{
 		boolean save=true;
+		final List<String> origCommands = new XVector<String>(commands);
 		if(commands.size()>1)
 		{
 			if(commands.get(1).equalsIgnoreCase("nosave"))
@@ -128,28 +130,28 @@ public class Generate extends StdCommand
 		CMLib.percolator().buildDefinedIDSet(xmlRoot,definedIDs, new XTreeSet<String>(definedIDs.keys()));
 		final String typeName = commands.get(1);
 		String objectType = typeName.toUpperCase().trim();
-		CMClass.CMObjectType codeI=OBJECT_TYPES.get(objectType);
+		PercObjectType codeI=(PercObjectType)CMath.s_valueOf(PercObjectType.class, objectType.toUpperCase());
 		if(codeI==null)
 		{
-			for(final Enumeration<String> e=OBJECT_TYPES.keys();e.hasMoreElements();)
+			for(final PercObjectType keyobj : PercObjectType.values())
 			{
-				final String key =e.nextElement();
+				final String key = keyobj.name();
 				if(key.startsWith(typeName.toUpperCase().trim()))
 				{
 					objectType = key;
-					codeI=OBJECT_TYPES.get(key);
+					codeI=(PercObjectType)CMath.s_valueOf(PercObjectType.class, key);
 				}
 			}
 			if(codeI==null)
 			{
-				mob.tell(L("'@x1' is an unknown object type.  Try: @x2",typeName,CMParms.toListString(OBJECT_TYPES.keys())));
+				mob.tell(L("'@x1' is an unknown object type.  Try: @x2",typeName,CMParms.toListString(PercObjectType.values())));
 				return false;
 			}
 		}
 		int direction=-1;
-		if((codeI==CMClass.CMObjectType.AREA)||(codeI==CMClass.CMObjectType.LOCALE))
+		if((codeI==PercObjectType.AREA)||(codeI==PercObjectType.ROOM))
 		{
-			final String possDir=commands.get(commands.size()-1);
+			final String possDir=commands.remove(commands.size()-1);
 			direction = CMLib.directions().getGoodDirectionCode(possDir);
 			if(direction<0)
 			{
@@ -158,9 +160,19 @@ public class Generate extends StdCommand
 			}
 			if(mob.location().getRoomInDir(direction)!=null)
 			{
-				final String dirName=((mob.location() instanceof BoardableShip)||(mob.location().getArea() instanceof BoardableShip))?
-						CMLib.directions().getShipDirectionName(direction):CMLib.directions().getDirectionName(direction);
+				final String dirName=CMLib.directions().getDirectionName(direction, CMLib.flags().getInDirType(mob));
 				mob.tell(L("A room already exists in direction @x1. Action aborted.",dirName));
+				return false;
+			}
+		}
+		PhysicalAgent target=null;
+		if(codeI==PercObjectType.SCRIPT)
+		{
+			final String possTarget=commands.remove(commands.size()-1);
+			target = mob.location().fetchFromMOBRoomFavorsMOBs(mob, null, possTarget, Filterer.ANYTHING);
+			if(target == null)
+			{
+				mob.tell(L("When creating an script, the last argument must be the object to apply it to."));
 				return false;
 			}
 		}
@@ -168,25 +180,53 @@ public class Generate extends StdCommand
 		if((!(definedIDs.get(idName) instanceof XMLTag))
 		||(!((XMLTag)definedIDs.get(idName)).tag().equalsIgnoreCase(objectType)))
 		{
-			if(!idName.equalsIgnoreCase("LIST"))
-				mob.tell(L("The @x1 id '@x2' has not been defined in the data file.",objectType,idName));
-			final StringBuffer foundIDs=new StringBuffer("");
-			for(final Enumeration<String> tkeye=OBJECT_TYPES.keys();tkeye.hasMoreElements();)
+			if(idName.equals("ALL"))
 			{
-				final String tKey=tkeye.nextElement();
-				foundIDs.append("^H"+tKey+"^N: \n\r");
-				final Vector<String> xmlTagsV=new Vector<String>();
-				for(final Enumeration<String> keys=definedIDs.keys();keys.hasMoreElements();)
+				final int cmdIndex = origCommands.indexOf(commands.get(2));
+				if(cmdIndex < 0)
 				{
-					final String key=keys.nextElement();
-					if((definedIDs.get(key) instanceof XMLTag)
-					&&(((XMLTag)definedIDs.get(key)).tag().equalsIgnoreCase(tKey)))
-						xmlTagsV.add(key.toLowerCase());
+					mob.tell(L("Unable to generate all. :("));
+					return false;
 				}
-				foundIDs.append(CMParms.toListString(xmlTagsV)+"\n\r");
+				else
+				{
+					for(final Enumeration<String> keys=definedIDs.keys();keys.hasMoreElements();)
+					{
+						final String key=keys.nextElement();
+						if((definedIDs.get(key) instanceof XMLTag)
+						&&(((XMLTag)definedIDs.get(key)).tag().equalsIgnoreCase(objectType)))
+						{
+							final List<String> newCmds = new XVector<String>(origCommands);
+							newCmds.set(cmdIndex, key);
+							this.execute(mob, newCmds, metaFlags);
+						}
+					}
+					return true;
+				}
 			}
-			mob.tell(L("Found ids include: \n\r@x1",foundIDs.toString()));
-			return false;
+			else
+			{
+				if(!idName.equalsIgnoreCase("LIST"))
+					mob.tell(L("The @x1 id '@x2' has not been defined in the data file.",objectType,idName));
+
+				final StringBuffer foundIDs=new StringBuffer("");
+				for(final PercObjectType pType : PercObjectType.values())
+				{
+					final String tKey = pType.name();
+					foundIDs.append("^H"+tKey+"^N: \n\r");
+					final Vector<String> xmlTagsV=new Vector<String>();
+					for(final Enumeration<String> keys=definedIDs.keys();keys.hasMoreElements();)
+					{
+						final String key=keys.nextElement();
+						if((definedIDs.get(key) instanceof XMLTag)
+						&&(((XMLTag)definedIDs.get(key)).tag().equalsIgnoreCase(tKey)))
+							xmlTagsV.add(key.toLowerCase());
+					}
+					foundIDs.append(CMParms.toListString(xmlTagsV)+"\n\r");
+				}
+				mob.tell(L("Found ids include: \n\r@x1",foundIDs.toString()));
+				return false;
+			}
 		}
 
 		final XMLTag piece=(XMLTag)definedIDs.get(idName);
@@ -205,11 +245,20 @@ public class Generate extends StdCommand
 		{
 			switch(codeI)
 			{
-			case LIBRARY:
+			case STRING:
 			{
 				CMLib.percolator().preDefineReward(piece, definedIDs);
 				CMLib.percolator().defineReward(piece,definedIDs);
 				final String s=CMLib.percolator().findString("STRING", piece, definedIDs);
+				if(s!=null)
+					V.add(s);
+				break;
+			}
+			case SCRIPT:
+			{
+				CMLib.percolator().preDefineReward(piece, definedIDs);
+				CMLib.percolator().defineReward(piece,definedIDs);
+				final String s=CMLib.percolator().findString("SCRIPT", piece, definedIDs);
 				if(s!=null)
 					V.add(s);
 				break;
@@ -228,14 +277,14 @@ public class Generate extends StdCommand
 				CMLib.percolator().defineReward(piece,definedIDs);
 				V.addAll(CMLib.percolator().findMobs(piece, definedIDs));
 				break;
-			case LOCALE:
+			case ROOM:
 			{
 				final Exit[] exits=new Exit[Directions.NUM_DIRECTIONS()];
 				CMLib.percolator().preDefineReward(piece, definedIDs);
 				CMLib.percolator().defineReward(piece,definedIDs);
 				definedIDs.put("ROOMTAG_NODEGATEEXIT", CMLib.directions().getDirectionName(Directions.getOpDirectionCode(direction)));
 				definedIDs.put("ROOMTAG_GATEEXITROOM", mob.location());
-				final Room R=CMLib.percolator().buildRoom(piece, definedIDs, exits, direction);
+				final Room R=CMLib.percolator().buildRoom(mob.location().getArea(), piece, definedIDs, exits, direction);
 				if(R!=null)
 					V.add(R);
 				break;
@@ -245,7 +294,7 @@ public class Generate extends StdCommand
 				CMLib.percolator().defineReward(piece,definedIDs);
 				V.addAll(CMLib.percolator().findItems(piece, definedIDs));
 				break;
-			case WEBMACRO:
+			case QUEST:
 			{
 				CMLib.percolator().preDefineReward(piece, definedIDs);
 				CMLib.percolator().defineReward(piece,definedIDs);
@@ -281,12 +330,12 @@ public class Generate extends StdCommand
 				if(V.get(v) instanceof String)
 				{
 					CMLib.percolator().postProcess(definedIDs);
-					if(codeI==CMObjectType.WEBMACRO)
+					if(codeI==PercObjectType.QUEST)
 					{
 						if((!definedIDs.containsKey("QUEST_ID"))
 						||(!(definedIDs.get("QUEST_ID") instanceof String)))
 						{
-							mob.tell("Unable to create your quest because a quest_id was not generated");
+							mob.tell(L("Unable to create your quest because a quest_id was not generated"));
 							return false;
 						}
 						final String name=(String)definedIDs.get("QUEST_ID");
@@ -294,16 +343,16 @@ public class Generate extends StdCommand
 						Q.setScript((String)V.get(0),true);
 						if((Q.name().trim().length()==0)||(Q.duration()<0))
 						{
-							mob.tell("Unable to create your quest.  Please consult the log.");
+							mob.tell(L("Unable to create your quest.  Please consult the log."));
 							return false;
 						}
 						final Quest badQ=CMLib.quests().fetchQuest(name);
 						if(badQ!=null)
 						{
-							mob.tell("Unable to create your quest.  One of that name already exists!");
+							mob.tell(L("Unable to create your quest.  One of that name already exists!"));
 							return false;
 						}
-						mob.tell("Generated quest '"+Q.name()+"'");
+						mob.tell(L("Generated quest '@x1'",Q.name()));
 						Log.sysOut("Generate",mob.Name()+" created quest '"+Q.name()+"'");
 						CMLib.quests().addQuest(Q);
 						if(!Q.running())
@@ -311,12 +360,20 @@ public class Generate extends StdCommand
 							if(!Q.startQuest())
 							{
 								CMLib.quests().delQuest(Q);
-								mob.tell("Unable to start the quest.  Something went wrong.  Perhaps the problem was logged?");
+								mob.tell(L("Unable to start quest '@x1' Perhaps the problem was logged?",Q.name()));
 								mob.tell((String)V.get(0));
 								return false;
 							}
 						}
 						CMLib.quests().save();
+					}
+					else
+					if(codeI==PercObjectType.SCRIPT)
+					{
+						final ScriptingEngine engE = (ScriptingEngine)CMClass.getCommon("DefaultScriptingEngine");
+						engE.setScript((String)V.get(v));
+						if(target != null)
+							target.addScript(engE);
 					}
 					else
 						mob.tell((String)V.get(v));

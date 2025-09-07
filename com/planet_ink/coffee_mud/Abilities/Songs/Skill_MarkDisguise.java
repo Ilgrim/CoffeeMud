@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -95,9 +95,9 @@ public class Skill_MarkDisguise extends Skill_Disguise
 			mob.tell(L("You need to have marked someone before you can disguise yourself as him or her."));
 			return false;
 		}
-		if(target.charStats().getClassLevel("Archon")>=0)
+		if(CMSecurity.isAllowedEverywhere(target, CMSecurity.SecFlag.CMDPLAYERS))
 		{
-			mob.tell(L("You may not disguise yourself as an Archon."));
+			mob.tell(L("You may not disguise yourself as someone so powerful."));
 			return false;
 		}
 

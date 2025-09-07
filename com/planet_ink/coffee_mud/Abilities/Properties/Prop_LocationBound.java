@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ public class Prop_LocationBound extends Property
 	{
 		if(type != null)
 			return type;
-		if(CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(CMProps.isState(CMProps.HostState.RUNNING))
 		{
 			final String text=super.text();
 			if(text.length()>0)
@@ -88,7 +88,7 @@ public class Prop_LocationBound extends Property
 					if(roomID.equalsIgnoreCase("ABSOLUTE"))
 						this.absolute=true;
 					else
-					if(roomID.startsWith("TIMEOUT="))
+					if(roomID.toUpperCase().startsWith("TIMEOUT="))
 						this.timesOutAfterMillis=(CMath.s_long(roomID.substring(8).trim())*1000L);
 					else
 					if(roomID.equalsIgnoreCase("AREA"))
@@ -158,15 +158,14 @@ public class Prop_LocationBound extends Property
 			if(affected instanceof MOB)
 			{
 				final MOB M=(MOB)affected;
-				final MOB mF=M.amUltimatelyFollowing();
-				if((mF!=null)&&(mF.isPlayer()))
+				if((M.amFollowing()!=null)&&(M.getGroupLeader().isPlayer()))
 					return true;
 			}
 			else
-			if(affected instanceof BoardableShip)
+			if(affected instanceof Boardable)
 			{
-				final BoardableShip B=(BoardableShip)affected;
-				final Area A=B.getShipArea();
+				final Boardable B=(Boardable)affected;
+				final Area A=B.getArea();
 				if(A!=null)
 				{
 					for(final Enumeration<Room> r=A.getProperMap();r.hasMoreElements();)

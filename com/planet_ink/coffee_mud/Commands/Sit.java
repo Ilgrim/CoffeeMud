@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -89,12 +89,14 @@ public class Sit extends StdCommand
 		}
 		String mountStr=null;
 		if(E instanceof Rideable)
-			mountStr=L("<S-NAME> "+((Rideable)E).mountString(CMMsg.TYP_SIT,mob)+" <T-NAME>.");
+			mountStr=L("<S-NAME> @x1 <T-NAME>.",((Rideable)E).mountString(CMMsg.TYP_SIT,mob));
 		else
 			mountStr=L("<S-NAME> sit(s) on <T-NAME>.");
 		final CMMsg msg=CMClass.getMsg(mob,E,null,CMMsg.MSG_SIT,mountStr);
 		if(R.okMessage(mob,msg))
 			R.send(mob,msg);
+		else
+			CMLib.commands().postCommandRejection(msg.source(),msg.target(),msg.tool(),origCmds);
 		return false;
 	}
 

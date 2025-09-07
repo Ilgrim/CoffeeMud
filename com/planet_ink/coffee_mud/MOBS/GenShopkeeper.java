@@ -9,6 +9,7 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.TimeClock.TimePeriod;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
@@ -20,7 +21,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,7 +49,7 @@ public class GenShopkeeper extends StdShopKeeper
 	public GenShopkeeper()
 	{
 		super();
-		username = "a generic shopkeeper";
+		_name = "a generic shopkeeper";
 		setDescription("He looks like he wants to sell something to you.");
 		setDisplayText("A generic shopkeeper stands here.");
 		basePhyStats().setAbility(CMProps.getMobHPBase()); // his only off-default
@@ -61,7 +62,7 @@ public class GenShopkeeper extends StdShopKeeper
 	}
 
 	@Override
-	public String prejudiceFactors()
+	public String getRawPrejudiceFactors()
 	{
 		return prejudiceFactors;
 	}
@@ -73,7 +74,7 @@ public class GenShopkeeper extends StdShopKeeper
 	}
 
 	@Override
-	public String ignoreMask()
+	public String getRawIgnoreMask()
 	{
 		return ignoreMask;
 	}
@@ -88,9 +89,9 @@ public class GenShopkeeper extends StdShopKeeper
 	public String text()
 	{
 		if (CMProps.getBoolVar(CMProps.Bool.MOBCOMPRESS))
-			miscText = CMLib.encoder().compressString(CMLib.coffeeMaker().getPropertiesStr(this, false));
+			miscText = CMLib.encoder().compressString(CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this, false));
 		else
-			miscText = CMLib.coffeeMaker().getPropertiesStr(this, false);
+			miscText = CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this, false);
 		return super.text();
 	}
 
@@ -103,7 +104,7 @@ public class GenShopkeeper extends StdShopKeeper
 
 	private final static String[]	MYCODES	= { "WHATISELL", "PREJUDICE", "BUDGET", "DEVALRATE",
 												"INVRESETRATE", "IGNOREMASK", "PRICEMASKS",
-												"ITEMMASK"};
+												"ITEMMASK","SIVIEWTYPES"};
 
 	@Override
 	public String getStat(final String code)
@@ -115,20 +116,35 @@ public class GenShopkeeper extends StdShopKeeper
 		case 0:
 			return "" + getWhatIsSoldMask();
 		case 1:
-			return prejudiceFactors();
+			return getRawPrejudiceFactors();
 		case 2:
-			return budget();
+			return getRawBbudget();
 		case 3:
-			return devalueRate();
+			return getRawDevalueRate();
 		case 4:
-			return "" + invResetRate();
+			return "" + getRawInvResetRate();
 		case 5:
-			return ignoreMask();
+			return getRawIgnoreMask();
 		case 6:
-			return CMParms.toListString(itemPricingAdjustments());
+			return CMParms.toListString(getRawItemPricingAdjustments());
 		case 7:
 			return this.getWhatIsSoldZappermask();
+		case 8:
+			return CMParms.toListString(viewFlags());
 		default:
+			if(code.equalsIgnoreCase("BUDGETRESETDATE"))
+			{
+				final TimeClock C = (TimeClock)CMLib.time().homeClock(this).copyOf();
+				C.bump(TimePeriod.HOUR, (int)(this.budgetTickDown/CMProps.getTicksPerMudHour()));
+				return C.getShortTimeDescription();
+			}
+			else
+			if(code.equalsIgnoreCase("INVRESETDATE"))
+			{
+				final TimeClock C = (TimeClock)CMLib.time().homeClock(this).copyOf();
+				C.bump(TimePeriod.HOUR, (int)(this.invResetTickDown/CMProps.getTicksPerMudHour()));
+				return C.getShortTimeDescription();
+			}
 			return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
 		}
 	}
@@ -171,6 +187,15 @@ public class GenShopkeeper extends StdShopKeeper
 				break;
 			case 7:
 				this.setWhatIsSoldZappermask(val.trim());
+				break;
+			case 8:
+				viewFlags().clear();
+				for(final String s : CMParms.parseCommas(val.toUpperCase().trim(), true))
+				{
+					final ViewType V=(ViewType)CMath.s_valueOf(ViewType.class, s);
+					if(V!=null)
+						viewFlags().add(V);
+				}
 				break;
 			default:
 				CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);

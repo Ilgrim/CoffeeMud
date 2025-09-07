@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -126,7 +126,8 @@ public class Spell_KineticBubble extends Spell
 					if((msg2.value()<=0)&&(msg.value()>3))
 					{
 						final int damage = CMLib.dice().roll( 1, (getXLEVELLevel(mob) + msg.value()) / 3 , 0 );
-						CMLib.combat().postDamage(mob,source,this,damage,CMMsg.MASK_ALWAYS|CMMsg.TYP_CAST_SPELL,Weapon.TYPE_BURSTING,L("The bubble around <S-NAME> <DAMAGES> <T-NAME>!"));
+						CMLib.combat().postDamage(mob,source,this,damage,CMMsg.MASK_ALWAYS|CMMsg.TYP_CAST_SPELL,
+								Weapon.TYPE_BURSTING,L("The bubble around <S-NAME> <DAMAGES> <T-NAME>!"));
 					}
 				}
 			}
@@ -148,7 +149,7 @@ public class Spell_KineticBubble extends Spell
 		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),auto?L("<T-NAME> <T-IS-ARE> surrounded by a Kinetic Bubble!"):L("^S<S-NAME> invoke(s) a Kinetic Bubble around <T-NAMESELF>!^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),auto?L("<T-NAME> <T-IS-ARE> surrounded by a Kinetic Bubble!"):L("^S<S-NAME> invoke(s) a Kinetic Bubble around <T-NAMESELF>!^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

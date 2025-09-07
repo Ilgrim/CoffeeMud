@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -165,7 +165,7 @@ public class Prayer_SummonElemental extends Prayer
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				final MOB myMonster = determineMonster(mob, mob.phyStats().level()+(2*getXLEVELLevel(mob)));
+				final MOB myMonster = determineMonster(mob, asLevel);
 				invoker=mob;
 				beneficialAffect(mob,myMonster,asLevel,0);
 			}
@@ -179,11 +179,15 @@ public class Prayer_SummonElemental extends Prayer
 
 	protected final static String types[]={"EARTH","FIRE","AIR","WATER"};
 
-	public MOB determineMonster(final MOB caster, final int level)
+	public MOB determineMonster(final MOB caster, final int asLevel)
 	{
 		final MOB newMOB=CMClass.getMOB("GenRideable");
 		final Rideable ride=(Rideable)newMOB;
-		newMOB.basePhyStats().setAbility(13);
+		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase()+2);
+		int level=adjustedLevel(caster,asLevel);
+		final int altLevel = (caster.phyStats().level()-5)+(super.getXLEVELLevel(caster)/2);
+		if(altLevel > level)
+			level = altLevel;
 		if(level>5)
 			newMOB.basePhyStats().setLevel(level-5);
 		else
@@ -239,13 +243,16 @@ public class Prayer_SummonElemental extends Prayer
 			break;
 		}
 		newMOB.baseCharStats().getMyRace().startRacing(newMOB,false);
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 
+		newMOB.basePhyStats().setRejuv(PhyStats.NO_REJUV);
 		newMOB.recoverCharStats();
 		newMOB.recoverPhyStats();
 		newMOB.recoverMaxState();
 		newMOB.resetToMaxState();
-		newMOB.text();
+		newMOB.setMiscText(newMOB.text());
 		newMOB.bringToLife(caster.location(),true);
 		CMLib.beanCounter().clearZeroMoney(newMOB,null);
 		newMOB.setMoneyVariation(0);

@@ -19,7 +19,7 @@ import java.util.Enumeration;
 import java.util.List;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -120,9 +120,9 @@ public class Chant_FavorableWinds extends Chant
 				if(R!=null)
 					R.showHappens(CMMsg.MSG_OK_VISUAL,L("The favorable winds die down."));
 			}
-			if(affected instanceof BoardableShip)
+			if(affected instanceof Boardable)
 			{
-				final Area A=((BoardableShip)affected).getShipArea();
+				final Area A=((Boardable)affected).getArea();
 				if(A!=null)
 				{
 					for(final Enumeration<Room> r=A.getProperMap();r.hasMoreElements();)
@@ -142,7 +142,7 @@ public class Chant_FavorableWinds extends Chant
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
 		super.affectPhyStats(affected,affectableStats);
-		if(affected instanceof BoardableShip)
+		if(affected instanceof Boardable)
 			affectableStats.setAbility(affectableStats.ability() + abilityCode());
 	}
 
@@ -151,7 +151,7 @@ public class Chant_FavorableWinds extends Chant
 	{
 		if(mob!=null)
 		{
-			if(!(target instanceof BoardableShip))
+			if(!(target instanceof NavigableItem))
 				return Ability.QUALITY_INDIFFERENT;
 		}
 		return super.castingQuality(mob,target);
@@ -164,20 +164,20 @@ public class Chant_FavorableWinds extends Chant
 		Room shipR = null;
 		Item target=null;
 
-		if((R!=null)&&(R.getArea() instanceof BoardableShip)&&(commands.size()==0))
+		if((R!=null)&&(R.getArea() instanceof Boardable)&&(commands.size()==0))
 		{
-			target=((BoardableShip)R.getArea()).getShipItem();
+			target=((Boardable)R.getArea()).getBoardableItem();
 			shipR = CMLib.map().roomLocation(target);
 		}
 		else
 		{
-			if((R!=null)&&(R.getArea() instanceof BoardableShip))
-				shipR=CMLib.map().roomLocation(((BoardableShip)R.getArea()).getShipItem());
+			if((R!=null)&&(R.getArea() instanceof Boardable))
+				shipR=CMLib.map().roomLocation(((Boardable)R.getArea()).getBoardableItem());
 			Room checkRoom = R;
 			if((R==null)||(R.findItem(CMParms.combine(commands,0))==null))
 				checkRoom=shipR;
 			final Item I=super.getTarget(mob, checkRoom, givenTarget, commands, Room.FILTER_ROOMONLY);
-			if(I instanceof BoardableShip)
+			if(I instanceof Boardable)
 			{
 				target=I;
 				shipR=checkRoom;
@@ -187,7 +187,7 @@ public class Chant_FavorableWinds extends Chant
 				return false;
 		}
 
-		if((target == null)||(R==null)||(!(target instanceof BoardableShip)))
+		if((target == null)||(R==null)||(!(target instanceof NavigableItem)))
 		{
 			mob.tell(L("This magic only works when set upon a ship!"));
 			return false;

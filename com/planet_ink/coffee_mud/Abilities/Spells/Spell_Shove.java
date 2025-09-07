@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -139,7 +139,7 @@ public class Spell_Shove extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("<T-NAME> get(s) shoved back!"):L("<S-NAME> incant(s) and shove(s) at <T-NAMESELF>."));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("<T-NAME> get(s) shoved back!"):L("^S<S-NAME> incant(s) and shove(s) at <T-NAMESELF>.^?"));
 			if((mob.location().okMessage(mob,msg))&&(target.fetchEffect(this.ID())==null))
 			{
 				if((msg.value()<=0)&&(target.location()==mob.location()))
@@ -155,6 +155,8 @@ public class Spell_Shove extends Spell
 						thisRoom.send(target,leaveMsg);
 						((Room)enterMsg.target()).bringMobHere(target,false);
 						((Room)enterMsg.target()).send(target,enterMsg);
+						if(target.isMonster() && target.getStartRoom()!=null)
+							CMLib.tracking().markToWanderHomeLater(target, (int)CMProps.getTicksPerHour());
 						target.tell(L("\n\r\n\r"));
 						CMLib.commands().postLook(target,true);
 					}

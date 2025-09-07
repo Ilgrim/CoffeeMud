@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -141,6 +141,7 @@ public class Scholar extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Studying",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Labeling",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Skill_Diary",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"PaperMaking",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Skill_CombatLog",false);
@@ -149,8 +150,8 @@ public class Scholar extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Organizing",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Dissertating",true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Skill_WandUse",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Fighter_SmokeSignals",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Skill_WandUse",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Titling",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Skill_MorseCode",true);
@@ -188,6 +189,7 @@ public class Scholar extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Skill_Spellcraft",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"PlantLore",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Skill_ResearchItem",0,false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Skill_HonoraryDegreeBard",false, CMParms.parseSemicolons("Studying",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"AttributeTraining",true);
@@ -199,6 +201,7 @@ public class Scholar extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Recollecting",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Skill_HonoraryDegreeThief",false, CMParms.parseSemicolons("Studying",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Skill_ScrollFamiliarity",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"ScrollScribing",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Skill_Chantcraft",false);
@@ -254,9 +257,9 @@ public class Scholar extends StdCharClass
 	}
 
 	@Override
-	public int addedExpertise(final MOB host, final ExpertiseLibrary.Flag expertiseCode, final String abilityID)
+	public int addedExpertise(final MOB host, final ExpertiseLibrary.XType expertiseCode, final String abilityID)
 	{
-		if((expertiseCode == ExpertiseLibrary.Flag.XPCOST) && (abilityID.equals("ScrollScribing")))
+		if((expertiseCode == ExpertiseLibrary.XType.XPCOST) && (abilityID.equals("ScrollScribing")))
 			return 15;
 		return 0;
 	}
@@ -286,20 +289,24 @@ public class Scholar extends StdCharClass
 				for(int m=0;m<R.numInhabitants();m++)
 				{
 					M=R.fetchInhabitant(m);
+					if((M instanceof Librarian)
+					&&(M.getStartRoom()==R))
+						bookDealer=true;
+					else
 					if((M instanceof ShopKeeper)
 					&&(M.getStartRoom()==R))
 					{
 						if((((ShopKeeper)M).isSold(ShopKeeper.DEAL_BOOKS))
 						||(((ShopKeeper)M).isSold(ShopKeeper.DEAL_READABLES)))
-						{
 							bookDealer=true;
-						}
 					}
 				}
-				if(bookDealer)
+				if((bookDealer)
+				||(CMLib.english().containsString(R.displayText(), "library")))
 				{
 					int xpGain=50;
-					if((xpGain=CMLib.leveler().postExperience((MOB)host,null,null,xpGain,true))>0)
+					final CharClass C = msg.source().charStats().getCurrentClass();
+					if((xpGain=CMLib.leveler().postExperience((MOB)host,"CLASS:"+C.ID(),null,null,xpGain, true))>0)
 						msg.addTrailerMsg(CMClass.getMsg((MOB)host,null,null,CMMsg.MSG_OK_VISUAL,CMLib.lang().L("^HYou have discovered a new place of books and gain @x1 experience.^?",""+xpGain),CMMsg.NO_EFFECT,null,CMMsg.NO_EFFECT,null));
 				}
 			}
@@ -322,7 +329,7 @@ public class Scholar extends StdCharClass
 
 			if((msg.targetMinor()==CMMsg.TYP_TEACH)
 			&&(msg.target() instanceof MOB))
-				CMLib.leveler().postExperience(msg.source(), null, null, 100, false);
+				CMLib.leveler().postExperience(msg.source(), "ABILITY:"+ID(), null, null, 100, false);
 			else
 			if(((msg.targetMinor()==CMMsg.TYP_WRITE)
 				||(msg.targetMinor()==CMMsg.TYP_REWRITE)
@@ -366,7 +373,7 @@ public class Scholar extends StdCharClass
 						if(xpTrap[0] < maxLevel)
 						{
 							xpTrap[0]+=xp;
-							CMLib.leveler().postExperience(msg.source(), null, null, xp, false);
+							CMLib.leveler().postExperience(msg.source(), "ABILITY:"+ID(), null, null, xp, false);
 						}
 					}
 				}
@@ -375,7 +382,7 @@ public class Scholar extends StdCharClass
 				&&(msg.targetMinor()==CMMsg.TYP_WROTE)
 				&&(msg.tool().ID().equals("Dissertating")))
 				{
-					CMLib.leveler().postExperience(msg.source(), null, null, 25, false);
+					CMLib.leveler().postExperience(msg.source(), "ABILITY:"+ID(), null, null, 25, false);
 				}
 				else
 				{
@@ -404,7 +411,7 @@ public class Scholar extends StdCharClass
 								if(100-xpTrap[0]<xp)
 									xp=(int)(100-xpTrap[0]);
 								xpTrap[0]+=xp;
-								CMLib.leveler().postExperience(msg.source(), null, null, xp, false);
+								CMLib.leveler().postExperience(msg.source(), "ABILITY:"+ID(), null, null, xp, false);
 							}
 						}
 					}
@@ -437,7 +444,7 @@ public class Scholar extends StdCharClass
 					&&((homeL.toHoursSinceEpoc() - lastTime[0])>homeL.getHoursInDay()))
 					{
 						lastTime[0] = homeL.toHoursSinceEpoc();
-						CMLib.leveler().postExperience(msg.source(), null, null, 25, false);
+						CMLib.leveler().postExperience(msg.source(), "ABILITY:"+ID(), null, null, 25, false);
 					}
 				}
 			}
@@ -447,7 +454,7 @@ public class Scholar extends StdCharClass
 			&&(CMLib.dice().rollPercentage()<25)
 			&&((A=msg.source().fetchAbility(msg.tool().ID()))!=null)
 			&&(((MOB)myHost).fetchAbility(msg.tool().ID())!=null)
-			&&(((MOB)myHost).getGroupMembers(new TreeSet<MOB>()).contains(msg.source())))
+			&&(((MOB)myHost).getGroupMembers(new XTreeSet<MOB>()).contains(msg.source())))
 			{
 				final Ability A1=(Ability)msg.tool();
 				if((A1!=null)&&(A1.isSavable()))
@@ -507,6 +514,7 @@ public class Scholar extends StdCharClass
 			I.setName(L("Scholar`s Logbook"));
 			I.setDisplayText(L("A Scholar`s Logbook has been left here."));
 			outfitChoices.add(I);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ public class GenSolarGenerator extends GenFuellessGenerator
 				if(dockRoom!=null)
 					return (dockRoom.getArea()!=null) && (dockRoom.getArea().getClimateObj().canSeeTheSun(dockRoom));
 				final SpaceObject obj = ((SpaceShip)A).getShipSpaceObject();
-				final List<SpaceObject> objs = CMLib.map().getSpaceObjectsWithin(obj, obj.radius(), SpaceObject.Distance.SolarSystemDiameter.dm);
+				final List<SpaceObject> objs = CMLib.space().getSpaceObjectsWithin(obj, obj.radius(), SpaceObject.Distance.SolarSystemDiameter.dm);
 				for(final SpaceObject o : objs)
 				{
 					if((o instanceof Physical)

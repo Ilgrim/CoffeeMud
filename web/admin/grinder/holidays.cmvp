@@ -3,15 +3,25 @@
 @if?!Authenticate@ @AddFile?/grinder/failedlogin.cmvp@ @else@
 @if?!CheckAuthCode?AUTH_CMDQUESTS=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <html>
+	<META CHARSET="utf-8"/>
 <head>
     <link rel="grinder icon" href="/images/grinder.ico" >
+    <link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
     <title>Holidays List</title>
     <script language=JavaScript>
     <!--
         function Holiday(action)
         {
-            var strFeatures="top=0,left=75,resizeable=no,scrollbars=yes,height=600,width=750,alwaysRaised=yes,dependent=yes";
-            w=window.open("holiday.cmvp?AUTH=@Authenticate?AUTH@&HOLIDAY="+action,"Holiday",strFeatures, false);
+            if(action=='' || action.startsWith('&NEWHOLIDAY'))
+            {
+                window.alert('You must enter a name for the holiday.');
+                document.RESOURCES.NEWHOLIDAY.value='holiday number '+Math.random();
+            }
+            else
+            {
+                var strFeatures="top=0,left=75,resizeable=no,scrollbars=yes,height=600,width=750,alwaysRaised=yes,dependent=yes";
+                w=window.open("holiday.cmvp?AUTH=@Authenticate?AUTH@&HOLIDAY="+action,"Holiday",strFeatures, false);
+            }
         }
         function Clicked(action)
         {
@@ -55,14 +65,17 @@
     @loop@
     @HolidayNext@
     <TR>
-    <TD><a href="javascript:Holiday('@HolidayID@')"><FONT COLOR=WHITE><B>@HolidayID@</B></FONT></a></TD>
+    <TD><a href="javascript:Holiday('@HolidayID@')"><FONT COLOR="#FFFF8F"><U><B>@HolidayID@</B></U></FONT></a></TD>
     <TD><FONT COLOR=WHITE>@HolidayData?AREAS@</FONT></TD>
     <TD><FONT COLOR=WHITE>@HolidayData?SCHEDULE@</FONT></TD>
     <TD><FONT COLOR=WHITE>@HolidayData?DURATION@ ticks</FONT></TD>
     </TR>
     @back@
     <TR>
-    <TD COLSPAN=4><a href="javascript:if(document.RESOURCES.NEWHOLIDAY.value!='')Holiday(document.RESOURCES.NEWHOLIDAY.value+'&NEWHOLIDAY='+document.RESOURCES.NEWHOLIDAY.value)"><FONT COLOR=WHITE><B>Create New:</a> <INPUT TYPE=TEXT NAME=NEWHOLIDAY SIZE=70></B></FONT></TD>
+    <TD COLSPAN=4>
+    	<a href="javascript:Holiday(document.RESOURCES.NEWHOLIDAY.value+'&NEWHOLIDAY='+document.RESOURCES.NEWHOLIDAY.value)">
+    	<FONT COLOR=CYAN><B><U>Create New:</U></a> <INPUT TYPE=TEXT NAME=NEWHOLIDAY SIZE=70></B></FONT>
+    </TD>
     </TR>
     </TABLE>
     <P>

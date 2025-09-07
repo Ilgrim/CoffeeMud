@@ -17,7 +17,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -39,10 +39,11 @@ public class LightSource extends StdItem implements Light
 		return "LightSource";
 	}
 
-	protected boolean	lit						= false;
-	protected int		durationTicks			= 200;
-	protected boolean	destroyedWhenBurnedOut	= true;
-	protected boolean	goesOutInTheRain		= true;
+	protected boolean		lit						= false;
+	protected int			durationTicks			= 200;
+	protected volatile int	durationTickDown		= 200;
+	protected boolean		destroyedWhenBurnedOut	= true;
+	protected boolean		goesOutInTheRain		= true;
 
 	public LightSource()
 	{
@@ -59,9 +60,18 @@ public class LightSource extends StdItem implements Light
 	}
 
 	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a light source");
+	}
+
+	@Override
 	public void setDuration(final int duration)
 	{
 		durationTicks = duration;
+		durationTickDown = duration;
 	}
 
 	@Override
@@ -98,6 +108,13 @@ public class LightSource extends StdItem implements Light
 	public void light(final boolean isLit)
 	{
 		lit = isLit;
+		if((owner() instanceof Room)||(owner() instanceof MOB))
+		{
+			if(lit)
+				CMLib.threads().startTickDown(this, Tickable.TICKID_LIGHT_FLICKERS, 1);
+			else
+				CMLib.threads().deleteTick(me, Tickable.TICKID_LIGHT_FLICKERS);
+		}
 	}
 
 	@Override
@@ -109,7 +126,8 @@ public class LightSource extends StdItem implements Light
 		switch(msg.targetMinor())
 		{
 		case CMMsg.TYP_HOLD:
-			if(getDuration()==0)
+		{
+			if(durationTickDown==0)
 			{
 				mob.tell(L("@x1 looks used up.",name()));
 				return false;
@@ -126,14 +144,15 @@ public class LightSource extends StdItem implements Light
 					return false;
 				}
 			}
-			return super.okMessage(myHost,msg);
+			break;
+		}
 		case CMMsg.TYP_EXTINGUISH:
-			if((getDuration()==0)||(!isLit()))
+			if((durationTickDown==0)||(!isLit()))
 			{
 				mob.tell(L("@x1 is not lit!",name()));
 				return false;
 			}
-			return true;
+			break;
 		}
 		return super.okMessage(myHost,msg);
 	}
@@ -156,7 +175,8 @@ public class LightSource extends StdItem implements Light
 		{
 			if((owner()!=null)
 			&&(isLit())
-			&&(getDuration()>0))
+			&&(getDuration()>0)
+			&&(--durationTickDown<=0))
 			{
 				if(owner() instanceof Room)
 				{
@@ -172,7 +192,6 @@ public class LightSource extends StdItem implements Light
 				{
 					final MOB M=(MOB)owner();
 					M.tell(M,null,this,L("<O-NAME> flickers and burns out."));
-					setDuration(0);
 					if(destroyedWhenBurnedOut())
 						destroy();
 					M.recoverPhyStats();
@@ -182,11 +201,12 @@ public class LightSource extends StdItem implements Light
 					if(M.location()!=null)
 						M.location().recoverRoomStats();
 				}
+				durationTickDown = 0;
+				light(false);
+				if(!isGeneric())
+					setDescription("It looks all used up.");
+				return false;
 			}
-			light(false);
-			setDuration(0);
-			setDescription("It looks all used up.");
-			return false;
 		}
 		return super.tick(ticking,tickID);
 	}
@@ -236,7 +256,7 @@ public class LightSource extends StdItem implements Light
 				mob.tell(L("The water makes @x1 go out.",name()));
 			else
 				mob.tell(L("The rain makes @x1 go out.",name()));
-			durationTicks=1;
+			durationTickDown=1;
 			tick(this,Tickable.TICKID_LIGHT_FLICKERS);
 		}
 
@@ -248,7 +268,6 @@ public class LightSource extends StdItem implements Light
 				if(isLit())
 				{
 					light(false);
-					CMLib.threads().deleteTick(this,Tickable.TICKID_LIGHT_FLICKERS);
 					recoverPhyStats();
 					room.recoverRoomStats();
 				}
@@ -261,7 +280,6 @@ public class LightSource extends StdItem implements Light
 					else
 						mob.tell(L("@x1 is already lit.",name()));
 					light(true);
-					CMLib.threads().startTickDown(this,Tickable.TICKID_LIGHT_FLICKERS,getDuration());
 					recoverPhyStats();
 					msg.source().recoverPhyStats();
 					room.recoverRoomStats();

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -220,11 +220,11 @@ public class Chant_Flood extends Chant
 		else
 		{
 			int waterDir = -1;
-			if(mobR.getArea() instanceof BoardableShip)
+			if(mobR.getArea() instanceof Boardable)
 			{
 				if((mobR.domainType()&Room.INDOORS)==0)
 				{
-					final Item I=((BoardableShip)mobR.getArea()).getShipItem();
+					final Item I=((Boardable)mobR.getArea()).getBoardableItem();
 					if((I!=null)&&(I.owner() instanceof Room))
 					{
 						final Room R=(Room)I.owner();
@@ -274,8 +274,10 @@ public class Chant_Flood extends Chant
 
 		if(success)
 		{
-			if(mobR.show(mob,null,this,verbalCastCode(mob,null,auto), L(auto?"A flood rushes in from @x1":
-				"^S<S-NAME> chant(s) thunderously as flood waters rush in from @x1.^?",fromDir)+CMLib.protocol().msp("earthquake.wav",40)))
+			if(mobR.show(mob,null,this,verbalCastCode(mob,null,auto),
+					(auto?L("A flood rushes in from @x1"):
+					L("^S<S-NAME> chant(s) thunderously as flood waters rush in from @x1.^?",fromDir))
+					+CMLib.protocol().msp("earthquake.wav",40)))
 			{
 				final int oldAtmo=mobR.getAtmosphereCode();
 				final Ability A=maliciousAffect(mob,mobR,asLevel,0,-1);

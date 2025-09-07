@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -109,7 +109,7 @@ public class Skill_CollectBounty extends StdSkill
 		return warrants;
 	}
 
-	public MOB findElligibleOfficer(final Area myArea, final Area legalA)
+	public MOB findEligibleOfficer(final Area myArea, final Area legalA)
 	{
 		LegalBehavior B=null;
 		if(legalA!=null)
@@ -122,7 +122,7 @@ public class Skill_CollectBounty extends StdSkill
 				for(int i=0;i<R.numInhabitants();i++)
 				{
 					final MOB M=R.fetchInhabitant(i);
-					if((M!=null)&&(B.isElligibleOfficer(legalA,M)))
+					if((M!=null)&&(B.isEligibleOfficer(legalA,M)))
 						return M;
 				}
 			}
@@ -133,7 +133,7 @@ public class Skill_CollectBounty extends StdSkill
 				for(int i=0;i<R.numInhabitants();i++)
 				{
 					final MOB M=R.fetchInhabitant(i);
-					if((M!=null)&&(B.isElligibleOfficer(legalA,M)))
+					if((M!=null)&&(B.isEligibleOfficer(legalA,M)))
 						return M;
 				}
 			}
@@ -213,9 +213,9 @@ public class Skill_CollectBounty extends StdSkill
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				final MOB officer=findElligibleOfficer(mob.location().getArea(),legalA);
+				final MOB officer=findEligibleOfficer(mob.location().getArea(),legalA);
 				if((officer!=null)&&(!mob.location().isInhabitant(officer)))
-					CMLib.tracking().wanderFromTo(officer,mob.location(),true);
+					CMLib.tracking().wanderFromTo(officer,mob.location(),false);
 				if((officer==null)||(!mob.location().isInhabitant(officer)))
 				{
 					CMLib.commands().postSay(judge,mob,L("I'm sorry, there are no free officers to take care of this one right now."),false,false);

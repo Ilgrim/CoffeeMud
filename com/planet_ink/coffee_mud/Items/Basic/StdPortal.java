@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,6 +43,9 @@ public class StdPortal extends StdContainer implements Rideable, Exit
 	protected String	stateSubjectStr	= "";
 	protected String	mountString		= "";
 	protected String	dismountString	= "";
+
+	protected static String DEFAULT_ENTERSTRING = CMLib.lang().L("enter(s)");
+	protected static String DEFAULT_LEAVESTRING = CMLib.lang().L("leave(s)");
 
 	@Override
 	public String ID()
@@ -70,13 +73,21 @@ public class StdPortal extends StdContainer implements Rideable, Exit
 	}
 
 	@Override
-	public int rideBasis()
+	public String genericName()
 	{
-		return Rideable.RIDEABLE_ENTERIN;
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a portal");
 	}
 
 	@Override
-	public void setRideBasis(final int basis)
+	public Basis rideBasis()
+	{
+		return Rideable.Basis.ENTER_IN;
+	}
+
+	@Override
+	public void setRideBasis(final Basis basis)
 	{
 	}
 
@@ -198,7 +209,7 @@ public class StdPortal extends StdContainer implements Rideable, Exit
 	public String mountString(final int commandType, final Rider R)
 	{
 		if((R==null)||(mountString.length()==0))
-			return "enter(s)";
+			return DEFAULT_ENTERSTRING;
 		return mountString;
 	}
 
@@ -282,7 +293,7 @@ public class StdPortal extends StdContainer implements Rideable, Exit
 	public String rideString(final Rider R)
 	{
 		if((R==null)||(rideString.length()==0))
-			return "enter(s)";
+			return DEFAULT_ENTERSTRING;
 		return rideString;
 	}
 
@@ -324,6 +335,37 @@ public class StdPortal extends StdContainer implements Rideable, Exit
 		return false;
 	}
 
+	protected Room getDestinationRoom(final Room fromRoom)
+	{
+		Room R=null;
+		final List<String> V=CMParms.parseSemicolons(readableText(),true);
+		if(V.size()>0)
+			R=CMLib.map().getRoom(V.get(CMLib.dice().roll(1,V.size(),-1)));
+		return R;
+	}
+
+	@Override
+	public Room lastRoomUsedFrom(final Room fromRoom)
+	{
+		return getDestinationRoom(fromRoom);
+	}
+
+	protected final Exit[] tempExitPairs = new Exit[2];
+	protected Exit[] getTemporaryExits()
+	{
+		synchronized(tempExitPairs)
+		{
+			if(tempExitPairs[0]==null)
+			{
+				tempExitPairs[0]=CMClass.getExit("OpenPrepositional");
+				tempExitPairs[1]=CMClass.getExit("OpenPrepositional");
+				tempExitPairs[0].setMiscText(name());
+				tempExitPairs[1].setMiscText(name());
+			}
+		}
+		return tempExitPairs;
+	}
+
 	@Override
 	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
@@ -331,6 +373,18 @@ public class StdPortal extends StdContainer implements Rideable, Exit
 			return false;
 		switch(msg.targetMinor())
 		{
+		case CMMsg.TYP_LEAVE:
+			if((msg.tool() == getTemporaryExits()[0])
+			&&(msg.target() instanceof Room))
+			{
+				final CMMsg msg2 = (CMMsg)msg.copyOf();
+				msg2.setTarget(this);
+				msg2.setSourceCode(CMMsg.MSG_ENTER);
+				msg2.setTargetCode(CMMsg.MSG_ENTER);
+				if(!super.okMessage(myHost, msg2))
+					return false;
+			}
+			break;
 		case CMMsg.TYP_DISMOUNT:
 			if(msg.amITarget(this))
 			{
@@ -381,21 +435,6 @@ public class StdPortal extends StdContainer implements Rideable, Exit
 		return true;
 	}
 
-	protected Room getDestinationRoom(final Room fromRoom)
-	{
-		Room R=null;
-		final List<String> V=CMParms.parseSemicolons(readableText(),true);
-		if(V.size()>0)
-			R=CMLib.map().getRoom(V.get(CMLib.dice().roll(1,V.size(),-1)));
-		return R;
-	}
-
-	@Override
-	public Room lastRoomUsedFrom(final Room fromRoom)
-	{
-		return getDestinationRoom(fromRoom);
-	}
-
 	@Override
 	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
@@ -413,37 +452,44 @@ public class StdPortal extends StdContainer implements Rideable, Exit
 					Room R=getDestinationRoom(thisRoom);
 					if(R==null)
 						R=thisRoom;
-					final Exit E2=CMClass.getExit("OpenPrepositional");
-					final Exit E=CMClass.getExit("OpenPrepositional");
+					final Exit[] tempExits = getTemporaryExits();
+					final Exit E2=tempExits[0];
+					final Exit E=tempExits[1];
+					final Exit oldE=thisRoom.getRawExit(Directions.GATE);
+					final Room oldR=thisRoom.rawDoors()[Directions.GATE];
+					final Exit oldE2=R.getRawExit(Directions.GATE);
 					try
 					{
-						synchronized(("GATE_"+CMLib.map().getExtendedTwinRoomIDs(thisRoom,R)).intern())
+						synchronized(CMClass.getSync(("GATE_"+CMLib.map().getExtendedTwinRoomIDs(thisRoom,R))))
 						{
-							E.setMiscText(name());
-							E2.setMiscText(name());
-							final Exit oldE=thisRoom.getRawExit(Directions.GATE);
-							final Room oldR=thisRoom.rawDoors()[Directions.GATE];
-							final Exit oldE2=R.getRawExit(Directions.GATE);
 							thisRoom.rawDoors()[Directions.GATE]=R;
 							thisRoom.setRawExit(Directions.GATE,E);
 							E2.basePhyStats().setDisposition(PhyStats.IS_NOT_SEEN);
 							R.setRawExit(Directions.GATE,E2);
 							CMLib.tracking().walk(msg.source(),Directions.GATE,false,false,false);
-							thisRoom.rawDoors()[Directions.GATE]=oldR;
-							thisRoom.setRawExit(Directions.GATE,oldE);
-							R.setRawExit(Directions.GATE,oldE2);
 						}
 					}
 					finally
 					{
-						E.destroy();
-						E2.destroy();
+						thisRoom.rawDoors()[Directions.GATE]=oldR;
+						thisRoom.setRawExit(Directions.GATE,oldE);
+						R.setRawExit(Directions.GATE,oldE2);
 					}
 					msg.setTarget(null);
 				}
 			}
 			break;
 		case CMMsg.TYP_LEAVE:
+			if((msg.tool() == getTemporaryExits()[0])
+			&&(msg.target() instanceof Room))
+			{
+				final CMMsg msg2 = (CMMsg)msg.copyOf();
+				msg2.setTarget(this);
+				msg2.setSourceCode(CMMsg.MSG_ENTER);
+				msg2.setTargetCode(CMMsg.MSG_ENTER);
+				super.executeMsg(myHost, msg2);
+			}
+			break;
 		case CMMsg.TYP_FLEE:
 		case CMMsg.TYP_SLEEP:
 		case CMMsg.TYP_MOUNT:
@@ -533,16 +579,19 @@ public class StdPortal extends StdContainer implements Rideable, Exit
 		return closedText;
 	}
 
+	private final static String localizedCWord = CMLib.lang().L("close");
+	private final static String localizedOWord = CMLib.lang().L("open");
+
 	@Override
 	public String closeWord()
 	{
-		return "close";
+		return localizedCWord;
 	}
 
 	@Override
 	public String openWord()
 	{
-		return "open";
+		return localizedOWord;
 	}
 
 	@Override

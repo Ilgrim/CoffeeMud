@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -77,6 +77,8 @@ public class QuestData extends StdWebMacro
 				return clearWebMacros(CMStrings.replaceAll(""+Q,"@","*"));
 			if(parms.containsKey("DURATION"))
 				return ""+Q.duration();
+			if(parms.containsKey("AREA"))
+				return (Q.getQuestArea()==null)?"":Q.getQuestArea().Name();
 			if(parms.containsKey("EXPIRATION"))
 				return ""+(Q.isCopy()?Q.duration():0);
 			if(parms.containsKey("WAIT"))
@@ -125,22 +127,21 @@ public class QuestData extends StdWebMacro
 						script=F.text();
 					script=new StringBuffer(script.toString().replaceAll("\n\r","\n"));
 				}
+				else
+				{
+					for(int i=1;i<script.length();i++)
+					{
+						if(script.charAt(i)==';')
+						{
+							if(script.charAt(i-1)=='\\')
+								script.delete(i-1, i);
+							else
+								script.setCharAt(i,'\n');
+						}
+					}
+				}
 				script=new StringBuffer(CMStrings.replaceAll(script.toString(),"&","&amp;"));
-				String postFix="";
-				final int limit=script.toString().toUpperCase().indexOf("<?XML");
-				if(limit>=0)
-				{
-					postFix=script.toString().substring(limit);
-					script=new StringBuffer(script.toString().substring(0,limit));
-				}
-				for(int i=0;i<script.length();i++)
-				{
-					if((script.charAt(i)==';')
-					&&((i==0)||(script.charAt(i-1)!='\\')))
-						script.setCharAt(i,'\n');
-				}
-				script=new StringBuffer(CMStrings.replaceAll(script.toString(),"\\;",";"));
-				return clearWebMacros(script+postFix);
+				return clearWebMacros(script);
  			}
 		}
 		return "";

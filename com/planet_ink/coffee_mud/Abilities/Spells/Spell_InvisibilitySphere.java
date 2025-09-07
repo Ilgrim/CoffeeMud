@@ -19,7 +19,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -268,7 +268,8 @@ public class Spell_InvisibilitySphere extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,null,this,verbalCastCode(mob,null,auto),L(auto?"<T-NAME> lie(s) inside an invisibility sphere!":"^S<S-NAME> casts a spell and summons a sphere of invisibility.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,null,this,verbalCastCode(mob,null,auto),
+					L(auto?"<T-NAME> lie(s) inside an invisibility sphere!":"^S<S-NAME> casts a spell and summons a sphere of invisibility.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

@@ -22,7 +22,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -47,6 +47,32 @@ public class DataLoader
 		this.engine=engine;
 	}
 
+	public List<String> DBReadPlayerDataKeys(String playerID, String section)
+	{
+		DBConnection D=null;
+		final Vector<String> rows=new Vector<String>();
+		try
+		{
+			D=DB.DBFetch();
+			ResultSet R=null;
+			playerID = DB.injectionClean(playerID);
+			section = DB.injectionClean(section);
+			R=D.query("SELECT CMPKEY FROM CMPDAT WHERE CMPLID='"+playerID+"' AND CMSECT='"+section+"'");
+			while(R.next())
+				rows.add(DBConnections.getRes(R,"CMPKEY"));
+		}
+		catch(final Exception sqle)
+		{
+			Log.errOut("DataLoader",sqle);
+		}
+		finally
+		{
+			DB.DBDone(D);
+		}
+		// log comment
+		return rows;
+	}
+	
 	public List<PlayerData> DBRead(String playerID, String section)
 	{
 		DBConnection D=null;
@@ -392,6 +418,34 @@ public class DataLoader
 		return false;
 	}
 
+	public Set<String> DBReadSections(String name)
+	{
+		final Set<String> sects = new HashSet<String>();
+		DBConnection D=null;
+		try
+		{
+			D=DB.DBFetch();
+			name = DB.injectionClean(name);
+			final ResultSet R=D.query("SELECT CMSECT FROM CMPDAT WHERE CMPLID='"+name+"'");
+			while(R.next())
+			{
+				final String s = R.getString(1);
+				if(!sects.contains(s))
+					sects.add(s);
+			}
+			R.close();
+		}
+		catch(final Exception sqle)
+		{
+			Log.errOut("DataLoader",sqle);
+		}
+		finally
+		{
+			DB.DBDone(D);
+		}
+		return Collections.synchronizedSet(sects);
+	}
+
 	public List<PlayerData> DBRead(String playerID, final List<String> sections)
 	{
 		DBConnection D=null;
@@ -434,7 +488,7 @@ public class DataLoader
 
 	public PlayerData DBReCreate(String name, String section, String key, final String xml)
 	{
-		synchronized(("RECREATE"+key).intern())
+		synchronized(CMClass.getSync(("RECREATE"+key)))
 		{
 			DBConnection D=null;
 			try
@@ -493,7 +547,9 @@ public class DataLoader
 			{
 				if(DB.queryRows("SELECT * FROM CMPDAT WHERE CMPLID='"+playerID+"' AND CMSECT='"+section+"'")==0)
 					break;
+				DB.DBDone(D);
 				CMLib.s_sleep(250);
+				D=DB.DBFetch();
 				if(i==5)
 					D.update("DELETE FROM CMPDAT WHERE CMPLID='"+playerID+"' AND CMSECT='"+section+"'",0);
 				if(i==9)
@@ -518,7 +574,9 @@ public class DataLoader
 		{
 			D=DB.DBFetch();
 			D.update("DELETE FROM CMPDAT WHERE CMPLID='"+playerID+"'",0);
+			DB.DBDone(D);
 			CMLib.s_sleep(500);
+			D=DB.DBFetch();
 			if(DB.queryRows("SELECT * FROM CMPDAT WHERE CMPLID='"+playerID+"'")>0)
 				Log.errOut("Failed to delete data for player "+playerID+".");
 		}
@@ -543,7 +601,9 @@ public class DataLoader
 			section = DB.injectionClean(section);
 			key = DB.injectionClean(key);
 			D.update("DELETE FROM CMPDAT WHERE CMPKEY='"+key+"' AND CMPLID='"+playerID+"' AND CMSECT='"+section+"'",0);
+			DB.DBDone(D);
 			CMLib.s_sleep(500);
+			D=DB.DBFetch();
 			if(DB.queryRows("SELECT * FROM CMPDAT WHERE CMPKEY='"+key+"' AND CMPLID='"+playerID+"' AND CMSECT='"+section+"'")>0)
 				Log.errOut("Failed to delete data for player "+playerID+".");
 		}
@@ -598,7 +658,7 @@ public class DataLoader
 		for(int i=0;i<itemSet.size();i++)
 		{
 			final String itemID=itemSet.get(i);
-			final Ability A=CMClass.getAbility("Prop_Artifact");
+			final Ability A=CMClass.getRawAbility("Prop_Artifact");
 			if(A!=null)
 			{
 				A.setMiscText("BOOT;"+itemID);

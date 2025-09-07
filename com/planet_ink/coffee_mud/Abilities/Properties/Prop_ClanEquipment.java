@@ -328,7 +328,7 @@ public class Prop_ClanEquipment extends Property implements TriggeredAffect
 			 * *************************
 			 */
 		}
-		if((affected!=null)&&(affected instanceof Armor)&&(!(affected instanceof Shield))&&(activated)
+		if((affected instanceof Armor)&&(!(affected instanceof Shield))&&(activated)
 				&&(!((Armor)affected).amWearingAt(Wearable.IN_INVENTORY)))
 		{
 			for(final int i : CharStats.CODES.SAVING_THROWS())
@@ -351,7 +351,7 @@ public class Prop_ClanEquipment extends Property implements TriggeredAffect
 		}
 		MOB mob=null;
 		MOB source=null;
-		if((affected!=null)&&(affected instanceof Item))
+		if((affected instanceof Item))
 		{
 			if((((Item)affected).owner()!=null)&&((Item)affected).owner() instanceof MOB)
 			{
@@ -446,7 +446,12 @@ public class Prop_ClanEquipment extends Property implements TriggeredAffect
 					if((!alreadyWanding)
 					&&(said != null)
 					&&(checkWave(mob,said,(Wand)affected)))
-						msg.addTrailerMsg(CMClass.getMsg(msg.source(),this,msg.target(),CMMsg.NO_EFFECT,null,CMMsg.MASK_ALWAYS|CMMsg.TYP_WAND_USE,said,CMMsg.NO_EFFECT,null));
+					{
+						msg.addTrailerMsg(CMClass.getMsg(msg.source(),this,msg.target(),
+								CMMsg.NO_EFFECT,null,
+								CMMsg.MASK_ALWAYS|CMMsg.TYP_WAND_USE,said,
+								CMMsg.NO_EFFECT,null));
+					}
 				}
 				break;
 			default:

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -68,6 +68,12 @@ public class Spell_SolveMaze extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	public int classificationCode()
 	{
 		return Ability.ACODE_SPELL|Ability.DOMAIN_DIVINATION;
@@ -79,7 +85,7 @@ public class Spell_SolveMaze extends Spell
 		final Room targetR=mob.location();
 		if((targetR==null) || (targetR.getGridParent()==null))
 		{
-			mob.tell(L("This spell only works when you are in a maze"));
+			commonTelL(mob,"This spell only works when you are in a maze");
 			return false;
 		}
 
@@ -127,14 +133,16 @@ public class Spell_SolveMaze extends Spell
 		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success && (outRoom !=null) )
 		{
-			final CMMsg msg=CMClass.getMsg(mob,targetR,this,somanticCastCode(mob,targetR,auto),auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> hands around, pointing in different directions.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,targetR,this,somaticCastCode(mob,targetR,auto),auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> hands around, pointing in different directions.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
 				if(outRoom instanceof GridLocale)
 					outRoom=((GridLocale)outRoom).prepareGridLocale(targetR,outRoom, direction);
 				final int radius = (grid.xGridSize()*grid.yGridSize())+2;
-				mob.tell(L("The directions are taking shape in your mind: \n\r@x1",CMLib.tracking().getTrailToDescription(targetR, new Vector<Room>(), CMLib.map().getExtendedRoomID(outRoom), false, false, radius, null,1)));
+				commonTelL(mob,"The directions are taking shape in your mind: \n\r@x1",
+						CMLib.tracking().getTrailToDescription(targetR, new Vector<Room>(),
+								CMLib.map().getExtendedRoomID(outRoom), null, radius, null,", ",1));
 			}
 		}
 		else

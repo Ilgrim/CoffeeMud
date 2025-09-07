@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ public class Spell_ShockingGrasp extends Spell
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_AIRBASED;
+		return Ability.FLAG_ELECTRICBASED;
 	}
 
 	@Override
@@ -81,7 +81,9 @@ public class Spell_ShockingGrasp extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MASK_HANDS|verbalCastCode(mob,target,auto),L(auto?"":"^S<S-NAME> grab(s) at <T-NAMESELF>.^?")+CMLib.protocol().msp("shock.wav",40));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MASK_HANDS|verbalCastCode(mob,target,auto),
+					(auto?"":L("^S<S-NAME> grab(s) at <T-NAMESELF>.^?"))
+					+CMLib.protocol().msp("shock.wav",40));
 			final CMMsg msg2=CMClass.getMsg(mob,target,this,CMMsg.MSK_CAST_MALICIOUS_VERBAL|CMMsg.TYP_ELECTRIC|(auto?CMMsg.MASK_ALWAYS:0),null);
 			if((target.location().okMessage(mob,msg))&&((target.location().okMessage(mob,msg2))))
 			{

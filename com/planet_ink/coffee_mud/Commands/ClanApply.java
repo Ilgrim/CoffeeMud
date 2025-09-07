@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ public class ClanApply extends StdCommand
 						mob.tell(L("You are already a member of @x1. You need to resign before you can apply to another.",p.first.getName()));
 					}
 					else
-						mob.tell(L("You are not elligible to apply to this clan."));
+						mob.tell(L("You are not eligible to apply to this clan."));
 					return false;
 				}
 
@@ -120,7 +120,7 @@ public class ClanApply extends StdCommand
 									S.setScript(C.getGovernment().getEntryScript());
 									final CMMsg msg2=CMClass.getMsg(mob,mob,null,CMMsg.MSG_OK_VISUAL,null,null,L("CLANENTRY"));
 									S.executeMsg(mob, msg2);
-									S.dequeResponses();
+									S.dequeResponses(null);
 									S.tick(mob,Tickable.TICKID_MOB);
 								}
 								CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CLANMEMBERS, 1, C);

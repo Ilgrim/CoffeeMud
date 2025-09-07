@@ -22,7 +22,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -120,15 +120,16 @@ public class Skill_AbandonShip extends StdSkill
 		Room R=mob.location();
 		if(R==null)
 			return false;
-		if((!(R.getArea() instanceof BoardableShip))
-		||(!(((BoardableShip)R.getArea()).getShipItem() instanceof SailingShip)))
+		if((!(R.getArea() instanceof Boardable))
+		||(!(((Boardable)R.getArea()).getBoardableItem() instanceof NavigableItem))
+		||(((NavigableItem)(((Boardable)R.getArea()).getBoardableItem())).navBasis() != Rideable.Basis.WATER_BASED))
 		{
 			mob.tell(L("You must be on a sailing ship."));
 			return false;
 		}
-		final BoardableShip myShip=(BoardableShip)R.getArea();
-		final SailingShip myShipItem=(SailingShip)myShip.getShipItem();
-		final Area myShipArea=myShip.getShipArea();
+		final Boardable myShip=(Boardable)R.getArea();
+		final NavigableItem myShipItem=(NavigableItem)myShip.getBoardableItem();
+		final Area myShipArea=myShip.getArea();
 		final Room myShipRoom = CMLib.map().roomLocation(myShipItem);
 		if((myShipItem==null)
 		||(myShipArea==null)
@@ -204,7 +205,7 @@ public class Skill_AbandonShip extends StdSkill
 						{
 							final Item I=i.nextElement();
 							if((I instanceof Rideable)
-							&&(((Rideable)I).rideBasis()==Rideable.RIDEABLE_WATER)
+							&&(((Rideable)I).rideBasis()==Rideable.Basis.WATER_BASED)
 							&&(((Rideable)I).mobileRideBasis())
 							&&(CMLib.flags().isGettable(I)))
 								boats.add(I);
@@ -357,6 +358,7 @@ public class Skill_AbandonShip extends StdSkill
 						}
 						final TrackingLibrary.TrackingFlags rflags = CMLib.tracking().newFlags()
 								.plus(TrackingLibrary.TrackingFlag.NOAIR)
+								.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 								.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
 								.plus(TrackingLibrary.TrackingFlag.WATERSURFACEORSHOREONLY);
 						final List<Room> sailingRooms = CMLib.tracking().getRadiantRooms(myShipRoom, rflags, maxPaddle);

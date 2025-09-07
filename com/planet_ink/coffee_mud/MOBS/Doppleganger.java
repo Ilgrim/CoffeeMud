@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ public class Doppleganger extends StdMOB
 	protected void revert()
 	{
 		final Random randomizer = new Random(System.currentTimeMillis());
-		username="a doppleganger";
+		_name="a doppleganger";
 		setDescription("A formless biped creature, with wicked black eyes.");
 		setDisplayText("A formless biped stands here.");
 		setBasePhyStats((PhyStats)CMClass.getCommon("DefaultPhyStats"));
@@ -68,7 +68,7 @@ public class Doppleganger extends StdMOB
 
 		basePhyStats().setDamage(7);
 		basePhyStats().setSpeed(2.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(6);
 		basePhyStats().setArmor(70);
 
@@ -126,7 +126,7 @@ public class Doppleganger extends StdMOB
 			{
 				location().show(this,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> take(s) on a new form!"));
 				mimicing=msg.source();
-				username=mimicing.Name();
+				_name=mimicing.Name();
 				setDisplayText(mimicing.displayText());
 				setDescription(mimicing.description());
 				setBasePhyStats((PhyStats)mimicing.basePhyStats().copyOf());

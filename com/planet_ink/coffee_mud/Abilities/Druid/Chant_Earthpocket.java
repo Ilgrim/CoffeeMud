@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ public class Chant_Earthpocket extends Chant
 	@Override
 	public String displayText()
 	{
-		return L("(Earthpocket: " + (super.tickDown / CMProps.getIntVar(CMProps.Int.TICKSPERMUDDAY)) + ")");
+		return L("(Earthpocket: @x1)","" + (super.tickDown / CMProps.getIntVar(CMProps.Int.TICKSPERMUDDAY)));
 	}
 
 	@Override
@@ -193,7 +193,7 @@ public class Chant_Earthpocket extends Chant
 
 		if(target.fetchEffect(ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already connected with an earthpocket."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already connected with an earthpocket."));
 			return false;
 		}
 

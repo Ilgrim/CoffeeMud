@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -64,6 +64,14 @@ public class Prop_Crawlspace extends Property
 		return Ability.FLAG_ADJUSTER;
 	}
 
+	protected int height = 24;
+	@Override
+	public void setMiscText(final String newMiscText)
+	{
+		super.setMiscText(newMiscText);
+		height = CMParms.getParmInt(newMiscText, "HEIGHT", 24);
+	}
+
 	@Override
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
@@ -83,7 +91,7 @@ public class Prop_Crawlspace extends Property
 			case CMMsg.TYP_LEAVE:
 				if(((msg.amITarget(affected))||(msg.tool()==affected))
 				&&(msg.sourceMinor()!=CMMsg.TYP_RECALL)
-				&&(msg.source().phyStats().height()>24)
+				&&(msg.source().phyStats().height()>height)
 				&&(!CMLib.flags().isSitting(msg.source())))
 				{
 					if(msg.targetMinor()==CMMsg.TYP_FLEE)
@@ -107,7 +115,7 @@ public class Prop_Crawlspace extends Property
 				break;
 			case CMMsg.TYP_STAND:
 				if((affected instanceof Room)
-				&&(msg.source().phyStats().height()>12))
+				&&(msg.source().phyStats().height()>height))
 				{
 					if(CMLib.flags().isSleeping(msg.source()))
 					{

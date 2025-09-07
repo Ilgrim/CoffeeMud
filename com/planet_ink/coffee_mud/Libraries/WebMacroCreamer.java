@@ -43,12 +43,13 @@ import java.nio.ByteBuffer;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ScriptableObject;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,6 +71,11 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 		return "WebMacroCreamer";
 	}
 
+	private static final Set<String> internalTags = new XHashSet<String>(new String[] {
+		"if", "block", "/block", "trim", "/trim", "elif", "for?",
+		"insert", "else", "loop", "back", "next", "endif", "/jscript", "jscript"
+	});
+
 	@Override
 	public ByteBuffer convertOutput(final CWConfig config, final HTTPRequest request, final File pageFile, final HTTPStatus status, final ByteBuffer buffer) throws HTTPException
 	{
@@ -80,8 +86,8 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 		}
 		final long[] systemStartTime = new long[] { System.currentTimeMillis() };
 		if ((pageFile.getParent() != null)
-		&& (CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
-		&& (!CMProps.getBoolVar(CMProps.Bool.MUDSHUTTINGDOWN)))
+		&& (CMProps.isState(CMProps.HostState.RUNNING))
+		&& (!CMProps.isState(CMProps.HostState.SHUTTINGDOWN)))
 		{
 			final Clan mappedClan = CMLib.clans().getWebPathClan(pageFile.getParent());
 			if (mappedClan != null)
@@ -90,7 +96,11 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 
 		try
 		{
-			return ByteBuffer.wrap(virtualPageFilter(request, request.getRequestObjects(), systemStartTime, new String[] { "" }, new StringBuffer(new String(buffer.array()))).toString().getBytes());
+			return ByteBuffer.wrap(virtualPageFilter(request, request.getRequestObjects(), systemStartTime, new String[] { "" }, new StringBuffer(new String(buffer.array(),"UTF-8"))).toString().getBytes("UTF-8"));
+		}
+		catch (final UnsupportedEncodingException e)
+		{
+			throw new HTTPException(HTTPStatus.S500_INTERNAL_ERROR, e.getMessage());
 		}
 		catch (final HTTPRedirectException he)
 		{
@@ -99,24 +109,12 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 	}
 
 	@Override
-	public byte[] virtualPageFilter(final byte[] data) throws HTTPRedirectException
+	public HTTPRequest createFakeRequest(final Map<String, String> parms, final Map<String, Object> objs)
 	{
-		return virtualPageFilter(new StringBuffer(new String(data))).toString().getBytes();
-	}
-
-	@Override
-	public String virtualPageFilter(final String s) throws HTTPRedirectException
-	{
-		return virtualPageFilter(new StringBuffer(s)).toString();
-	}
-
-	@Override
-	public StringBuffer virtualPageFilter(final StringBuffer s) throws HTTPRedirectException
-	{
-		return virtualPageFilter(new HTTPRequest()
+		return new HTTPRequest()
 		{
-			public final Hashtable<String, String>	params	= new Hashtable<String, String>();
-			public final Hashtable<String, Object>	objects	= new Hashtable<String, Object>();
+			public final Map<String, String>	params	= parms;
+			public final Map<String, Object>	objects	= objs;
 
 			@Override
 			public String getHost()
@@ -262,7 +260,32 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 			{
 				return "";
 			}
-		}, new Hashtable<String, Object>(), new long[] { System.currentTimeMillis() }, new String[] { "" }, s);
+		};
+	}
+
+	@Override
+	public byte[] virtualPageFilter(final byte[] data) throws HTTPRedirectException
+	{
+		return virtualPageFilter(new StringBuffer(new String(data))).toString().getBytes();
+	}
+
+	@Override
+	public String virtualPageFilter(final String data) throws HTTPRedirectException
+	{
+		return virtualPageFilter(new StringBuffer(data)).toString();
+	}
+
+	@Override
+	public StringBuffer virtualPageFilter(final StringBuffer data) throws HTTPRedirectException
+	{
+		return virtualPageFilter(data,new HashMap<String,String>(),new HashMap<String,Object>());
+	}
+
+	@Override
+	public StringBuffer virtualPageFilter(final StringBuffer data, final Map<String,String> parms, final Map<String,Object> objs) throws HTTPRedirectException
+	{
+		return virtualPageFilter(createFakeRequest(parms,objs),
+			new Hashtable<String, Object>(), new long[] { System.currentTimeMillis() }, new String[] { "" }, data);
 	}
 
 	@Override
@@ -324,22 +347,14 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 					if (foundMacro.equalsIgnoreCase("break"))
 						i += (foundMacro.length() + 2);
 					else
-					if ((foundMacro.startsWith("if?"))
-					|| (foundMacro.startsWith("elif?"))
-					|| (foundMacro.equalsIgnoreCase("else"))
-					|| (foundMacro.equalsIgnoreCase("loop"))
-					|| (foundMacro.equalsIgnoreCase("back"))
-					|| (foundMacro.equalsIgnoreCase("endif"))
-					|| (foundMacro.equalsIgnoreCase("/jscript"))
-					|| (foundMacro.equalsIgnoreCase("jscript")))
-						s.replace(i, i + foundMacro.length() + 2, foundMacro);
-					else
 					{
-						final int x = foundMacro.indexOf('?');
 						final int len = foundMacro.length();
+						final int x = foundMacro.indexOf('?');
 						if (x >= 0)
 							foundMacro = foundMacro.substring(0, x);
-						if (foundMacro != null)
+						if(internalTags.contains(foundMacro.toLowerCase()))
+							s.replace(i, i + len + 2, foundMacro);
+						else
 						{
 							final WebMacro W = CMClass.getWebMacro(foundMacro.toUpperCase());
 							if (W != null)
@@ -458,7 +473,7 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 						if (foundMacro.equalsIgnoreCase("jscript"))
 						{
 							final int l = foundMacro.length() + 2;
-							final int v = myEndJScript(s, i + l, lastFoundMacro);
+							final int v = myEndBlock(s, i + l, lastFoundMacro, "/jscript");
 							if (v < 0)
 								s.replace(i, i + l, "[jscript without /jscript]");
 							else
@@ -488,7 +503,7 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 						if (foundMacro.equalsIgnoreCase("<!--"))
 						{
 							final int l = foundMacro.length() + 2;
-							final int v = myEndComment(s, i + l, lastFoundMacro);
+							final int v = myEndBlock(s, i + l, lastFoundMacro, "-->");
 							if (v < 0)
 								s.replace(i, i + l, "[<!-- macro without --> macro]");
 							else
@@ -501,7 +516,7 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 						if (foundMacro.startsWith("block?") || foundMacro.startsWith("BLOCK?"))
 						{
 							final int l = foundMacro.length() + 2;
-							final int v = myEndBlock(s, i + l, lastFoundMacro);
+							final int v = myEndBlock(s, i + l, lastFoundMacro,"/block");
 							if (v < 0)
 								s.replace(i, i + l, "[block without /block]");
 							else
@@ -509,6 +524,30 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 								final String name = foundMacro.substring(6).trim().toUpperCase();
 								objects.put(name, s.substring(i + l, v));
 								s.delete(i, v + 8);
+							}
+							continue;
+						}
+						else
+						if (foundMacro.startsWith("trim?") || foundMacro.startsWith("TRIM?"))
+						{
+							final int l = foundMacro.length() + 2;
+							final int v = myEndBlock(s, i + l, lastFoundMacro, "/trim");
+							if (v < 0)
+								s.replace(i, i + l, "[trim without /trim]");
+							else
+							{
+								final String parms = foundMacro.substring(5).trim().toUpperCase();
+								String part = s.substring(i + l, v);
+								if(parms.indexOf("CR")>=0)
+									part=CMStrings.replaceAll(part, "\n", "");
+								if(parms.indexOf("LF")>=0)
+									part=CMStrings.replaceAll(part, "\r", "");
+								if(parms.indexOf("TAB")>=0)
+									part=CMStrings.replaceAll(part, "\t", "");
+								if(parms.indexOf("SPACE")>=0)
+									part=CMStrings.replaceAll(part, " ", "");
+								s.replace(i, v+8, part);
+								i--;
 							}
 							continue;
 						}
@@ -683,7 +722,8 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 									}
 									try
 									{
-										request.addFakeUrlParameter(varName, qq);
+										request.addFakeUrlParameter(varName.toUpperCase(), qq);
+										request.addFakeUrlParameter(varName.toLowerCase(), qq);
 										s3 = new String(virtualPageFilter(request, objects, processStartTime, lastFoundMacro, new StringBuffer(s2)));
 									}
 									catch (final HTTPRedirectException e)
@@ -926,6 +966,7 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 					if ((foundMacro.equalsIgnoreCase("else"))
 					&& (endifsToFind == 1))
 						return i;
+					i += foundMacro.length() + 1;
 				}
 			}
 		}
@@ -952,6 +993,7 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 						if (backsToFind <= 0)
 							return i;
 					}
+					i += foundMacro.length() + 1;
 				}
 			}
 		}
@@ -978,6 +1020,7 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 						if (nextsToFind <= 0)
 							return i;
 					}
+					i += foundMacro.length() + 1;
 				}
 			}
 		}
@@ -1009,7 +1052,7 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 		return -1;
 	}
 
-	private int myEndJScript(final StringBuffer s, int i, final String[] lastFoundMacro)
+	private int myEndBlock(final StringBuffer s, int i, final String[] lastFoundMacro, final String endTag)
 	{
 		for (; i < s.length(); i++)
 		{
@@ -1018,42 +1061,9 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 				final String foundMacro = parseFoundMacro(s, i, lastFoundMacro, true);
 				if ((foundMacro != null) && (foundMacro.length() > 0))
 				{
-					if (foundMacro.equalsIgnoreCase("/jscript"))
+					if (foundMacro.equalsIgnoreCase(endTag))
 						return i;
-				}
-			}
-		}
-		return -1;
-	}
-
-	private int myEndComment(final StringBuffer s, int i, final String[] lastFoundMacro)
-	{
-		for (; i < s.length(); i++)
-		{
-			if (s.charAt(i) == '@')
-			{
-				final String foundMacro = parseFoundMacro(s, i, lastFoundMacro, true);
-				if ((foundMacro != null) && (foundMacro.length() > 0))
-				{
-					if (foundMacro.equalsIgnoreCase("-->"))
-						return i;
-				}
-			}
-		}
-		return -1;
-	}
-
-	private int myEndBlock(final StringBuffer s, int i, final String[] lastFoundMacro)
-	{
-		for (; i < s.length(); i++)
-		{
-			if (s.charAt(i) == '@')
-			{
-				final String foundMacro = parseFoundMacro(s, i, lastFoundMacro, true);
-				if ((foundMacro != null) && (foundMacro.length() > 0))
-				{
-					if (foundMacro.equalsIgnoreCase("/block"))
-						return i;
+					i += foundMacro.length() + 1;
 				}
 			}
 		}
@@ -1148,7 +1158,8 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 							responseData = W.runBinaryMacro(request, "", response);
 						else
 							responseData = W.runMacro(request, "", response).getBytes();
-						response.getOutputStream().write(responseData);
+						if(responseData!=null)
+							response.getOutputStream().write(responseData);
 					}
 					catch (final HTTPServerException e)
 					{
@@ -1229,5 +1240,540 @@ public class WebMacroCreamer extends StdLibrary implements WebMacroLibrary, Simp
 			Resources.savePropResources();
 		}
 		return true;
+	}
+
+	private Collection<MOB> getMOBCache()
+	{
+		@SuppressWarnings("unchecked")
+		Collection<MOB> mobSet=(Collection<MOB>)Resources.getResource("SYSTEM_WEB_MOB_CACHE");
+		if(mobSet==null)
+		{
+			mobSet=new SLinkedList<MOB>();
+			Resources.submitResource("SYSTEM_WEB_MOB_CACHE", mobSet);
+		}
+		return mobSet;
+	}
+
+	@Override
+	public Iterable<MOB> getMOBWebCacheIterable()
+	{
+		return getMOBCache();
+	}
+
+	@Override
+	public boolean isWebCachedMOB(final Object M)
+	{
+		if(M!=null)
+			return getMOBCache().contains(M);
+		return false;
+	}
+
+	private Collection<Item> getItemCache()
+	{
+		@SuppressWarnings("unchecked")
+		Collection<Item> itemSet=(Collection<Item>)Resources.getResource("SYSTEM_WEB_ITEM_CACHE");
+		if(itemSet==null)
+		{
+			itemSet=new SLinkedList<Item>();
+			Resources.submitResource("SYSTEM_WEB_ITEM_CACHE", itemSet);
+		}
+		return itemSet;
+	}
+
+	@Override
+	public Iterable<Item> getItemWebCacheIterable()
+	{
+		return getItemCache();
+	}
+
+	@Override
+	public boolean isWebCachedItem(final Object I)
+	{
+		if(I!=null)
+			return getItemCache().contains(I);
+		return false;
+	}
+
+	@Override
+	public String findItemWebCacheCode(final Room R, final Item I)
+	{
+		if(I==null)
+			return "";
+		for(int i=0;i<R.numItems();i++)
+		{
+			if(R.getItem(i)==I)
+				return Long.toString((I.ID()+"/"+I.Name()+"/"+I.displayText()).hashCode()<<5)+i;
+		}
+		return "";
+	}
+
+	@Override
+	public String findItemWebCacheCode(final Item I)
+	{
+		return findItemWebCacheCode(getItemCache(), I);
+	}
+
+	@Override
+	public String findItemWebCacheCode(final Collection<Item> allitems, final Item I)
+	{
+		if(I==null)
+			return "";
+		int x=0;
+		for (final Item I2 : allitems)
+		{
+			if(I2==I)
+				return Long.toString((I.ID()+"/"+I.Name()+"/"+I.displayText()).hashCode()<<5)+x;
+			x++;
+		}
+		x=0;
+		for (final Item I2 : allitems)
+		{
+			if(I2.sameAs(I))
+				return Long.toString((I.ID()+"/"+I.Name()+"/"+I.displayText()).hashCode()<<5)+x;
+			x++;
+		}
+		return "";
+	}
+
+	@Override
+	public String findItemWebCacheCode(final MOB M, final Item I)
+	{
+		if(I==null)
+			return "";
+		for(int i=0;i<M.numItems();i++)
+		{
+			if(M.getItem(i)==I)
+				return Long.toString( ( I.ID() + "/" + I.Name() + "/" + I.displayText() ).hashCode() << 5 ) + i;
+		}
+		if(M instanceof ShopKeeper)
+		{
+			final ShopKeeper shopK=(ShopKeeper)M;
+			final CoffeeShop shop=shopK.getShop();
+			int x=0;
+			for(final Iterator<Environmental> i=shop.getStoreInventory();i.hasNext();)
+			{
+				final Environmental E=i.next();
+				if(E==I)
+					return Long.toString( ( I.ID() + "/" + I.Name() + "/" + I.displayText() ).hashCode() << 5 ) + x;
+				x++;
+			}
+		}
+		return "";
+	}
+
+	@Override
+	public String findMOBWebCacheCode(final Room R, final MOB M)
+	{
+		if(M==null)
+			return "";
+		int code=0;
+		for(int i=0;i<R.numInhabitants();i++)
+		{
+			final MOB M2=R.fetchInhabitant(i);
+			if(M==M2)
+				return Long.toString( ( M.ID() + "/" + M.Name() + "/" + M.displayText() ).hashCode() << 5 ) + code;
+			else
+			if((M2!=null)
+			&&(M2.isSavable()||(!R.isSavable())))
+				code++;
+		}
+		return "";
+	}
+
+	@Override
+	public String findMOBWebCacheCode(final MOB M)
+	{
+		final String code = findMOBWebCacheCode(getMOBCache(), M);
+		return code;
+	}
+
+	@Override
+	public String findMOBWebCacheCode(final Collection<MOB> mobs, final MOB M)
+	{
+		if(M==null)
+			return "";
+		int i=0;
+		for (final MOB M2 : mobs)
+		{
+			if(M2==M)
+				return Long.toString( ( M.ID() + "/" + M.Name() + "/" + M.displayText() ).hashCode() << 5 ) + i;
+			i++;
+		}
+		i=0;
+		for (final MOB M2 : mobs)
+		{
+			if(M2.sameAs(M))
+				return Long.toString( ( M.ID() + "/" + M.Name() + "/" + M.displayText() ).hashCode() << 5 ) + i;
+			i++;
+		}
+		return "";
+	}
+
+	@Override
+	public Item getItemFromWebCache(final MOB M, String code)
+	{
+		if(M==null)
+			return getItemFromWebCache(getItemCache(),code);
+		final String origCode=code;
+		for(int i=0;i<M.numItems();i++)
+		{
+			final Item I=M.getItem(i);
+			if((I!=null)&&(findItemWebCacheCode(M,I).equals(code)))
+				return I;
+		}
+		if(code.length()>2)
+			code=code.substring(0,code.length()-2);
+		for(int i=0;i<M.numItems();i++)
+		{
+			final Item I=M.getItem(i);
+			if((I!=null)&&(findItemWebCacheCode(M,I).startsWith(code)))
+				return I;
+		}
+		if(M instanceof ShopKeeper)
+		{
+			final CoffeeShop shop=((ShopKeeper)M).getShop();
+			code=origCode;
+			for(final Iterator<Environmental> i=shop.getStoreInventory();i.hasNext();)
+			{
+				final Environmental E=i.next();
+				if(E instanceof Item)
+				{
+					if(findItemWebCacheCode(M,(Item)E).equals(code))
+						return (Item)E;
+				}
+			}
+			if(code.length()>2)
+				code=code.substring(0,code.length()-2);
+			for(final Iterator<Environmental> i=shop.getStoreInventory();i.hasNext();)
+			{
+				final Environmental E=i.next();
+				if(E instanceof Item)
+				{
+					if(findItemWebCacheCode(M,(Item)E).startsWith(code))
+						return (Item)E;
+				}
+			}
+		}
+		return null;
+	}
+
+	@Override
+	public Item getItemFromWebCache(final Room R, String code)
+	{
+		if(R==null)
+			return getItemFromWebCache(getItemCache(),code);
+		for(int i=0;i<R.numItems();i++)
+		{
+			if(findItemWebCacheCode(R,R.getItem(i)).equals(code))
+				return R.getItem(i);
+		}
+		if(code.length()>2)
+			code=code.substring(0,code.length()-2);
+		for(int i=0;i<R.numItems();i++)
+		{
+			if(findItemWebCacheCode(R,R.getItem(i)).startsWith(code))
+				return R.getItem(i);
+		}
+		return null;
+	}
+
+	@Override
+	public Item getItemFromWebCache(final String code)
+	{
+		return getItemFromWebCache(getItemCache(), code);
+	}
+
+	@Override
+	public Item getItemFromWebCache(final Collection<Item> allitems, String code)
+	{
+		if(code.startsWith("CATALOG-"))
+			return getItemFromCatalog(code);
+		for (final Item I : allitems)
+		{
+			if(findItemWebCacheCode(allitems,I).equals(code))
+				return I;
+		}
+		if(code.length()>2)
+			code=code.substring(0,code.length()-2);
+		for (final Item I : allitems)
+		{
+			if(findItemWebCacheCode(allitems,I).startsWith(code))
+				return I;
+		}
+		return null;
+	}
+
+	@Override
+	public MOB getMOBFromWebCache(final Room R, String code)
+	{
+		if(R==null)
+			return getMOBFromWebCache(code);
+		for(int i=0;i<R.numInhabitants();i++)
+		{
+			if(findMOBWebCacheCode(R,R.fetchInhabitant(i)).equals(code))
+				return R.fetchInhabitant(i);
+		}
+		if(code.length()>2)
+			code=code.substring(0,code.length()-2);
+		for(int i=0;i<R.numInhabitants();i++)
+		{
+			if(findMOBWebCacheCode(R,R.fetchInhabitant(i)).startsWith(code))
+				return R.fetchInhabitant(i);
+		}
+		return null;
+	}
+
+	@Override
+	public MOB getMOBFromWebCache(final String code)
+	{
+		return getMOBFromWebCache(getMOBCache(), code);
+	}
+
+	@Override
+	public MOB getMOBFromWebCache(final Collection<MOB> allmobs, String code)
+	{
+		if(code.startsWith("CATALOG-"))
+			return getMOBFromCatalog(code);
+		for (final MOB M2 : allmobs)
+		{
+			if(findMOBWebCacheCode(allmobs,M2).equals(code))
+				return M2;
+		}
+		if(code.length()>2)
+			code=code.substring(0,code.length()-2);
+		for (final MOB M2 : allmobs)
+		{
+			if(findMOBWebCacheCode(allmobs,M2).startsWith(code))
+				return M2;
+		}
+		return null;
+	}
+
+	@Override
+	public MOB getMOBFromCatalog(final String MATCHING)
+	{
+		if(!MATCHING.startsWith("CATALOG-"))
+			return null;
+		MOB M2=CMLib.catalog().getCatalogMob(MATCHING.substring(8));
+		if(M2!=null)
+		{
+			M2=(MOB)M2.copyOf();
+			CMLib.catalog().changeCatalogUsage(M2,true);
+		}
+		return M2;
+	}
+
+	@Override
+	public Item getItemFromCatalog(final String MATCHING)
+	{
+		if(!MATCHING.startsWith("CATALOG-"))
+			return null;
+		Item I=CMLib.catalog().getCatalogItem(MATCHING.substring(8));
+		if(I!=null)
+		{
+			I=(Item)I.copyOf();
+			CMLib.catalog().changeCatalogUsage(I,true);
+		}
+		return I;
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	@Override
+	public String getAppropriateCode(final PhysicalAgent E, final Physical RorM, final Collection classes)
+	{
+		if(CMLib.flags().isCataloged(E))
+			return "CATALOG-"+E.Name();
+		else
+		if(isWebCachedItem(E)||isWebCachedMOB(E))
+			return ""+E;
+		else
+		if(((RorM instanceof Room)&&(((Room)RorM).isHere(E)))
+		||((RorM instanceof MOB)&&(((MOB)RorM).isMine(E))))
+			return (E instanceof Item)?findItemWebCacheCode(classes,(Item)E):findMOBWebCacheCode(classes,(MOB)E);
+		return E.ID();
+	}
+
+	@Override
+	public Item findItemInWebCache(final String MATCHING)
+	{
+		return findItemInAnything(getItemCache(), MATCHING);
+	}
+
+	@Override
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	public Item findItemInAnything(final Object allitems, final String MATCHING)
+	{
+		if(isAllNum(MATCHING))
+		{
+			if(allitems instanceof Room)
+				return getItemFromWebCache((Room)allitems,MATCHING);
+			else
+			if(allitems instanceof MOB)
+				return getItemFromWebCache((MOB)allitems,MATCHING);
+			else
+			if(allitems instanceof Collection)
+				return getItemFromWebCache((Collection)allitems,MATCHING);
+		}
+		else
+		if(MATCHING.startsWith("CATALOG-"))
+			return getItemFromCatalog(MATCHING);
+		else
+		if(MATCHING.indexOf('@')>0)
+		{
+			for (final Item I2 : getItemCache())
+			{
+				if(MATCHING.equals(""+I2))
+					return I2;
+			}
+		}
+		else
+		{
+			final Item I=CMClass.getItem(MATCHING);
+			if((I!=null)
+			&&(!(I instanceof ArchonOnly)))
+				return I;
+			for(final Enumeration<Item> m=CMClass.allItems();m.hasMoreElements();)
+			{
+				final Item I2=m.nextElement();
+				if(CMClass.classID(I2).equals(MATCHING)
+				&&(!I2.isGeneric()))
+					return (Item)I2.copyOf();
+			}
+		}
+		return null;
+	}
+
+	@Override
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	public MOB getMOBFromAnywhere(final String MATCHING)
+	{
+		if(isAllNum(MATCHING))
+			return getMOBFromWebCache((Collection)null,MATCHING);
+		else
+		if(MATCHING.startsWith("CATALOG-"))
+			return getMOBFromCatalog(MATCHING);
+		else
+		if(MATCHING.indexOf('@')>0)
+		{
+			for (final MOB M2 : getMOBCache())
+			{
+				if(MATCHING.equals(""+M2))
+					return M2;
+			}
+		}
+		return CMClass.getMOB(MATCHING);
+	}
+
+	@Override
+	public MOB findMOBMatchInWebCache(final MOB M)
+	{
+		if(M==null)
+			return null;
+		for (final MOB M2 : getMOBCache())
+		{
+			if(M.sameAs(M2))
+				return M2;
+		}
+		return null;
+	}
+
+	@Override
+	public Item findItemMatchInWebCache(final Item I)
+	{
+		if(I==null)
+			return null;
+		for (final Item I2 : getItemCache())
+		{
+			if(I.sameAs(I2))
+				return I2;
+		}
+		return null;
+	}
+
+	@Override
+	public Collection<MOB> contributeMOBsToWebCache(final Collection<MOB> inhabs)
+	{
+		for (final MOB M : inhabs)
+		{
+			if(M.isGeneric() || true)
+			{
+				if((findMOBMatchInWebCache(M)==null)
+				&&((M.isSavable())
+					||((M.location()!=null)&&(!M.location().isSavable()))))
+				{
+					final MOB M3=(MOB)M.copyOf();
+					M3.setExpirationDate(System.currentTimeMillis());
+					getMOBCache().add(M3);
+					for(int i3=0;i3<M3.numItems();i3++)
+					{
+						final Item I3=M3.getItem(i3);
+						if(I3!=null)
+							I3.stopTicking();
+					}
+				}
+			}
+		}
+		return getMOBCache();
+	}
+
+	@Override
+	public boolean isAllNum(final String str)
+	{
+		if(str.length()==0)
+			return false;
+		for(int c=0;c<str.length();c++)
+		{
+			if((!Character.isDigit(str.charAt(c)))
+			&&(str.charAt(c)!='-'))
+				return false;
+		}
+		return true;
+	}
+
+	@Override
+	public Collection<Item> contributeItemsToWebCache(final Collection<Item> items)
+	{
+		for (final Item I : items)
+		{
+			if(I.isGeneric())
+			{
+				boolean found=false;
+				for (final Item I2 : getItemCache())
+				{
+					if(I.sameAs(I2))
+					{
+						found = true;
+						break;
+					}
+				}
+				if(!found)
+				{
+					final Item I2=(Item)I.copyOf();
+					I.sameAs(I2);
+					I2.setContainer(null);
+					I2.wearAt(Wearable.IN_INVENTORY);
+					I2.setExpirationDate(System.currentTimeMillis());
+					getItemCache().add(I2);
+					I2.stopTicking();
+				}
+			}
+		}
+		return getItemCache();
+	}
+
+	@Override
+	public String getWebCacheSuffix(final Environmental E)
+	{
+		if((E.expirationDate() > (System.currentTimeMillis() - TimeManager.MILI_DAY))
+		&&(E.expirationDate() < System.currentTimeMillis()))
+		{
+			final String time = CMLib.time().date2EllapsedTime(System.currentTimeMillis() - E.expirationDate(),TimeUnit.MINUTES, true);
+			if(time.length()==0)
+				return " (cached new)";
+			else
+				return " (cached "+time+")";
+		}
+		else
+			return " ("+E.ID()+")";
 	}
 }

@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary.CompiledZMask;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -34,13 +35,20 @@ import java.util.*;
 */
 public class BribeGateGuard extends StdBehavior
 {
-	protected Exit e;
-	protected int dir = -1;
-	protected int tickTock = 0;
-	protected Vector<MOB> paidPlayers = new Vector<MOB>();
-	protected Hashtable<String,Boolean> toldAlready = new Hashtable<String,Boolean>();
-	protected static boolean debug = false; // debuggin
-	protected static boolean surviveReboot=false; // survive reboot
+	protected Exit		e;
+	protected int		dir			= -1;
+	protected int		tickTock	= 0;
+	protected double	price		= 5.0;
+	protected String	gates		= "General";
+
+	protected Vector<MOB>		paidPlayers		= new Vector<MOB>();
+	protected String			maskStr			= "";
+	protected CompiledZMask		mask			= null;
+
+	protected Map<String,Boolean> toldAlready = new Hashtable<String,Boolean>();
+
+	protected static boolean	debug			= false;			// debuggin
+	protected static boolean	surviveReboot	= false;			// survive reboot
 	protected static Map<String,Map<String,Double>> notTheJournal=new Hashtable<String,Map<String,Double>>();
 
 	@Override
@@ -68,14 +76,23 @@ public class BribeGateGuard extends StdBehavior
 
 	protected double price()
 	{
-		return getVal(getParms(), "price", 5);
+		return price;
 	}
 
 	protected String gates()
 	{
-		return ID() + getVal(getParms(), "gates", "General");
+		return ID() + gates;
 	}
 
+	@Override
+	public void setParms(final String newParms)
+	{
+		super.setParms(newParms);
+		this.price = CMParms.getParmDouble(newParms, "price", 5);
+		this.gates = CMParms.getParmStr(newParms, "gates", "General");
+		maskStr = CMLib.masking().separateZapperMask(newParms);
+		this.mask=CMLib.masking().getPreCompiledMask(maskStr);
+	}
 	protected int findGate(final MOB mob)
 	{
 		if (!CMLib.flags().isInTheGame(mob,false))
@@ -146,25 +163,25 @@ public class BribeGateGuard extends StdBehavior
 		if(surviveReboot)
 		{
 			final List<JournalEntry> V =CMLib.database().DBReadJournalMsgsByUpdateDate("BRIBEGATE_"+gates(), true);
-			final Vector<JournalEntry> mine = new Vector<JournalEntry>();
+			final List<JournalEntry> mine = new ArrayList<JournalEntry>();
 			for (int v = 0; v < V.size(); v++)
 			{
 				final JournalEntry V2 =V.get(v);
 				if ( ( V2.from().equalsIgnoreCase(mob.Name())))
 				{
-					mine.addElement(V2);
+					mine.add(V2);
 				}
 			}
 			for (int v = 0; v < mine.size(); v++)
 			{
-				final JournalEntry V2 = mine.elementAt(v);
+				final JournalEntry V2 = mine.get(v);
 				final String fullName = V2.subj();
 				if (fullName.equals("COINS"))
 				{
 					final Coins item = (Coins) CMClass.getItem("StdCoins");
 					if (item != null)
 					{
-						CMLib.coffeeMaker().setPropertiesStr(item,V2.msg(), true);
+						CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(item,V2.msg(), true);
 						item.recoverPhyStats();
 						item.text();
 						balance += item.getTotalValue();
@@ -248,7 +265,7 @@ public class BribeGateGuard extends StdBehavior
 		if(surviveReboot)
 		{
 			CMLib.database().DBWriteJournal("BRIBEGATE_"+gates(), mob.Name(), CMClass.classID(balance),
-										"COINS", CMLib.coffeeMaker().getPropertiesStr(balance, true));
+										"COINS", CMLib.coffeeMaker().getEnvironmentalMiscTextXML(balance, true));
 		}
 		else
 		{
@@ -263,68 +280,6 @@ public class BribeGateGuard extends StdBehavior
 				H.remove(mob.Name());
 			H.put(mob.Name(),Double.valueOf(balance.getTotalValue()));
 		}
-	}
-
-	public static int getVal(String text, String key, final int defaultValue)
-	{
-		text = text.toUpperCase();
-		key = key.toUpperCase();
-		int x = text.indexOf(key);
-		while (x >= 0)
-		{
-			if ( (x == 0) || (!Character.isLetter(text.charAt(x - 1))))
-			{
-				while ( (x < text.length()) && (text.charAt(x) != '=') && (!Character.isDigit(text.charAt(x))))
-				{
-					x++;
-				}
-				if ( (x < text.length()) && (text.charAt(x) == '='))
-				{
-					while ( (x < text.length()) && (!Character.isDigit(text.charAt(x))))
-					{
-						x++;
-					}
-					if (x < text.length())
-					{
-						text = text.substring(x);
-						x = 0;
-						while ( (x < text.length()) && (Character.isDigit(text.charAt(x))))
-						{
-							x++;
-						}
-						return CMath.s_int(text.substring(0, x));
-					}
-				}
-				x = -1;
-			}
-			else
-			{
-				x = text.toUpperCase().indexOf(key.toUpperCase(), x + 1);
-			}
-		}
-		return defaultValue;
-	}
-
-	public static String getVal(String text, String key, final String defaultValue)
-	{
-		text = text.toUpperCase();
-		key = key.toUpperCase();
-		final int x = text.indexOf(key);
-		while (x >= 0)
-		{
-			final int y = text.indexOf('=', x);
-			final int z = text.indexOf(' ', y);
-			if (z < 0)
-			{
-				return text.substring(y + 1);
-			}
-			if ( (y > 0) && (z > y + 1))
-			{
-				return text.substring(y + 1, z - 1);
-			}
-			return defaultValue;
-		}
-		return defaultValue;
 	}
 
 	@Override
@@ -349,7 +304,7 @@ public class BribeGateGuard extends StdBehavior
 		&& (!msg.amISource(monster))
 		&& (msg.targetMinor() == CMMsg.TYP_GIVE)
 		&& (msg.tool()instanceof Coins)
-		&& (!((Coins)msg.tool()).getCurrency().equals(currency)))
+		&& (!CMLib.beanCounter().isCurrencyMatch(((Coins)msg.tool()).getCurrency(),currency)))
 		{
 			final double denomination=CMLib.beanCounter().getLowestDenomination(currency);
 			CMLib.commands().postSay(monster,mob,L("I only accept @x1.",CMLib.beanCounter().getDenominationName(currency,denomination)),false,false);
@@ -436,7 +391,7 @@ public class BribeGateGuard extends StdBehavior
 		&& (msg.target() != null)
 		&& (!BrotherHelper.isBrother(mob, monster,false))
 		&& (CMLib.flags().canSenseEnteringLeaving(mob, monster))
-		&& (!CMLib.masking().maskCheck(getParms(), mob,false)))
+		&& (!CMLib.masking().maskCheck(mask, mob,false)))
 		{
 			if ((msg.target() instanceof Room)
 			&& (msg.tool() instanceof Exit))

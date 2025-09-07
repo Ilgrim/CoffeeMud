@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -58,11 +58,18 @@ public class Prop_Doppleganger extends Property
 	protected int		lastLevel					= Integer.MIN_VALUE;
 	protected int		levelAdd					= 0;
 	protected double	levelPct					= 1.0;
+	protected int		levelCode					= 0;
+	protected boolean	diffGrp						= false;
 	protected int		diffAdd						= 0;
+	protected double	savePct						= 0;
 	protected double	diffPct						= 1.0;
+	protected int		saveAdd						= 0;
+	protected boolean	groupMultiplier				= false;
 	protected boolean	matchPlayersOnly			= false;
 	protected boolean	matchPlayersFollowersOnly	= false;
 	protected int		asMaterial					= -1;
+
+	private volatile int diffLevel					= Integer.MAX_VALUE;
 
 	@Override
 	public long flags()
@@ -84,6 +91,7 @@ public class Prop_Doppleganger extends Property
 		diffAdd=0;
 		levelPct=1.0;
 		diffPct=1.0;
+		diffLevel=0;
 		asMaterial=-1;
 		maxLevel=Integer.MAX_VALUE;
 		minLevel=Integer.MIN_VALUE;
@@ -96,9 +104,12 @@ public class Prop_Doppleganger extends Property
 		{
 			maxLevel=CMParms.getParmInt(text,"MAX",Integer.MAX_VALUE);
 			minLevel=CMParms.getParmInt(text,"MIN",Integer.MIN_VALUE);
+			levelCode=CMParms.getParmInt(text, "LEVELCODE", 0);
 			levelAdd=CMParms.getParmInt(text, "LEVELADD", 0);
-			levelPct=CMParms.getParmInt(text, "LEVELPCT", 100)/100.0;
-			diffAdd=CMParms.getParmInt(text, "DIFFLADD", 0);
+			levelPct=CMath.s_pct(CMParms.getParmStr(text, "LEVELPCT", "100"));
+			diffAdd=CMParms.getParmInt(text, "DIFFADD", 0);
+			savePct=CMath.s_pct(CMParms.getParmStr(text, "SAVEPCT", "0"));
+			diffGrp=CMParms.getParmBool(text, "DIFFGRP", false);
 			diffPct=CMParms.getParmInt(text, "DIFFPCT", 100)/100.0;
 			matchPlayersFollowersOnly=CMParms.getParmBool(text, "PLAYERSNFOLS", false);
 			matchPlayersOnly=CMParms.getParmBool(text, "PLAYERSONLY", false);
@@ -108,21 +119,24 @@ public class Prop_Doppleganger extends Property
 		}
 	}
 
-	protected void doppleGangItem(final Item I)
+	protected void doppleGangItem(final Item I, final ItemPossessor owner)
 	{
-		final ItemPossessor owner=I.owner();
 		if(owner!=null)
 		{
 			lastOwner=owner;
 			lastLevel=owner.phyStats().level();
-			int level=(int)Math.round(CMath.mul(((MOB)owner).phyStats().level(),levelPct))+levelAdd;
+			int level;
+			if(levelPct==0.0)
+				level=I.basePhyStats().level();
+			else
+				level=(int)Math.round(CMath.mul(owner.phyStats().level(),levelPct))+levelAdd;
 			if(level<minLevel)
 				level=minLevel;
 			if(level>maxLevel)
 				level=maxLevel;
-			int difflevel=(int)Math.round(CMath.mul(level,diffPct))+diffAdd;
-			I.basePhyStats().setLevel(difflevel);
-			I.phyStats().setLevel(difflevel);
+			diffLevel=(int)Math.round(CMath.mul(level,diffPct))+diffAdd;
+			I.basePhyStats().setLevel(diffLevel);
+			I.phyStats().setLevel(diffLevel);
 			final int oldMaterial=I.material();
 			if(asMaterial != -1)
 				I.setMaterial(asMaterial);
@@ -130,7 +144,7 @@ public class Prop_Doppleganger extends Property
 			I.basePhyStats().setLevel(level);
 			I.phyStats().setLevel(level);
 			I.setMaterial(oldMaterial);
-			level=((MOB)owner).phyStats().level();
+			level=owner.phyStats().level();
 			if(level<minLevel)
 				level=minLevel;
 			if(level>maxLevel)
@@ -150,79 +164,137 @@ public class Prop_Doppleganger extends Property
 			}
 		}
 	}
-	
+
 	@Override
 	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		if((affected instanceof Item)
 		&&((((Item)affected).owner()!=lastOwner)||((lastOwner!=null)&&(lastOwner.phyStats().level()!=lastLevel)))
 		&&(((Item)affected).owner() instanceof MOB))
-			doppleGangItem((Item)affected);
+			doppleGangItem((Item)affected, (MOB)((Item)affected).owner());
 		super.executeMsg(myHost,msg);
 	}
 
-	protected void doppleGangMob(final MOB entrantM, final MOB mob, final Room R)
+	protected void addSingleOrGroup(final MOB M, final Set<MOB> all)
+	{
+		if(M!=null)
+		{
+			if(this.diffGrp)
+				M.getGroupMembers(all);
+			else
+				all.add(M);
+		}
+	}
+
+	protected void doppleGangMob(final MOB entrantM, final MOB doppleM, final Room R)
 	{
 		if((R!=null)
-		&&(CMLib.flags().isAliveAwakeMobile(mob,true))
-		&&(mob.curState().getHitPoints()>=mob.maxState().getHitPoints()))
+		&&(CMLib.flags().isAliveAwakeMobile(doppleM,true))
+		&&(doppleM.curState().getHitPoints()>=doppleM.maxState().getHitPoints()))
 		{
-			int total=0;
-			int num=0;
-			final MOB victim=mob.getVictim();
-			if(canMimic(victim,R))
-			{
-				total+=victim.phyStats().level();
-				num++;
-			}
+			final MOB doppleVictim=doppleM.getVictim();
+			final Set<MOB> all = new HashSet<MOB>();
+			if(canMimic(doppleVictim,R))
+				addSingleOrGroup(doppleVictim,all);
 			if(canMimic(entrantM,R))
-			{
-				total+=entrantM.phyStats().level();
-				num++;
-			}
+				addSingleOrGroup(entrantM,all);
 			for(int i=0;i<R.numInhabitants();i++)
 			{
 				final MOB M=R.fetchInhabitant(i);
 				if((M!=null)
-				&&(M!=mob)
-				&&((M.getVictim()==mob)||(victim==null))
-				&&((M!=victim)&&(M!=entrantM))
+				&&(M!=doppleM)
+				&&(!all.contains(doppleM))
+				&&((M.getVictim()==doppleM)||(doppleVictim==null))
+				&&((M!=doppleVictim)&&(M!=entrantM))
 				&&(canMimic(M,R)))
+					addSingleOrGroup(M,all);
+			}
+			for(final Iterator<MOB> m = all.iterator();m.hasNext();)
+			{
+				if(!canMimic(m.next(),R))
+					m.remove();
+			}
+			int level=levelCode>=0?0:CMProps.getIntVar(CMProps.Int.LASTPLAYERLEVEL);
+			int total=0;
+			int num=0;
+			for(final MOB M : all)
+			{
+				switch(levelCode)
 				{
-					total+=M.phyStats().level();
-					num++;
+				case 1:
+					if(M.phyStats().level()>level)
+						level=M.phyStats().level();
+					break;
+				case 0:
+					total += M.phyStats().level();
+					break;
+				case -1:
+					if(M.phyStats().level()<level)
+						level=M.phyStats().level();
+					break;
 				}
+				num++;
 			}
 			if(num>0)
 			{
-				int level=(int)Math.round(CMath.mul(CMath.div(total,num),levelPct))+levelAdd;
+				if(levelCode == 0)
+					level = (int)Math.round(CMath.div(total,num));
+				int diffAdd = this.diffAdd;
+				double diffPct = this.diffPct;
+				if(diffGrp)
+				{
+					if(diffAdd > 0)
+						diffAdd *= num;
+					else
+					if(diffAdd < 0)
+						diffAdd += num;
+					final double absDiffPct = Math.abs(diffPct);
+					if(absDiffPct > 1.0)
+						diffPct += Math.signum(diffPct) * CMath.mul(absDiffPct-1.0,num-1);
+					else
+					if(absDiffPct < 1.0)
+						diffPct -= CMath.div(diffPct,num+1);
+					//savePct = CMath.mul(savePct,num);
+				}
+				if(levelPct == 0.0)
+					level = doppleM.basePhyStats().level();
+				else
+					level=(int)Math.round(CMath.mul(level,levelPct))+levelAdd;
 				if(level<minLevel)
 					level=minLevel;
 				if(level>maxLevel)
 					level=maxLevel;
-				int difflevel=(int)Math.round(CMath.mul(level,diffPct))+diffAdd;
-				if(level!=mob.basePhyStats().level())
+				final int newDiffLevel =(int)Math.round(CMath.mul(level,diffPct))+diffAdd;
+				if((level!=doppleM.basePhyStats().level())
+				||(newDiffLevel != diffLevel))
 				{
-					mob.basePhyStats().setLevel(difflevel);
-					mob.phyStats().setLevel(difflevel);
-					mob.basePhyStats().setArmor(CMLib.leveler().getLevelMOBArmor(mob));
-					mob.basePhyStats().setAttackAdjustment(CMLib.leveler().getLevelAttack(mob));
-					mob.basePhyStats().setDamage(CMLib.leveler().getLevelMOBDamage(mob));
-					mob.basePhyStats().setSpeed(1.0+(CMath.div(level,100)*4.0));
-					mob.baseState().setHitPoints(CMLib.leveler().getPlayerHitPoints(mob));
-					mob.baseState().setMana(CMLib.leveler().getLevelMana(mob));
-					mob.baseState().setMovement(CMLib.leveler().getLevelMove(mob));
-					mob.basePhyStats().setLevel(level);
-					mob.phyStats().setLevel(level);
-					mob.recoverPhyStats();
-					mob.recoverCharStats();
-					mob.recoverMaxState();
-					mob.resetToMaxState();
+					diffLevel=newDiffLevel;
+					doppleM.basePhyStats().setLevel(diffLevel);
+					doppleM.phyStats().setLevel(diffLevel);
+					doppleM.basePhyStats().setArmor(CMLib.leveler().getLevelMOBArmor(doppleM));
+					doppleM.basePhyStats().setAttackAdjustment(CMLib.leveler().getLevelAttack(doppleM));
+					doppleM.basePhyStats().setDamage(CMLib.leveler().getLevelMOBDamage(doppleM));
+					doppleM.basePhyStats().setSpeed(1.0+CMath.div(level,100)*4.0);
+					doppleM.baseState().setHitPoints(CMLib.leveler().getPlayerHitPoints(doppleM));
+					doppleM.baseState().setMana(CMLib.leveler().getLevelMana(doppleM));
+					doppleM.baseState().setMovement(CMLib.leveler().getLevelMove(doppleM));
+					if(savePct > 0.0)
+					{
+						final int saveSaveAmt = (int)Math.round(CMath.mul(diffLevel,savePct));
+						for(final int cd : CharStats.CODES.SAVING_THROWS())
+							doppleM.baseCharStats().setStat(cd, doppleM.baseCharStats().getStat(cd) + saveSaveAmt);
+					}
+					doppleM.basePhyStats().setLevel(level);
+					doppleM.phyStats().setLevel(level);
+					doppleM.recoverPhyStats();
+					doppleM.recoverCharStats();
+					doppleM.recoverMaxState();
+					doppleM.resetToMaxState();
 				}
 			}
 		}
 	}
-	
+
 	public boolean canMimic(final MOB mob, final Room R)
 	{
 		if((mob==affected)
@@ -243,10 +315,7 @@ public class Prop_Doppleganger extends Property
 		if(mob.isMonster())
 		{
 			if(matchPlayersFollowersOnly)
-			{
-				final MOB folM=mob.amUltimatelyFollowing();
-				return (folM!=null)&& (!folM.isMonster());
-			}
+				return !mob.getGroupLeader().isMonster();
 			return (!matchPlayersOnly);
 		}
 
@@ -260,16 +329,37 @@ public class Prop_Doppleganger extends Property
 	@Override
 	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
+		if((affected instanceof Item)
+		&&(msg.target()==affected)
+		&&(msg.targetMinor()==CMMsg.TYP_GET)
+		&&(((Item)affected).owner()!=msg.source()))
+			doppleGangItem((Item)affected, msg.source());
+		else
 		if((((msg.target() instanceof Room)&&(msg.sourceMinor()==CMMsg.TYP_ENTER))
 		   ||(msg.sourceMinor()==CMMsg.TYP_LIFE))
 		&&(!(affected instanceof Item)))
 		//&&(lastLevelChangers))
 		{
 			//lastLevelChangers=false;
+			if(msg.source() == affected)
+			{
+				final Room R=(msg.target() instanceof Room)?((Room)msg.target()):msg.source().location();
+				MOB highestM = null;
+				for(final Enumeration<MOB> m=R.inhabitants();m.hasMoreElements();)
+				{
+					final MOB M=m.nextElement();
+					if((M != msg.source())
+					&&((highestM==null)||(M.phyStats().level()>highestM.phyStats().level())))
+						highestM = M;
+				}
+				if(highestM != null)
+					doppleGangMob(highestM, msg.source(), R);
+			}
+			else
 			if(affected instanceof MOB)
 			{
 				final Room R=(msg.target() instanceof Room)?((Room)msg.target()):msg.source().location();
-				this.doppleGangMob(msg.source(), (MOB)affected, R);
+				doppleGangMob(msg.source(), (MOB)affected, R);
 			}
 			else
 			if(affected instanceof Room)
@@ -282,7 +372,7 @@ public class Prop_Doppleganger extends Property
 					&&(M.getStartRoom()!=null)
 					&&(M.amFollowing()==null)
 					&&(M.getStartRoom().getArea()==R.getArea()))
-						this.doppleGangMob(msg.source(), M, R);
+						doppleGangMob(msg.source(), M, R);
 				}
 			}
 			else
@@ -296,7 +386,7 @@ public class Prop_Doppleganger extends Property
 					&&(M.getStartRoom()!=null)
 					&&(M.amFollowing()==null)
 					&&(M.getStartRoom().getArea()==affected))
-						this.doppleGangMob(msg.source(), M, R);
+						doppleGangMob(msg.source(), M, R);
 				}
 			}
 		}

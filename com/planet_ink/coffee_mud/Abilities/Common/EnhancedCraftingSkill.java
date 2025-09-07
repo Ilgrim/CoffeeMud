@@ -5,6 +5,7 @@ import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftingActivity;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.EnhancedExpertise;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftorType;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
@@ -21,7 +22,7 @@ import java.util.*;
 import java.util.Map.Entry;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,7 +58,7 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 	}
 
 	@Override
-	public String parametersFormat()
+	public String getRecipeFormat()
 	{
 		return "";
 	}
@@ -74,15 +75,21 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 	}
 
 	@Override
+	public CraftorType getCraftorType()
+	{
+		return CraftorType.General;
+	}
+
+	@Override
 	protected boolean supportsArmors()
 	{
-		return parametersFormat().indexOf("CODED_WEAR_LOCATION")>=0;
+		return getRecipeFormat().indexOf("CODED_WEAR_LOCATION")>=0;
 	}
 
 	@Override
 	protected boolean supportsWeapons()
 	{
-		return parametersFormat().indexOf("WEAPON_CLASS")>=0;
+		return getRecipeFormat().indexOf("WEAPON_CLASS")>=0;
 	}
 
 	@Override
@@ -114,21 +121,21 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 					{
 					case 0:
 						if(req1Required>0)
-							req1Required=atLeast1(req1Required,-0.1);
+							req1Required=multiplyMinResult1(req1Required,-0.1);
 						if(req2Required>0)
-							req2Required=atLeast1(req2Required,-0.1);
+							req2Required=multiplyMinResult1(req2Required,-0.1);
 						break;
 					case 1:
 						if(req1Required>0)
-							req1Required=atLeast1(req1Required,-0.25);
+							req1Required=multiplyMinResult1(req1Required,-0.25);
 						if(req2Required>0)
-							req2Required=atLeast1(req2Required,-0.25);
+							req2Required=multiplyMinResult1(req2Required,-0.25);
 						break;
 					case 2:
 						if(req1Required>0)
-							req1Required=atLeast1(req1Required,-0.5);
+							req1Required=multiplyMinResult1(req1Required,-0.5);
 						if(req2Required>0)
-							req2Required=atLeast1(req2Required,-0.5);
+							req2Required=multiplyMinResult1(req2Required,-0.5);
 						break;
 					}
 					break;
@@ -137,21 +144,32 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 					{
 					case 0:
 						if(req1Required>0)
-							req1Required=atLeast1(req1Required,0.1);
+							req1Required=multiplyMinResult1(req1Required,0.1);
 						if(req2Required>0)
-							req2Required=atLeast1(req2Required,0.1);
+							req2Required=multiplyMinResult1(req2Required,0.1);
 						break;
 					case 1:
 						if(req1Required>0)
-							req1Required=atLeast1(req1Required,0.2);
+							req1Required=multiplyMinResult1(req1Required,0.2);
 						if(req2Required>0)
-							req2Required=atLeast1(req2Required,0.2);
+							req2Required=multiplyMinResult1(req2Required,0.2);
 						break;
 					case 2:
 						if(req1Required>0)
-							req1Required=atLeast1(req1Required,0.25);
+							req1Required=multiplyMinResult1(req1Required,0.25);
 						if(req2Required>0)
-							req2Required=atLeast1(req2Required,0.25);
+							req2Required=multiplyMinResult1(req2Required,0.25);
+						break;
+					}
+					break;
+				case RUSHCRAFT:
+					switch(stage)
+					{
+					case 0:
+						break;
+					case 1:
+						break;
+					case 2:
 						break;
 					}
 					break;
@@ -184,15 +202,15 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 						break;
 					case 1:
 						if(req1Required>0)
-							req1Required=atLeast1(req1Required,0.05);
+							req1Required=multiplyMinResult1(req1Required,0.05);
 						if(req2Required>0)
-							req2Required=atLeast1(req2Required,0.05);
+							req2Required=multiplyMinResult1(req2Required,0.05);
 						break;
 					case 2:
 						if(req1Required>0)
-							req1Required=atLeast1(req1Required,0.10);
+							req1Required=multiplyMinResult1(req1Required,0.10);
 						if(req2Required>0)
-							req2Required=atLeast1(req2Required,0.10);
+							req2Required=multiplyMinResult1(req2Required,0.10);
 						break;
 					}
 					break;
@@ -213,97 +231,38 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 				bundle,autoGeneration,expMods);
 	}
 
-	public void fixDataForComponents(final int[][] data, final String woodRequiredStr, final boolean autoGeneration, List<Object> componentsFoundList, final int amount)
+	@Override
+	public boolean checkInfo(final MOB mob, final List<String> commands)
 	{
-		boolean emptyComponents=false;
-		if((componentsFoundList==null)||(componentsFoundList.size()==0))
-		{
-			emptyComponents=true;
-			if(componentsFoundList==null)
-				componentsFoundList=new ArrayList<Object>();
-			final List<AbilityComponent> componentsRequirements=getNonStandardComponentRequirements(woodRequiredStr, amount);
-			if(componentsRequirements!=null)
-			{
-				final List<Item> components=CMLib.ableComponents().componentsSample(componentsRequirements, true);
-				if(components != null)
-					componentsFoundList.addAll(components);
-			}
-		}
+		final List<String> infoCmds = new ArrayList<String>(commands.size());
+		infoCmds.addAll(commands);
+		final PairVector<EnhancedExpertise,Integer> enhancedTypes=enhancedTypes(mob,infoCmds);
+		return checkInfo(mob, infoCmds, enhancedTypes);
+	}
 
-		if(autoGeneration)
+	@Override
+	public void fixInfoItem(final MOB mob, final Item I, final int lvl, final PairVector<EnhancedExpertise,Integer> enhancedTypes)
+	{
+		final EnhancedCraftingSkill affect=(EnhancedCraftingSkill)mob.fetchEffect(ID());
+		Ability delEffectA=null;
+		try
 		{
-			final List<Integer> compInts=new ArrayList<Integer>();
-			for(final Object o : componentsFoundList)
+			if(affect==null)
 			{
-				if(o instanceof Item)
-				{
-					final Item I=(Item)o;
-					compInts.add(Integer.valueOf(I.material()));
-					data[0][FOUND_AMT] += I.phyStats().weight();
-				}
+				delEffectA=this;
+				mob.addEffect(delEffectA);
 			}
-			if(compInts.size()>0)
-			{
-				Collections.sort(compInts);
-				data[0][FOUND_CODE]=compInts.get((int)Math.round(Math.floor(compInts.size()/2))).intValue();
-				data[0][FOUND_SUB]="".hashCode();
-			}
+			enhanceItem(mob,I,lvl,enhancedTypes);
 		}
-		else
-		if(((data[0][FOUND_CODE]==0)&&(data[1][FOUND_CODE]==0)))
+		finally
 		{
-			final List<Integer> rscs=myResources();
-			for(final Object o : componentsFoundList)
-			{
-				if(o instanceof Item)
-				{
-					final Item I=(Item)o;
-					if(rscs.contains(Integer.valueOf(I.material())))
-					{
-						if(data[0][FOUND_CODE]==0)
-						{
-							data[0][FOUND_CODE]=I.material();
-							data[0][FOUND_SUB]=((I instanceof RawMaterial)?((RawMaterial)I).getSubType().hashCode():("".hashCode()));
-						}
-						data[0][FOUND_AMT] += I.phyStats().weight();
-					}
-				}
-			}
-			if(data[0][FOUND_CODE]==0)
-			{
-				final List<Integer> compInts=new ArrayList<Integer>();
-				for(final Object o : componentsFoundList)
-				{
-					if(o instanceof Item)
-					{
-						final Item I=(Item)o;
-						compInts.add(Integer.valueOf(I.material()));
-						data[0][FOUND_AMT] += I.phyStats().weight();
-					}
-				}
-				if(compInts.size()>0)
-				{
-					Collections.sort(compInts);
-					data[0][FOUND_CODE]=compInts.get((int)Math.round(Math.floor(compInts.size()/2))).intValue();
-					data[0][FOUND_SUB]="".hashCode();
-				}
-			}
-		}
-		if(emptyComponents)
-		{
-			for(final Object o : componentsFoundList)
-			{
-				if(o instanceof Item)
-				{
-					final Item I=(Item)o;
-					I.destroy();
-				}
-			}
-			componentsFoundList.clear();
+			if(delEffectA != null)
+				mob.delEffect(delEffectA);
 		}
 	}
 
-	private final static int atLeast1(int value, final double pct)
+
+	private final static int multiplyMinResult1(int value, final double pct)
 	{
 		int change=(int)Math.round(CMath.mul(value,pct));
 		if(pct<0.0)
@@ -388,7 +347,7 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 	protected List<List<String>> loadList(final StringBuffer str)
 	{
 		final List<List<String>> lists=super.loadList(str);
-		final List<String> parmNames=CMParms.parseTabs(parametersFormat(), true);
+		final List<String> parmNames=CMParms.parseTabs(getRecipeFormat(), true);
 		int levelParmPos=-1;
 		for(int p=0;p<parmNames.size();p++)
 		{
@@ -430,14 +389,16 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 		for(int t=0;t<types.size();t++)
 		{
 			key=types.get(t);
-			final int stages=CMLib.expertises().getStages(key);
+			final int stages=CMLib.expertises().numStages(key);
 			final EnhancedExpertise code=getLocalExpCode(key);
 			if(code != null)
 			{
-				final Pair<String,Integer> X=mob.fetchExpertise(key);
+				Pair<String,Integer> mobExp=mob.fetchExpertise(key);
+				if((mobExp == null)&&(code==EnhancedExpertise.RUSHCRAFT))
+					mobExp=new Pair<String,Integer>(key,Integer.valueOf(CMLib.expertises().getStageCodes(key).size()));
 				for(int s=stages-1;s>=0;s--)
 				{
-					if((X!=null)&&(X.getValue().intValue()>=(s+1)))
+					if((mobExp!=null)&&(mobExp.getValue().intValue()>=(s+1)))
 					{
 						stage=CMath.convertToRoman(s+1);
 						ExpertiseLibrary.ExpertiseDefinition def = CMLib.expertises().getDefinition(key+stage);
@@ -446,17 +407,17 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 						if(def==null)
 							def=CMLib.expertises().getDefinition(key);
 						if(def!=null)
-							extras.append(def.getData()[s]+", ");
+							extras.append(def.getStageNames()[s]+", ");
 					}
 				}
 			}
 		}
 		if(extras.length()>0)
 		{
-			commonTell(mob,L("You can use your expertises to enhance this skill by prepending one or more "
+			commonTelL(mob,  "You can use your expertises to enhance this skill by prepending one or more "
 							+ "of the following words to the name of the item you wish to craft"
-							+ ": @x1.",extras.substring(0,extras.length()-2)));
-			commonTell(mob,L("Put the word 'hide' before any enhancement you want hidden from the name."));
+							+ ": @x1.",extras.substring(0,extras.length()-2));
+			commonTelL(mob,"Put the word 'hide' before any enhancement you want hidden from the name.");
 		}
 	}
 
@@ -469,7 +430,7 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 		for(int t=0;t<experTypes.size();t++)
 		{
 			key=experTypes.get(t);
-			final int stages=CMLib.expertises().getStages(key);
+			final int stages=CMLib.expertises().numStages(key);
 			final EnhancedExpertise code=getLocalExpCode(key);
 			if(code != null)
 			{
@@ -505,13 +466,20 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 		if((commands!=null)
 		&&(commands.size()>0))
 		{
-			cmd=commands.get(0);
+			int cmdDex=0;
+			cmd=commands.get(cmdDex);
 			boolean hideNext = false;
 			if((cmd.equalsIgnoreCase("hide"))
 			&&(commands.size()>1))
 			{
 				hideNext = true;
 				cmd=commands.get(1);
+			}
+			if((cmd.equalsIgnoreCase("info"))
+			&&(commands.size()>1))
+			{
+				cmdDex++;
+				cmd=commands.get(cmdDex);
 			}
 			if((!cmd.equalsIgnoreCase("list"))
 			&&(!cmd.equalsIgnoreCase("mend"))
@@ -527,14 +495,16 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 					for(int t=0;t<experTypes.size();t++)
 					{
 						key=experTypes.get(t);
-						final int stages=CMLib.expertises().getStages(key);
+						final int stages=CMLib.expertises().numStages(key);
 						final EnhancedExpertise code=getLocalExpCode(key);
 						if(code != null)
 						{
-							final Pair<String,Integer> X=mob.fetchExpertise(key);
+							Pair<String, Integer> mobExp=mob.fetchExpertise(key);
+							if((mobExp == null)&&(code==EnhancedExpertise.RUSHCRAFT))
+								mobExp=new Pair<String,Integer>(key,Integer.valueOf(CMLib.expertises().getStageCodes(key).size()));
 							for(int s=stages-1;s>=0;s--)
 							{
-								if((X==null)||(X.getValue().intValue()<(s+1)))
+								if((mobExp==null)||(mobExp.getValue().intValue()<(s+1)))
 									continue;
 								stage=CMath.convertToRoman(s+1);
 								ExpertiseLibrary.ExpertiseDefinition def = CMLib.expertises().getDefinition(key+stage);
@@ -544,11 +514,11 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 									def=CMLib.expertises().getDefinition(key);
 								if(def!=null)
 								{
-									if(cmd.equalsIgnoreCase(def.getData()[s]))
+									if(cmd.equalsIgnoreCase(def.getStageNames()[s]))
 									{
-										commands.remove(0);
+										commands.remove(cmdDex);
 										if(hideNext)
-											commands.remove(0);
+											commands.remove(cmdDex);
 										if(types==null)
 											types=new PairVector<EnhancedExpertise,Integer>();
 										if(!types.containsFirst(code))
@@ -557,11 +527,19 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 											if(commands.size()>0)
 											{
 												hideNext=false;
+												cmdDex=0;
 												cmd=commands.get(0);
-												if(cmd.equalsIgnoreCase("hide") && (commands.size()>1))
+												if(cmd.equalsIgnoreCase("hide")
+												&& (commands.size()>1))
 												{
 													hideNext=true;
 													cmd=commands.get(1);
+												}
+												if((cmd.equalsIgnoreCase("info"))
+												&&(commands.size()>1))
+												{
+													cmdDex++;
+													cmd=commands.get(cmdDex);
 												}
 											}
 											else
@@ -636,10 +614,68 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 					def = CMLib.expertises().getDefinition(expertiseID);
 				if(def==null)
 					continue;
-				name=CMStrings.replaceAll(name," "+def.getData()[stage].toUpperCase()+" ","");
+				name=CMStrings.replaceAll(name," "+def.getStageNames()[stage].toUpperCase()+" ","");
 			}
 		}
 		return name.trim();
+	}
+
+	protected void affectLevelBy(final Item item, final int stage)
+	{
+		item.basePhyStats().setLevel(item.basePhyStats().level()+stage+1);
+		item.phyStats().setLevel(item.basePhyStats().level()+stage+1);
+		if((item instanceof Weapon)
+		&&(item.basePhyStats().damage()>0))
+		{
+			final Item itemCopy=(Item)item.copyOf();
+			final int level=CMLib.itemBuilder().timsLevelCalculator(itemCopy);
+			itemCopy.basePhyStats().setLevel(level);
+			itemCopy.phyStats().setLevel(level);
+			CMLib.itemBuilder().balanceItemByLevel(itemCopy);
+			final int oldDamage=itemCopy.basePhyStats().damage();
+			itemCopy.basePhyStats().setLevel(level+stage+1);
+			itemCopy.phyStats().setLevel(level+stage+1);
+			CMLib.itemBuilder().balanceItemByLevel(itemCopy);
+			final int damDiff = itemCopy.basePhyStats().damage() - oldDamage;
+			item.basePhyStats().setDamage(item.basePhyStats().damage() + damDiff);
+			item.phyStats().setDamage(item.phyStats().damage() + damDiff);
+			itemCopy.destroy();
+		}
+		else
+		if((item instanceof Armor)
+		&&(item.basePhyStats().armor()>0))
+		{
+			final Item itemCopy=(Item)item.copyOf();
+			final int level=CMLib.itemBuilder().timsLevelCalculator(itemCopy);
+			itemCopy.basePhyStats().setLevel(level);
+			itemCopy.phyStats().setLevel(level);
+			CMLib.itemBuilder().balanceItemByLevel(itemCopy);
+			final int oldArmor=itemCopy.basePhyStats().armor();
+			itemCopy.basePhyStats().setLevel(level+stage+1);
+			itemCopy.phyStats().setLevel(level+stage+1);
+			CMLib.itemBuilder().balanceItemByLevel(itemCopy);
+			final int damDiff = itemCopy.basePhyStats().armor() - oldArmor;
+			item.basePhyStats().setArmor(item.basePhyStats().armor() + damDiff);
+			item.phyStats().setArmor(item.phyStats().armor() + damDiff);
+			itemCopy.destroy();
+		}
+		else
+		if((item instanceof Container)
+		&&(((Container)item).capacity()>0)
+		&&(((Container)item).capacity()<Integer.MAX_VALUE/2))
+			((Container)item).setCapacity(multiplyMinResult1(((Container)item).capacity(),0.1*(stage+1)));
+		else
+		if((item instanceof Food)
+		||((item instanceof Drink)&&(CMath.bset(item.material(), RawMaterial.MATERIAL_LIQUID))))
+		{
+			if(item instanceof Food)
+				((Food)item).setNourishment((int)Math.round(((Food)item).nourishment()*(1+(.5*(stage+1)))));
+			else
+			{
+				((Drink)item).setLiquidHeld((int)Math.round(((Drink)item).liquidHeld()*(1+(.5*(stage+1)))));
+				((Drink)item).setLiquidRemaining((int)Math.round(((Drink)item).liquidRemaining()*(1+(.5*stage))));
+			}
+		}
 	}
 
 	public void enhanceItem(final MOB mob, final Item item, int recipeLevel, final PairVector<EnhancedExpertise,Integer> types)
@@ -652,17 +688,19 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 		&&(activity == CraftingActivity.CRAFTING)
 		&&(item!=null))
 		{
+			final ExpertiseLibrary exLib = CMLib.expertises();
 			for(int t=0;t<types.size();t++)
 			{
 				final EnhancedExpertise type=types.elementAt(t).first;
-				final int stage=types.elementAt(t).second.intValue()  & STAGE_MASK;
-				final boolean hide=(types.elementAt(t).second.intValue()  & HIDE_MASK) > 0;
-				final String expertiseID=CMLib.expertises().getApplicableExpertise(ID(),type.flag);
-				ExpertiseLibrary.ExpertiseDefinition def = CMLib.expertises().getDefinition(expertiseID+CMath.convertToRoman(1));
+				final int typeStageCode = types.elementAt(t).second.intValue();
+				final int stage=typeStageCode  & STAGE_MASK;
+				final boolean hide=(typeStageCode  & HIDE_MASK) > 0;
+				final String expertiseID=exLib.getApplicableExpertise(ID(),type.flag);
+				ExpertiseLibrary.ExpertiseDefinition def = exLib.getDefinition(expertiseID+CMath.convertToRoman(1));
 				if(def==null)
-					def = CMLib.expertises().getDefinition(expertiseID+1);
+					def = exLib.getDefinition(expertiseID+1);
 				if(def==null)
-					def = CMLib.expertises().getDefinition(expertiseID);
+					def = exLib.getDefinition(expertiseID);
 				if(def==null)
 					continue;
 				int addToStat = CharState.STAT_MOVE;
@@ -673,19 +711,44 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 					switch(stage)
 					{
 					case 0:
-						applyName(item,def.getData()[stage], hide);
-						item.setBaseValue(atLeast1(item.baseGoldValue(),0.1));
+						applyName(item,def.getStageNames()[stage], hide);
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),0.1));
 						break;
 					case 1:
-						applyName(item,def.getData()[stage], hide);
-						item.setBaseValue(atLeast1(item.baseGoldValue(),0.2));
+						applyName(item,def.getStageNames()[stage], hide);
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),0.2));
 						affect.bumpTickDown(Math.round(0.25 * affect.tickDown));
 						break;
 					case 2:
-						applyName(item,def.getData()[stage], hide);
-						item.setBaseValue(atLeast1(item.baseGoldValue(),0.3));
+						applyName(item,def.getStageNames()[stage], hide);
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),0.3));
 						//addStatAdjustment(item,"DEX","+1");
 						affect.bumpTickDown(Math.round(0.5 * affect.tickDown));
+						break;
+					}
+					break;
+				}
+				case RUSHCRAFT:
+				{
+					switch(stage)
+					{
+					case 0:
+						applyName(item,def.getStageNames()[stage], hide);
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),-0.1));
+						affect.bumpTickDown(Math.round(-0.10 * affect.tickDown));
+						affectLevelBy(item, -2);
+						break;
+					case 1:
+						applyName(item,def.getStageNames()[stage], hide);
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),-0.2));
+						affect.bumpTickDown(Math.round(-0.20 * affect.tickDown));
+						affectLevelBy(item, -3);
+						break;
+					case 2:
+						applyName(item,def.getStageNames()[stage], hide);
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),-0.3));
+						affect.bumpTickDown(Math.round(-0.30 * affect.tickDown));
+						affectLevelBy(item, -4);
 						break;
 					}
 					break;
@@ -694,86 +757,33 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 				{
 					if(stage >= 0)
 					{
-						applyName(item,def.getData()[stage], hide);
-						item.basePhyStats().setLevel(item.basePhyStats().level()+stage+1);
-						item.phyStats().setLevel(item.basePhyStats().level()+stage+1);
-						if((item instanceof Weapon)
-						&&(item.basePhyStats().damage()>0))
-						{
-							final Item itemCopy=(Item)item.copyOf();
-							final int level=CMLib.itemBuilder().timsLevelCalculator(itemCopy);
-							itemCopy.basePhyStats().setLevel(level);
-							itemCopy.phyStats().setLevel(level);
-							CMLib.itemBuilder().balanceItemByLevel(itemCopy);
-							final int oldDamage=itemCopy.basePhyStats().damage();
-							itemCopy.basePhyStats().setLevel(level+stage+1);
-							itemCopy.phyStats().setLevel(level+stage+1);
-							CMLib.itemBuilder().balanceItemByLevel(itemCopy);
-							final int damDiff = itemCopy.basePhyStats().damage() - oldDamage;
-							item.basePhyStats().setDamage(item.basePhyStats().damage() + damDiff);
-							item.phyStats().setDamage(item.phyStats().damage() + damDiff);
-							itemCopy.destroy();
-						}
-						else
-						if((item instanceof Armor)
-						&&(item.basePhyStats().armor()>0))
-						{
-							final Item itemCopy=(Item)item.copyOf();
-							final int level=CMLib.itemBuilder().timsLevelCalculator(itemCopy);
-							itemCopy.basePhyStats().setLevel(level);
-							itemCopy.phyStats().setLevel(level);
-							CMLib.itemBuilder().balanceItemByLevel(itemCopy);
-							final int oldArmor=itemCopy.basePhyStats().armor();
-							itemCopy.basePhyStats().setLevel(level+stage+1);
-							itemCopy.phyStats().setLevel(level+stage+1);
-							CMLib.itemBuilder().balanceItemByLevel(itemCopy);
-							final int damDiff = itemCopy.basePhyStats().armor() - oldArmor;
-							item.basePhyStats().setArmor(item.basePhyStats().armor() + damDiff);
-							item.phyStats().setArmor(item.phyStats().armor() + damDiff);
-							itemCopy.destroy();
-						}
-						else
-						if((item instanceof Container)
-						&&(((Container)item).capacity()>0)
-						&&(((Container)item).capacity()<Integer.MAX_VALUE/2))
-							((Container)item).setCapacity(atLeast1(((Container)item).capacity(),0.1*(stage+1)));
-						else
-						if((item instanceof Food)
-						||((item instanceof Drink)&&(CMath.bset(item.material(), RawMaterial.MATERIAL_LIQUID))))
-						{
-							if(item instanceof Food)
-								((Food)item).setNourishment((int)Math.round(((Food)item).nourishment()*(1+(.5*(stage+1)))));
-							else
-							{
-								((Drink)item).setLiquidHeld((int)Math.round(((Drink)item).liquidHeld()*(1+(.5*(stage+1)))));
-								((Drink)item).setLiquidRemaining((int)Math.round(((Drink)item).liquidRemaining()*(1+(.5*stage))));
-							}
-						}
+						applyName(item,def.getStageNames()[stage], hide);
+						affectLevelBy(item, stage);
 					}
 					break;
 				}
 				case DURACRAFT:
 				{
 					if((!(item instanceof Armor))||(item.basePhyStats().armor()==0))
-						commonTell(mob,L("@x1 only applies to protective armor.",def.getData()[stage]));
+						commonTelL(mob,"@x1 only applies to protective armor.",def.getStageNames()[stage]);
 					else
 					switch(stage)
 					{
 					case 0:
-						applyName(item,def.getData()[stage], hide);
+						applyName(item,def.getStageNames()[stage], hide);
 						item.basePhyStats().setArmor(item.basePhyStats().armor()+1);
-						item.setBaseValue(atLeast1(item.baseGoldValue(),0.1));
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),0.1));
 						break;
 					case 1:
-						applyName(item,def.getData()[stage], hide);
-						item.basePhyStats().setArmor(atLeast1(item.basePhyStats().armor(),0.1)+1);
-						item.setBaseValue(atLeast1(item.baseGoldValue(),0.2));
+						applyName(item,def.getStageNames()[stage], hide);
+						item.basePhyStats().setArmor(multiplyMinResult1(item.basePhyStats().armor(),0.1)+1);
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),0.2));
 						affect.bumpTickDown(Math.round(0.25 * affect.tickDown));
 						break;
 					case 2:
-						applyName(item,def.getData()[stage], hide);
-						item.basePhyStats().setArmor(atLeast1(item.basePhyStats().armor(),0.25)+1);
-						item.setBaseValue(atLeast1(item.baseGoldValue(),0.3));
+						applyName(item,def.getStageNames()[stage], hide);
+						item.basePhyStats().setArmor(multiplyMinResult1(item.basePhyStats().armor(),0.25)+1);
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),0.3));
 						//addStatAdjustment(item,"CON","+1");
 						affect.bumpTickDown(Math.round(0.5 * affect.tickDown));
 						break;
@@ -785,18 +795,18 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 					switch(stage)
 					{
 					case 0:
-						applyName(item,def.getData()[stage], hide);
-						item.setBaseValue(atLeast1(item.baseGoldValue(),0.5));
+						applyName(item,def.getStageNames()[stage], hide);
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),0.5));
 						affect.bumpTickDown(Math.round(0.25 * affect.tickDown));
 						break;
 					case 1:
-						applyName(item,def.getData()[stage], hide);
-						item.setBaseValue(atLeast1(item.baseGoldValue(),1.5));
+						applyName(item,def.getStageNames()[stage], hide);
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),1.5));
 						affect.bumpTickDown(Math.round(0.5 * affect.tickDown));
 						break;
 					case 2:
-						applyName(item,def.getData()[stage], hide);
-						item.setBaseValue(atLeast1(item.baseGoldValue(),2.5));
+						applyName(item,def.getStageNames()[stage], hide);
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),2.5));
 						if((item instanceof Armor)
 						&&(!CMath.bset(((Armor)item).getLayerAttributes(),Armor.LAYERMASK_MULTIWEAR)))
 							addSpellAdjustment(item,"Spell_WellDressed","1");
@@ -808,28 +818,28 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 				case LTHLCRAFT:
 				{
 					if(!(item instanceof Weapon))
-						commonTell(mob,L("@x1 only applies to weapons.",def.getData()[stage]));
+						commonTelL(mob,"@x1 only applies to weapons.",def.getStageNames()[stage]);
 					else
 					switch(stage)
 					{
 					case 0:
-						applyName(item,def.getData()[stage], hide);
-						item.basePhyStats().setDamage(atLeast1(item.basePhyStats().damage(),0.05));
-						item.setBaseValue(atLeast1(item.baseGoldValue(),0.1));
+						applyName(item,def.getStageNames()[stage], hide);
+						item.basePhyStats().setDamage(multiplyMinResult1(item.basePhyStats().damage(),0.05));
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),0.1));
 						affect.bumpTickDown(Math.round(0.25 * affect.tickDown));
 						break;
 					case 1:
-						applyName(item,def.getData()[stage], hide);
-						item.basePhyStats().setDamage(atLeast1(item.basePhyStats().damage(),0.1));
-						item.setBaseValue(atLeast1(item.baseGoldValue(),0.2));
-						item.basePhyStats().setWeight(atLeast1(item.basePhyStats().weight(),0.1));
+						applyName(item,def.getStageNames()[stage], hide);
+						item.basePhyStats().setDamage(multiplyMinResult1(item.basePhyStats().damage(),0.1));
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),0.2));
+						item.basePhyStats().setWeight(multiplyMinResult1(item.basePhyStats().weight(),0.1));
 						affect.bumpTickDown(Math.round(0.5 * affect.tickDown));
 						break;
 					case 2:
-						applyName(item,def.getData()[stage], hide);
-						item.basePhyStats().setDamage(atLeast1(item.basePhyStats().damage(),0.15)+1);
-						item.setBaseValue(atLeast1(item.baseGoldValue(),0.3));
-						item.basePhyStats().setWeight(atLeast1(item.basePhyStats().weight(),0.1));
+						applyName(item,def.getStageNames()[stage], hide);
+						item.basePhyStats().setDamage(multiplyMinResult1(item.basePhyStats().damage(),0.15)+1);
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),0.3));
+						item.basePhyStats().setWeight(multiplyMinResult1(item.basePhyStats().weight(),0.1));
 						affect.bumpTickDown(Math.round(0.75 * affect.tickDown));
 						break;
 					}
@@ -838,28 +848,28 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 				case CNTRCRAFT:
 				{
 					if(!(item instanceof Weapon))
-						commonTell(mob,L("@x1 only applies to weapons.",def.getData()[stage]));
+						commonTelL(mob,"@x1 only applies to weapons.",def.getStageNames()[stage]);
 					else
 					switch(stage)
 					{
 					case 0:
-						applyName(item,def.getData()[stage], hide);
+						applyName(item,def.getStageNames()[stage], hide);
 						item.basePhyStats().setAttackAdjustment(item.basePhyStats().attackAdjustment()+3);
-						item.setBaseValue(atLeast1(item.baseGoldValue(),0.1));
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),0.1));
 						affect.bumpTickDown(Math.round(0.25 * affect.tickDown));
 						break;
 					case 1:
-						applyName(item,def.getData()[stage], hide);
+						applyName(item,def.getStageNames()[stage], hide);
 						item.basePhyStats().setAttackAdjustment(item.basePhyStats().attackAdjustment()+6);
-						item.setBaseValue(atLeast1(item.baseGoldValue(),0.2));
-						item.basePhyStats().setWeight(atLeast1(item.basePhyStats().weight(),0.05));
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),0.2));
+						item.basePhyStats().setWeight(multiplyMinResult1(item.basePhyStats().weight(),0.05));
 						affect.bumpTickDown(Math.round(0.5 * affect.tickDown));
 						break;
 					case 2:
-						applyName(item,def.getData()[stage], hide);
+						applyName(item,def.getStageNames()[stage], hide);
 						item.basePhyStats().setAttackAdjustment(item.basePhyStats().attackAdjustment()+9);
-						item.setBaseValue(atLeast1(item.baseGoldValue(),0.3));
-						item.basePhyStats().setWeight(atLeast1(item.basePhyStats().weight(),0.1));
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),0.3));
+						item.basePhyStats().setWeight(multiplyMinResult1(item.basePhyStats().weight(),0.1));
 						affect.bumpTickDown(Math.round(1.25 * affect.tickDown));
 						break;
 					}
@@ -869,7 +879,7 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 				case VIGOCRAFT:
 				case IMBUCRAFT:
 				{
-					applyName(item,def.getData()[stage], hide);
+					applyName(item,def.getStageNames()[stage], hide);
 					if (type == EnhancedExpertise.IMBUCRAFT)
 					{
 						addToStat=CharState.STAT_MANA;
@@ -884,7 +894,7 @@ public class EnhancedCraftingSkill extends CraftingSkill implements ItemCraftor
 							recipeLevel = 1;
 						propA.setMiscText(statName+"+"+((stage+1)*recipeLevel));
 						affect.bumpTickDown(Math.round((1.1 + (0.1 * stage)) * affect.tickDown));
-						item.setBaseValue(atLeast1(item.baseGoldValue(),0.25));
+						item.setBaseValue(multiplyMinResult1(item.baseGoldValue(),0.25));
 						item.addNonUninvokableEffect(propA);
 					}
 					break;

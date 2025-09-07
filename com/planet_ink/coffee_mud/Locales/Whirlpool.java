@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Whirlpool extends StdGrid
 	public Whirlpool()
 	{
 		super();
-		basePhyStats.setWeight(30);
+		setMovementCost(30);
 		recoverPhyStats();
 		climask=Places.CLIMASK_NORMAL;
 	}
@@ -114,7 +114,8 @@ public class Whirlpool extends StdGrid
 					currents.setParms("minticks=1 maxticks=2 chance=75 "+CMLib.directions().getDirectionName(dir));
 					currents.setSavable(true);
 					fromRoom.addBehavior(currents);
-					fromRoom.setDescription(fromRoom.description() +L("%0D^HThe swirling waters are pulling you "+CMLib.directions().getDirectionName(dir)+".^?"));
+					fromRoom.setDescription(fromRoom.description() +
+							L("%0D^HThe swirling waters are pulling you @x1.^?",CMLib.directions().getDirectionName(dir)));
 				}
 				curXY[0]=testXY[0];
 				curXY[1]=testXY[1];
@@ -163,7 +164,8 @@ public class Whirlpool extends StdGrid
 					currents.setParms("minticks=1 maxticks=2 chance=75 BOATS "+CMLib.directions().getDirectionName(dir));
 					currents.setSavable(true);
 					lastRoom.addBehavior(currents);
-					lastRoom.setDescription(lastRoom.description() +L("%0D^HThe swirling waters are pulling you "+CMLib.directions().getDirectionName(dir)+".^?"));
+					lastRoom.setDescription(lastRoom.description() +
+							L("%0D^HThe swirling waters are pulling you @x1.^?",CMLib.directions().getDirectionName(dir)));
 				}
 			}
 			lastRoom=downRoom;
@@ -233,6 +235,7 @@ public class Whirlpool extends StdGrid
 
 			buildWhirl();
 			buildFinalLinks();
+			distributeStuff();
 		}
 		catch(final Exception e)
 		{

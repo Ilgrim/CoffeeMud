@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ public class Spell_ConjureNexus extends Spell
 					final int oldMV=mob.curState().getMovement();
 					final int oldHU=mob.curState().getHunger();
 					final int oldTH=mob.curState().getThirst();
-					CMLib.combat().recoverTick(mob);
+					CMLib.combat().recoverTick(mob, mob.curState());
 					mob.curState().setHitPoints(oldHP);
 					mob.curState().setMovement(oldMV);
 					mob.curState().setHunger(oldHU);
@@ -143,7 +143,7 @@ public class Spell_ConjureNexus extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,mob.location(),this,verbalCastCode(mob,mob.location(),auto),auto?"A Nexus of Mana appears!":L("^S<S-NAME> summon(s) the Nexus of mana!^?"));
+			final CMMsg msg=CMClass.getMsg(mob,mob.location(),this,verbalCastCode(mob,mob.location(),auto),auto?L("A Nexus of Mana appears!"):L("^S<S-NAME> summon(s) the Nexus of mana!^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

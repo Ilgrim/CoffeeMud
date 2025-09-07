@@ -5,7 +5,7 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import java.util.NoSuchElementException;
 public class SIterator<K> implements Iterator<K>
 {
 	private final Iterator<K>	iter;
-	private K	              o	= null;
+	private K				  o	= null;
 
 	public SIterator(final Iterator<K> i)
 	{

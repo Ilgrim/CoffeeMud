@@ -5,7 +5,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -22,6 +22,16 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary;
 public class QuintVector<T, K, L, M, N> extends Vector<Quint<T, K, L, M, N>> implements List<Quint<T, K, L, M, N>>
 {
 	private static final long	serialVersionUID	= -9175373358892311411L;
+
+	public QuintVector()
+	{
+		super();
+	}
+
+	public QuintVector(final int size)
+	{
+		super(size);
+	}
 
 	public Quint.FirstConverter<T, K, L, M, N> getFirstConverter()
 	{

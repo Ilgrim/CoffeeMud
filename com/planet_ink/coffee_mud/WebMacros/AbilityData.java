@@ -1,8 +1,10 @@
 package com.planet_ink.coffee_mud.WebMacros;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMClass.CMObjectType;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftorType;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
@@ -19,7 +21,7 @@ import com.planet_ink.coffee_web.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -41,18 +43,29 @@ public class AbilityData extends StdWebMacro
 		return "AbilityData";
 	}
 
+	static final String[][] newMatches = new String[][] {
+		new String[] { "NEWABILITY", "GenAbility" },
+		new String[] { "NEWLANGUAGE", "GenLanguage" },
+		new String[] { "NEWCRAFTSKILL", "GenCraftSkill" },
+		new String[] { "NEWWRIGHTSKILL", "GenWrightSkill" },
+		new String[] { "NEWGATHERINGSKILL", "GenGatheringSkill" },
+		new String[] { "NEWTRAP", "GenTrap" },
+		new String[] { "NEWPOISON", "GenPoison" },
+		new String[] { "NEWTWEAK", "GenTweakAbility" },
+	};
+
 	private String itemList(final List<Item> itemList, Item oldItem, final String oldValue)
 	{
 		final StringBuffer list=new StringBuffer("");
 		if(oldItem==null)
-			oldItem=RoomData.getItemFromCatalog(oldValue);
+			oldItem=CMLib.webMacroFilter().getItemFromCatalog(oldValue);
 		for (final Item I : itemList)
 		{
-			list.append("<OPTION VALUE=\""+RoomData.getItemCode(itemList, I)+"\" ");
+			list.append("<OPTION VALUE=\""+CMLib.webMacroFilter().findItemWebCacheCode(itemList, I)+"\" ");
 			if((oldItem!=null)&&(oldItem.sameAs(I)))
 				list.append("SELECTED");
 			list.append(">");
-			list.append(I.Name()+RoomData.getObjIDSuffix(I));
+			list.append(I.Name()+CMLib.webMacroFilter().getWebCacheSuffix(I));
 		}
 		list.append("<OPTION VALUE=\"\">------ CATALOGED -------");
 		final String[] names=CMLib.catalog().getCatalogItemNames();
@@ -66,6 +79,127 @@ public class AbilityData extends StdWebMacro
 			list.append(">"+name);
 		}
 		return list.toString();
+	}
+
+	public static String codedEffectsWebValue(final HTTPRequest httpReq, final Map<String,String> parms, final String oldVal, final String fieldName)
+	{
+		List<CMObject> spells=null;
+		if(httpReq.isUrlParameter(fieldName+"_AFFECT1"))
+		{
+			spells = new Vector<CMObject>();
+			int num=1;
+			String behav=httpReq.getUrlParameter(fieldName+"_AFFECT"+num);
+			String theparm=httpReq.getUrlParameter(fieldName+"_ADATA"+num);
+			while((behav!=null)&&(theparm!=null))
+			{
+				if(behav.length()>0)
+				{
+					final Ability A=CMClass.getAbility(behav);
+					if(A!=null)
+					{
+						if(theparm.trim().length()>0)
+							A.setMiscText(theparm);
+						spells.add(A);
+					}
+					else
+					{
+						final Behavior B=CMClass.getBehavior(behav);
+						if(B!=null)
+						{
+							if(theparm.trim().length()>0)
+								B.setParms(theparm);
+							spells.add(B);
+						}
+					}
+				}
+				num++;
+				behav=httpReq.getUrlParameter(fieldName+"_AFFECT"+num);
+				theparm=httpReq.getUrlParameter(fieldName+"_ADATA"+num);
+			}
+		}
+		else
+			spells = CMLib.coffeeMaker().getCodedSpellsOrBehaviors(oldVal);
+		try
+		{
+			return CMLib.coffeeMaker().packCodedSpellsOrBehaviors(spells);
+		}
+		catch(final Exception e)
+		{
+			return oldVal;
+		}
+	}
+
+
+	public static StringBuffer interprets(final Language E, final HTTPRequest httpReq, final java.util.Map<String,String> parms, final int borderSize)
+	{
+		final StringBuffer str=new StringBuffer("");
+		if(parms.containsKey("INTERPRETS"))
+		{
+			final List<String> theclasses=new ArrayList<String>();
+			if(httpReq.isUrlParameter("INTERPRET1"))
+			{
+				int num=1;
+				String ID=httpReq.getUrlParameter("INTERPRET"+num);
+				while(ID!=null)
+				{
+					if(ID.length()>0)
+						theclasses.add(ID);
+					num++;
+					ID=httpReq.getUrlParameter("INTERPRET"+num);
+				}
+			}
+			else
+			for(final String ID : E.languagesSupported())
+			{
+				if(ID!=null)
+					theclasses.add(ID);
+			}
+			str.append("<TABLE WIDTH=100% BORDER=\""+borderSize+"\" CELLSPACING=0 CELLPADDING=0>");
+			for(int i=0;i<theclasses.size();i++)
+			{
+				final String theclass=theclasses.get(i);
+				str.append("<TR><TD WIDTH=50%>");
+				str.append("<SELECT ONCHANGE=\"EditInterpret(this);\" NAME=INTERPRET"+(i+1)+">");
+				str.append("<OPTION VALUE=\"\">Delete!");
+				str.append("<OPTION VALUE=\""+theclass+"\" SELECTED>"+theclass);
+				str.append("</SELECT>");
+				str.append("</TD><TD WIDTH=50%>");
+				str.append("</TD></TR>");
+			}
+			str.append("<TR><TD WIDTH=50%>");
+			str.append("<SELECT ONCHANGE=\"EditInterpret(this);\" NAME=INTERPRET"+(theclasses.size()+1)+">");
+			str.append("<OPTION SELECTED VALUE=\"\">Select a Language");
+
+			Object[] sortedB=null;
+			final List<String> sortMeB=new ArrayList<String>();
+			for(final Enumeration<Ability> b=CMClass.abilities(new Filterer<Ability>() {
+				@Override
+				public boolean passesFilter(Ability obj)
+				{
+					return (obj instanceof Language)
+							&&(!obj.ID().equals("GenLanguage"))
+							&&(!obj.ID().equals("StdLanguage"))
+							;
+				}
+
+			});b.hasMoreElements();)
+			{
+				final Ability A=b.nextElement();
+				if(!theclasses.contains(A.ID()))
+					sortMeB.add(A.ID());
+			}
+			sortedB=(new TreeSet<String>(sortMeB)).toArray();
+			for(int r=0;r<sortedB.length;r++)
+			{
+				final String cnam=(String)sortedB[r];
+				str.append("<OPTION VALUE=\""+cnam+"\">"+cnam);
+			}
+			str.append("</SELECT>");
+			str.append("</TD><TD WIDTH=50%>");
+			str.append("</TD></TR>");
+			str.append("</TABLE>");
+		}
+		return str;
 	}
 
 	// valid parms include help, ranges, quality, target, alignment, domain,
@@ -91,56 +225,61 @@ public class AbilityData extends StdWebMacro
 		String last=httpReq.getUrlParameter("ABILITY");
 		if(last==null)
 			return " @break@";
-		Ability A=null;
-		final String newAbilityID=httpReq.getUrlParameter("NEWABILITY");
-		final String newLanguageID=httpReq.getUrlParameter("NEWLANGUAGE");
-		final String newCraftSkillID=httpReq.getUrlParameter("NEWCRAFTSKILL");
-		final String newGatheringSkillID=httpReq.getUrlParameter("NEWGATHERINGSKILL");
-		A=(Ability)httpReq.getRequestObjects().get("ABILITY-"+last);
-		if((A==null)
-		&&(newAbilityID!=null)
-		&&(newAbilityID.length()>0)
-		&&(CMClass.getAbility(newAbilityID)==null))
+		Ability A=(Ability)httpReq.getRequestObjects().get("ABILITY-"+last);
+		boolean isGeneric = (A==null)?false:A.isGeneric();
+		for(final String[] newMatch : newMatches)
 		{
-			A=(Ability)CMClass.getAbility("GenAbility").copyOf();
-			A.setStat("CLASS9",newAbilityID);
-			last=newAbilityID;
-			httpReq.addFakeUrlParameter("ABILITY",newAbilityID);
-		}
-		if((A==null)
-		&&(newLanguageID!=null)
-		&&(newLanguageID.length()>0)
-		&&(CMClass.getAbility(newLanguageID)==null))
-		{
-			A=(Ability)CMClass.getAbility("GenLanguage").copyOf();
-			A.setStat("CLASS9",newLanguageID);
-			last=newLanguageID;
-			httpReq.addFakeUrlParameter("ABILITY",newLanguageID);
-		}
-		if((A==null)
-		&&(newCraftSkillID!=null)
-		&&(newCraftSkillID.length()>0)
-		&&(CMClass.getAbility(newCraftSkillID)==null))
-		{
-			A=(Ability)CMClass.getAbility("GenCraftSkill").copyOf();
-			A.setStat("CLASS9",newCraftSkillID);
-			last=newCraftSkillID;
-			httpReq.addFakeUrlParameter("ABILITY",newCraftSkillID);
-		}
-		if((A==null)
-		&&(newGatheringSkillID!=null)
-		&&(newGatheringSkillID.length()>0)
-		&&(CMClass.getAbility(newGatheringSkillID)==null))
-		{
-			A=(Ability)CMClass.getAbility("GenGatheringSkill").copyOf();
-			A.setStat("CLASS9",newGatheringSkillID);
-			last=newGatheringSkillID;
-			httpReq.addFakeUrlParameter("ABILITY",newGatheringSkillID);
+			String newAbilityID=httpReq.getUrlParameter(newMatch[0]);
+			final String newClass=newMatch[1];
+			if((A==null)
+			&&(newAbilityID!=null)
+			&&(newAbilityID.length()>0))
+			{
+				newAbilityID = CMStrings.replaceAll(newAbilityID, " ", "");
+				A=CMClass.getAbility(newAbilityID);
+				if(A == null)
+					A=(Ability)CMClass.getAbility(newClass).copyOf();
+				else
+				{
+					final Ability CR;
+					if(A.isGeneric())
+					{
+						newAbilityID=newAbilityID+"_Copy";
+						httpReq.addFakeUrlParameter(newMatch[0],newAbilityID);
+						CR = CMClass.getAbility(A.getStat("JAVACLASS"));
+						CR.setStat("CLASS9", newAbilityID);
+						CR.setStat("LEVEL","1");
+						CR.setStat("NAME", newAbilityID);
+						for(int i=1;i<A.getStatCodes().length;i++)
+							CR.setStat(A.getStatCodes()[i], A.getStat(A.getStatCodes()[i]));
+					}
+					else
+					{
+						CR=CMLib.ableParms().convertAbilityToGeneric(A);
+						CR.setStat("CLASS9", newAbilityID);
+						CR.setStat("NAME", A.Name());
+						CMClass.addClass(CMObjectType.ABILITY, A);
+					}
+					A=CR;
+				}
+				if(newClass.endsWith("Trap"))
+					A.setStat("LEVEL","1");
+				A.setStat("CLASS9",newAbilityID);
+				last=newAbilityID;
+				httpReq.addFakeUrlParameter("ABILITY",newAbilityID);
+				httpReq.getRequestObjects().put("ABILITY-"+newAbilityID,A);
+				isGeneric=true;
+				break;
+			}
 		}
 		if(last.length()>0)
 		{
 			if(A==null)
+			{
 				A=CMClass.getAbility(last);
+				if(A!=null)
+					isGeneric = A.isGeneric();
+			}
 			if(parms.containsKey("ISNEWABILITY"))
 				return ""+(CMClass.getAbility(last)==null);
 			if(A!=null)
@@ -148,17 +287,41 @@ public class AbilityData extends StdWebMacro
 				final StringBuffer str=new StringBuffer("");
 				if(parms.containsKey("ISGENERIC"))
 				{
-					final Ability A2=CMClass.getAbility(A.ID());
-					return ""+((A2!=null)&&(A2.isGeneric()));
+					return ""+isGeneric;
 				}
 				if(parms.containsKey("ISLANGUAGE"))
 				{
 					return Boolean.toString(A instanceof Language);
 				}
+				if(parms.containsKey("ISTWEAK"))
+				{
+					return A.getStat("JAVACLASS").toLowerCase().indexOf("tweak")>=0?"true":"false";
+				}
 				if(parms.containsKey("ISCRAFTSKILL"))
 				{
 					return Boolean.toString((A instanceof ItemCraftor)
-							&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_COMMON_SKILL));
+							&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_COMMON_SKILL)
+							&&(((ItemCraftor)A).getCraftorType()!=CraftorType.LargeConstructions))
+							;
+				}
+				if(parms.containsKey("ISWRIGHTSKILL"))
+				{
+					return Boolean.toString((A instanceof ItemCraftor)
+							&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_COMMON_SKILL)
+							&&(((ItemCraftor)A).getCraftorType()==CraftorType.LargeConstructions));
+				}
+				if(parms.containsKey("ISTRAP"))
+				{
+					return Boolean.toString(A instanceof Trap);
+				}
+				if(parms.containsKey("ISPOISON"))
+				{
+					return Boolean.toString(((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_POISON));
+				}
+				if(parms.containsKey("ISBOMB"))
+				{
+					if(A instanceof Trap)
+						return CMath.s_bool(A.getStat("ISBOMB"))?"CHECKED ":"";
 				}
 				if(parms.containsKey("ISGATHERSKILL"))
 				{
@@ -178,6 +341,25 @@ public class AbilityData extends StdWebMacro
 					if(old==null)
 						old=A.getStat("HELP");
 					str.append(old+", ");
+				}
+
+				if(parms.containsKey("LOWESTQUALLEVEL"))
+				{
+					final int lql = CMLib.ableMapper().lowestQualifyingLevel(A.ID());
+					str.append(lql+", ");
+				}
+
+				if(parms.containsKey("BASEMANACOST"))
+				{
+					final int[] mcs = A.usageCost(null, false);
+					final StringBuilder costs = new StringBuilder("");
+					if(mcs[Ability.USAGEINDEX_MANA] != 0)
+						costs.append(mcs[Ability.USAGEINDEX_MANA]+"m ");
+					if(mcs[Ability.USAGEINDEX_MOVEMENT] != 0)
+						costs.append(mcs[Ability.USAGEINDEX_MOVEMENT]+"v ");
+					if(mcs[Ability.USAGEINDEX_HITPOINTS] != 0)
+						costs.append(mcs[Ability.USAGEINDEX_HITPOINTS]+"h ");
+					str.append(costs.toString()+", ");
 				}
 
 				if(parms.containsKey("CHARCLASSLEVEL"))
@@ -204,7 +386,9 @@ public class AbilityData extends StdWebMacro
 					{
 						final CharClass C=c.nextElement();
 						if(((CMProps.isTheme(C.availabilityCode()))||showAll)
-						&&((!CMath.bset(C.availabilityCode(), Area.THEME_SKILLONLYMASK))||includeSkillOnly||showAll)
+						&&((!CMath.bset(C.availabilityCode(), Area.THEME_SKILLONLYMASK))
+								||CMSecurity.isCharClassEnabled(C.ID())||includeSkillOnly||showAll)
+						&&(!CMSecurity.isCharClassDisabled(C.ID()))
 						&&(CMLib.ableMapper().getQualifyingLevel(C.ID(), true, A.ID())>=0))
 						{
 							if((clast==null)||((clast.length()>0)&&(clast.equals(lastID))&&(!C.ID().equals(lastID))))
@@ -220,9 +404,22 @@ public class AbilityData extends StdWebMacro
 						return "<!--EMPTY-->";
 					return " @break@";
 				}
-
 				if(A instanceof Language)
 				{
+					if(parms.containsKey("NATURALLANG"))
+					{
+						String old=httpReq.getUrlParameter("NATURALLANG");
+						if(old==null)
+							old=CMath.s_bool(A.getStat("NATURALLANG"))?"on":"";
+						str.append(old.equalsIgnoreCase("on")?"CHECKED, ":", ");
+					}
+					if(parms.containsKey("TRANSVERB"))
+					{
+						String old=httpReq.getUrlParameter("TRANSVERB");
+						if(old==null)
+							old=((Language) A).getTranslationVerb();
+						str.append(old.trim()+", ");
+					}
 					if(parms.containsKey("WORDLISTS"))
 					{
 						List<String[]> wordLists=((Language)A).translationLists(A.ID());
@@ -238,6 +435,8 @@ public class AbilityData extends StdWebMacro
 						}
 						else
 						{
+							if(wordLists == null)
+								wordLists=new ArrayList<String[]>();
 							for(int i=wordLists.size()-1;i>=0;i--)
 								httpReq.addFakeUrlParameter("WORDLIST"+(i+1), CMParms.toListString(wordLists.get(i)));
 							httpReq.removeUrlParameter("WORDLIST"+(wordLists.size()+1));
@@ -283,6 +482,9 @@ public class AbilityData extends StdWebMacro
 						}
 					}
 
+					if(parms.containsKey("INTERPRETS"))
+						str.append(interprets((Language)A, httpReq, parms, 0));
+
 					if(parms.containsKey("HASHWORDS"))
 					{
 						Map<String,String> hashWords=((Language)A).translationHash(A.ID());
@@ -323,9 +525,9 @@ public class AbilityData extends StdWebMacro
 						else
 						if(parms.containsKey("NEXT"))
 						{
-							String lastID="";
 							final String lastNum = httpReq.getUrlParameter("HASHWORDNUM");
 							String nextName = "HASHWORD1";
+							String lastID="";
 							String nextDefName = "HASHWORDDEF1";
 							for(int i=1;i<=hashWords.keySet().size();i++)
 							{
@@ -333,7 +535,7 @@ public class AbilityData extends StdWebMacro
 								final String thisDefName="HASHWORDDEF"+Integer.toString(i);
 								nextName="HASHWORD"+Integer.toString(i+1);
 								nextDefName="HASHWORDDEF"+Integer.toString(i+1);
-								if((lastNum==null)||((lastNum.length()>0)&&(lastNum.equals(lastID))&&(!thisName.equals(lastID))))
+								if((lastNum==null)||((lastNum.length()>0)&&(lastNum.equals(lastID))&&(!thisName.equals(lastNum))))
 								{
 									httpReq.addFakeUrlParameter("HASHWORDNUM",thisName);
 									httpReq.addFakeUrlParameter("HASHWORDDEFNUM",thisDefName);
@@ -341,7 +543,7 @@ public class AbilityData extends StdWebMacro
 									return "";
 								}
 								lastID=thisName;
-								i++;
+								//i++;
 							}
 							httpReq.addFakeUrlParameter("HASHWORDNUM","");
 							httpReq.addFakeUrlParameter("HASHWORDDEFNUM","");
@@ -354,33 +556,124 @@ public class AbilityData extends StdWebMacro
 					}
 				}
 
+				if((A instanceof Trap)
+				&&(A.isGeneric()))
+				{
+					if(parms.containsKey("DMGT"))
+					{
+						String old=httpReq.getUrlParameter("DMGT");
+						if(old==null)
+							old=""+A.getStat("DMGT");
+						str.append("<OPTION VALUE=\"\" "+((old.length()==0)?" SELECTED":"")+">N/A");
+						for (final String element : Weapon.TYPE_DESCS)
+							str.append("<OPTION VALUE=\""+element+"\""+(old.equalsIgnoreCase(element)?" SELECTED":"")+">"+CMStrings.capitalizeAndLower(element));
+						str.append(", ");
+					}
+					if(parms.containsKey("DMGM"))
+					{
+						String old=httpReq.getUrlParameter("DMGM");
+						if(old==null)
+							old=""+A.getStat("DMGM");
+						str.append("<OPTION VALUE=\""+((old.length()==0)?" SELECTED":"")+">N/A");
+						for (int e=0;e<CMMsg.TYPE_DESCS.length;e++)
+						{
+							final String element=CMMsg.TYPE_DESCS[e];
+							if(CMParms.contains(CharStats.DEFAULT_STAT_MSG_MAP,e))
+								str.append("<OPTION VALUE=\""+element+"\""+(old.equalsIgnoreCase(element)?" SELECTED":"")+">"+CMStrings.capitalizeAndLower(element));
+						}
+						str.append(", ");
+					}
+					if(parms.containsKey("ABLEID"))
+					{
+						String old=httpReq.getUrlParameter("ABLEID");
+						if(old==null)
+							old=""+A.getStat("ABILITY");
+						final List<String> sortMeB=new ArrayList<String>();
+						for(final Enumeration<Ability> b=CMClass.abilities(new Filterer<Ability>() {
+							@Override
+							public boolean passesFilter(Ability obj)
+							{
+								return (obj.classificationCode()&Ability.ALL_DOMAINS)!=Ability.DOMAIN_ARCHON;
+							}
+						});b.hasMoreElements();)
+						{
+							final Ability A1=b.nextElement();
+							sortMeB.add(A1.ID());
+						}
+						str.append("<OPTION VALUE=\"\""+((old.length()==0)?" SELECTED":"")+">N/A");
+						for (final String ableID : new TreeSet<String>(sortMeB))
+							str.append("<OPTION VALUE=\""+ableID+"\""+(old.equalsIgnoreCase(ableID)?" SELECTED":"")+">"+CMStrings.capitalizeAndLower(ableID));
+						str.append(", ");
+					}
+					if(parms.containsKey("COMPS"))
+					{
+						httpReq.addFakeUrlParameter("COMPONENT", A.ID());
+						final String key="COMP4_"+A.ID().toUpperCase();
+						final Map<String,List<AbilityComponent>> o = new HashMap<String,List<AbilityComponent>>();
+						CMLib.ableComponents().addAbilityComponent(key+"="+A.getStat("ACOMP"), o);
+						httpReq.getRequestObjects().putAll(o);
+					}
+					for(final String p : A.getStatCodes())
+					{
+						if(parms.containsKey("MOD_"+p))
+						{
+							String old=httpReq.getUrlParameter("MOD_"+p);
+							if(old==null)
+								old=""+A.getStat(p);
+							str.append(old+", ");
+						}
+					}
+				}
+
 				// here starts CLASSIFICATION
 				if(parms.containsKey("CLASSIFICATION_ACODE"))
 				{
 					String old=httpReq.getUrlParameter("CLASSIFICATION_ACODE");
 					if(old==null)
 						old=""+(A.classificationCode()&Ability.ALL_ACODES);
-					for(int i=0;i<Ability.ACODE_DESCS.length;i++)
+					if(A instanceof ItemCraftor)
 					{
-						if(A instanceof ItemCraftor)
+						final int i=Ability.ACODE_COMMON_SKILL;
+						str.append("<OPTION VALUE=\""+i+"\""+((CMath.s_int(old)==i)?" SELECTED":"")+">"+CMStrings.capitalizeAndLower(Ability.ACODE.DESCS.get(i)));
+					}
+					else
+					if(A instanceof ItemCollection)
+					{
+						final int i = Ability.ACODE_COMMON_SKILL;
+						str.append("<OPTION VALUE=\""+i+"\""+((CMath.s_int(old)==i)?" SELECTED":"")+">"+CMStrings.capitalizeAndLower(Ability.ACODE.DESCS.get(i)));
+					}
+					else
+					if(A instanceof Language)
+					{
+						final int i = Ability.ACODE_LANGUAGE;
+						str.append("<OPTION VALUE=\""+i+"\""+((CMath.s_int(old)==i)?" SELECTED":"")+">"+CMStrings.capitalizeAndLower(Ability.ACODE.DESCS.get(i)));
+					}
+					else
+					if(A instanceof Trap)
+					{
+						final int i = Ability.ACODE_TRAP;
+						str.append("<OPTION VALUE=\""+i+"\""+((CMath.s_int(old)==i)?" SELECTED":"")+">"+CMStrings.capitalizeAndLower(Ability.ACODE.DESCS.get(i)));
+					}
+					else
+					if((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_POISON)
+					{
+						final int i = Ability.ACODE_POISON;
+						str.append("<OPTION VALUE=\""+i+"\""+((CMath.s_int(old)==i)?" SELECTED":"")+">"+CMStrings.capitalizeAndLower(Ability.ACODE.DESCS.get(i)));
+					}
+					else
+					for(int i=0;i<Ability.ACODE.DESCS.size();i++)
+					{
+						switch(i)
 						{
-							if(i==Ability.ACODE_COMMON_SKILL)
-								str.append("<OPTION VALUE=\""+i+"\""+((CMath.s_int(old)==i)?" SELECTED":"")+">"+CMStrings.capitalizeAndLower(Ability.ACODE_DESCS[i]));
+						case Ability.ACODE_COMMON_SKILL:
+						case Ability.ACODE_LANGUAGE:
+						case Ability.ACODE_TRAP:
+						case Ability.ACODE_POISON:
+							break;
+						default:
+							str.append("<OPTION VALUE=\""+i+"\""+((CMath.s_int(old)==i)?" SELECTED":"")+">"+CMStrings.capitalizeAndLower(Ability.ACODE.DESCS.get(i)));
+							break;
 						}
-						else
-						if(A instanceof ItemCollection)
-						{
-							if(i==Ability.ACODE_COMMON_SKILL)
-								str.append("<OPTION VALUE=\""+i+"\""+((CMath.s_int(old)==i)?" SELECTED":"")+">"+CMStrings.capitalizeAndLower(Ability.ACODE_DESCS[i]));
-						}
-						else
-						if(A instanceof Language)
-						{
-							if(i==Ability.ACODE_LANGUAGE)
-								str.append("<OPTION VALUE=\""+i+"\""+((CMath.s_int(old)==i)?" SELECTED":"")+">"+CMStrings.capitalizeAndLower(Ability.ACODE_DESCS[i]));
-						}
-						else
-							str.append("<OPTION VALUE=\""+i+"\""+((CMath.s_int(old)==i)?" SELECTED":"")+">"+CMStrings.capitalizeAndLower(Ability.ACODE_DESCS[i]));
 					}
 					str.append(", ");
 				}
@@ -389,8 +682,8 @@ public class AbilityData extends StdWebMacro
 					String old=httpReq.getUrlParameter("CLASSIFICATION_DOMAIN");
 					if(old==null)
 						old=""+((A.classificationCode()&Ability.ALL_DOMAINS)>>5);
-					for(int i=0;i<Ability.DOMAIN_DESCS.length;i++)
-						str.append("<OPTION VALUE=\""+i+"\""+((CMath.s_int(old)==i)?" SELECTED":"")+">"+CMStrings.capitalizeAndLower(Ability.DOMAIN_DESCS[i]));
+					for(int i=0;i<Ability.DOMAIN.DESCS.size();i++)
+						str.append("<OPTION VALUE=\""+i+"\""+((CMath.s_int(old)==i)?" SELECTED":"")+">"+CMStrings.capitalizeAndLower(Ability.DOMAIN.DESCS.get(i)));
 					str.append(", ");
 				}
 				// here ends CLASSIFICATION
@@ -442,6 +735,27 @@ public class AbilityData extends StdWebMacro
 						old=A.displayText();
 					str.append(old+", ");
 				}
+				if(parms.containsKey("LEVEL"))
+				{
+					String old=httpReq.getUrlParameter("LEVEL");
+					if(old==null)
+						old=A.getStat("LEVEL");
+					str.append(old+", ");
+				}
+				if(parms.containsKey("BASELEVEL"))
+				{
+					String old=httpReq.getUrlParameter("BASELEVEL");
+					if(old==null)
+						old=A.getStat("BASELEVEL");
+					str.append(old+", ");
+				}
+				if(parms.containsKey("PERMRESET"))
+				{
+					String old=httpReq.getUrlParameter("PERMRESET");
+					if(old==null)
+						old=A.getStat("PERMRESET");
+					str.append(old+", ");
+				}
 				if(parms.containsKey("AUTOINVOKE"))
 				{
 					String old=httpReq.getUrlParameter("AUTOINVOKE");
@@ -480,7 +794,7 @@ public class AbilityData extends StdWebMacro
 				}
 				if(parms.containsKey("CUSTOMOVERRIDEMANA"))
 				{
-					String old=httpReq.getUrlParameter("OVERRIDEMANA");
+					String old=httpReq.getUrlParameter("CUSTOMOVERRIDEMANA");
 					if(old==null)
 						old=""+A.getStat("OVERRIDEMANA");
 					final int x=CMath.s_int(old);
@@ -495,7 +809,7 @@ public class AbilityData extends StdWebMacro
 					final int o=CMath.s_int(old);
 					str.append("<OPTION VALUE=\"-1\""+((o==-1)?" SELECTED":"")+">Use Default");
 					str.append("<OPTION VALUE=\"0\""+((o==0)?" SELECTED":"")+">None (free skill)");
-					str.append("<OPTION VALUE=\"\""+(((o>0)&&(o<Ability.COST_PCT))?" SELECTED":"")+"\">Custom Value");
+					str.append("<OPTION VALUE=\"\" "+(((o>0)&&(o<Ability.COST_PCT))?" SELECTED":"")+">Custom Value");
 					str.append("<OPTION VALUE=\""+Ability.COST_ALL+"\""+((o==Ability.COST_ALL)?" SELECTED":"")+">All Mana");
 					for(int v=Ability.COST_ALL-5;v>=Ability.COST_ALL-95;v-=5)
 					{
@@ -565,7 +879,7 @@ public class AbilityData extends StdWebMacro
 					String old=httpReq.getUrlParameter("HERESTATS");
 					if(old==null)
 						old=A.getStat("HERESTATS");
-					str.append(old+", ");
+					str.append(super.htmlOutgoingFilter(old)+", ");
 				}
 				if(parms.containsKey("SCRIPT"))
 				{
@@ -579,6 +893,13 @@ public class AbilityData extends StdWebMacro
 					String old=httpReq.getUrlParameter("CASTMASK");
 					if(old==null)
 						old=A.getStat("CASTMASK");
+					str.append(old+", ");
+				}
+				if(parms.containsKey("NUMARGS"))
+				{
+					String old=httpReq.getUrlParameter("NUMARGS");
+					if(old==null)
+						old=A.getStat("NUMARGS");
 					str.append(old+", ");
 				}
 				if(parms.containsKey("TARGETMASK"))
@@ -600,6 +921,13 @@ public class AbilityData extends StdWebMacro
 					String old=httpReq.getUrlParameter("MOCKABLETEXT");
 					if(old==null)
 						old=A.getStat("MOCKABLETEXT");
+					str.append(old+", ");
+				}
+				if(parms.containsKey("TARGETFAILMSG"))
+				{
+					String old=httpReq.getUrlParameter("TARGETFAILMSG");
+					if(old==null)
+						old=A.getStat("TARGETFAILMSG");
 					str.append(old+", ");
 				}
 				if(parms.containsKey("UNINVOKEMSG"))
@@ -665,6 +993,42 @@ public class AbilityData extends StdWebMacro
 					String old=httpReq.getUrlParameter("CANMEND");
 					if(old==null)
 						old=A.getStat("CANMEND");
+					else
+						old=old.equalsIgnoreCase("on")?"true":"false";
+					str.append(old.equalsIgnoreCase("true")?"checked":"");
+				}
+				if(parms.containsKey("CANDOOR"))
+				{
+					String old=httpReq.getUrlParameter("CANDOOR");
+					if(old==null)
+						old=A.getStat("CANDOOR");
+					else
+						old=old.equalsIgnoreCase("on")?"true":"false";
+					str.append(old.equalsIgnoreCase("true")?"checked":"");
+				}
+				if(parms.containsKey("CANTITLE"))
+				{
+					String old=httpReq.getUrlParameter("CANTITLE");
+					if(old==null)
+						old=A.getStat("CANTITLE");
+					else
+						old=old.equalsIgnoreCase("on")?"true":"false";
+					str.append(old.equalsIgnoreCase("true")?"checked":"");
+				}
+				if(parms.containsKey("CANDESC"))
+				{
+					String old=httpReq.getUrlParameter("CANDESC");
+					if(old==null)
+						old=A.getStat("CANDESC");
+					else
+						old=old.equalsIgnoreCase("on")?"true":"false";
+					str.append(old.equalsIgnoreCase("true")?"checked":"");
+				}
+				if(parms.containsKey("CLANONLY"))
+				{
+					String old=httpReq.getUrlParameter("CLANONLY");
+					if(old==null)
+						old=A.getStat("CLANONLY");
 					else
 						old=old.equalsIgnoreCase("on")?"true":"false";
 					str.append(old.equalsIgnoreCase("true")?"checked":"");
@@ -735,7 +1099,7 @@ public class AbilityData extends StdWebMacro
 					if(oldValue == null)
 					{
 						for(final Item I : itemList)
-							oldValues.add(RoomData.getItemCode(itemList, I));
+							oldValues.add(CMLib.webMacroFilter().findItemWebCacheCode(itemList, I));
 					}
 					else
 					{
@@ -753,7 +1117,7 @@ public class AbilityData extends StdWebMacro
 						final int x=newKey.indexOf('=');
 						if(x > 0)
 							newKey = newKey.substring(x+1).trim();
-						final Item newItem = RoomData.getItemFromAnywhere(RoomData.getItemCache(),newKey);
+						final Item newItem = CMLib.webMacroFilter().findItemInWebCache(newKey);
 						if(newItem != null)
 						{
 							itemList.add(newItem);
@@ -765,7 +1129,7 @@ public class AbilityData extends StdWebMacro
 					for(int i=0;i<oldValues.size();i++)
 					{
 						oldValue=oldValues.get(i);
-						final Item oldItem=(oldValue.length()>0)?RoomData.getItemFromAnywhere(itemList,oldValue):null;
+						final Item oldItem=(oldValue.length()>0)?CMLib.webMacroFilter().findItemInAnything(itemList,oldValue):null;
 						str.append("<TR><TD><SELECT NAME="+httpKeyName+"_"+(i+1)+" ONCHANGE=\"ReShow();\">");
 						if(i<oldValues.size()-1)
 							str.append("<OPTION VALUE=\"DELETE\">Delete!");
@@ -797,7 +1161,7 @@ public class AbilityData extends StdWebMacro
 						&&(!CMSecurity.isASysOp(mob)))
 							continue;
 						final String AID=A2.ID();
-						final String ANAME=A2.name();
+						final String ANAME=CMStrings.ellipse(A2.ID()+" ("+A2.name()+")",40);
 						str.append("<OPTION VALUE=\""+AID+"\""+(list.contains(AID.toUpperCase())?" SELECTED":"")+">"+ANAME);
 					}
 					str.append(", ");
@@ -840,7 +1204,7 @@ public class AbilityData extends StdWebMacro
 						if(((A.classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_ARCHON)&&(!CMSecurity.isASysOp(mob)))
 							continue;
 						final String AID=A2.ID();
-						final String ANAME=A2.name();
+						final String ANAME=CMStrings.ellipse(A2.ID()+" ("+A2.name()+")",40);
 						str.append("<OPTION VALUE=\""+AID+"\""+(list.contains(AID.toUpperCase())?" SELECTED":"")+">"+ANAME);
 					}
 					str.append(", ");
@@ -861,15 +1225,175 @@ public class AbilityData extends StdWebMacro
 					}
 				}
 
+				if(parms.containsKey("STRING_ROWS"))
+				{
+					final PairList<String,String> V=new PairVector<String,String>();
+					int num=1;
+					if(!httpReq.isUrlParameter("STRINGROW"+num))
+					{
+						for (final String key : CMParms.parseCommas(A.getStat("STRING"), true))
+						{
+							final String val = A.getStat("STRING"+(num++));
+							V.add(key, val);
+						}
+					}
+					else
+					while(httpReq.isUrlParameter("STRINGROW"+(num++)))
+					{
+						final String key = httpReq.getUrlParameter("STRINGROW" + num);
+						final String val = httpReq.getUrlParameter("STRINGVAL" + num);
+						if ((key != null) && (key.length() > 0)&&(val.length()>0))
+							V.add(key, val);
+					}
+					final StringBuffer tabStr = new StringBuffer("");
+					tabStr.append("<TABLE WIDTH=100% BORDER=\"1\" CELLSPACING=0 CELLPADDING=0>");
+					for(int i=0;i<V.size();i++)
+					{
+						final Pair<String,String> p=V.get(i);
+						tabStr.append("<TR><TD WIDTH=50%>");
+						tabStr.append("\n\r<INPUT TYPE=TEXT NAME=\"STRINGROW"+(i+1)+"\" SIZE=50 VALUE=\""+CMStrings.replaceAll(p.first,"\"","&quot;")+"\">");
+						tabStr.append("</TD><TD WIDTH=50%>");
+						tabStr.append("\n\r<INPUT TYPE=TEXT NAME=\"STRINGVAL"+(i+1)+"\" SIZE=50 VALUE=\""+CMStrings.replaceAll(p.second,"\"","&quot;")+"\">");
+						tabStr.append("</TD></TR>");
+					}
+					tabStr.append("<TR><TD WIDTH=50%>");
+					tabStr.append("\n\r<INPUT TYPE=TEXT NAME=\"STRINGROW"+(V.size())+"\" SIZE=50 VALUE=\"\">");
+					tabStr.append("</TD><TD WIDTH=50%>");
+					tabStr.append("\n\r<INPUT TYPE=TEXT NAME=\"STRINGVAL"+(V.size())+"\" SIZE=50 VALUE=\"\">");
+					tabStr.append("</TD></TR>");
+					tabStr.append("</TABLE>");
+					return tabStr.toString();
+				}
+				if((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_POISON)
+				{
+					if(parms.containsKey("EFFECTS"))
+					{
+						final String old = codedEffectsWebValue(httpReq, parms, A.getStat("EFFECTS"), "EFFECTS");
+						final List<CMObject> spells=CMLib.coffeeMaker().getCodedSpellsOrBehaviors(old);
+						final StringBuffer tabStr = new StringBuffer("");
+						tabStr.append("<TABLE WIDTH=100% BORDER=\"1\" CELLSPACING=0 CELLPADDING=0>");
+						for(int i=0;i<spells.size();i++)
+						{
+							final CMObject oA=spells.get(i);
+							tabStr.append("<TR><TD WIDTH=50%>");
+							tabStr.append("\n\r<SELECT ONCHANGE=\"EditAffect(this);\" NAME=\"EFFECTS_AFFECT"+(i+1)+"\">");
+							tabStr.append("<OPTION VALUE=\"\">Delete!");
+							tabStr.append("<OPTION VALUE=\""+oA.ID()+"\" SELECTED>"+oA.ID());
+							tabStr.append("</SELECT>");
+							tabStr.append("</TD><TD WIDTH=50%>");
+							final String parmstr=(oA instanceof Ability)?((Ability)oA).text():((Behavior)oA).getParms();
+							final String theparm=CMStrings.replaceAll(parmstr,"\"","&quot;");
+							tabStr.append("\n\r<INPUT TYPE=TEXT SIZE=30 NAME=\"EFFECTS_ADATA"+(i+1)+"\" VALUE=\""+theparm+"\">");
+							tabStr.append("</TD></TR>");
+						}
+						tabStr.append("<TR><TD WIDTH=50%>");
+						tabStr.append("\n\r<SELECT ONCHANGE=\"AddAffect(this);\" NAME=\"EFFECTS_AFFECT"+(spells.size()+1)+"\">");
+						tabStr.append("<OPTION SELECTED VALUE=\"\">Select an Effect/Behav");
+						for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
+						{
+							final Ability A1=a.nextElement();
+							if((A1.classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_ARCHON)
+								continue;
+							final String cnam=A1.ID();
+							tabStr.append("<OPTION VALUE=\""+cnam+"\">"+cnam);
+						}
+						/*
+						for(final Enumeration<Behavior> b=CMClass.behaviors();b.hasMoreElements();)
+						{
+							final Behavior B=b.nextElement();
+							final String cnam=B.ID();
+							tabStr.append("<OPTION VALUE=\""+cnam+"\">"+cnam);
+						}
+						*/
+						tabStr.append("</SELECT>");
+						tabStr.append("</TD><TD WIDTH=50%>");
+						tabStr.append("\n\r<INPUT TYPE=TEXT SIZE=30 NAME=\"EFFECTS_ADATA"+(spells.size()+1)+"\" VALUE=\"\">");
+						tabStr.append("</TD></TR>");
+						tabStr.append("</TABLE>");
+						return tabStr.toString();
+					}
+					if(parms.containsKey("AFFECTTARG"))
+					{
+						String old=httpReq.getUrlParameter("AFFECTTARG");
+						if(old==null)
+							old=CMath.s_bool(A.getStat("AFFECTTARG"))?"on":"";
+						str.append(old.equalsIgnoreCase("on")?"CHECKED, ":", ");
+					}
+					if(parms.containsKey("MAKEPEACE"))
+					{
+						String old=httpReq.getUrlParameter("MAKEPEACE");
+						if(old==null)
+							old=CMath.s_bool(A.getStat("MAKEPEACE"))?"on":"";
+						str.append(old.equalsIgnoreCase("on")?"CHECKED, ":", ");
+					}
+
+					if(parms.containsKey("MOOD"))
+					{
+						String old=httpReq.getUrlParameter("MOOD");
+						if(old==null)
+							old=A.getStat("MOOD");
+						final Ability moodA = CMClass.getAbility("Mood");
+						final List<String> moods = new ArrayList<String>();
+						for(int i=0;;i++)
+						{
+							moodA.setMiscText(""+i);
+							final String name = moodA.text();
+							if(name.equals(""+i))
+								break;
+							moods.add(name);
+						}
+						final StringBuilder selStr = new StringBuilder("");
+						selStr.append("<OPTION VALUE=\"\"");
+						if(old.length()==0)
+							selStr.append(" SELECTED");
+						selStr.append(L(">N/A"));
+						for(final String mood : moods)
+						{
+							selStr.append("<OPTION VALUE=\""+mood+"\"");
+							if(old.equalsIgnoreCase(mood))
+								selStr.append(" SELECTED");
+							selStr.append(">"+mood);
+						}
+						return selStr.toString();
+
+					}
+
+					final String[] POISON_PARMS= {
+						"TICKS", "STARTMSG", "TARGTELLMSG", "AFFECTMSG",
+						"DAMAGE", "DONEMSG", "ADDCHANCE", "FAILMSG", "ADJUSTMENTS"
+					};
+					for(final String normalParm : POISON_PARMS)
+					{
+						if(parms.containsKey(normalParm))
+						{
+							String old=httpReq.getUrlParameter(normalParm);
+							if(old==null)
+								old=A.getStat(normalParm);
+							str.append(old+", ");
+						}
+					}
+				}
+
 				/*********************************************************************************/
 				/*********************************************************************************/
 				// here begins the old display data parms
 
 				if(parms.containsKey("HELP"))
 				{
-					StringBuilder s=CMLib.help().getHelpText(A.ID(),null,false,parms.containsKey("PLAIN"));
+					String s=CMLib.help().getHelpText(A.ID(),null,false,parms.containsKey("PLAIN"));
 					if(s==null)
 						s=CMLib.help().getHelpText(A.Name(),null,false,parms.containsKey("PLAIN"));
+					int limit=78;
+					if(parms.containsKey("LIMIT"))
+						limit=CMath.s_int(parms.get("LIMIT"));
+					str.append(helpHelp(s,limit));
+				}
+
+				if(parms.containsKey("AHELP"))
+				{
+					String s=CMLib.help().getHelpText(A.ID(),null,true,parms.containsKey("PLAIN"));
+					if(s==null)
+						s=CMLib.help().getHelpText(A.Name(),null,true,parms.containsKey("PLAIN"));
 					int limit=78;
 					if(parms.containsKey("LIMIT"))
 						limit=CMath.s_int(parms.get("LIMIT"));
@@ -985,10 +1509,10 @@ public class AbilityData extends StdWebMacro
 						{
 							int domain=A.classificationCode()&Ability.ALL_DOMAINS;
 							domain=domain>>5;
-							thang.append(Ability.DOMAIN_DESCS[domain].toLowerCase().replace('_',' '));
+							thang.append(Ability.DOMAIN.DESCS.get(domain).toLowerCase().replace('_',' '));
 						}
 						else
-							thang.append(Ability.ACODE_DESCS[A.classificationCode()&Ability.ALL_ACODES].toLowerCase());
+							thang.append(Ability.ACODE.DESCS.get(A.classificationCode()&Ability.ALL_ACODES).toLowerCase());
 						if(thang.length()>0)
 						{
 							thang.setCharAt(0,Character.toUpperCase(thang.charAt(0)));
@@ -1003,12 +1527,12 @@ public class AbilityData extends StdWebMacro
 				if(parms.containsKey("TYPENDOMAIN"))
 				{
 					final StringBuffer thang=new StringBuffer("");
-					thang.append(CMStrings.capitalizeAndLower(Ability.ACODE_DESCS[A.classificationCode()&Ability.ALL_ACODES]));
+					thang.append(CMStrings.capitalizeAndLower(Ability.ACODE.DESCS.get(A.classificationCode()&Ability.ALL_ACODES)));
 					if((A.classificationCode()&Ability.ALL_DOMAINS)!=0)
 					{
 						int domain=A.classificationCode()&Ability.ALL_DOMAINS;
 						domain=domain>>5;
-						thang.append(": "+CMStrings.capitalizeAndLower(Ability.DOMAIN_DESCS[domain]).replace('_',' '));
+						thang.append(": "+CMStrings.capitalizeAndLower(Ability.DOMAIN.DESCS.get(domain)).replace('_',' '));
 					}
 
 					if(thang.length()>0)
@@ -1031,7 +1555,7 @@ public class AbilityData extends StdWebMacro
 					if((className!=null)&&(className.length()>0))
 						level=CMLib.ableMapper().getQualifyingLevel(className,true,A.ID());
 					else
-						level=CMLib.ableMapper().getQualifyingLevel("Archon",true,A.ID());
+						level=CMLib.ableMapper().qualifiesByAnything(A.ID())?CMLib.ableMapper().lowestQualifyingLevel(A.ID()):-1;
 					str.append(level+", ");
 				}
 				if(parms.containsKey("QUALIFYQ")&&(httpReq.isUrlParameter("CLASS")))

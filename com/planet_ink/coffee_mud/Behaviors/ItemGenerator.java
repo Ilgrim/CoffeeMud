@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -247,19 +247,15 @@ public class ItemGenerator extends ActiveTicker
 			final List<Item> checkItems=(List<Item>)Resources.getResource("ITEMGENERATOR-ALLITEMS");
 			if(checkItems!=null)
 				return false;
-			if(CMProps.getBoolVar(CMProps.Bool.MUDSHUTTINGDOWN))
+			if(CMProps.isState(CMProps.HostState.SHUTTINGDOWN))
 				return false;
 			if(skills == null)
 			{
 				Log.sysOut(ID(),"Starting master item generation");
 				allItems.clear();
 				skills=new Vector<ItemCraftor>();
-				for(final Enumeration<Ability> e=CMClass.abilities();e.hasMoreElements();)
-				{
-					final Ability A=e.nextElement();
-					if(A instanceof ItemCraftor)
-						skills.add((ItemCraftor)A.copyOf());
-				}
+				for(final Enumeration<ItemCraftor> e=CMClass.craftorAbilities();e.hasMoreElements();)
+					skills.add((ItemCraftor)e.nextElement().copyOf());
 				return true;
 			}
 			final ItemCraftor skill;
@@ -274,11 +270,11 @@ public class ItemGenerator extends ActiveTicker
 				skill = skills.remove(0);
 			}
 
-			List<ItemCraftor.ItemKeyPair> skillSet=null;
+			List<ItemCraftor.CraftedItem> skillSet=null;
 			skillSet=skill.craftAllItemSets(false);
 			if(skillSet!=null)
 			{
-				for(final ItemCraftor.ItemKeyPair materialSet: skillSet)
+				for(final ItemCraftor.CraftedItem materialSet: skillSet)
 					allItems.add(materialSet.item);
 			}
 			return true;
@@ -346,7 +342,7 @@ public class ItemGenerator extends ActiveTicker
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
 		super.tick(ticking,tickID);
-		if((!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if((!CMProps.isState(CMProps.HostState.RUNNING))
 		||(!(ticking instanceof Environmental))
 		||(CMSecurity.isDisabled(CMSecurity.DisFlag.RANDOMITEMS)))
 			return true;

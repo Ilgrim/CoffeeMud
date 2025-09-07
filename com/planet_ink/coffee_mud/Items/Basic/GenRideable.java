@@ -19,7 +19,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ public class GenRideable extends StdRideable
 		setDisplayText("a generic boat sits here.");
 		setDescription("");
 		basePhyStats().setWeight(2000);
-		rideBasis=Rideable.RIDEABLE_WATER;
+		rideBasis=Rideable.Basis.WATER_BASED;
 		setMaterial(RawMaterial.RESOURCE_OAK);
 		recoverPhyStats();
 	}
@@ -64,7 +64,7 @@ public class GenRideable extends StdRideable
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this,false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 	}
 
 	@Override
@@ -95,7 +95,7 @@ public class GenRideable extends StdRideable
 	public void setMiscText(final String newText)
 	{
 		miscText="";
-		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this,newText,false);
 		recoverPhyStats();
 	}
 
@@ -110,7 +110,7 @@ public class GenRideable extends StdRideable
 	{
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			return CMLib.coffeeMaker().getGenItemStat(this,code);
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return "" + hasALock();
@@ -153,7 +153,7 @@ public class GenRideable extends StdRideable
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			CMLib.coffeeMaker().setGenItemStat(this,code,val);
 		else
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			setDoorsNLocks(hasADoor(), isOpen(), defaultsClosed(), CMath.s_bool(val), false, CMath.s_bool(val) && defaultsLocked());
@@ -171,8 +171,18 @@ public class GenRideable extends StdRideable
 			setOpenDelayTicks(CMath.s_parseIntExpression(val));
 			break;
 		case 5:
-			setRideBasis(CMath.s_parseListIntExpression(Rideable.RIDEABLE_DESCS, val));
+		{
+			final Rideable.Basis bas = (Rideable.Basis)CMath.s_valueOf(Rideable.Basis.class, val);
+			if(bas != null)
+				setRideBasis(bas);
+			else
+			{
+				final int x=CMath.s_parseListIntExpression(Rideable.Basis.getStrings(), val);
+				if((x>=0)&&(x<Rideable.Basis.values().length))
+					setRideBasis(Rideable.Basis.values()[x]);
+			}
 			break;
+		}
 		case 6:
 			setRiderCapacity(CMath.s_parseIntExpression(val));
 			break;
@@ -206,8 +216,7 @@ public class GenRideable extends StdRideable
 		}
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<MYCODES.length;i++)
 		{

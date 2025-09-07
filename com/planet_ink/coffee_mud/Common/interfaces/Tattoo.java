@@ -24,7 +24,7 @@ import java.util.Vector;
  * They can automatically expire by setting a tick down, or a number of
  * ticks to live.
  */
-public interface Tattoo extends Cloneable, CMObject, CMCommon
+public interface Tattoo extends Cloneable, CMObject, CMCommon, Expireable
 {
 	/**
 	 * Set the tattoo name
@@ -48,10 +48,10 @@ public interface Tattoo extends Cloneable, CMObject, CMCommon
 	public int getTickDown();
 
 	/**
-	 * Reduces the tick down by one and returns the new value
-	 * @return the new tick down
+	 * Sets the current tick down, or resets it
+	 * @param tickDown the number of ticks
 	 */
-	public int tickDown();
+	public void setTickDown(final int tickDown);
 
 	/**
 	 * Returns the tattoo Name

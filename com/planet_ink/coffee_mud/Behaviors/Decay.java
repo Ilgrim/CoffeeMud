@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -56,7 +56,9 @@ public class Decay extends ActiveTicker
 	}
 
 	protected boolean	activated	= false;
+	protected boolean	use2		= false;
 	protected String	answer		= " vanishes!";
+	protected MaskingLibrary.CompiledZMask mask = null;
 
 	@Override
 	public String accountForYourself()
@@ -70,9 +72,15 @@ public class Decay extends ActiveTicker
 		super.setParms(newParms);
 		activated=false;
 		tickDown=CMParms.getParmInt(parms,"remain",tickDown);
+		use2=CMParms.getParmBool(parms,"use2",false);
 		answer=CMParms.getParmStr(parms,"answer"," vanishes!");
+
 		if(newParms.toUpperCase().indexOf("NOTRIGGER")>=0)
 			activated=true;
+		final String maskStr = CMLib.masking().separateZapperMask(newParms);
+		this.mask=null;
+		if(maskStr.length()>0)
+			this.mask=CMLib.masking().getPreCompiledMask(maskStr);
 	}
 
 	@Override
@@ -124,6 +132,16 @@ public class Decay extends ActiveTicker
 				{
 					if(E instanceof MOB)
 					{
+						try
+						{
+							if(!item.amWearingAt(Item.IN_INVENTORY))
+								com.planet_ink.coffee_mud.core.CMLib.commands().postRemove((MOB)E, item, true);
+							com.planet_ink.coffee_mud.core.CMLib.commands().postDrop((MOB)E, item, true, false, false);
+						}
+						catch(final Exception e)
+						{
+							Log.errOut(e);
+						}
 						((MOB)E).tell(item.name()+" "+answer.trim());
 						((MOB)E).recoverPhyStats();
 						((MOB)E).recoverCharStats();
@@ -146,44 +164,111 @@ public class Decay extends ActiveTicker
 		super.executeMsg(affecting,msg);
 		if(activated)
 			return;
-		if(msg.amITarget(affecting))
+		if(affecting instanceof MOB)
 		{
-			if(affecting instanceof Rideable)
-			{
-				if(((msg.targetMinor()==CMMsg.TYP_SLEEP)
-					||(msg.targetMinor()==CMMsg.TYP_SIT)
-					||(msg.targetMinor()==CMMsg.TYP_MOUNT)
-					||(msg.targetMinor()==CMMsg.TYP_ENTER))
-				&&(!msg.source().isMonster())
-				&&(CMLib.masking().maskCheck(getParms(),msg.source(),true)))
-					activated=true;
-			}
+			if((msg.targetMajor(CMMsg.MASK_MALICIOUS))
+			&&(!msg.source().isMonster())
+			&&(CMLib.masking().maskCheck(this.mask,msg.source(),true)))
+				activated=true;
 			else
-			if(affecting instanceof MOB)
+			if(use2
+			&&(msg.targetMinor()==CMMsg.TYP_MOUNT)
+			&&(msg.target()==affecting)
+			&&(!msg.source().isMonster())
+			&&(CMLib.masking().maskCheck(this.mask,msg.source(),true)))
+				activated=true;
+		}
+		else
+		if(msg.amITarget(affecting)
+		&&(affecting instanceof Item))
+		{
+			if(use2)
 			{
-				if((msg.targetMajor(CMMsg.MASK_MALICIOUS))
-				&&(!msg.source().isMonster())
-				&&(CMLib.masking().maskCheck(getParms(),msg.source(),true)))
-					activated=true;
-			}
-			else
-			if((affecting instanceof Armor)
-			||(affecting instanceof Weapon))
-			{
-				if(((msg.targetMinor()==CMMsg.TYP_WEAR)
-					||(msg.targetMinor()==CMMsg.TYP_HOLD)
-					||(msg.targetMinor()==CMMsg.TYP_WIELD))
-				&&(CMLib.masking().maskCheck(getParms(),msg.source(),true)))
-					activated=true;
-			}
-			else
-			if(affecting instanceof Item)
-			{
-				if(((msg.targetMinor()==CMMsg.TYP_GET)||(msg.targetMinor()==CMMsg.TYP_PUSH)||(msg.targetMinor()==CMMsg.TYP_PULL))
-				&&(CMLib.masking().maskCheck(getParms(),msg.source(),true)))
+				switch(msg.targetMinor())
 				{
-					activated=true;
+				case CMMsg.TYP_HANDS:
+					if((affecting instanceof Light)
+					&&(((Light)affecting).amWearingAt(Wearable.WORN_MOUTH))
+					&&(((Light)affecting).isLit()))
+						activated=true;
+					break;
+				case CMMsg.TYP_READ:
+					if(affecting instanceof Book)
+					{
+						if(CMLib.masking().maskCheck(this.mask,msg.source(),true))
+							activated=true;
+					}
+					else
+					if((affecting instanceof Scroll)
+					&&(msg.sourceMessage()==null)
+					&&(msg.othersMessage()==null)
+					&&(CMLib.masking().maskCheck(this.mask,msg.source(),true)))
+						activated=true;
+					break;
+				case CMMsg.TYP_DRINK:
+					if((affecting instanceof Drink)
+					&&(CMLib.masking().maskCheck(this.mask,msg.source(),true)))
+						activated=true;
+					break;
+				case CMMsg.TYP_EAT:
+					if((affecting instanceof Food)
+					&&(CMLib.masking().maskCheck(this.mask,msg.source(),true)))
+						activated=true;
+					break;
+				case CMMsg.TYP_GET:
+				case CMMsg.TYP_PUSH:
+				case CMMsg.TYP_PULL:
+					if((affecting instanceof Scroll)
+					||(affecting instanceof Drink)
+					||(affecting instanceof Food)
+					||(affecting instanceof Book)
+					||((affecting instanceof Light)
+						&&((((Light)affecting).rawProperLocationBitmap()&Wearable.WORN_MOUTH)>0)))
+					{
+						/* do nothing */
+					}
+					else
+					if(CMLib.masking().maskCheck(this.mask,msg.source(),true))
+						activated=true;
+					break;
+				default:
+					break;
 				}
+			}
+			else // !use2 -- normal case
+			switch(msg.targetMinor())
+			{
+			case CMMsg.TYP_SLEEP:
+			case CMMsg.TYP_SIT:
+			case CMMsg.TYP_MOUNT:
+			case CMMsg.TYP_ENTER:
+				if((affecting instanceof Rideable)
+				&&(!msg.source().isMonster())
+				&&(CMLib.masking().maskCheck(this.mask,msg.source(),true)))
+					activated=true;
+				break;
+			case CMMsg.TYP_WEAR:
+			case CMMsg.TYP_HOLD:
+			case CMMsg.TYP_WIELD:
+				if(((affecting instanceof Armor)||(affecting instanceof Weapon))
+				&&(CMLib.masking().maskCheck(this.mask,msg.source(),true)))
+					activated=true;
+				break;
+			case CMMsg.TYP_GET:
+			case CMMsg.TYP_PUSH:
+			case CMMsg.TYP_PULL:
+				if((affecting instanceof Armor)
+				||(affecting instanceof Weapon)
+				||(affecting instanceof Rideable))
+				{
+					/* do nothing */
+				}
+				else
+				if(CMLib.masking().maskCheck(this.mask,msg.source(),true))
+					activated=true;
+				break;
+			default:
+				break;
 			}
 		}
 	}

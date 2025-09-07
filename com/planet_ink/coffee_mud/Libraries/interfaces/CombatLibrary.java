@@ -17,7 +17,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -276,13 +276,13 @@ public interface CombatLibrary extends CMLibrary
 	 * may be a fake factory mob) on the given attacking ship against the
 	 * given target ship with the given siege weapon.
 	 * @param attacker the attacking agent mob
-	 * @param attackingShip the ship the attacker is on
-	 * @param target the target ship
+	 * @param siegeAttacker the ship the attacker is on
+	 * @param siegeTarget the target ship
 	 * @param weapon the siege weapon used
 	 * @param wasAHit true to register a hit, false to register an attack
 	 * @return true if the attack succeeded, false if it failed
 	 */
-	public boolean postShipAttack(MOB attacker, PhysicalAgent attackingShip, PhysicalAgent target, Weapon weapon, boolean wasAHit);
+	public boolean postSiegeAttack(MOB attacker, SiegableItem siegeAttacker, SiegableItem siegeTarget, Weapon weapon, boolean wasAHit);
 
 	/**
 	 * Returns whether the given attacking mob, on the given attacker ship, may attack the people and property
@@ -342,7 +342,7 @@ public interface CombatLibrary extends CMLibrary
 	public void postDamage(MOB attacker, MOB target, Environmental weapon, int damage, int messageCode, int damageType, String allDisplayMessage);
 
 	/**
-	 * An alternative to {@link CombatLibrary#postWeaponAttackResult(MOB, MOB, Item, boolean)}.
+	 * An alternative to {@link CombatLibrary#postWeaponAttackResult(MOB, MOB, Item, int, boolean)}.
 	 * This method handles only a hit with a weapon, which will post damage.
 	 * Generates a CMMsg message and sends it to the SOURCE room.  Call this
 	 * instead of postAttackResult when the amount of damage done is custom
@@ -366,9 +366,10 @@ public interface CombatLibrary extends CMLibrary
 	 * @param source the attacker
 	 * @param target the target
 	 * @param item the weapon used
+	 * @param bonusDmg some amount of bonus damage to apply
 	 * @param success true if it was a hit with damage, false if it was a miss
 	 */
-	public CMMsg postWeaponAttackResult(MOB source, MOB target, Item item, boolean success);
+	public CMMsg postWeaponAttackResult(MOB source, MOB target, Item item, int bonusDmg, boolean success);
 
 	/**
 	 * This method handles both a hit or a miss with a weapon between two
@@ -376,13 +377,30 @@ public interface CombatLibrary extends CMLibrary
 	 * posts a miss. replaceDataTag is called to ensure a proper damage word.
 	 * Generates a CMMsg message and sends it to the common room.
 	 * @see CombatLibrary#replaceDamageTag(String, int, int, CMMsg.View)
+	 * @see CombatLibrary#postSiegeDamage(MOB, PhysicalAgent, PhysicalAgent, Environmental, String, int, int)
 	 * @param source the agent of the attack
 	 * @param attacker the attacker
 	 * @param defender the target
 	 * @param weapon the weapon used
 	 * @param success true if it was a hit with damage, false if it was a miss
 	 */
-	public void postShipWeaponAttackResult(MOB source, PhysicalAgent attacker, PhysicalAgent defender, Weapon weapon, boolean success);
+	public void postSiegeWeaponAttackResult(MOB source, PhysicalAgent attacker, PhysicalAgent defender, Weapon weapon, boolean success);
+
+	/**
+	 * Posts damage to a boardable from a siege weapon (usually).
+	 * @see CombatLibrary#replaceDamageTag(String, int, int, CMMsg.View)
+	 * @see CombatLibrary#postSiegeWeaponAttackResult(MOB, PhysicalAgent, PhysicalAgent, Weapon, boolean)
+	 *
+	 * @param source the agent of the attack
+	 * @param attacker the attacker
+	 * @param defender the target
+	 * @param weapon the weapon used
+	 * @param oldHitString the &lt;DAMAGE&gt; message
+	 * @param damageType the type of damage
+	 * @param damageInt the amount of damage (pct?!)
+	 */
+	public void postSiegeDamage(final MOB source, final PhysicalAgent attacker, final PhysicalAgent defender,
+			final Environmental weapon, final String oldHitString, final int damageType, final int damageInt);
 
 	/**
 	 * This method handles an item taking damage.  If the item is subject
@@ -398,16 +416,6 @@ public interface CombatLibrary extends CMLibrary
 	 * @param message the message string
 	 */
 	public void postItemDamage(MOB mob, Item I, Environmental tool, int damageAmount, int messageType, String message);
-
-	/**
-	 * Returns the front of the follower line for
-	 * this mob.  If this mob is following someone, it returns
-	 * the MOB being ultimately followed, otherwise it
-	 * just returns the mob
-	 * @param mob the mob who might be following someone
-	 * @return the leader mob
-	 */
-	public MOB getFollowedLeader(MOB mob);
 
 	/**
 	 * Returns this mobs combat formation an an array
@@ -587,9 +595,27 @@ public interface CombatLibrary extends CMLibrary
 
 	/**
 	 * Given an attacking source and a defending target and the sources weapon
+	 * or skill, this method will calculate the distance between the source and target
+	 * from each other.  Does not care about current combat or range state.
+	 *
+	 * @see com.planet_ink.coffee_mud.MOBS.interfaces.MOB#setRangeToTarget(int)
+	 * @see CombatLibrary#establishRange(MOB, MOB, Environmental)
+	 *
+	 * @param source the attacker
+	 * @param target the target
+	 * @param tool the sources weapon
+	 *
+	 * @return the calculated range
+	 */
+	public int calculateRangeToTarget(final MOB source, final MOB target, final Environmental tool);
+
+	/**
+	 * Given an attacking source and a defending target and the sources weapon
 	 * or skill, this method will set the distance between the source and target
 	 * from each other.
 	 * @see com.planet_ink.coffee_mud.MOBS.interfaces.MOB#setRangeToTarget(int)
+	 * @see CombatLibrary#calculateRangeToTarget(MOB, MOB, Environmental)
+	 *
 	 * @param source the attacker
 	 * @param target the target
 	 * @param tool the sources weapon
@@ -704,6 +730,17 @@ public interface CombatLibrary extends CMLibrary
 	public boolean handleCombatLossConsequences(MOB deadM, MOB killerM, String[] consequences, int[] lostExperience, String message);
 
 	/**
+	 * When a player is in combat and their ammunition-requiring weapon is out
+	 * of ammo, this method will force players to attempt a reload.  Non-players
+	 * will check if they have any spare ammo, and if so, attempt a reload, and
+	 * if not, just remove the weapon.
+	 *
+	 * @param mob the mob who needs to reload
+	 * @param weapon the weapon that needs reloading
+	 */
+	public void handleWeaponNeedsReload(final MOB mob, final AmmunitionWeapon weapon);
+
+	/**
 	 * This is the heart of the main combat engine.  Every tick that a mob
 	 * is in combat, and is permitted to use auto attacks, this method is called.
 	 * It figures out how many weapon attacks to dish out, and dishes them.
@@ -726,8 +763,10 @@ public interface CombatLibrary extends CMLibrary
 	 * in combat, it will help the mob recover some of their hit points,
 	 * mana, movement, etc.
 	 * @param mob the mob who is recovering
+	 * @param chgState the state to change, usually the mobs
+	 * @return true if something changed
 	 */
-	public void recoverTick(MOB mob);
+	public boolean recoverTick(MOB mob, CharState chgState);
 
 	/**
 	 * The heart of the alternative turn-based combat engine, this method is
@@ -753,7 +792,7 @@ public interface CombatLibrary extends CMLibrary
 	 * For a valid set of killers who are benefitting from having killed the given killed mob,
 	 * this method will make repeated postExperience calls after having calculated their
 	 * exp bounty for the kill.
-	 * @see ExpLevelLibrary#postExperience(MOB, MOB, String, int, boolean)
+	 * @see ExpLevelLibrary#postExperience(MOB, String, MOB, String, int, boolean)
 	 * @param killers a set of mobs to benefit from the kill
 	 * @param dividers a set of mobs who must divide the xp.. usually subset of killers
 	 * @param killed the mob killed
@@ -775,14 +814,17 @@ public interface CombatLibrary extends CMLibrary
 	 * @param I the item to check
 	 * @return true if its a siege weapon, false otherwise
 	 */
-	public boolean isAShipSiegeWeapon(Item I);
+	public boolean isASiegeWeapon(Item I);
 
 	/**
-	 * Returns the number of base hull points that the given ship has.
-	 * @param ship the ship to get points for
-	 * @return the base hull points of the ship
+	 * If a mobs range to target changes, then any ridden
+	 * mobs, or mobs riding the given mob, should also change.
+	 * This method forces all dependent mobs to be at the
+	 * same range as the given mob.
+	 *
+	 * @param mob the mob whose range matters
 	 */
-	public int getShipHullPoints(BoardableShip ship);
+	public void fixDependentRanges(final MOB mob);
 
 	/**
 	 * Checks to see if the given message gets a saving throw

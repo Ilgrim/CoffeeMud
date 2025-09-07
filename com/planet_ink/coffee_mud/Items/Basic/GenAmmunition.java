@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ public class GenAmmunition extends StdItem implements Ammunition
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this,false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 	}
 
 	@Override
@@ -99,6 +99,15 @@ public class GenAmmunition extends StdItem implements Ammunition
 	}
 
 	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("some ammunition");
+	}
+
+
+	@Override
 	public int ammunitionRemaining()
 	{
 		return usesRemaining();
@@ -114,7 +123,7 @@ public class GenAmmunition extends StdItem implements Ammunition
 	public void setMiscText(final String newText)
 	{
 		miscText="";
-		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this,newText,false);
 		recoverPhyStats();
 	}
 

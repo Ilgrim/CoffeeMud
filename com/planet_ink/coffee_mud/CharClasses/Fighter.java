@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -154,9 +155,13 @@ public class Fighter extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Fighter_Cleave",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Fighter_Rescue",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Skill_Whipsmack",0,false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Fighter_SetPolearm",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Skill_Disarm",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Skill_Subdue",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Fighter_DismountingBlow",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Fighter_Pistolwhip",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Skill_Dodge",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Fighter_RapidShot",false);
@@ -166,17 +171,21 @@ public class Fighter extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Fighter_CritStrike",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Fighter_ShieldBlock",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Fighter_LegHold",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Fighter_BlindFighting",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Fighter_Toughness",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Fighter_Headlock",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Skill_Dirt",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Skill_MountedCombat",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Fighter_WeaponBreak",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Fighter_Knee",false);
 
-		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Skill_WandUse",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Fighter_Stance",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Fighter_DualParry",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Fighter_ClinchHold",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Skill_Trip",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Fighter_Toughness2",false,CMParms.parseSemicolons("Fighter_Toughness",true));
@@ -186,21 +195,26 @@ public class Fighter extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Fighter_Roll",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Fighter_CriticalShot",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Fighter_ChokeHold",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Fighter_Whomp",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Fighter_DesperateMoves",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Fighter_Forceback",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Skill_Attack3",true,CMParms.parseSemicolons("Skill_Attack2",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Fighter_Toughness3",false,CMParms.parseSemicolons("Fighter_Toughness2",true));
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Fighter_Endurance",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Fighter_PointBlank",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Fighter_HoldTheLine",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Fighter_Tumble",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Fighter_AutoBash",false,CMParms.parseSemicolons("Skill_Bash",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Fighter_ElbowJab",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Fighter_SizeOpponent",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Fighter_UrbanTactics",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Fighter_RapidReload",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Fighter_Berzerk",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Fighter_ImprovedShieldDefence",true);
@@ -212,9 +226,12 @@ public class Fighter extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Fighter_CounterAttack",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Fighter_Heroism",false);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Fighter_Behead",0,"",false,true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Fighter_Behead",0,"",false,SecretFlag.SECRET);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Fighter_CoupDeGrace",true);
+
+		CMLib.ableMapper().addCharAbilityMapping(ID(),35,"Fighter_PlanarVeteran", 0, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
 	}
 
 	@Override
@@ -258,7 +275,12 @@ public class Fighter extends StdCharClass
 				if((A!=null)
 				&&(!CMLib.ableMapper().getAllQualified(ID(),true,A.ID()))
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
-					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+				{
+					giveMobAbility(mob,A,
+								   CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),
+								   CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),
+								   isBorrowedClass);
+				}
 			}
 		}
 	}
@@ -311,7 +333,7 @@ public class Fighter extends StdCharClass
 				lastDuelWinner = now;
 			}
 			((MOB)host).tell(CMLib.lang().L("^YVictory!!^N"));
-			CMLib.leveler().postExperience((MOB)host,null,null,300,false);
+			CMLib.leveler().postExperience((MOB)host,"CLASS:"+C.ID(),null,null,300, false);
 		}
 	}
 
@@ -328,13 +350,13 @@ public class Fighter extends StdCharClass
 		)
 		{
 			final Area A=(Area)msg.target();
-			int xp=(int)Math.round(50.0*CMath.div(A.getAreaIStats()[Area.Stats.AVG_LEVEL.ordinal()],((MOB)host).phyStats().level()));
+			int xp=(int)Math.round(50.0*CMath.div(A.getIStat(Area.Stats.AVG_LEVEL),((MOB)host).phyStats().level()));
 			if(xp>500)
 				xp=500;
 			if(xp>0)
 			{
 				((MOB)host).tell(CMLib.lang().L("^YVictory!!^N"));
-				CMLib.leveler().postExperience((MOB)host,null,null,xp,false);
+				CMLib.leveler().postExperience((MOB)host,"CLASS:"+C.ID(),null,null,xp, false);
 			}
 		}
 	}
@@ -349,6 +371,7 @@ public class Fighter extends StdCharClass
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

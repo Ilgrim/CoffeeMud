@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ public class Skill_Upstage extends BardSkill
 	@Override
 	public String displayText()
 	{
-		return L("(Upstaging "+(invoker()==null?"an actor":invoker().name())+")");
+		return L("(Upstaging @x1)",(invoker()==null?L("an actor"):invoker().name()));
 	}
 
 	@Override
@@ -154,7 +154,7 @@ public class Skill_Upstage extends BardSkill
 			return false;
 
 		final Set<MOB> h=this.properTargets(mob, givenTarget, auto);
-		if(h.size()==1)
+		if((h==null)||(h.size()==0)||(h.size()==1))
 		{
 			mob.tell(L("There doesn't appear to be anyone to upstage."));
 			return false;

@@ -10,10 +10,12 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.AccountStats.Agent;
 import com.planet_ink.coffee_mud.Common.interfaces.Session.InputCallback;
+import com.planet_ink.coffee_mud.Common.interfaces.Session.SessionPing;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.Achievement;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.AchievementFlag;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.AchievementLoadFlag;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.Event;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
@@ -24,7 +26,7 @@ import java.io.IOException;
 import java.util.*;
 
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -90,9 +92,12 @@ public class Remort extends StdCommand
 					oldAcct.copyInto(realAcct);
 			}
 		}
-		sess.stopSession(true,true,false);
+		sess.stopSession(true,true,true, false);
 		CMLib.s_sleep(3000);
-		sess.stopSession(true,true,false);
+		sess.stopSession(true,true,true, false);
+		if((!CMLib.flags().isInTheGame(mob, false))
+		&&((mob.session()==null)||(mob.session().isStopped())))
+			CMLib.players().unloadOfflinePlayer(mob);
 		if(pStats != null)
 		{
 			pStats.getExtItems().delAllItems(true);
@@ -401,10 +406,12 @@ public class Remort extends StdCommand
 				else
 				{
 					Log.sysOut("Remort: "+mob.Name());
+					final PlayerStats pStats = mob.playerStats();
+					if(pStats != null)
+						CMLib.players().savePlayer(mob);
 					if(mob.numFollowers()>0)
 						CMLib.commands().forceStandardCommand(mob, "Nofollow",new XVector<String>("NOFOLLOW","ALL"));
 
-					final PlayerStats pStats = mob.playerStats();
 					final PlayerAccount oldAccount;
 					if((pStats!=null)&&(pStats.getAccount()!=null))
 						oldAccount = (PlayerAccount)pStats.getAccount().copyOf();
@@ -473,12 +480,15 @@ public class Remort extends StdCommand
 						{
 							final Achievement A=CMLib.achievements().getAchievement(T.getTattooName());
 							if((A != null) && (A.getAgent() == Agent.PLAYER))
-								reAwardTattoos.add(A);
+							{
+								if(A.isFlag(AchievementFlag.REMORT))
+									delTattoo.add(T);
+								else
+									reAwardTattoos.add(A);
+							}
 							else
 								delTattoo.add(T);
 						}
-						else
-							delTattoo.add(T);
 					}
 					for(final Iterator<Tattoo> t=delTattoo.iterator();t.hasNext();)
 						mob.delTattoo(t.next());
@@ -522,8 +532,7 @@ public class Remort extends StdCommand
 										{
 											pStats.setSavable(false); // protect vulnerable weakling from saves so restore works
 											final Session sess = mob.session();
-											mob.baseCharStats().setMyClasses("StdCharClass");
-											mob.baseCharStats().setMyLevels("1");
+											mob.baseCharStats().setAllClassInfo("StdCharClass", "1");
 											mob.basePhyStats().setLevel(1);
 											for(int i=0;i<3;i++)
 											{
@@ -552,6 +561,7 @@ public class Remort extends StdCommand
 												failsafeA.setSavable(false);
 												mob.addNonUninvokableEffect(failsafeA);
 											}
+											CMLib.database().DBUpdatePlayerItems(mob);
 											recoverEverything(mob);
 											if(retainRace < 0)
 											{
@@ -561,11 +571,11 @@ public class Remort extends StdCommand
 												}
 												catch(final Throwable x)
 												{
-													sess.stopSession(true, true, false);
+													sess.stopSession(true, true, true, false);
 												}
 												if(sess.isStopped())
 												{
-													slowStop(sess,mob,oldAccount);
+													slowStop(sess,mob,oldAccount); // will throw IOException
 												}
 												recoverEverything(mob);
 											}
@@ -577,11 +587,11 @@ public class Remort extends StdCommand
 												}
 												catch(final Throwable x)
 												{
-													sess.stopSession(true, true, false);
+													sess.stopSession(true, true, true, false);
 												}
 												if(sess.isStopped())
 												{
-													slowStop(sess,mob,oldAccount);
+													slowStop(sess,mob,oldAccount); // will throw IOException
 												}
 												recoverEverything(mob);
 											}
@@ -597,11 +607,11 @@ public class Remort extends StdCommand
 												}
 												catch(final Throwable x)
 												{
-													sess.stopSession(true, true, false);
+													sess.stopSession(true, true, true, false);
 												}
 												if(sess.isStopped())
 												{
-													slowStop(sess,mob,oldAccount);
+													slowStop(sess,mob,oldAccount); // will throw IOException
 												}
 												recoverEverything(mob);
 											}
@@ -625,11 +635,11 @@ public class Remort extends StdCommand
 												}
 												catch(final Throwable x)
 												{
-													sess.stopSession(true, true, false);
+													sess.stopSession(true, true, true, false);
 												}
 												if(sess.isStopped())
 												{
-													slowStop(sess,mob,oldAccount);
+													slowStop(sess,mob,oldAccount); // will throw IOException
 												}
 												recoverEverything(mob);
 											}
@@ -673,7 +683,7 @@ public class Remort extends StdCommand
 													||(CMProps.getIntVar(CMProps.Int.EXPDEFER_PCT)>0))
 														CMLib.leveler().level(mob);
 													else
-														CMLib.leveler().postExperience(mob,null,null,mob.getExpNeededLevel()+1,false);
+														CMLib.leveler().postExperience(mob,"REMORT:",null,null,mob.getExpNeededLevel()+1, false);
 												}
 											}
 											recoverEverything(mob);
@@ -683,6 +693,7 @@ public class Remort extends StdCommand
 											final Ability A=mob.fetchEffect(failsafeID);
 											if(A!=null)
 												mob.delEffect(A);
+											pStats.setSavable(true); // restore savability
 											CMLib.database().DBUpdatePlayer(mob);
 										}
 										catch(final IOException e)

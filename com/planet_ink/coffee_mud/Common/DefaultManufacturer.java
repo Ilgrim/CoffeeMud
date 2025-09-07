@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ public class DefaultManufacturer implements Manufacturer
 	{
 		try
 		{
-			return getClass().newInstance();
+			return getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -214,7 +214,7 @@ public class DefaultManufacturer implements Manufacturer
 	}
 
 	@Override
-	public String getXml()
+	public String getXML()
 	{
 		final StringBuilder xml=new StringBuilder("");
 		xml.append("<NAME>"+CMLib.xml().parseOutAngleBrackets(name)+"</NAME>");
@@ -228,7 +228,7 @@ public class DefaultManufacturer implements Manufacturer
 	}
 
 	@Override
-	public void setXml(final String xml)
+	public void setXML(final String xml)
 	{
 		final List<XMLTag> xpc = CMLib.xml().parseAllXML(xml);
 		setName(CMLib.xml().restoreAngleBrackets(CMLib.xml().getValFromPieces(xpc,"NAME")));

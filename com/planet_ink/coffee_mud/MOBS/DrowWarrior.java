@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2020 Lee H. Fox
+   Copyright 2000-2025 Lee H. Fox
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ public class DrowWarrior extends DrowElf
 		magicResistance = 50 + basePhyStats().level() * 2;
 
 		// ===== set the basics
-		username="a Drow male";
+		_name="a Drow male";
 		setDescription("a Drow warrior");
 		setDisplayText("A Drow warrior considers you carefully.");
 
@@ -79,7 +79,7 @@ public class DrowWarrior extends DrowElf
 		baseCharStats().setStat(CharStats.STAT_CONSTITUTION,12 + CMLib.dice().roll(1,6,0));
 		baseCharStats().setStat(CharStats.STAT_CHARISMA,13 + CMLib.dice().roll(1,6,0));
 		baseCharStats().setCurrentClass(CMClass.getCharClass("Fighter"));
-		baseCharStats().setMyRace(CMClass.getRace("Elf"));
+		baseCharStats().setMyRace(CMClass.getRace("Drow"));
 		baseCharStats().getMyRace().startRacing(this,false);
 
 		addNaturalAbilities();

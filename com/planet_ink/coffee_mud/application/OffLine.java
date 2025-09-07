@@ -30,7 +30,7 @@ import java.sql.*;
 import java.io.*;
 
 	/*
-	Copyright 2000-2020 Bo Zimmerman
+	Copyright 2000-2025 Bo Zimmerman
 
 	Licensed under the Apache License, Version 2.0 (the "License");
 	you may not use this file except in compliance with the License.
@@ -47,8 +47,10 @@ import java.io.*;
 public class OffLine extends Thread implements MudHost
 {
 	public static Vector<OffLine> mudThreads=new Vector<OffLine>();
-	public static DVector accessed=new DVector(2);
+	public static PairList<String,Long> accessed=new PairVector<String,Long>();
 	public static Vector<String> autoblocked=new Vector<String>();
+	private final static PrintStream logStream = System.out;
+	private final static PrintStream errStream = System.err;
 
 	public static boolean serverIsRunning = false;
 	public static boolean isOK = false;
@@ -94,7 +96,7 @@ public class OffLine extends Thread implements MudHost
 		default:
 			break;
 		}
-		System.out.println(errorInternal);
+		errStream.println(errorInternal);
 		CMLib.killThread(t,500,1);
 	}
 
@@ -119,7 +121,7 @@ public class OffLine extends Thread implements MudHost
 
 		for(int i=0;i<mudThreads.size();i++)
 			mudThreads.elementAt(i).acceptConnections=true;
-		System.out.println("Initialization complete.");
+		logStream.println("Initialization complete.");
 		return true;
 	}
 
@@ -184,7 +186,7 @@ public class OffLine extends Thread implements MudHost
 	}
 
 	@Override
-	public void acceptConnection(Socket sock)
+	public Session[] acceptConnection(Socket sock)
 	throws SocketException, IOException
 {
 		sock.setSoLinger(true,3);
@@ -200,7 +202,7 @@ public class OffLine extends Thread implements MudHost
 			catch(final Exception e)
 			{
 			}
-			System.out.println("Connection from "+address+": "+port);
+			logStream.println("Connection from "+address+": "+port);
 			// now see if they are banned!
 			int proceed=0;
 
@@ -213,13 +215,13 @@ public class OffLine extends Thread implements MudHost
 			{
 				for(int a=accessed.size()-1;a>=0;a--)
 				{
-					if((((Long)accessed.elementAt(a,2)).longValue()+LastConnectionDelay)<System.currentTimeMillis())
-						accessed.removeElementAt(a);
+					if((accessed.get(a).second.longValue()+LastConnectionDelay)<System.currentTimeMillis())
+						accessed.remove(a);
 					else
-					if(((String)accessed.elementAt(a,1)).trim().equalsIgnoreCase(address))
+					if(accessed.get(a).first.trim().equalsIgnoreCase(address))
 					{
 						anyAtThisAddress=true;
-						if((((Long)accessed.elementAt(a,2)).longValue()+ConnectionWindow)>System.currentTimeMillis())
+						if((accessed.get(a).second.longValue()+ConnectionWindow)>System.currentTimeMillis())
 							numAtThisAddress++;
 					}
 				}
@@ -237,14 +239,14 @@ public class OffLine extends Thread implements MudHost
 					proceed=2;
 				}
 			}
-			catch(final java.lang.ArrayIndexOutOfBoundsException e)
+			catch(final IndexOutOfBoundsException e)
 			{
 			}
 
-			accessed.addElement(address,Long.valueOf(System.currentTimeMillis()));
+			accessed.add(address,Long.valueOf(System.currentTimeMillis()));
 			if(proceed!=0)
 			{
-				System.out.println("Blocking a connection from "+address+" on port "+port);
+				logStream.println("Blocking a connection from "+address+" on port "+port);
 				final PrintWriter out = new PrintWriter(sock.getOutputStream());
 				out.println("\n\rOFFLINE: Blocked\n\r");
 				out.flush();
@@ -305,6 +307,7 @@ public class OffLine extends Thread implements MudHost
 			CMLib.s_sleep(250);
 			sock = null;
 		}
+		return new Session[] {null};
 	}
 
 	@Override
@@ -338,9 +341,9 @@ public class OffLine extends Thread implements MudHost
 		try
 		{
 			servsock=new ServerSocket(port, q_len);
-			System.out.println("Off-Line Server started on port: "+port);
+			logStream.println("Off-Line Server started on port: "+port);
 			if (bindAddr != null)
-				System.out.println("Off-Line Server bound to: "+bindAddr.toString());
+				logStream.println("Off-Line Server bound to: "+bindAddr.toString());
 			serverIsRunning = true;
 
 			while(true)
@@ -369,7 +372,7 @@ public class OffLine extends Thread implements MudHost
 				isOK = false;
 		}
 
-		System.out.println("Off-Line Server cleaning up.");
+		logStream.println("Off-Line Server cleaning up.");
 
 		try
 		{
@@ -382,7 +385,7 @@ public class OffLine extends Thread implements MudHost
 		{
 		}
 
-		System.out.println("Off-Line Server on port "+port+" stopped!");
+		logStream.println("Off-Line Server on port "+port+" stopped!");
 	}
 
 	@Override
@@ -430,6 +433,12 @@ public class OffLine extends Thread implements MudHost
 		return port;
 	}
 
+	@Override
+	public int getPublicPort()
+	{
+		return port;
+	}
+
 	public static void main(final String a[])
 	{
 		CMProps page=null;
@@ -464,7 +473,7 @@ public class OffLine extends Thread implements MudHost
 				page=CMProps.loadPropPage(iniFile);
 				if ((page==null)||(!page.isLoaded()))
 				{
-					System.out.println("ERROR: Unable to read ini file: '"+iniFile+"'.");
+					logStream.println("ERROR: Unable to read ini file: '"+iniFile+"'.");
 					System.exit(-1);
 					return;
 				}
@@ -472,10 +481,10 @@ public class OffLine extends Thread implements MudHost
 				isOK = true;
 				bind=page.getStr("BIND");
 
-				System.out.println();
-				System.out.println("CoffeeMud Off-Line");
-				System.out.println("(C) 2000-2020 Bo Zimmerman");
-				System.out.println("http://www.coffeemud.org");
+				logStream.println();
+				logStream.println("CoffeeMud Off-Line");
+				logStream.println("(C) 2000-2025 Bo Zimmerman");
+				logStream.println("http://www.coffeemud.org");
 
 				if(OffLine.isOK)
 				{
@@ -503,7 +512,7 @@ public class OffLine extends Thread implements MudHost
 				for(int m=0;m<mudThreads.size();m++)
 				{
 					final MudHost mud=mudThreads.elementAt(m);
-					str.append(" "+mud.getPort());
+					str.append(" "+mud.getPublicPort());
 				}
 				ports=str.toString();
 

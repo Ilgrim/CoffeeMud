@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -188,7 +188,7 @@ public class Skill_Slip extends StdSkill
 
 		if((CMLib.flags().isSitting(target)||CMLib.flags().isSleeping(target)))
 		{
-			mob.tell(target,null,null,L("<S-NAME> is already on the floor!"));
+			failureTell(mob,target,auto,L("<S-NAME> is already on the floor!"));
 			return false;
 		}
 		if(CMLib.flags().isInFlight(target))
@@ -199,6 +199,11 @@ public class Skill_Slip extends StdSkill
 		if(target.riding()!=null)
 		{
 			mob.tell(L("You can't make someone @x1 @x2 slip!",target.riding().stateString(target),target.riding().name()));
+			return false;
+		}
+		if((!auto)&&(!CMLib.flags().isStanding(mob))&&(mob!=target))
+		{
+			mob.tell(L("You need to stand up!"));
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))

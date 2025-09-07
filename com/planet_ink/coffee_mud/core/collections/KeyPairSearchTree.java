@@ -1,7 +1,7 @@
 package com.planet_ink.coffee_mud.core.collections;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ package com.planet_ink.coffee_mud.core.collections;
  * but is worth it in speed.  It stores key/pairs, and
  * can be asked if a string starts with one of the keys.
  * If it does, it returns the value of the pair.
+ *
  * @author Bo Zimmerman
  *
  */
@@ -28,6 +29,12 @@ public class KeyPairSearchTree<V>
 {
 	protected KeyPairNode<String,V> root=new KeyPairNode<String,V>();
 
+	/**
+	 * A node in the search tree
+	 *
+	 * @param <K> the key type
+	 * @param <T> the value type
+	 */
 	protected class KeyPairNode<K,T>
 	{
 		@SuppressWarnings("unchecked")

@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -136,7 +136,7 @@ public class ClanAccept extends StdCommand
 								S.setScript(C.getGovernment().getEntryScript());
 								final CMMsg msg2=CMClass.getMsg(M,M,null,CMMsg.MSG_OK_VISUAL,null,null,L("CLANENTRY"));
 								S.executeMsg(M, msg2);
-								S.dequeResponses();
+								S.dequeResponses(null);
 								S.tick(M,Tickable.TICKID_MOB);
 							}
 							CMLib.achievements().possiblyBumpAchievement(M, AchievementLibrary.Event.CLANMEMBERS, 1, C);

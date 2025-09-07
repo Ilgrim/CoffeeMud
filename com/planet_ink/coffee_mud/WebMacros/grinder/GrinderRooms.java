@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ public class GrinderRooms
 		final String className=httpReq.getUrlParameter("CLASSES");
 		if((className==null)||(className.length()==0))
 			return "Please select a class type for this room.";
-		synchronized(("SYNC"+R.roomID()).intern())
+		synchronized(CMClass.getSync("SYNC"+R.roomID()))
 		{
 			R=CMLib.map().getRoom(R);
 
@@ -117,7 +117,7 @@ public class GrinderRooms
 			R.setDisplayText(name);
 
 			// description
-			String desc=httpReq.getUrlParameter("DESCRIPTION");
+			String desc=CMStrings.fixMudCRLF(httpReq.getUrlParameter("DESCRIPTION"));
 			if(desc==null)
 				desc="";
 			R.setDescription(desc);
@@ -175,6 +175,18 @@ public class GrinderRooms
 				((GridLocale)R).setYGridSize(CMath.s_int(y));
 				((GridLocale)R).clearGrid(null);
 			}
+			if(R instanceof AutoGenArea)
+			{
+				String AGXMLPATH=httpReq.getUrlParameter("AGXMLPATH");
+				if(AGXMLPATH==null)
+					AGXMLPATH="";
+				((AutoGenArea) R).setGeneratorXmlPath(CMLib.coffeeFilter().safetyInFilter(AGXMLPATH));
+
+				String AGAUTOVAR=httpReq.getUrlParameter("AGAUTOVAR");
+				if(AGAUTOVAR==null)
+					AGAUTOVAR="";
+				((AutoGenArea) R).setAutoGenVariables(CMLib.coffeeFilter().safetyInFilter(AGAUTOVAR));
+			}
 
 			String error=GrinderAreas.doAffects(R,httpReq,parms);
 			if(error.length()>0)
@@ -221,9 +233,9 @@ public class GrinderRooms
 					if(MATCHING==null)
 						break;
 					else
-					if(RoomData.isAllNum(MATCHING))
+					if(CMLib.webMacroFilter().isAllNum(MATCHING))
 					{
-						final MOB M=RoomData.getMOBFromCode(allmobs,MATCHING);
+						final MOB M=CMLib.webMacroFilter().getMOBFromWebCache(allmobs,MATCHING);
 						if(M!=null)
 						{
 							if(MATCHING.equalsIgnoreCase(delMOB))
@@ -239,21 +251,16 @@ public class GrinderRooms
 					else
 					if(MATCHING.startsWith("CATALOG-"))
 					{
-						final MOB M=RoomData.getMOBFromCatalog(MATCHING);
+						final MOB M=CMLib.webMacroFilter().getMOBFromCatalog(MATCHING);
 						if(M!=null)
 							happilyAddMob((MOB)M.copyOf(),R);
 					}
 					else
 					if(MATCHING.indexOf('@')>0)
 					{
-						for (final MOB M2 : RoomData.getMOBCache())
-						{
-							if(MATCHING.equals(""+M2))
-							{
-								happilyAddMob((MOB)M2.copyOf(),R);
-								break;
-							}
-						}
+						final MOB M2=CMLib.webMacroFilter().getMOBFromAnywhere(MATCHING);
+						if(M2 != null)
+							happilyAddMob((MOB)M2.copyOf(),R);
 					}
 					else
 					for(final Enumeration<MOB> m=CMClass.mobTypes();m.hasMoreElements();)
@@ -279,10 +286,10 @@ public class GrinderRooms
 					final String MATCHING=httpReq.getUrlParameter("ITEM"+i);
 					if(MATCHING==null)
 						break;
-					Item I2=RoomData.getItemFromAnywhere(allitems,MATCHING);
+					Item I2=CMLib.webMacroFilter().findItemInAnything(allitems,MATCHING);
 					if(I2!=null)
 					{
-						if(!RoomData.isAllNum(MATCHING))
+						if(!CMLib.webMacroFilter().isAllNum(MATCHING))
 							I2=(Item)I2.copyOf();
 						if(I2!=null)
 						{
@@ -370,6 +377,7 @@ public class GrinderRooms
 			CMLib.database().DBUpdateRoom(R);
 			CMLib.database().DBUpdateMOBs(R);
 			CMLib.database().DBUpdateItems(R);
+			CMLib.threads().rejuv(R, Tickable.TICKID_ROOM_ITEM_REJUV);
 			R.startItemRejuv();
 			if(oldR!=R)
 			{
@@ -379,8 +387,27 @@ public class GrinderRooms
 			if(!copyRoom.sameAs(R))
 				Log.sysOut("Grinder",whom.Name()+" modified room "+R.roomID()+".");
 			copyRoom.destroy();
+			fixDeities(R);
 		}
 		return "";
+	}
+
+	protected static void fixDeities(final Room R)
+	{
+		if(R==null)
+			return;
+		//OK! Keep this weirdness here!  It's necessary because oldRoom will have blown
+		//away any real deities with copy deities in the CMMap, and this will restore
+		//the real ones.
+		for(final Enumeration<MOB> m=R.inhabitants();m.hasMoreElements();)
+		{
+			final MOB M=m.nextElement();
+			if((M instanceof Deity)
+			&&(M.isMonster())
+			&&(M.isSavable())
+			&&(M.getStartRoom()==R))
+				CMLib.map().registerWorldObjectLoaded(R.getArea(), R, M);
+		}
 	}
 
 	public static String delRoom(final Room R)
@@ -430,6 +457,8 @@ public class GrinderRooms
 
 	public static String createRoom(final Room R, final int dir, final boolean copyThisOne)
 	{
+		if(dir>=R.rawDoors().length)
+			return "";
 		R.clearSky();
 		if(R instanceof GridLocale)
 			((GridLocale)R).clearGrid(null);

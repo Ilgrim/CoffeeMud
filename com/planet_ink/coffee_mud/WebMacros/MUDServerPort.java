@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,7 +44,10 @@ public class MUDServerPort extends StdWebMacro
 	@Override
 	public String runMacro(final HTTPRequest httpReq, final String parm, final HTTPResponse httpResp)
 	{
-		return CMProps.getVar(CMProps.Str.MUDPORTS);
+		final java.util.Map<String,String> parms=parseParms(parm);
+		if(parms.containsKey("LOCAL"))
+			return CMProps.getVar(CMProps.Str.LOCALMUDPORTS);
+		return CMProps.getVar(CMProps.Str.ALLMUDPORTS);
 	}
 
 }

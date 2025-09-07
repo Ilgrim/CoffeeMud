@@ -20,7 +20,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -96,11 +96,14 @@ public class Chant_ResuscitateCompanion extends Chant implements MendingSkill
 
 	private boolean isCompanionBody(final DeadBody body)
 	{
-		for(final Iterator<WeakReference<DeadBody>> m=companionMobs.iterator();m.hasNext();)
+		synchronized(companionMobs)
 		{
-			final WeakReference<DeadBody> wM=m.next();
-			if(wM.get()==body)
-				return true;
+			for(final Iterator<WeakReference<DeadBody>> m=companionMobs.iterator();m.hasNext();)
+			{
+				final WeakReference<DeadBody> wM=m.next();
+				if((wM!=null)&&(wM.get()==body))
+					return true;
+			}
 		}
 		return false;
 	}
@@ -111,7 +114,7 @@ public class Chant_ResuscitateCompanion extends Chant implements MendingSkill
 		return (item instanceof DeadBody)
 				&&(((DeadBody)item).getSavedMOB()!=null)
 				&&(!((DeadBody)item).isPlayerCorpse())
-				&&(CMLib.flags().isAnimalIntelligence(((DeadBody)item).getSavedMOB()));
+				&&(CMLib.flags().isAnAnimal(((DeadBody)item).getSavedMOB()));
 	}
 
 	@Override
@@ -124,7 +127,7 @@ public class Chant_ResuscitateCompanion extends Chant implements MendingSkill
 			final MOB myChar=(MOB)affected;
 			if((msg.sourceMinor()==CMMsg.TYP_DEATH)
 			&&(msg.source().isMonster())
-			&&(CMLib.flags().isAnimalIntelligence(msg.source()))
+			&&(CMLib.flags().isAnAnimal(msg.source()))
 			&&(msg.source().amFollowing()==myChar))
 			{
 				final Chant_ResuscitateCompanion A=(Chant_ResuscitateCompanion)myChar.fetchAbility(ID());
@@ -141,11 +144,14 @@ public class Chant_ResuscitateCompanion extends Chant implements MendingSkill
 							&&(!aniM.amDestroyed())
 							&&(aniM.amDead()))
 							{
-								for(final Iterator<WeakReference<DeadBody>> m=companionMobs.iterator();m.hasNext();)
+								synchronized(companionMobs)
 								{
-									final WeakReference<DeadBody> wM=m.next();
-									if(wM.get()==null)
-										m.remove();
+									for(final Iterator<WeakReference<DeadBody>> m=companionMobs.iterator();m.hasNext();)
+									{
+										final WeakReference<DeadBody> wM=m.next();
+										if((wM==null)||(wM.get()==null))
+											m.remove();
+									}
 								}
 								for(int i=room.numItems()-1;i>=0;i--)
 								{
@@ -154,10 +160,13 @@ public class Chant_ResuscitateCompanion extends Chant implements MendingSkill
 									&&(((DeadBody)I).getMobName().equals(aniM.Name()))
 									&&(!isCompanionBody((DeadBody)I)))
 									{
-										final List<WeakReference<DeadBody>> companionMobs=A.companionMobs;
-										while(companionMobs.size()>10)
-											companionMobs.remove(companionMobs.iterator().next());
-										companionMobs.add(new WeakReference<DeadBody>((DeadBody)I));
+										synchronized(A.companionMobs)
+										{
+											final List<WeakReference<DeadBody>> companionMobs=A.companionMobs;
+											while(companionMobs.size()>10)
+												companionMobs.remove(companionMobs.iterator().next());
+											companionMobs.add(new WeakReference<DeadBody>((DeadBody)I));
+										}
 									}
 								}
 							}
@@ -227,11 +236,14 @@ public class Chant_ResuscitateCompanion extends Chant implements MendingSkill
 						}
 						return true;
 					}
-					for(final Iterator<WeakReference<DeadBody>> m=companionMobs.iterator();m.hasNext();)
+					synchronized(companionMobs)
 					{
-						final WeakReference<DeadBody> wM=m.next();
-						if(wM.get()==body)
-							m.remove();
+						for(final Iterator<WeakReference<DeadBody>> m=companionMobs.iterator();m.hasNext();)
+						{
+							final WeakReference<DeadBody> wM=m.next();
+							if((wM!=null)&&(wM.get()==body))
+								m.remove();
+						}
 					}
 					((DeadBody)body).setSavedMOB(null, true); // revived, so don't destroy when body goes
 					rejuvedMOB.recoverCharStats();
@@ -242,6 +254,8 @@ public class Chant_ResuscitateCompanion extends Chant implements MendingSkill
 					CMLib.threads().scheduleRunnable(new Runnable()
 					{
 						final MOB M=rejuvedMOB;
+
+						@Override
 						public void run()
 						{
 							if((M==null)

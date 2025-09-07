@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -106,6 +106,7 @@ public class Spell_TimeStop extends Spell
 			{
 				final Room room=(Room)affected;
 				room.showHappens(CMMsg.MSG_OK_VISUAL, L("Time starts moving again..."));
+				final MOB invoker=this.invoker();
 				if(invoker!=null)
 				{
 					final Ability me=invoker.fetchEffect(ID());
@@ -196,7 +197,9 @@ public class Spell_TimeStop extends Spell
 		if(success)
 		{
 
-			CMMsg msg = CMClass.getMsg(mob, target, this,somanticCastCode(mob,target,auto),L((auto?"T":"^S<S-NAME> speak(s) and gesture(s) and t")+"ime suddenly STOPS!^?"));
+			CMMsg msg = CMClass.getMsg(mob, target, this,somaticCastCode(mob,target,auto),
+					(auto?L("Time suddenly STOPS!^?"):
+						L("^S<S-NAME> speak(s) and gesture(s) and time suddenly STOPS!^?")));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

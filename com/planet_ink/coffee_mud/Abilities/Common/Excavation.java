@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ public class Excavation extends BuildingSkill
 	}
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return "excavation.txt";
 	}
@@ -93,7 +93,8 @@ public class Excavation extends BuildingSkill
 	{
 		final Building doingCode = Building.valueOf(recipe[DAT_BUILDCODE]);
 		if(doingCode == Building.EXCAVATE)
-			return L("excavating the "+recipe[DAT_DESC],CMLib.directions().getInDirectionName(dir).toLowerCase());
+			return L("excavating the @x1",
+					CMStrings.replaceVariables(recipe[DAT_DESC],new String[] {CMLib.directions().getInDirectionName(dir).toLowerCase()}));
 		else
 			return super.establishVerb(mob, recipe);
 	}

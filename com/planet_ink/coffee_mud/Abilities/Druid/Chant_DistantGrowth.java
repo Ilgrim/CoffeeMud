@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -87,13 +87,12 @@ public class Chant_DistantGrowth extends Chant
 		Room newRoom=null;
 		try
 		{
-			final List<Room> rooms=CMLib.map().findRooms(CMLib.map().rooms(), mob, areaName, true, 10);
+			final List<Room> rooms=CMLib.hunt().findRooms(CMLib.map().rooms(), mob, areaName, true, 10);
 			for(final Room R : rooms)
 			{
 				anyRoom=R;
 				if(((R.domainType()&Room.INDOORS)==0)
-				&&(R.domainType()!=Room.DOMAIN_OUTDOORS_CITY)
-				&&(R.domainType()!=Room.DOMAIN_OUTDOORS_SPACEPORT)
+				&&(!CMLib.flags().isACityRoom(R))
 				&&(!CMLib.flags().isWateryRoom(mob.location())))
 				{
 					newRoom=R;
@@ -110,8 +109,7 @@ public class Chant_DistantGrowth extends Chant
 			if(anyRoom==null)
 				mob.tell(L("You don't know of a place called '@x1'.",CMParms.combine(commands,0)));
 			else
-			if((anyRoom.domainType()==Room.DOMAIN_OUTDOORS_CITY)
-			||(anyRoom.domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT))
+			if(CMLib.flags().isACityRoom(anyRoom))
 				mob.tell(L("There IS such a place, but it is an overtrodden street, so your magic would fail."));
 			else
 			if(CMLib.flags().isWateryRoom(anyRoom))

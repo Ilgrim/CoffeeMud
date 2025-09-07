@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -69,6 +69,12 @@ public class Spell_ImprovedPolymorph extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_POLYMORPHING;
+	}
+
+	@Override
 	public int abstractQuality()
 	{
 		return Ability.QUALITY_OK_OTHERS;
@@ -78,11 +84,24 @@ public class Spell_ImprovedPolymorph extends Spell
 	protected boolean	noxp	= false;
 
 	@Override
+	public void setMiscText(final String newMiscText)
+	{
+		super.setMiscText(newMiscText);
+		if(newMiscText.trim().length()>0)
+		{
+			final Race R=CMClass.getRace(CMParms.getParmStr(newMiscText, "RACE", "None"));
+			if(R!=null)
+				newRace=R;
+			noxp = CMParms.getParmBool(newMiscText, "NOXP", false);
+		}
+	}
+
+	@Override
 	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if((msg.sourceMinor()==CMMsg.TYP_EXPCHANGE)
 		&&(noxp)
-		&&((msg.target()==affected)   &&(affected instanceof MOB)))
+		&&((msg.target()==affected)&&(affected instanceof MOB)))
 		{
 			msg.setValue(0);
 		}
@@ -113,7 +132,12 @@ public class Spell_ImprovedPolymorph extends Spell
 		if(newRace!=null)
 		{
 			final int oldCat=affected.baseCharStats().ageCategory();
-			affectableStats.setMyRace(newRace);
+			if(affectableStats.getMyRace()!=newRace)
+			{
+				affectableStats.getMyRace().unaffectCharStats(affected, affectableStats);
+				affectableStats.setMyRace(newRace);
+				newRace.affectCharStats(affected, affectableStats);
+			}
 			affectableStats.setWearableRestrictionsBitmap(affectableStats.getWearableRestrictionsBitmap()|affectableStats.getMyRace().forbiddenWornBits());
 			if((affected.baseCharStats().getStat(CharStats.STAT_AGE)>0)
 			&&(newRace.getAgingChart()[oldCat]<Short.MAX_VALUE))
@@ -153,13 +177,24 @@ public class Spell_ImprovedPolymorph extends Spell
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		if(commands.size()==0)
+		String race;
+		Race R=null;
+		if(!auto)
 		{
-			mob.tell(L("You need to specify what to turn your target into!"));
-			return false;
+			if(commands.size()==0)
+			{
+				mob.tell(L("You need to specify what to turn your target into!"));
+				return false;
+			}
+			race=commands.get(commands.size()-1);
+			commands.remove(commands.size()-1);
 		}
-		final String race=commands.get(commands.size()-1);
-		commands.remove(commands.size()-1);
+		else
+		if((commands.size()>0)
+		&&((R=CMClass.findRace(CMParms.combine(commands,0)))!=null))
+			race = R.ID();
+		else
+			race="doesntexist";
 		final MOB target=this.getTarget(mob,commands,givenTarget);
 		if(target==null)
 			return false;
@@ -168,7 +203,7 @@ public class Spell_ImprovedPolymorph extends Spell
 			mob.tell(L("You cannot hold enough energy to cast this on yourself."));
 			return false;
 		}
-		Race R=CMClass.getRace(race);
+		R=race.equalsIgnoreCase("any")?CMClass.randomRace():CMClass.getRace(race);
 		if((R==null)&&(!auto))
 		{
 			if(mob.isMonster())
@@ -205,7 +240,7 @@ public class Spell_ImprovedPolymorph extends Spell
 
 		if(target.baseCharStats().getMyRace() != target.charStats().getMyRace())
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already polymorphed."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already polymorphed."));
 			return false;
 		}
 
@@ -278,10 +313,11 @@ public class Spell_ImprovedPolymorph extends Spell
 				if(msg.value()<=0)
 				{
 					newRace=R;
-					mob.location().show(target,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> become(s) a @x1!",newRace.name()));
+					target.location().show(target,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> become(s) a @x1!",newRace.name()));
 					final Spell_ImprovedPolymorph morph = (Spell_ImprovedPolymorph) beneficialAffect(mob,target,asLevel,0);
 					if(morph != null)
 					{
+						morph.setMiscText("RACE="+newRace.ID()+" NOXP="+noxp);
 						success=true;
 						morph.noxp = noxp;
 					}

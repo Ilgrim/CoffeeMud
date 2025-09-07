@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -122,7 +122,7 @@ public class Chant_SummonHouseplant extends Chant_SummonPlants
 	public Item buildHouseplant(final MOB mob, final Room room)
 	{
 		final Item newItem=CMClass.getItem("GenItem");
-		newItem.setMaterial(RawMaterial.RESOURCE_GREENS);
+		newItem.setMaterial(RawMaterial.RESOURCE_FLOWERS);
 		switch(CMLib.dice().roll(1,7,0))
 		{
 		case 1:

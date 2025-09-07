@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class Cheetah extends StdMOB
 		super();
 		final Random randomizer = new Random(System.currentTimeMillis());
 
-		username="a cheetah";
+		_name="a cheetah";
 		setDescription("A medium-sized, lightly built cat with sand covered fur and black spot.");
 		setDisplayText("A cheetah stalks its prey.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -63,7 +63,7 @@ public class Cheetah extends StdMOB
 
 		basePhyStats().setDamage(8);
 		basePhyStats().setSpeed(2.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(3);
 		basePhyStats().setArmor(80);
 

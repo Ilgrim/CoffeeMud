@@ -10,15 +10,19 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityComponents.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.DatabaseEngine.DatabaseTables;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
+import java.lang.ref.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,37 +54,29 @@ public class StdDeity extends StdMOB implements Deity
 	protected String	worshipRitual	= "";
 	protected String	worshipSin		= "";
 	protected int		rebukeCheckDown	= 0;
-	protected boolean	norecurse		= false;
-	protected MOB		blacklist		= null;
-	protected int		blackmarks		= 0;
-	protected long		lastBlackmark	= 0;
 
-	protected List<DeityTrigger>	worshipTriggers		= new Vector<DeityTrigger>();
-	protected List<DeityTrigger>	worshipCurseTriggers= new Vector<DeityTrigger>();
-	protected List<DeityTrigger>	clericTriggers		= new Vector<DeityTrigger>();
-	protected List<DeityTrigger>	serviceTriggers		= new Vector<DeityTrigger>();
-	protected List<DeityTrigger>	clericPowerTriggers	= new Vector<DeityTrigger>();
-	protected List<DeityTrigger>	clericCurseTriggers	= new Vector<DeityTrigger>();
-	protected List<DeityPower>		blessings			= new SVector<DeityPower>();
-	protected List<DeityPower>		curses				= new SVector<DeityPower>();
-	protected List<Ability>			powers				= new SVector<Ability>();
-	protected Map<String, boolean[]>trigBlessingParts	= new SHashtable<String, boolean[]>();
-	protected Map<String, Long>		trigBlessingTimes	= new SHashtable<String, Long>();
-	protected Map<String, boolean[]>trigPowerParts		= new SHashtable<String, boolean[]>();
-	protected Map<String, Long>		trigPowerTimes		= new SHashtable<String, Long>();
-	protected Map<String, boolean[]>trigCurseParts		= new SHashtable<String, boolean[]>();
-	protected Map<String, Long>		trigCurseTimes		= new SHashtable<String, Long>();
-	protected Map<String, boolean[]>trigServiceParts	= new SHashtable<String, boolean[]>();
-	protected Map<String, Long>		trigServiceTimes	= new SHashtable<String, Long>();
-	protected List<WorshipService>	services			= new SVector<WorshipService>();
-	protected List<MOB>				waitingFor			= new SLinkedList<MOB>();
+	protected final PrioritizingLimitedMap<String,int[]> blacklist=new PrioritizingLimitedMap<String,int[]>(20,30*60000L,60*60000L,100);
+
+	protected Triggerer				rituals		= null;
+	protected List<WorshipService>	services	= new SVector<WorshipService>();
+	protected List<DeityPower>		blessings	= new SVector<DeityPower>();
+	protected List<DeityPower>		curses		= new SVector<DeityPower>();
+	protected List<Ability>			powers		= new SVector<Ability>();
+
+	protected final Set<Integer>	neverTriggers		= new XHashSet<Integer>(new Integer[] {
+		Integer.valueOf(CMMsg.TYP_ENTER),
+		Integer.valueOf(CMMsg.TYP_LEAVE),
+		Integer.valueOf(CMMsg.TYP_LOOK),
+		Integer.valueOf(CMMsg.TYP_RITUAL)
+	});
 
 	public StdDeity()
 	{
 		super();
-		username="a Mighty Deity";
+		_name="a Mighty Deity";
 		setDescription("He is Mighty.");
 		setDisplayText("A Mighty Deity stands here!");
+		rituals = ((Triggerer)CMClass.getCommon("DefaultTriggerer")).setName(_name);
 		basePhyStats().setWeight(700);
 		basePhyStats().setAbility(200);
 		basePhyStats().setArmor(0);
@@ -90,13 +86,21 @@ public class StdDeity extends StdMOB implements Deity
 		recoverPhyStats();
 	}
 
+	@Override
+	public CMObject newInstance()
+	{
+		final StdDeity deity = (StdDeity)super.newInstance();
+		deity.rituals.setName(rituals.name());
+		return deity;
+	}
+
 	private static class WorshipService
 	{
-		public MOB cleric = null;
-		public Room room = null;
-		public boolean serviceCompleted = false;
-		public long startTime = System.currentTimeMillis();
-		public List<MOB> parishaners = new Vector<MOB>();
+		public MOB			cleric				= null;
+		public Room			room				= null;
+		public boolean		serviceCompleted	= false;
+		public long			startTime			= System.currentTimeMillis();
+		public List<MOB>	parishaners			= new Vector<MOB>();
 	}
 
 	private static class DeityPower
@@ -110,28 +114,18 @@ public class StdDeity extends StdMOB implements Deity
 		}
 	}
 
+
 	@Override
 	protected void cloneFix(final MOB E)
 	{
 		super.cloneFix(E);
 		if(E instanceof StdDeity)
 		{
-			worshipTriggers=new XVector<DeityTrigger>(((StdDeity)E).worshipTriggers);
-			worshipCurseTriggers=new XVector<DeityTrigger>(((StdDeity)E).worshipCurseTriggers);
-			clericTriggers=new XVector<DeityTrigger>(((StdDeity)E).clericTriggers);
-			clericPowerTriggers=new XVector<DeityTrigger>(((StdDeity)E).clericPowerTriggers);
-			clericCurseTriggers=new XVector<DeityTrigger>(((StdDeity)E).clericCurseTriggers);
+			rituals	= ((Triggerer)((StdDeity)E).rituals.copyOf()).setName(Name());
 			blessings=new XVector<DeityPower>(((StdDeity)E).blessings);
 			curses=new XVector<DeityPower>(((StdDeity)E).curses);
 			powers=new XVector<Ability>(((StdDeity)E).powers);
-			trigBlessingParts=new XHashtable<String,boolean[]>(((StdDeity)E).trigBlessingParts);
-			trigBlessingTimes=new XHashtable<String,Long>(((StdDeity)E).trigBlessingTimes);
-			trigPowerParts=new XHashtable<String,boolean[]>(((StdDeity)E).trigPowerParts);
-			trigPowerTimes=new XHashtable<String,Long>(((StdDeity)E).trigPowerTimes);
-			trigCurseParts=new XHashtable<String,boolean[]>(((StdDeity)E).trigCurseParts);
-			trigCurseTimes=new XHashtable<String,Long>(((StdDeity)E).trigCurseTimes);
-			trigServiceParts=new XHashtable<String,boolean[]>(((StdDeity)E).trigServiceParts);
-			trigServiceTimes=new XHashtable<String,Long>(((StdDeity)E).trigServiceTimes);
+			services = new SVector<WorshipService>();
 		}
 	}
 
@@ -167,11 +161,29 @@ public class StdDeity extends StdMOB implements Deity
 		return clericRitual;
 	}
 
+	protected void setRitual(final RitualType type, final String ritual)
+	{
+		final List<String> errors = new ArrayList<String>(1);
+		rituals.addTrigger(type, ritual, null, errors);
+		if(errors.size()>0)
+		{
+			for(final String error : errors)
+				Log.errOut(name(),error);
+		}
+	}
+
 	@Override
 	public void setClericRitual(final String ritual)
 	{
 		clericRitual=ritual;
-		parseTriggers(clericTriggers,ritual);
+		setRitual(RitualType.CLERIC_BLESSING, ritual);
+	}
+
+	@Override
+	public void setName(final String name)
+	{
+		super.setName(name);
+		rituals.setName(name);
 	}
 
 	@Override
@@ -186,7 +198,7 @@ public class StdDeity extends StdMOB implements Deity
 	public void setWorshipRitual(final String ritual)
 	{
 		worshipRitual=ritual;
-		parseTriggers(worshipTriggers,ritual);
+		setRitual(RitualType.WORSHIP_BLESSING, ritual);
 	}
 
 	@Override
@@ -199,155 +211,26 @@ public class StdDeity extends StdMOB implements Deity
 	public void setServiceRitual(String ritual)
 	{
 		if((ritual==null)||(ritual.length()==0))
-			ritual="SAY Bless us "+name()+"&wait 10&wait 10&SAY May "+name()+" bless you all&ALLSAY Amen.&SAY Go in peace";
+			ritual="SAY Bless us "+name()+"&wait 10&wait 10&ALLSAY Amen.&SAY Go in peace";
 		serviceRitual=ritual;
-		parseTriggers(serviceTriggers,ritual);
+		setRitual(RitualType.SERVICE, ritual);
 	}
 
-	public String getTriggerDesc(final List<DeityTrigger> V)
-	{
-		if((V==null)||(V.size()==0))
-			return L("Never");
-		final StringBuffer buf=new StringBuffer("");
-		for(int v=0;v<V.size();v++)
-		{
-			final DeityTrigger DT=V.get(v);
-			if(v>0)
-				buf.append(", "+((DT.previousConnect==RitualConnector.AND)?L("and "):L("or ")));
-			switch(DT.triggerCode)
-			{
-			case SAY:
-				buf.append(L("the player should say '@x1'",DT.parm1.toLowerCase()));
-				break;
-			case READING:
-				if(DT.parm1.equals("0"))
-					buf.append(L("the player should read something"));
-				else
-					buf.append(L("the player should read '@x1'",DT.parm1.toLowerCase()));
-				break;
-			case TIME:
-				buf.append(L("the hour of the day is @x1",DT.parm1.toLowerCase()));
-				break;
-			case PUTTHING:
-				buf.append(L("the player should put @x1 in @x2",DT.parm1.toLowerCase(),DT.parm2.toLowerCase()));
-				break;
-			case BURNTHING:
-				buf.append(L("the player should burn @x1",DT.parm1.toLowerCase()));
-				break;
-			case DRINK:
-				buf.append(L("the player should drink @x1",DT.parm1.toLowerCase()));
-				break;
-			case EAT:
-				buf.append(L("the player should eat @x1",DT.parm1.toLowerCase()));
-				break;
-			case INROOM:
-				{
-				if(DT.parm1.equalsIgnoreCase("holy")
-				||DT.parm1.equalsIgnoreCase("unholy")
-				||DT.parm1.equalsIgnoreCase("balance"))
-					buf.append(L("the player should be in the deities room of infused @x1-ness.",DT.parm1.toLowerCase()));
-				else
-				{
-					final Room R=CMLib.map().getRoom(DT.parm1);
-					if(R==null)
-						buf.append(L("the player should be in some unknown place"));
-					else
-						buf.append(L("the player should be in '@x1'",R.displayText(null)));
-				}
-				}
-				break;
-			case RIDING:
-				buf.append(L("the player should be on @x1",DT.parm1.toLowerCase()));
-				break;
-			case CAST:
-				{
-				final Ability A=CMClass.findAbility(DT.parm1);
-				if(A==null)
-					buf.append(L("the player should cast '@x1'",DT.parm1));
-				else
-					buf.append(L("the player should cast '@x1'",A.name()));
-				}
-				break;
-			case EMOTE:
-				buf.append(L("the player should emote '@x1'",DT.parm1.toLowerCase()));
-				break;
-			case RANDOM:
-				buf.append(DT.parm1+"% of the time");
-				break;
-			case WAIT:
-				buf.append(L("wait @x1 seconds",""+((CMath.s_int(DT.parm1)*CMProps.getTickMillis())/1000)));
-				break;
-			case YOUSAY:
-				buf.append(L("then you will automatically say '@x1'",DT.parm1.toLowerCase()));
-				break;
-			case OTHERSAY:
-				buf.append(L("then all others will say '@x1'",DT.parm1.toLowerCase()));
-				break;
-			case ALLSAY:
-				buf.append(L("then all will say '@x1'",DT.parm1.toLowerCase()));
-				break;
-			case CHECK:
-				buf.append(CMLib.masking().maskDesc(DT.parm1));
-				break;
-			case PUTVALUE:
-				buf.append(L("the player should put an item worth at least @x1 in @x2",DT.parm1.toLowerCase(),DT.parm2.toLowerCase()));
-				break;
-			case PUTMATERIAL:
-				{
-					String material="something";
-					final int t=CMath.s_int(DT.parm1);
-					RawMaterial.Material m;
-					if(((t&RawMaterial.RESOURCE_MASK)==0)
-					&&((m=RawMaterial.Material.findByMask(t))!=null))
-						material=m.desc().toLowerCase();
-					else
-					if(RawMaterial.CODES.IS_VALID(t))
-						material=RawMaterial.CODES.NAME(t).toLowerCase();
-					buf.append(L("the player puts an item made of @x1 in @x2",material,DT.parm2.toLowerCase()));
-				}
-				break;
-			case BURNMATERIAL:
-				{
-					String material="something";
-					final int t=CMath.s_int(DT.parm1);
-					RawMaterial.Material m;
-					if(((t&RawMaterial.RESOURCE_MASK)==0)
-					&&((m=RawMaterial.Material.findByMask(t))!=null))
-						material=m.desc().toLowerCase();
-					else
-					if(RawMaterial.CODES.IS_VALID(t))
-						material=RawMaterial.CODES.NAME(t).toLowerCase();
-					buf.append(L("the player should burn an item made of @x1",material));
-				}
-				break;
-			case BURNVALUE:
-				buf.append(L("the player should burn an item worth at least @x1",DT.parm1.toLowerCase()));
-				break;
-			case SITTING:
-				buf.append(L("the player should sit down"));
-				break;
-			case STANDING:
-				buf.append(L("the player should stand up"));
-				break;
-			case SLEEPING:
-				buf.append(L("the player should go to sleep"));
-				break;
-			}
-		}
-		return buf.toString();
-	}
 
 	@Override
 	public String getClericRequirementsDesc()
 	{
-		return L("The following may be clerics of @x1: @x2",name(),CMLib.masking().maskDesc(getClericRequirements()));
+		return L("The following may be priests of @x1: @x2",name(),CMLib.masking().maskDesc(getClericRequirements()));
 	}
 
 	@Override
 	public String getClericTriggerDesc()
 	{
 		if(numBlessings()>0)
-			return L("The blessings of @x1 are placed upon @x2 clerics whenever the cleric does the following: @x3.",name(),charStats().hisher(),getTriggerDesc(clericTriggers));
+		{
+			return L("The blessings of @x1 are placed upon @x2 clerics whenever the cleric does the following: @x3.",
+					name(),charStats().hisher(),rituals.getTriggerDesc(RitualType.CLERIC_BLESSING, "the cleric"));
+		}
 		return "";
 	}
 
@@ -361,14 +244,18 @@ public class StdDeity extends StdMOB implements Deity
 	public String getWorshipTriggerDesc()
 	{
 		if(numBlessings()>0)
-			return L("The blessings of @x1 are placed upon @x2 worshippers whenever they do the following: @x3.",name(),charStats().hisher(),getTriggerDesc(worshipTriggers));
+		{
+			return L("The blessings of @x1 are placed upon @x2 worshippers whenever they do the following: @x3.",
+					name(), charStats().hisher(), rituals.getTriggerDesc(RitualType.WORSHIP_BLESSING, "the worshipper"));
+		}
 		return "";
 	}
 
 	@Override
 	public String getServiceTriggerDesc()
 	{
-		return L("The services of @x1 are the following: @x2.",name(),getTriggerDesc(serviceTriggers));
+		return L("The services of @x1 requires using an Infused place, and are the following: @x2.",
+				name(),rituals.getTriggerDesc(RitualType.SERVICE, "the cleric"));
 	}
 
 	@Override
@@ -385,41 +272,46 @@ public class StdDeity extends StdMOB implements Deity
 		switch(msg.targetMinor())
 		{
 		case CMMsg.TYP_SERVE:
-			if(msg.source().getMyDeity()==this)
 			{
-				msg.source().tell(L("You already worship @x1.",name()));
-				if(msg.source().isMonster())
-					CMLib.commands().postSay(msg.source(),null,L("I already worship @x1.",msg.source().getMyDeity().name()));
-				return false;
-			}
-			if(msg.source().getMyDeity()!=null)
-			{
-				msg.source().tell(L("You already worship @x1.",msg.source().getMyDeity().name()));
-				if(msg.source().isMonster())
-					CMLib.commands().postSay(msg.source(),null,L("I already worship @x1.",msg.source().getMyDeity().name()));
-				return false;
-			}
-			if(msg.source().charStats().getCurrentClass().baseClass().equalsIgnoreCase("Cleric"))
-			{
-				if(!CMLib.masking().maskCheck(getClericRequirements(),msg.source(),true))
+				if((msg.source().baseCharStats().getMyDeity()==this)
+				||(msg.source().charStats().getMyDeity()==this))
 				{
-					msg.source().tell(L("You are unworthy of serving @x1.",name()));
+					msg.source().tell(L("You already worship @x1.",name()));
 					if(msg.source().isMonster())
-						CMLib.commands().postSay(msg.source(),null,L("I am unworthy of serving @x1.",name()));
+						CMLib.commands().postSay(msg.source(),null,L("I already worship @x1.",msg.source().charStats().getWorshipCharID()));
+					return false;
+				}
+				if((msg.source().baseCharStats().getWorshipCharID().length()>0)
+				||(msg.source().charStats().getWorshipCharID().length()>0))
+				{
+					msg.source().tell(L("You already worship @x1.",msg.source().charStats().getWorshipCharID()));
+					if(msg.source().isMonster())
+						CMLib.commands().postSay(msg.source(),null,L("I already worship @x1.",msg.source().charStats().getWorshipCharID()));
+					return false;
+				}
+				if(msg.source().charStats().getStat(CharStats.STAT_FAITH)>=100)
+				{
+					if(!CMLib.masking().maskCheck(getClericRequirements(),msg.source(),true))
+					{
+						msg.source().tell(L("You are unworthy of serving @x1.",name()));
+						if(msg.source().isMonster())
+							CMLib.commands().postSay(msg.source(),null,L("I am unworthy of serving @x1.",name()));
+						return false;
+					}
+				}
+				else
+				if(!CMLib.masking().maskCheck(getWorshipRequirements(),msg.source(),true))
+				{
+					msg.source().tell(L("You are unworthy of @x1.",name()));
+					if(msg.source().isMonster())
+						CMLib.commands().postSay(msg.source(),null,L("I am unworthy of @x1.",name()));
 					return false;
 				}
 			}
-			else
-			if(!CMLib.masking().maskCheck(getWorshipRequirements(),msg.source(),true))
-			{
-				msg.source().tell(L("You are unworthy of @x1.",name()));
-				if(msg.source().isMonster())
-					CMLib.commands().postSay(msg.source(),null,L("I am unworthy of @x1.",name()));
-				return false;
-			}
 			break;
 		case CMMsg.TYP_REBUKE:
-			if(!msg.source().getWorshipCharID().equals(Name()))
+			if((!msg.source().charStats().getWorshipCharID().equals(Name()))
+			&&(!msg.source().baseCharStats().getWorshipCharID().equals(Name())))
 			{
 				msg.source().tell(L("You do not worship @x1.",name()));
 				return false;
@@ -429,7 +321,7 @@ public class StdDeity extends StdMOB implements Deity
 		return true;
 	}
 
-	public synchronized void bestowBlessing(final MOB mob, final Ability blesingA)
+	public synchronized void bestowBlessing(final MOB mob, final Ability blessingA)
 	{
 		final Room prevRoom;
 		synchronized(this)
@@ -441,45 +333,66 @@ public class StdDeity extends StdMOB implements Deity
 		{
 			targetRoom=mob.location();
 		}
-		targetRoom.bringMobHere(this,false);
-		if(blesingA!=null)
+		try
 		{
-			final Vector<String> V=new Vector<String>();
-			if(blesingA.canTarget(Ability.CAN_MOBS))
+			final String infusedStr=CMLib.law().getClericInfused(targetRoom);
+			targetRoom.bringMobHere(this,false);
+			if(blessingA!=null)
 			{
-				V.addElement(mob.name()+"$");
-				blesingA.invoke(this,V,mob,true,mob.phyStats().level());
+				final Vector<String> V=new Vector<String>();
+				final Ability blessedA;
+				if(blessingA.canTarget(Ability.CAN_MOBS))
+				{
+					V.addElement(mob.name()+"$");
+					blessingA.invoke(this,V,mob,true,mob.phyStats().level());
+					blessedA=mob.fetchEffect(blessingA.ID());
+				}
+				else
+				if(blessingA.canTarget(Ability.CAN_ITEMS))
+				{
+					Item I=mob.fetchWieldedItem();
+					if(I==null)
+						I=mob.fetchHeldItem();
+					if(I==null)
+						I=mob.fetchItem(null,Wearable.FILTER_WORNONLY,"all");
+					if(I==null)
+						I=mob.fetchItem(null,Wearable.FILTER_UNWORNONLY,"all");
+					if(I==null)
+						return;
+					V.addElement("$"+I.name()+"$");
+					addItem(I);
+					blessingA.invoke(this,V,I,true,mob.phyStats().level());
+					delItem(I);
+					if(!mob.isMine(I))
+						mob.addItem(I);
+					blessedA=I.fetchEffect(blessingA.ID());
+				}
+				else
+				{
+					blessingA.invoke(this,mob,true,mob.phyStats().level());
+					blessedA=mob.fetchEffect(blessingA.ID());
+				}
+				if((blessedA!=null)
+				&&(blessedA.invoker()==this)
+				&&(blessedA.affecting()!=null)
+				&&(blessedA.affecting().fetchEffect(blessedA.ID())!=null)
+				&&(infusedStr!=null)
+				&&(Name().equalsIgnoreCase(infusedStr))
+				&&(blessedA.expirationDate() > 0))
+					blessedA.setExpirationDate(Math.round(CMath.mul((double)blessedA.expirationDate(), 1.5)));
 			}
-			else
-			if(blesingA.canTarget(Ability.CAN_ITEMS))
-			{
-				Item I=mob.fetchWieldedItem();
-				if(I==null)
-					I=mob.fetchHeldItem();
-				if(I==null)
-					I=mob.fetchItem(null,Wearable.FILTER_WORNONLY,"all");
-				if(I==null)
-					I=mob.fetchItem(null,Wearable.FILTER_UNWORNONLY,"all");
-				if(I==null)
-					return;
-				V.addElement("$"+I.name()+"$");
-				addItem(I);
-				blesingA.invoke(this,V,I,true,mob.phyStats().level());
-				delItem(I);
-				if(!mob.isMine(I))
-					mob.addItem(I);
-			}
-			else
-				blesingA.invoke(this,mob,true,mob.phyStats().level());
 		}
-		prevRoom.bringMobHere(this,false);
-		if((prevRoom != location())
-		||(!prevRoom.isInhabitant(this))
-		||(targetRoom.isInhabitant(this)))
+		finally
 		{
-			this.setLocation(prevRoom);
-			prevRoom.addInhabitant(this);
-			targetRoom.delInhabitant(this);
+			prevRoom.bringMobHere(this,false);
+			if((prevRoom != location())
+			||(!prevRoom.isInhabitant(this))
+			||(targetRoom.isInhabitant(this)))
+			{
+				this.setLocation(prevRoom);
+				prevRoom.addInhabitant(this);
+				targetRoom.delInhabitant(this);
+			}
 		}
 		if(targetRoom!=prevRoom)
 		{
@@ -502,7 +415,7 @@ public class StdDeity extends StdMOB implements Deity
 		}
 	}
 
-	public synchronized void bestowCurse(final MOB mob, final Ability Curse)
+	public synchronized void bestowCurse(final MOB mob, final Ability curseA)
 	{
 		final Room prevRoom;
 		synchronized(this)
@@ -515,16 +428,16 @@ public class StdDeity extends StdMOB implements Deity
 			targetRoom=mob.location();
 		}
 		targetRoom.bringMobHere(this,false);
-		if(Curse!=null)
+		if(curseA!=null)
 		{
 			final Vector<String> V=new Vector<String>();
-			if(Curse.canTarget(Ability.CAN_MOBS))
+			if(curseA.canTarget(Ability.CAN_MOBS))
 			{
 				V.addElement(mob.location().getContextName(mob));
-				Curse.invoke(this,V,mob,true,mob.phyStats().level());
+				curseA.invoke(this,V,mob,true,mob.phyStats().level());
 			}
 			else
-			if(Curse.canTarget(Ability.CAN_ITEMS))
+			if(curseA.canTarget(Ability.CAN_ITEMS))
 			{
 				Item I=mob.fetchWieldedItem();
 				if(I==null)
@@ -537,13 +450,13 @@ public class StdDeity extends StdMOB implements Deity
 					return;
 				V.addElement("$"+I.name()+"$");
 				addItem(I);
-				Curse.invoke(this,V,I,true,mob.phyStats().level());
+				curseA.invoke(this,V,I,true,mob.phyStats().level());
 				delItem(I);
 				if(!mob.isMine(I))
 					mob.addItem(I);
 			}
 			else
-				Curse.invoke(this,mob,true,mob.phyStats().level());
+				curseA.invoke(this,mob,true,mob.phyStats().level());
 		}
 		prevRoom.bringMobHere(this,false);
 		if((prevRoom != location())
@@ -565,28 +478,45 @@ public class StdDeity extends StdMOB implements Deity
 
 	public synchronized void bestowBlessings(final MOB mob)
 	{
-		norecurse=true;
 		try
 		{
-			if((!alreadyBlessed(mob))&&(numBlessings()>0))
+			rituals.setIgnoreTracking(mob, true);
+			final Room R=mob.location();
+			if((!alreadyBlessed(mob))
+			&&(numBlessings()>0)
+			&&(R!=null))
 			{
-				mob.location().show(this,mob,CMMsg.MSG_OK_VISUAL,L("You feel the presence of <S-NAME> in <T-NAME>."));
-				if((mob.charStats().getCurrentClass().baseClass().equals("Cleric"))
-				||(CMSecurity.isASysOp(mob)))
+				final CMMsg eventMsg=CMClass.getMsg(this, mob, null,
+						CMMsg.MSG_HOLYEVENT, null,
+						CMMsg.MSG_HOLYEVENT, null,
+						CMMsg.NO_EFFECT, HolyEvent.BLESSING.toString());
+				R.send(this, eventMsg);
+				R.show(this,mob,CMMsg.MSG_OK_VISUAL,L("You feel the presence of <S-NAME> in <T-NAME>."));
+				if((mob.charStats().getStat(CharStats.STAT_FAITH)>=100)
+				||(mob.isPlayer() && mob.isAttributeSet(Attrib.SYSOPMSGS)))
 				{
 					for(int b=0;b<numBlessings();b++)
 					{
-						final Ability Blessing=fetchBlessing(b);
-						if(Blessing!=null)
-							bestowBlessing(mob,Blessing);
+						final Ability blessingA=fetchBlessing(b);
+						if(blessingA!=null)
+							bestowBlessing(mob,blessingA);
 					}
 				}
 				else
 				{
-					final int randNum=CMLib.dice().roll(1,numBlessings(),-1);
-					final Ability Blessing=fetchBlessing(randNum);
-					if((Blessing!=null)&&(!fetchBlessingCleric(randNum)))
-						bestowBlessing(mob,Blessing);
+					final List<Ability> nonClericBlessings = new ArrayList<Ability>(numBlessings());
+					for(int b=0;b<numBlessings();b++)
+					{
+						final Ability curseA=fetchBlessing(b);
+						if((curseA!=null)
+						&&(!fetchBlessingCleric(b)))
+							nonClericBlessings.add(curseA);
+					}
+					if(nonClericBlessings.size()>0)
+					{
+						final int randNum=CMLib.dice().roll(1,nonClericBlessings.size(),-1);
+						bestowBlessing(mob,nonClericBlessings.get(randNum));
+					}
 				}
 			}
 		}
@@ -594,12 +524,15 @@ public class StdDeity extends StdMOB implements Deity
 		{
 			Log.errOut("StdDeity",e);
 		}
-		norecurse=false;
+		finally
+		{
+			rituals.setIgnoreTracking(mob, false);
+		}
 	}
 
 	public synchronized void bestowPowers(final MOB mob)
 	{
-		norecurse=true;
+		rituals.setIgnoreTracking(mob, true);
 		try
 		{
 			if((!alreadyPowered(mob))&&(numPowers()>0))
@@ -614,33 +547,52 @@ public class StdDeity extends StdMOB implements Deity
 		{
 			Log.errOut("StdDeity",e);
 		}
-		norecurse=false;
+		finally
+		{
+			rituals.setIgnoreTracking(mob, false);
+		}
 	}
 
 	public synchronized void bestowCurses(final MOB mob)
 	{
-		norecurse=true;
+		rituals.setIgnoreTracking(mob, true);
 		try
 		{
-			if(numCurses()>0)
+			final Room R=mob.location();
+			if((numCurses()>0)
+			&&(R!=null))
 			{
-				mob.location().show(this,mob,CMMsg.MSG_OK_VISUAL,L("You feel the wrath of <S-NAME> in <T-NAME>."));
-				if(mob.charStats().getCurrentClass().baseClass().equals("Cleric")
-				||(CMSecurity.isASysOp(mob)))
+				final CMMsg eventMsg=CMClass.getMsg(this, mob, null,
+						CMMsg.MSG_HOLYEVENT, null,
+						CMMsg.MSG_HOLYEVENT, null,
+						CMMsg.NO_EFFECT, HolyEvent.CURSING.toString());
+				R.send(this, eventMsg);
+				R.show(this,mob,CMMsg.MSG_OK_VISUAL,L("You feel the wrath of <S-NAME> in <T-NAME>."));
+				if(mob.charStats().getStat(CharStats.STAT_FAITH)>=100)
 				{
 					for(int b=0;b<numCurses();b++)
 					{
-						final Ability Curse=fetchCurse(b);
-						if(Curse!=null)
-							bestowCurse(mob,Curse);
+						final Ability curseA=fetchCurse(b);
+						if(curseA!=null)
+							bestowCurse(mob,curseA);
 					}
 				}
 				else
 				{
-					final int randNum=CMLib.dice().roll(1,numCurses(),-1);
-					final Ability Curse=fetchCurse(randNum);
-					if((Curse!=null)&&(!fetchBlessingCleric(randNum)))
-						bestowCurse(mob,Curse);
+					final List<Ability> nonClericCurses = new ArrayList<Ability>(numCurses());
+					for(int b=0;b<numCurses();b++)
+					{
+						final Ability curseA=fetchCurse(b);
+						if((curseA!=null)
+						&&(!fetchCurseCleric(b)))
+							nonClericCurses.add(curseA);
+					}
+					if(nonClericCurses.size()>0)
+					{
+						final int randNum=CMLib.dice().roll(1,nonClericCurses.size(),-1);
+						final Ability curseA=nonClericCurses.get(randNum);
+						bestowCurse(mob,curseA);
+					}
 				}
 			}
 		}
@@ -648,7 +600,10 @@ public class StdDeity extends StdMOB implements Deity
 		{
 			Log.errOut("StdDeity",e);
 		}
-		norecurse=false;
+		finally
+		{
+			rituals.setIgnoreTracking(mob, false);
+		}
 	}
 
 	public void removeBlessings(final MOB mob)
@@ -678,12 +633,19 @@ public class StdDeity extends StdMOB implements Deity
 				Ability A=mob.fetchAbility(a);
 				if((A!=null)&&(!A.isSavable()))
 				{
-					mob.delAbility(A);
-					A=mob.fetchEffect(A.ID());
-					if(A!=null)
+					for(final Ability pA : this.powers)
 					{
-						A.unInvoke();
-						mob.delEffect(A);
+						if(pA.ID().equals(A.ID()))
+						{
+							mob.delAbility(A);
+							A=mob.fetchEffect(A.ID());
+							if(A!=null)
+							{
+								A.unInvoke();
+								mob.delEffect(A);
+							}
+							break;
+						}
 					}
 				}
 			}
@@ -704,276 +666,62 @@ public class StdDeity extends StdMOB implements Deity
 	public boolean alreadyPowered(final MOB mob)
 	{
 		if(numPowers()>0)
-		for(int a=0;a<mob.numAbilities();a++)
 		{
-			final Ability A=mob.fetchAbility(a);
-			if((A!=null)&&(!A.isSavable()))
-				return true;
+			for(int a=0;a<mob.numAbilities();a++)
+			{
+				final Ability A=mob.fetchAbility(a);
+				if((A!=null)
+				&&(!A.isSavable()))
+				{
+					for(final Ability pA : this.powers)
+					{
+						if(pA.ID().equals(A.ID()))
+							return true;
+					}
+				}
+			}
 		}
 		return false;
 	}
 
-	public boolean triggerCheck(final CMMsg msg, final List<DeityTrigger> V, final Map<String, boolean[]> trigParts, final Map<String, Long> trigTimes)
+	@Override
+	public void recoverCharStats()
 	{
-		boolean recheck=false;
-		for(int v=0;v<V.size();v++)
+		super.recoverCharStats();
+		if(charStats.getMyDeity()==this)
 		{
-			boolean yup=false;
-			final DeityTrigger DT=V.get(v);
-			if((msg.sourceMinor()==DT.triggerCode.getCMMsgCode())
-			||(DT.triggerCode.getCMMsgCode()==-999))
-			{
-				switch(DT.triggerCode)
-				{
-				case SAY:
-					if((msg.sourceMessage()!=null)&&(msg.sourceMessage().toUpperCase().indexOf(DT.parm1)>0))
-						yup=true;
-					break;
-				case TIME:
-					if((msg.source().location()!=null)
-					&&(msg.source().location().getArea().getTimeObj().getHourOfDay()==CMath.s_int(DT.parm1)))
-					   yup=true;
-					break;
-				case RANDOM:
-					if(CMLib.dice().rollPercentage()<=CMath.s_int(DT.parm1))
-						yup=true;
-					break;
-				case YOUSAY:
-					if(v<=0)
-						yup=true;
-					else
-					{
-						final boolean[] checks=trigParts.get(msg.source().Name());
-						if((checks!=null)&&(checks[v-1])&&(!checks[v]))
-						{
-							yup=true;
-							norecurse=true;
-							CMLib.commands().postSay(msg.source(),null,CMStrings.capitalizeAndLower(DT.parm1));
-							norecurse=false;
-						}
-						else
-						if((checks!=null)&&checks[v])
-							continue;
-					}
-					break;
-				case ALLSAY:
-					if(v<=0)
-						yup=true;
-					else
-					{
-						final boolean[] checks=trigParts.get(msg.source().Name());
-						final Room R=msg.source().location();
-						if((checks!=null)&&(checks[v-1])&&(!checks[v])&&(R!=null))
-						{
-							yup=true;
-							for(int m=0;m<R.numInhabitants();m++)
-							{
-								final MOB M=R.fetchInhabitant(m);
-								if(M!=null)
-								{
-									norecurse=true;
-									CMLib.commands().postSay(M,null,CMStrings.capitalizeAndLower(DT.parm1));
-									norecurse=false;
-								}
-							}
-						}
-						else
-						if((checks!=null)&&checks[v])
-							continue;
-					}
-					break;
-				case OTHERSAY:
-					if(v<=0)
-						yup=true;
-					else
-					{
-						final boolean[] checks=trigParts.get(msg.source().Name());
-						final Room R=msg.source().location();
-						if((checks!=null)&&(checks[v-1])&&(!checks[v])&&(R!=null))
-						{
-							yup=true;
-							for(int m=0;m<R.numInhabitants();m++)
-							{
-								final MOB M=R.fetchInhabitant(m);
-								if((M!=null)&&(M!=msg.source()))
-								{
-									norecurse=true;
-									CMLib.commands().postSay(M,null,CMStrings.capitalizeAndLower(DT.parm1));
-									norecurse=false;
-								}
-							}
-						}
-						else
-						if((checks!=null)&&checks[v])
-							continue;
-					}
-					break;
-				case WAIT:
-				{
-					if(v<=0)
-						yup=true;
-					else
-					{
-						final boolean[] checks=trigParts.get(msg.source().Name());
-						if((checks!=null)
-						&&(checks[v-1])
-						&&(!checks[v])
-						&&(trigTimes.get(msg.source().Name())!=null))
-						{
-							boolean proceed=true;
-							for(int t=v+1;t<checks.length;t++)
-							{
-								if(checks[t])
-									proceed=false;
-							}
-							if(proceed)
-							{
-								if(System.currentTimeMillis()>(trigTimes.get(msg.source().Name()).longValue()+(CMath.s_int(DT.parm1)*CMProps.getTickMillis())))
-								{
-									yup=true;
-									synchronized(waitingFor)
-									{
-										waitingFor.remove(msg.source());
-									}
-								}
-								else
-								{
-									synchronized(waitingFor)
-									{
-										waitingFor.add(msg.source());
-									}
-									return false;
-								}
-							}
-						}
-						else
-						if((checks!=null)&&(checks[v]))
-							continue;
-					}
-					break;
-				}
-				case CHECK:
-					if(CMLib.masking().maskCheck(DT.parm1,msg.source(),true))
-						yup=true;
-					break;
-				case PUTTHING:
-					if((msg.target() instanceof Container)
-					&&(msg.tool() instanceof Item)
-					&&(CMLib.english().containsString(msg.tool().name(),DT.parm1))
-					&&(CMLib.english().containsString(msg.target().name(),DT.parm2)))
-						yup=true;
-					break;
-				case BURNTHING:
-				case READING:
-				case DRINK:
-				case EAT:
-					if((msg.target()!=null)
-					&&(DT.parm1.equals("0")||CMLib.english().containsString(msg.target().name(),DT.parm1)))
-					   yup=true;
-					break;
-				case INROOM:
-					if(msg.source().location()!=null)
-					{
-						if(DT.parm1.equalsIgnoreCase("holy")||DT.parm1.equalsIgnoreCase("unholy")||DT.parm1.equalsIgnoreCase("balance"))
-							yup=CMLib.law().getClericInfused(msg.source().location())==this;
-						else
-						if(msg.source().location().roomID().equalsIgnoreCase(DT.parm1))
-							yup=true;
-					}
-					break;
-				case RIDING:
-					if((msg.source().riding()!=null)
-					&&(CMLib.english().containsString(msg.source().riding().name(),DT.parm1)))
-					   yup=true;
-					break;
-				case CAST:
-					if((msg.tool()!=null)
-					&&((msg.tool().ID().equalsIgnoreCase(DT.parm1))
-					||(CMLib.english().containsString(msg.tool().name(),DT.parm1))))
-						yup=true;
-					break;
-				case EMOTE:
-					if((msg.sourceMessage()!=null)&&(msg.sourceMessage().toUpperCase().indexOf(DT.parm1)>0))
-						yup=true;
-					break;
-				case PUTVALUE:
-					if((msg.tool() instanceof Item)
-					&&(((Item)msg.tool()).baseGoldValue()>=CMath.s_int(DT.parm1))
-					&&(msg.target() instanceof Container)
-					&&(CMLib.english().containsString(msg.target().name(),DT.parm2)))
-						yup=true;
-					break;
-				case PUTMATERIAL:
-					if((msg.tool() instanceof Item)
-					&&(((((Item)msg.tool()).material()&RawMaterial.RESOURCE_MASK)==CMath.s_int(DT.parm1))
-						||((((Item)msg.tool()).material()&RawMaterial.MATERIAL_MASK)==CMath.s_int(DT.parm1)))
-					&&(msg.target() instanceof Container)
-					&&(CMLib.english().containsString(msg.target().name(),DT.parm2)))
-						yup=true;
-					break;
-				case BURNMATERIAL:
-					if((msg.target() instanceof Item)
-					&&(((((Item)msg.target()).material()&RawMaterial.RESOURCE_MASK)==CMath.s_int(DT.parm1))
-						||((((Item)msg.target()).material()&RawMaterial.MATERIAL_MASK)==CMath.s_int(DT.parm1))))
-							yup=true;
-					break;
-				case BURNVALUE:
-					if((msg.target() instanceof Item)
-					&&(((Item)msg.target()).baseGoldValue()>=CMath.s_int(DT.parm1)))
-						yup=true;
-					break;
-				case SITTING:
-					yup=CMLib.flags().isSitting(msg.source());
-					break;
-				case STANDING:
-					yup=(CMLib.flags().isStanding(msg.source()));
-					break;
-				case SLEEPING:
-					yup=CMLib.flags().isSleeping(msg.source());
-					break;
-				}
-			}
-			if((yup)||(DT.triggerCode.getCMMsgCode()==-999))
-			{
-				boolean[] checks=trigParts.get(msg.source().Name());
-				if(yup)
-				{
-					recheck=true;
-					trigTimes.remove(msg.source().Name());
-					trigTimes.put(msg.source().Name(),Long.valueOf(System.currentTimeMillis()));
-					if((checks==null)||(checks.length!=V.size()))
-					{
-						checks=new boolean[V.size()];
-						trigParts.put(msg.source().Name(),checks);
-					}
-				}
-				if(checks!=null)
-					checks[v]=yup;
-			}
+			if(baseCharStats.getMyDeity()==this)
+				baseCharStats.setWorshipCharID("");
+			charStats.setWorshipCharID("");
 		}
-		return recheck;
 	}
 
 	@Override
 	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		super.executeMsg(myHost,msg);
-		if(norecurse)
-			return;
 
 		if(msg.amITarget(this))
 		{
 			switch(msg.targetMinor())
 			{
 			case CMMsg.TYP_SERVE:
-				msg.source().setWorshipCharID(name());
+				{
+					msg.source().baseCharStats().setWorshipCharID(name());
+					msg.source().recoverCharStats();
+				}
 				break;
 			case CMMsg.TYP_REBUKE:
-				if(msg.source().getWorshipCharID().equals(Name()))
+				if(msg.source().baseCharStats().getWorshipCharID().equals(Name())
+				||msg.source().charStats().getWorshipCharID().equals(Name()))
 				{
-					msg.source().setWorshipCharID("");
+					if(msg.source().baseCharStats().getWorshipCharID().equals(Name()))
+					{
+						msg.source().baseCharStats().setWorshipCharID("");
+						msg.source().recoverCharStats();
+					}
 					removeBlessings(msg.source());
-					if(msg.source().charStats().getCurrentClass().baseClass().equals("Cleric"))
+					if(msg.source().charStats().getStat(CharStats.STAT_FAITH)>=100)
 					{
 						removePowers(msg.source());
 						msg.source().tell(L("You feel the wrath of @x1!",name()));
@@ -982,131 +730,115 @@ public class StdDeity extends StdMOB implements Deity
 					}
 					else
 					{
-						xpwrath=-CMLib.leveler().postExperience(msg.source(),null,null,-xpwrath,false);
+						xpwrath=-CMLib.leveler().postExperience(msg.source(),"MISC:"+name(),null,null,-xpwrath, false);
 						msg.source().tell(L("@x1 takes @x2 of experience from you.",name(),""+xpwrath));
 					}
+					final Ability doubtA=CMClass.getAbility("Prayer_ReligiousDoubt");
+					if((doubtA!=null)&&(msg.source().fetchEffect(doubtA.ID())==null))
+						doubtA.startTickDown(this, msg.source(), (int)CMProps.getTicksPerDay());
 				}
 				break;
+			case CMMsg.TYP_HOLYEVENT:
+				if((msg.targetMajor(CMMsg.MASK_ALWAYS))
+				&&(msg.source()==myHost)
+				&&(msg.othersMessage()!=null))
+				{
+					final Deity.HolyEvent event=(Deity.HolyEvent)CMath.s_valueOf(Deity.HolyEvent.class, msg.othersMessage().toUpperCase().trim());
+					if(event == null)
+						break;
+					switch(event)
+					{
+					case SERVICE:
+						{
+							final CMMsg msg2=rituals.genNextAbleTrigger(msg.source(), msg.source(), RitualType.SERVICE, true);
+							if(msg2 != null)
+								msg.addTrailerMsg(msg2);
+							break;
+						}
+					case SERVICE_CANCEL:
+						{
+							final WorshipService service=findService(msg.source(),null);
+							this.cancelService(service,"");
+							break;
+						}
+					case CURSING:
+					{
+						msg.addTrailerRunnable(new Runnable()
+						{
+							final MOB M=msg.source();
+							@Override
+							public void run()
+							{
+								bestowCurses(M);
+							}
+						});
+						break;
+					}
+					default:
+						break;
+					}
+					break;
+				}
 			}
 		}
 		else
-		if(msg.source().getWorshipCharID().equals(name()))
+		if(msg.source()==myHost) // since deities might see a message through many many eyes
 		{
-			if(numBlessings()>0)
+			if((!neverTriggers.contains(Integer.valueOf(msg.sourceMinor())))
+			&&((name().equals(msg.source().baseCharStats().getWorshipCharID()))
+				||((msg.source().charStats().getStat(CharStats.STAT_FAITH)>=1000)
+					&&(Name().equals(msg.source().charStats().getWorshipCharID())))))
 			{
-				List<DeityTrigger> V=worshipTriggers;
-				if(msg.source().charStats().getCurrentClass().baseClass().equals("Cleric"))
-					V=clericTriggers;
-				if((V!=null)&&(V.size()>0))
+				if(numBlessings()>0)
 				{
-					final boolean recheck=triggerCheck(msg,V,trigBlessingParts,trigBlessingTimes);
-
-					if((recheck)&&(!norecurse)&&(!alreadyBlessed(msg.source())))
+					RitualType type = RitualType.WORSHIP_BLESSING;
+					if(msg.source().charStats().getStat(CharStats.STAT_FAITH)>=100)
+						type = RitualType.CLERIC_BLESSING;
+					if(rituals.isTracking(type, msg))
 					{
-						final boolean[] checks=trigBlessingParts.get(msg.source().Name());
-						if((checks!=null)&&(checks.length==V.size())&&(checks.length>0))
-						{
-							boolean rollingTruth=checks[0];
-							for(int v=1;v<V.size();v++)
-							{
-								final DeityTrigger DT=V.get(v);
-								if(DT.previousConnect==RitualConnector.AND)
-									rollingTruth=rollingTruth&&checks[v];
-								else
-									rollingTruth=rollingTruth||checks[v];
-							}
-							if(rollingTruth)
-								bestowBlessings(msg.source());
-						}
+						if((rituals.isCompleted(type, msg))
+						&&(!alreadyBlessed(msg.source())))
+							bestowBlessings(msg.source());
 					}
 				}
-			}
-			if(numCurses()>0)
-			{
-				List<DeityTrigger> V=worshipCurseTriggers;
-				if(msg.source().charStats().getCurrentClass().baseClass().equals("Cleric"))
-					V=clericCurseTriggers;
-				if((V!=null)&&(V.size()>0))
+				if(numCurses()>0)
 				{
-					final boolean recheck=triggerCheck(msg,V,trigCurseParts,trigCurseTimes);
-					if((recheck)&&(!norecurse))
+					RitualType type = RitualType.WORSHIP_CURSE;
+					if(msg.source().charStats().getStat(CharStats.STAT_FAITH)>=100)
+						type = RitualType.CLERIC_CURSE;
+					if(rituals.isTracking(type, msg))
 					{
-						final boolean[] checks=trigCurseParts.get(msg.source().Name());
-						if((checks!=null)&&(checks.length==V.size())&&(checks.length>0))
-						{
-							boolean rollingTruth=checks[0];
-							for(int v=1;v<V.size();v++)
-							{
-								final DeityTrigger DT=V.get(v);
-								if(DT.previousConnect==RitualConnector.AND)
-									rollingTruth=rollingTruth&&checks[v];
-								else
-									rollingTruth=rollingTruth||checks[v];
-							}
-							if(rollingTruth)
-								bestowCurses(msg.source());
-						}
+						if(rituals.isCompleted(type, msg))
+							bestowCurses(msg.source());
 					}
 				}
-			}
-			if((numPowers()>0)
-			&&(msg.source().charStats().getCurrentClass().baseClass().equals("Cleric")
-				||(CMSecurity.isASysOp(msg.source()))))
-			{
-				final List<DeityTrigger> V=clericPowerTriggers;
-				if((V!=null)&&(V.size()>0))
+				if(numPowers()>0)
 				{
-					final boolean recheck=triggerCheck(msg,V,trigPowerParts,trigPowerTimes);
-
-					if((recheck)&&(!norecurse)&&(!alreadyPowered(msg.source())))
+					if(((msg.source().charStats().getStat(CharStats.STAT_FAITH)>=100)
+							||(msg.source().isPlayer() && msg.source().isAttributeSet(Attrib.SYSOPMSGS)))
+					&&(rituals.isTracking(RitualType.POWER, msg)))
 					{
-						final boolean[] checks=trigPowerParts.get(msg.source().Name());
-						if((checks!=null)&&(checks.length==V.size())&&(checks.length>0))
-						{
-							boolean rollingTruth=checks[0];
-							for(int v=1;v<V.size();v++)
-							{
-								final DeityTrigger DT=V.get(v);
-								if(DT.previousConnect==RitualConnector.AND)
-									rollingTruth=rollingTruth&&checks[v];
-								else
-									rollingTruth=rollingTruth||checks[v];
-							}
-							if(rollingTruth)
-								bestowPowers(msg.source());
-						}
+						if((rituals.isCompleted(RitualType.POWER, msg))
+						&&(!alreadyPowered(msg.source())))
+							bestowPowers(msg.source());
 					}
 				}
-			}
 
-			if((msg.source().charStats().getCurrentClass().baseClass().equals("Cleric")
-				||(CMSecurity.isASysOp(msg.source())))
-			&&(CMLib.law().getClericInfused(msg.source().location())==this))
-			{
-				final List<DeityTrigger> V=serviceTriggers;
-				if((V!=null)&&(V.size()>0))
+				if(((msg.source().charStats().getStat(CharStats.STAT_FAITH)>=100)
+					||(msg.source().isPlayer() && msg.source().isAttributeSet(Attrib.SYSOPMSGS)))
+				&&((Name().equalsIgnoreCase(CMLib.law().getClericInfused(msg.source().location())))
+					||((msg.source().charStats().getStat(CharStats.STAT_FAITH)>=1000)
+						&&(Name().equals(msg.source().charStats().getWorshipCharID())))))
 				{
-					final boolean recheck=triggerCheck(msg,V,trigServiceParts,trigServiceTimes);
-
-					if((recheck)&&(!norecurse)&&(!alreadyServiced(msg.source(),msg.source().location())))
+					if(rituals.isTracking(RitualType.SERVICE, msg))
 					{
-						final boolean[] checks=trigServiceParts.get(msg.source().Name());
-						if((checks!=null)&&(checks.length==V.size())&&(checks.length>0))
+						if(rituals.isCompleted(RitualType.SERVICE, msg))
 						{
-							boolean rollingTruth=checks[0];
-							for(int v=1;v<V.size();v++)
-							{
-								final DeityTrigger DT=V.get(v);
-								if(rollingTruth)
-									startServiceIfNecessary(msg.source(),msg.source().location());
-								if(DT.previousConnect==RitualConnector.AND)
-									rollingTruth=rollingTruth&&checks[v];
-								else
-									rollingTruth=rollingTruth||checks[v];
-							}
-							if(rollingTruth)
+							if(!serviceCheck(msg.source(),msg.source().location(),false))
 								finishService(msg.source(),msg.source().location());
 						}
+						else
+							startServiceIfNecessary(msg.source(),msg.source().location());
 					}
 				}
 			}
@@ -1117,53 +849,69 @@ public class StdDeity extends StdMOB implements Deity
 	{
 		if((mob==null)||(room==null))
 			return;
+		if(serviceCheck(mob, room, true))
+			return;
+		if(serviceCheck(mob, room, false))
+		{
+			if(!mob.isMonster())
+				mob.tell(L("Services have already been performed here for @x1 recently.",name()));
+			return;
+		}
 		final List<MOB> parishaners=new ArrayList<MOB>();
 		synchronized(services)
 		{
-			for(final WorshipService w : services)
-			{
-				if(w.room==room)
-					return;
-			}
+			final CMMsg msg=CMClass.getMsg(this,mob,null,
+					CMMsg.MSG_HOLYEVENT, L("<T-NAME> begin(s) to hold services for @x1 here.",name()),
+					CMMsg.MSG_HOLYEVENT, L("<T-NAME> begin(s) to hold services for @x1 here.",name()),
+					CMMsg.NO_EFFECT,HolyEvent.SERVICE_BEGIN.toString());
+			if(!room.okMessage(this, msg))
+				return;
+			room.send(this, msg);
 			final WorshipService service = new WorshipService();
 			service.room=room;
 			service.parishaners = parishaners;
 			service.startTime = System.currentTimeMillis();
 			service.cleric = mob;
 			service.serviceCompleted = false;
+
 			services.add(service);
-			final Ability A=CMLib.law().getClericInfusion(room);
-			if(A!=null)
-				A.setAbilityCode(1);
+			final Deity.DeityWorshipper A=CMLib.law().getClericInfusion(room);
+			if(A instanceof Ability)
+				((Ability)A).setAbilityCode(1);
 		}
 		Room R=null;
 		MOB M=null;
-		final TrackingLibrary.TrackingFlags flags=CMLib.tracking().newFlags();
-		final List<Room> V=CMLib.tracking().getRadiantRooms(room,flags,5+(mob.phyStats().level()/5));
-		for(int v=0;v<V.size();v++)
+		final int maxMobs = 5+(mob.phyStats().level()/2);
+		for(final Enumeration<Room> r=CMLib.tracking().getRadiantRoomsEnum(room, null, null, 5+(mob.phyStats().level()/5), null);r.hasMoreElements();)
 		{
-			R=V.get(v);
-			if(CMLib.law().getClericInfused(R)!=this)
-			for(int m=0;m<R.numInhabitants();m++)
+			R=r.nextElement();
+			if(!Name().equalsIgnoreCase(CMLib.law().getClericInfused(R)))
 			{
-				M=R.fetchInhabitant(m);
-				if(M==null)
-					continue;
-				if(M.getWorshipCharID().equals(Name()))
+				for(int m=0;m<R.numInhabitants();m++)
 				{
-					if(!M.isMonster())
-						M.tell(L("Services for @x1 are now starting at @x2.",Name(),room.displayText(null)));
-					else
-					if(!CMLib.flags().isATrackingMonster(M))
+					M=R.fetchInhabitant(m);
+					if((M==null)||(M==mob)||(CMLib.flags().isAnimalIntelligence(M)))
+						continue;
+					if(M.charStats().getWorshipCharID().equals(Name()))
 					{
-						final Ability TRACKA=CMClass.getAbility("Skill_Track");
-						if(TRACKA!=null)
+						if(!M.isMonster())
+							M.tell(L("Services for @x1 are now starting at @x2.",Name(),room.displayText(null)));
+						else
+						if((!CMLib.flags().isATrackingMonster(M))
+						&&(!M.isInCombat())
+						&&(CMLib.flags().isAliveAwakeMobileUnbound(M, true)))
 						{
-							TRACKA.invoke(M,CMParms.parse("\""+CMLib.map().getExtendedRoomID(room)+"\""),room,true,0);
-							parishaners.add(M);
+							if(CMLib.tracking().autoTrack(M, room))
+							{
+								parishaners.add(M);
+								if(parishaners.size()>maxMobs)
+									break;
+							}
 						}
 					}
 				}
+				if(parishaners.size()>maxMobs)
+					break;
 			}
 		}
 	}
@@ -1175,7 +923,7 @@ public class StdDeity extends StdMOB implements Deity
 		for(int m=V.size()-1;m>=0;m--)
 		{
 			M=V.get(m);
-			if(M==null)
+			if((M==null)||(!M.isMonster())||(M.isPlayer()))
 				continue;
 			A=M.fetchEffect("Skill_Track");
 			if(A!=null)
@@ -1185,7 +933,7 @@ public class StdDeity extends StdMOB implements Deity
 		}
 	}
 
-	protected boolean alreadyServiced(final MOB mob, final Room room)
+	protected boolean serviceCheck(final MOB mob, final Room room, final boolean inProgress)
 	{
 		synchronized(services)
 		{
@@ -1196,27 +944,23 @@ public class StdDeity extends StdMOB implements Deity
 				{
 					undoService(service.parishaners);
 					services.remove(d);
-					final Ability A=CMLib.law().getClericInfusion(service.room);
-					if(A!=null)
-						A.setAbilityCode(0);
+					final Deity.DeityWorshipper A=CMLib.law().getClericInfusion(service.room);
+					if(A instanceof Ability)
+						((Ability)A).setAbilityCode(0);
 				}
 				else
 				if((service.room != null)
 				&&(service.room.getArea()==room.getArea())
-				&&(service.serviceCompleted))
+				&&(service.serviceCompleted == !inProgress))
 					return true;
 			}
 		}
 		return false;
 	}
 
-	public boolean finishService(final MOB mob, final Room room)
+	public WorshipService findService(final MOB mob, final Room room)
 	{
-		if((mob==null)||(room==null))
-			return false;
-		MOB M=null;
-		int totalLevels=0;
-		WorshipService service = null;
+		WorshipService service=null;
 		synchronized(services)
 		{
 			for(final WorshipService s : services)
@@ -1226,25 +970,67 @@ public class StdDeity extends StdMOB implements Deity
 			}
 			if(service == null)
 			{
-				for(final WorshipService s : services)
+				if(room != null)
 				{
-					if(s.room==room)
-						service = s;
+					for(final WorshipService s : services)
+					{
+						if(s.room==room)
+							service = s;
+					}
+				}
+				else
+				{
+					for(final WorshipService s : services)
+					{
+						if(s.cleric==mob)
+							service = s;
+					}
 				}
 			}
 		}
+		return service;
+	}
+
+	public boolean finishService(final MOB mob, final Room room)
+	{
+		if((mob==null)||(room==null))
+			return false;
+		MOB M=null;
+		int totalLevels=0;
+		final WorshipService service = findService(mob,room);
 		if(service == null)
 			return false;
+		for(int m=0;m<room.numInhabitants();m++)
+		{
+			M=room.fetchInhabitant(m);
+			if((M==null)||(M==mob)||(CMLib.flags().isAnimalIntelligence(M)))
+				continue;
+			if(M.charStats().getWorshipCharID().equals(Name()))
+			{
+				if(!M.isMonster())
+					service.parishaners.add(M);
+			}
+		}
+		if(service.parishaners.size()==0)
+		{
+			return this.cancelService(service,L(" because no one showed up for it."));
+		}
+		final CMMsg eventMsg=CMClass.getMsg(this, mob, null,
+				CMMsg.MSG_HOLYEVENT, null,
+				CMMsg.MSG_HOLYEVENT, L("<T-NAME> <T-HAS-HAVE> completed services for @x1.",name()),
+				CMMsg.NO_EFFECT, HolyEvent.SERVICE.toString());
+		eventMsg.setValue(service.parishaners.size());
 		service.serviceCompleted = true;
 		for(int m=0;m<room.numInhabitants();m++)
 		{
 			M=room.fetchInhabitant(m);
 			if(M==null)
 				continue;
-			if(M.getWorshipCharID().equals(Name()))
+			eventMsg.setTarget(M);
+			if(M.charStats().getWorshipCharID().equals(mob.baseCharStats().getWorshipCharID()))
 			{
 				if((!M.isMonster())&&(M!=mob))
-					CMLib.leveler().postExperience(M,null,null,50,false);
+					CMLib.leveler().postExperience(M,"SERVICE:"+name(),null,null,50, false);
 				totalLevels+=M.phyStats().level();
 				if(!M.isMonster())
 					totalLevels+=(M.phyStats().level()*2);
@@ -1252,19 +1038,23 @@ public class StdDeity extends StdMOB implements Deity
 				if(A!=null)
 					A.makeLongLasting();
 			}
+			room.send(this, eventMsg);
 		}
 		undoService(service.parishaners);
 		final int exp=(int)Math.round(CMath.div(totalLevels,mob.phyStats().level())*10.0);
-		CMLib.leveler().postExperience(mob,null,null,exp,false);
-		trigServiceParts.remove(mob.Name());
-		trigServiceTimes.remove(mob.Name());
+		CMLib.leveler().postExperience(mob,"SERVICE:"+ID(),null,null,exp, false);
 		return true;
 	}
 
-	public boolean cancelService(final WorshipService service)
+	protected boolean cancelService(final WorshipService service, final String reason)
 	{
 		if(service == null)
 			return false;
+		synchronized(services)
+		{
+			if(!services.contains(service))
+				return false;
+		}
 		final Room room = service.room;
 		final MOB mob = service.cleric;
 		MOB M=null;
@@ -1273,27 +1063,53 @@ public class StdDeity extends StdMOB implements Deity
 			M=room.fetchInhabitant(m);
 			if(M==null)
 				continue;
-			if(M.getWorshipCharID().equals(Name()))
+			if(M.charStats().getWorshipCharID().equals(Name()))
 			{
 				final Ability A=M.fetchEffect("Skill_Convert");
 				if(A!=null)
 					A.unInvoke();
 			}
 		}
-		room.showHappens(CMMsg.MASK_ALWAYS, L("The service conducted by @x1 has been cancelled.",mob.Name()));
+		final CMMsg msg=CMClass.getMsg(this,mob,null,
+				CMMsg.MSG_HOLYEVENT, L("The service conducted by @x1 has been cancelled.",mob.Name()),
+				CMMsg.MSG_HOLYEVENT, null,
+				CMMsg.NO_EFFECT, HolyEvent.SERVICE_CANCEL.toString());
+		final CMMsg msg2=CMClass.getMsg(this,null,null,
+				CMMsg.NO_EFFECT, null,CMMsg.NO_EFFECT,null,CMMsg.MSG_OK_ACTION,L("The service conducted by @x1 has been cancelled@x2.",mob.Name(),reason));
+		if(room.okMessage(this, msg)
+		&&room.okMessage(this, msg2))
+		{
+			room.send(this, msg);
+			room.send(this, msg2);
+		}
 		if(mob.location()!=room)
-			mob.tell(L("Your service has been cancelled."));
+			mob.executeMsg(this, msg);
 		undoService(service.parishaners);
 		synchronized(services)
 		{
 			services.remove(service);
-			final Ability A=CMLib.law().getClericInfusion(service.room);
-			if(A!=null)
-				A.setAbilityCode(0);
+			final Deity.DeityWorshipper A=CMLib.law().getClericInfusion(service.room);
+			if(A instanceof Ability)
+				((Ability)A).setAbilityCode(0);
+			rituals.deleteTracking(mob, RitualType.SERVICE);
 		}
-		trigServiceParts.remove(mob.Name());
-		trigServiceTimes.remove(mob.Name());
 		return true;
+	}
+
+	protected int[] getBlackmarks(final MOB M)
+	{
+		final int[] blackmarks;
+		synchronized(blacklist)
+		{
+			if(!blacklist.containsKey(M.Name()))
+			{
+				blackmarks=new int[]{0};
+				blacklist.put(M.Name(), blackmarks);
+			}
+			else
+				blackmarks=blacklist.get(M.Name());
+		}
+		return blackmarks;
 	}
 
 	@Override
@@ -1304,167 +1120,132 @@ public class StdDeity extends StdMOB implements Deity
 		if((tickID==Tickable.TICKID_MOB)
 		&&((--rebukeCheckDown)<0))
 		{
-			rebukeCheckDown=10;
+			rebukeCheckDown=30;
 			for(final Enumeration<MOB> p=CMLib.players().players();p.hasMoreElements();)
 			{
 				final MOB M=p.nextElement();
-				if((lastBlackmark>0)
-				&&(blacklist!=null)
-				&&(blacklist!=M)
-				&&((System.currentTimeMillis()-lastBlackmark)<120000))
-					continue;
-				if((!M.isMonster())&&(M.getWorshipCharID().equals(name()))&&(CMLib.flags().isInTheGame(M,true)))
+				if((!M.isMonster())
+				&&(M.charStats().getWorshipCharID().equals(name()))
+				&&(CMLib.flags().isInTheGame(M,true)))
 				{
-					if(M.charStats().getCurrentClass().baseClass().equalsIgnoreCase("Cleric"))
+					final Room R=M.location();
+					if(R==null)
+						continue;
+					if((M.charStats().getStat(CharStats.STAT_FAITH)>=100)
+					&&(M.baseCharStats().getWorshipCharID().equals(M.charStats().getWorshipCharID())))
 					{
 						if(!CMLib.masking().maskCheck(getClericRequirements(),M,true))
 						{
-							if((blacklist==M)&&((++blackmarks)>30))
+							final int[] blackmarks=getBlackmarks(M);
+							if((++blackmarks[0]>30))
 							{
+								final CMMsg eventMsg=CMClass.getMsg(this, M, null,
+										CMMsg.MSG_HOLYEVENT, null,
+										CMMsg.MSG_HOLYEVENT, null,
+										CMMsg.NO_EFFECT, HolyEvent.REBUKE.toString());
+								R.send(this, eventMsg);
 								final CMMsg msg=CMClass.getMsg(M,this,null,CMMsg.MSG_REBUKE,L("<S-NAME> <S-HAS-HAVE> been rebuked by <T-NAME>!!"));
-								if((M.location()!=null)&&(M.okMessage(M,msg)))
-									M.location().send(M,msg);
-								blackmarks=0;
-								blacklist=null;
-								lastBlackmark=0;
+								if(M.okMessage(M,msg))
+									R.send(M,msg);
+								blacklist.remove(M.Name());
 							}
 							else
 							{
-								if(blacklist!=M)
-									blackmarks=0;
-								blacklist=M;
-								blackmarks++;
-								lastBlackmark=System.currentTimeMillis();
-								if((blackmarks%5)==0)
-									M.tell(L("You feel dirtied by the disappointment of @x1.",name()));
+								final CMMsg eventMsg=CMClass.getMsg(this, M, null,
+										CMMsg.MSG_HOLYEVENT, null,
+										CMMsg.MSG_HOLYEVENT, null,
+										CMMsg.NO_EFFECT, HolyEvent.DISAPPOINTED.toString());
+								eventMsg.setValue(blackmarks[0]);
+								if(M.okMessage(M,eventMsg))
+								{
+									R.send(this, eventMsg);
+									if(blackmarks[0]==0)
+										M.tell(L("You feel dirtied by the disappointment of @x1.",name()));
+								}
 							}
 						}
 						else
-						if(blacklist==M)
 						{
-							blackmarks=0;
-							blacklist=null;
-							lastBlackmark=0;
+							synchronized(blacklist)
+							{
+								if(blacklist.containsKey(M.Name()))
+									blacklist.remove(M.Name());
+							}
 						}
 					}
 					else
 					if(!CMLib.masking().maskCheck(getWorshipRequirements(),M,true))
 					{
-						if((blacklist==M)&&((++blackmarks)>30))
+						final int[] blackmarks=getBlackmarks(M);
+						if((++blackmarks[0]>30))
 						{
+							final CMMsg eventMsg=CMClass.getMsg(this, M, null,
+									CMMsg.MSG_HOLYEVENT, null,
+									CMMsg.MSG_HOLYEVENT, null,
+									CMMsg.NO_EFFECT, HolyEvent.REBUKE.toString());
+							R.send(this, eventMsg);
 							final CMMsg msg=CMClass.getMsg(M,this,null,CMMsg.MSG_REBUKE,L("<S-NAME> <S-HAS-HAVE> been rebuked by <T-NAME>!!"));
-							if((M.location()!=null)&&(M.okMessage(M,msg)))
+							if(M.okMessage(M,msg))
 								M.location().send(M,msg);
 						}
 						else
 						{
-							if(blacklist!=M)
-								blackmarks=0;
-							blacklist=M;
-							blackmarks++;
-							lastBlackmark=System.currentTimeMillis();
-							if(blackmarks==1)
-								M.tell(L("Worshipper, you have disappointed @x1. Make amends or face my wrath!",name()));
-						}
-					}
-					else
-					if(blacklist==M)
-					{
-						blackmarks=0;
-						blacklist=null;
-						lastBlackmark=0;
-					}
-				}
-				else
-				if(blacklist==M)
-				{
-					blackmarks=0;
-					blacklist=null;
-					lastBlackmark=0;
-				}
-			}
-			final long curTime=System.currentTimeMillis()-60000;
-			Long L=null;
-			for(final String key : trigBlessingTimes.keySet())
-			{
-				L=trigBlessingTimes.get(key);
-				if((L!=null)&&(L.longValue()<curTime))
-				{
-					trigBlessingTimes.remove(key);
-					trigBlessingParts.remove(key);
-				}
-			}
-			for(final String key : trigPowerTimes.keySet())
-			{
-				L=trigPowerTimes.get(key);
-				if((L!=null)&&(L.longValue()<curTime))
-				{
-					trigPowerTimes.remove(key);
-					trigPowerParts.remove(key);
-				}
-			}
-			for(final String key : trigCurseTimes.keySet())
-			{
-				L=trigCurseTimes.get(key);
-				if((L!=null)&&(L.longValue()<curTime))
-				{
-					trigCurseTimes.remove(key);
-					trigCurseParts.remove(key);
-				}
-			}
-			for(final String key : trigServiceTimes.keySet())
-			{
-				L=trigServiceTimes.get(key);
-				if((L!=null)&&(L.longValue()<curTime))
-				{
-					LinkedList<WorshipService> delThese = null;
-					synchronized(services)
-					{
-						for(final WorshipService service : services)
-						{
-							if((service.cleric!=null)
-							&&(service.cleric.Name().equalsIgnoreCase(key))
-							&&(!service.serviceCompleted))
+							final CMMsg eventMsg=CMClass.getMsg(this, M, null,
+									CMMsg.MSG_HOLYEVENT, null,
+									CMMsg.MSG_HOLYEVENT, null,
+									CMMsg.NO_EFFECT, HolyEvent.DISAPPOINTED.toString());
+							eventMsg.setValue(blackmarks[0]);
+							if(M.okMessage(M,eventMsg))
 							{
-								if(delThese == null)
-									delThese = new LinkedList<WorshipService>();
-								delThese.add(service);
+								R.send(this, eventMsg);
+								if(blackmarks[0]==1)
+									M.tell(L("Worshipper, you have disappointed @x1. Make amends or face my wrath!",name()));
 							}
 						}
 					}
-					if(delThese != null)
+					else
 					{
-						for(final WorshipService w : delThese)
-							cancelService(w);
+						synchronized(blacklist)
+						{
+							if(blacklist.containsKey(M.Name()))
+								blacklist.remove(M.Name());
+						}
 					}
+				}
+			}
+			if(services.size()>0)
+			{
+				LinkedList<WorshipService> delThese = null;
+				synchronized(services)
+				{
+					for(final WorshipService service : services)
+					{
+						if((service.cleric!=null)
+						&&(!service.serviceCompleted)
+						&&(!rituals.isTracking(service.cleric, RitualType.SERVICE)))
+						{
+							if(delThese == null)
+								delThese = new LinkedList<WorshipService>();
+							delThese.add(service);
+						}
+					}
+				}
+				if(delThese != null)
+				{
+					for(final WorshipService w : delThese)
+						cancelService(w,"");
 				}
 			}
 		}
-		if(waitingFor.size()>0)
+		for(final MOB M : rituals.whosDoneWaiting())
 		{
-			final List<MOB> executeMOBList;
-			synchronized(waitingFor)
+			final CMMsg msg = CMClass.getMsg(M,null,null,CMMsg.MSG_OK_VISUAL,null);
+			try
 			{
-				if(waitingFor.size()>0)
-				{
-					executeMOBList=new ArrayList<MOB>(waitingFor);
-					waitingFor.clear();
-				}
-				else
-					executeMOBList=null;
+				executeMsg(M, msg);
 			}
-			if(executeMOBList != null)
+			catch(final Exception e)
 			{
-				for (final MOB M : executeMOBList)
-				{
-					try
-					{
-						executeMsg(this,CMClass.getMsg(M,null,null,CMMsg.MSG_OK_VISUAL,null));
-					}
-					catch(final Exception e)
-					{
-					}
-				}
 			}
 		}
 		return true;
@@ -1479,7 +1260,15 @@ public class StdDeity extends StdMOB implements Deity
 		{
 			final Ability A=fetchBlessing(a);
 			if((A!=null)&&(A.ID().equals(to.ID())))
-				return;
+			{
+				if(!A.text().equals(to.text()))
+				{
+					blessings.remove(a);
+					break;
+				}
+				else
+					return;
+			}
 		}
 		blessings.add(new DeityPower(to,clericOnly));
 	}
@@ -1509,7 +1298,7 @@ public class StdDeity extends StdMOB implements Deity
 		{
 			return blessings.get(index).power;
 		}
-		catch(final java.lang.ArrayIndexOutOfBoundsException x)
+		catch(final IndexOutOfBoundsException x)
 		{
 		}
 		return null;
@@ -1522,7 +1311,7 @@ public class StdDeity extends StdMOB implements Deity
 		{
 			return blessings.get(index).clericOnly;
 		}
-		catch(final java.lang.ArrayIndexOutOfBoundsException x)
+		catch(final IndexOutOfBoundsException x)
 		{
 		}
 		return false;
@@ -1561,316 +1350,6 @@ public class StdDeity extends StdMOB implements Deity
 		}),ID,false);
 	}
 
-	protected void parseTriggers(final List<DeityTrigger> putHere, String trigger)
-	{
-		putHere.clear();
-		trigger=trigger.toUpperCase().trim();
-		RitualConnector previousConnector=RitualConnector.AND;
-		if(trigger.equals("-"))
-			return;
-
-		while(trigger.length()>0)
-		{
-			final int div1=trigger.indexOf('&');
-			final int div2=trigger.indexOf('|');
-			int div=div1;
-
-			if((div2>=0)&&((div<0)||(div2<div)))
-				div=div2;
-			String trig=null;
-			if(div<0)
-			{
-				trig=trigger;
-				trigger="";
-			}
-			else
-			{
-				trig=trigger.substring(0,div).trim();
-				trigger=trigger.substring(div+1);
-			}
-			if(trig.length()>0)
-			{
-				final Vector<String> V=CMParms.parse(trig);
-				if(V.size()>1)
-				{
-					final String cmd=V.firstElement();
-					DeityTrigger DT=new DeityTrigger();
-					RitualTrigger T = (RitualTrigger)CMath.s_valueOf(RitualTrigger.class, cmd);
-					if(T==null)
-					{
-						for(final RitualTrigger RT : RitualTrigger.values())
-						{
-							if(RT.getShortName().equals(cmd))
-							{
-								T=RT;
-								break;
-							}
-						}
-					}
-					if(T==null)
-					{
-						for(final RitualTrigger RT : RitualTrigger.values())
-						{
-							if(RT.name().startsWith(cmd))
-							{
-								T=RT;
-								break;
-							}
-						}
-					}
-					DT.previousConnect=previousConnector;
-					if(T==null)
-					{
-						Log.errOut("StdDeity",Name()+"- Illegal trigger: '"+cmd+"','"+trig+"'");
-						break;
-					}
-					else
-					switch(T)
-					{
-					case SAY:
-					{
-						DT.triggerCode=T;
-						DT.parm1=CMParms.combine(V,1);
-					}
-					break;
-					case TIME:
-					{
-						DT.triggerCode=T;
-						DT.parm1=""+CMath.s_int(CMParms.combine(V,1));
-					}
-					break;
-					case WAIT:
-					{
-						DT.triggerCode=T;
-						DT.parm1=""+CMath.s_int(CMParms.combine(V,1));
-					}
-					break;
-					case YOUSAY:
-					{
-						DT.triggerCode=T;
-						DT.parm1=CMParms.combine(V,1);
-					}
-					break;
-					case OTHERSAY:
-					{
-						DT.triggerCode=T;
-						DT.parm1=CMParms.combine(V,1);
-					}
-					break;
-					case ALLSAY:
-					{
-						DT.triggerCode=T;
-						DT.parm1=CMParms.combine(V,1);
-					}
-					break;
-					case PUTTHING:
-					{
-						DT.triggerCode=T;
-						if(V.size()<3)
-						{
-							Log.errOut("StdDeity",Name()+"- Illegal trigger: "+trig);
-							DT=null;
-							break;
-						}
-						DT.parm1=CMParms.combine(V,1,V.size()-2);
-						DT.parm2=V.lastElement();
-					}
-					break;
-					case BURNTHING:
-					{
-						DT.triggerCode=T;
-						DT.parm1=CMParms.combine(V,1);
-					}
-					break;
-					case PUTVALUE:
-					{
-						DT.triggerCode=T;
-						if(V.size()<3)
-						{
-							Log.errOut("StdDeity",Name()+"- Illegal trigger: "+trig);
-							DT=null;
-							break;
-						}
-						DT.parm1=""+CMath.s_int(V.elementAt(1));
-						DT.parm2=CMParms.combine(V,2);
-					}
-					break;
-					case BURNVALUE:
-					{
-						DT.triggerCode=T;
-						if(V.size()<3)
-						{
-							Log.errOut("StdDeity",Name()+"- Illegal trigger: "+trig);
-							DT=null;
-							break;
-						}
-						DT.parm1=""+CMath.s_int(CMParms.combine(V,1));
-					}
-					break;
-					case BURNMATERIAL:
-					{
-						DT.triggerCode=T;
-						DT.parm1=CMParms.combine(V,1);
-						final int cd = RawMaterial.CODES.FIND_StartsWith(DT.parm1);
-						boolean found=cd>=0;
-						if(found)
-							DT.parm1=""+cd;
-						else
-						{
-							final RawMaterial.Material m=RawMaterial.Material.startsWith(DT.parm1);
-							if(m!=null)
-							{
-								DT.parm1=""+m.mask();
-								found=true;
-							}
-						}
-						if(!found)
-						{
-							Log.errOut("StdDeity",Name()+"- Unknown material: "+trig);
-							DT=null;
-							break;
-						}
-					}
-					break;
-					case PUTMATERIAL:
-					{
-						DT.triggerCode=T;
-						if(V.size()<3)
-						{
-							Log.errOut("StdDeity",Name()+"- Illegal trigger: "+trig);
-							DT=null;
-							break;
-						}
-						DT.parm1=V.elementAt(1);
-						DT.parm2=CMParms.combine(V,2);
-						final int cd = RawMaterial.CODES.FIND_StartsWith(DT.parm1);
-						boolean found=cd>=0;
-						if(found)
-							DT.parm1=""+cd;
-						else
-						if(!found)
-						{
-							final RawMaterial.Material m=RawMaterial.Material.startsWith(DT.parm1);
-							if(m!=null)
-							{
-								DT.parm1=""+m.mask();
-								found=true;
-							}
-						}
-						if(!found)
-						{
-							Log.errOut("StdDeity",Name()+"- Unknown material: "+trig);
-							DT=null;
-							break;
-						}
-					}
-					break;
-					case EAT:
-					{
-						DT.triggerCode=T;
-						DT.parm1=CMParms.combine(V,1);
-					}
-					break;
-					case READING:
-					{
-						DT.triggerCode=T;
-						DT.parm1=CMParms.combine(V,1);
-					}
-					break;
-					case RANDOM:
-					{
-						DT.triggerCode=T;
-						DT.parm1=CMParms.combine(V,1);
-					}
-					break;
-					case CHECK:
-					{
-						DT.triggerCode=T;
-						DT.parm1=CMParms.combine(V,1);
-					}
-					break;
-					case DRINK:
-					{
-						DT.triggerCode=T;
-						DT.parm1=CMParms.combine(V,1);
-					}
-					break;
-					case INROOM:
-					{
-						DT.triggerCode=T;
-						DT.parm1=CMParms.combine(V,1);
-					}
-					break;
-					case RIDING:
-					{
-						DT.triggerCode=T;
-						DT.parm1=CMParms.combine(V,1);
-					}
-					break;
-					case CAST:
-					{
-						DT.triggerCode=T;
-						DT.parm1=CMParms.combine(V,1);
-						if(CMClass.findAbility(DT.parm1)==null)
-						{
-							Log.errOut("StdDeity",Name()+"- Illegal SPELL in: "+trig);
-							DT=null;
-							break;
-						}
-					}
-					break;
-					case EMOTE:
-					{
-						DT.triggerCode=T;
-						DT.parm1=CMParms.combine(V,1);
-					}
-					break;
-					case SITTING:
-					{
-						DT.triggerCode=T;
-					}
-					break;
-					case STANDING:
-					{
-						DT.triggerCode=T;
-					}
-					break;
-					case SLEEPING:
-					{
-						DT.triggerCode=T;
-					}
-					break;
-					default:
-					{
-						Log.errOut("StdDeity",Name()+"- Illegal trigger: '"+cmd+"','"+trig+"'");
-						DT=null;
-						break;
-					}
-					}
-					if(DT==null)
-						break;
-					putHere.add(DT);
-				}
-				else
-				{
-					Log.errOut("StdDeity",Name()+"- Illegal trigger (need more parameters): "+trig);
-					break;
-				}
-			}
-			if(div==div1)
-				previousConnector=RitualConnector.AND;
-			else
-				previousConnector=RitualConnector.OR;
-		}
-	}
-
-	protected static class DeityTrigger
-	{
-		public RitualTrigger triggerCode=RitualTrigger.SAY;
-		public RitualConnector previousConnect=RitualConnector.AND;
-		public String parm1=null;
-		public String parm2=null;
-	}
 
 	/** Manipulation of curse objects, which includes spells, traits, skills, etc.*/
 	@Override
@@ -1882,7 +1361,15 @@ public class StdDeity extends StdMOB implements Deity
 		{
 			final Ability A=fetchCurse(a);
 			if((A!=null)&&(A.ID().equals(to.ID())))
-				return;
+			{
+				if(!A.text().equals(to.text()))
+				{
+					curses.remove(a);
+					break;
+				}
+				else
+					return;
+			}
 		}
 		curses.add(new DeityPower(to,clericOnly));
 	}
@@ -1913,7 +1400,7 @@ public class StdDeity extends StdMOB implements Deity
 		{
 			return curses.get(index).power;
 		}
-		catch(final java.lang.ArrayIndexOutOfBoundsException x)
+		catch(final IndexOutOfBoundsException x)
 		{
 		}
 		return null;
@@ -1945,7 +1432,7 @@ public class StdDeity extends StdMOB implements Deity
 		{
 			return curses.get(index).clericOnly;
 		}
-		catch(final java.lang.ArrayIndexOutOfBoundsException x)
+		catch(final IndexOutOfBoundsException x)
 		{
 		}
 		return false;
@@ -1973,14 +1460,17 @@ public class StdDeity extends StdMOB implements Deity
 	public void setClericSin(final String ritual)
 	{
 		clericSin=ritual;
-		parseTriggers(clericCurseTriggers,ritual);
+		setRitual(RitualType.CLERIC_CURSE, ritual);
 	}
 
 	@Override
 	public String getClericSinDesc()
 	{
 		if(numCurses()>0)
-			return L("The curses of @x1 are placed upon @x2 clerics whenever the cleric does the following: @x3.",name(),charStats().hisher(),getTriggerDesc(clericCurseTriggers));
+		{
+			return L("The curses of @x1 are placed upon @x2 clerics whenever the cleric does the following: @x3.",
+					name(),charStats().hisher(),rituals.getTriggerDesc(RitualType.CLERIC_CURSE, "the cleric"));
+		}
 		return "";
 	}
 
@@ -1994,14 +1484,17 @@ public class StdDeity extends StdMOB implements Deity
 	public void setWorshipSin(final String ritual)
 	{
 		worshipSin=ritual;
-		parseTriggers(worshipCurseTriggers,ritual);
+		setRitual(RitualType.WORSHIP_CURSE, ritual);
 	}
 
 	@Override
 	public String getWorshipSinDesc()
 	{
 		if(numCurses()>0)
-			return L("The curses of @x1 are placed upon @x2 worshippers whenever the worshipper does the following: @x3.",name(),charStats().hisher(),getTriggerDesc(worshipCurseTriggers));
+		{
+			return L("The curses of @x1 are placed upon @x2 worshippers whenever the worshipper does the following: @x3.",
+					name(),charStats().hisher(),rituals.getTriggerDesc(RitualType.WORSHIP_CURSE, "the worshipper"));
+		}
 		return "";
 	}
 
@@ -2017,7 +1510,15 @@ public class StdDeity extends StdMOB implements Deity
 		{
 			final Ability A=fetchPower(a);
 			if((A!=null)&&(A.ID().equals(to.ID())))
-				return;
+			{
+				if(!A.text().equals(to.text()))
+				{
+					powers.remove(a);
+					break;
+				}
+				else
+					return;
+			}
 		}
 		powers.add(to);
 	}
@@ -2041,7 +1542,7 @@ public class StdDeity extends StdMOB implements Deity
 		{
 			return powers.get(index);
 		}
-		catch(final java.lang.ArrayIndexOutOfBoundsException x)
+		catch(final IndexOutOfBoundsException x)
 		{
 		}
 		return null;
@@ -2069,14 +1570,18 @@ public class StdDeity extends StdMOB implements Deity
 	public void setClericPowerup(final String ritual)
 	{
 		clericPowerup=ritual;
-		parseTriggers(clericPowerTriggers,ritual);
+		setRitual(RitualType.POWER, ritual);
 	}
 
 	@Override
 	public String getClericPowerupDesc()
 	{
 		if(numPowers()>0)
-			return L("Special powers of @x1 are placed upon @x2 clerics whenever the cleric does the following: @x3.",name(),charStats().hisher(),getTriggerDesc(clericPowerTriggers));
+		{
+			return L("Special powers of @x1 are placed upon @x2 clerics whenever the cleric does the following: @x3.",
+					name(),charStats().hisher(),rituals.getTriggerDesc(RitualType.POWER, "the cleric"));
+		}
 		return "";
 	}
+
 }

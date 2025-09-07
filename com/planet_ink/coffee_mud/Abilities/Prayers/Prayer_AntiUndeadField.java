@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -104,7 +104,7 @@ public class Prayer_AntiUndeadField extends Prayer
 
 		if((msg.target() == affected)
 		&& msg.isTarget(CMMsg.MASK_MALICIOUS)
-		&&(msg.source().charStats().getMyRace().racialCategory().equalsIgnoreCase("Undead"))
+		&&(CMLib.flags().isUndead(msg.source()))
 		&&(affected instanceof MOB)
 		&&(pointsRemaining >= 0))
 		{
@@ -175,7 +175,7 @@ public class Prayer_AntiUndeadField extends Prayer
 		if(msg.isSource(CMMsg.TYP_ADVANCE)
 		&&(msg.source() == affected)
 		&& (msg.source().getVictim()==msg.target())
-		&& (((MOB)msg.target()).charStats().getMyRace().racialCategory().equalsIgnoreCase("Undead"))
+		&& (CMLib.flags().isUndead((MOB)msg.target()))
 		&& (pointsRemaining >=0)
 		&& (msg.source().rangeToTarget() == 1))
 		{

@@ -1,11 +1,13 @@
 package com.planet_ink.coffee_mud.Abilities.Common;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.Rideable.Basis;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftParms;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftingActivity;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.EnhancedExpertise;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftorType;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
@@ -23,7 +25,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -56,6 +58,12 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 	private static final String[]	triggerStrings	= I(new String[] { "WAINWRIGHTING" });
 
 	@Override
+	public CraftorType getCraftorType()
+	{
+		return CraftorType.LargeConstructions;
+	}
+
+	@Override
 	public String[] triggerStrings()
 	{
 		return triggerStrings;
@@ -68,7 +76,7 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 	}
 
 	@Override
-	public String parametersFormat()
+	public String getRecipeFormat()
 	{
 		return
 		"ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\tMATERIALS_REQUIRED\tITEM_BASE_VALUE\t"
@@ -78,7 +86,7 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 
 	//protected static final int RCP_FINALNAME=0;
 	//protected static final int RCP_LEVEL=1;
-	//protected static final int RCP_TICKS=2;
+	protected static final int	RCP_TICKS		= 2;
 	protected static final int	RCP_WOOD		= 3;
 	protected static final int	RCP_VALUE		= 4;
 	protected static final int	RCP_CLASSTYPE	= 5;
@@ -100,7 +108,7 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			if(buildingI==null)
 				unInvoke();
@@ -109,7 +117,7 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 	}
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return "wainwright.txt";
 	}
@@ -117,7 +125,7 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 	@Override
 	protected List<List<String>> loadRecipes()
 	{
-		return super.loadRecipes(parametersFile());
+		return super.loadRecipes(getRecipeFilename());
 	}
 
 	@Override
@@ -148,12 +156,12 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 		if(I instanceof Rideable)
 		{
 			final Rideable R=(Rideable)I;
-			final int rideType=R.rideBasis();
+			final Basis rideType=R.rideBasis();
 			switch(rideType)
 			{
-			case Rideable.RIDEABLE_AIR:
-			case Rideable.RIDEABLE_LAND:
-			case Rideable.RIDEABLE_WAGON:
+			case AIR_FLYING:
+			case LAND_BASED:
+			case WAGON:
 				return true;
 			default:
 				return false;
@@ -178,6 +186,7 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 							commonEmote(mob,L("<S-NAME> fail(s) to learn how to make @x1.",buildingI.name()));
 						else
 							commonEmote(mob,L("<S-NAME> mess(es) up building @x1.",buildingI.name()));
+						dropALoser(mob,buildingI);
 						buildingI.destroy();
 					}
 					else
@@ -189,7 +198,7 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 					else
 					{
 						dropAWinner(mob,buildingI);
-						CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this);
+						CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this, buildingI);
 						if(key!=null)
 						{
 							dropAWinner(mob,key);
@@ -214,12 +223,12 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new Vector<Item>(0));
+		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new ArrayList<CraftedItem>(0));
 	}
 
 	@Override
 	protected boolean autoGenInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto,
-								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<Item> crafted)
+								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<CraftedItem> crafted)
 	{
 		if(super.checkStop(mob, commands))
 			return true;
@@ -233,8 +242,8 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 		randomRecipeFix(mob,addRecipes(mob,loadRecipes()),commands,autoGenerate);
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Wainwright what? Enter \"wainwright list\" for a list, \"wainwright info <item>\", \"wainwright learn <item>\""
-						+ " to gain recipes, or \"wainwright stop\" to cancel."));
+			commonTelL(mob,"Wainwright what? Enter \"wainwright list\" for a list, \"wainwright info <item>\", \"wainwright learn <item>\""
+						+ " to gain recipes, or \"wainwright stop\" to cancel.");
 			return false;
 		}
 		if((!auto)
@@ -250,7 +259,7 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 		final String str=commands.get(0);
 		String startStr=null;
 		int duration=4;
-		if(str.equalsIgnoreCase("list"))
+		if(str.equalsIgnoreCase("list") && (autoGenerate <= 0))
 		{
 			String mask=CMParms.combine(commands,1);
 			boolean allFlag=false;
@@ -264,8 +273,8 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 				CMLib.lister().fixColWidth(5,mob.session()),
 				CMLib.lister().fixColWidth(8,mob.session())
 			};
-			final StringBuffer buf=new StringBuffer(L("@x1 @x2 @x3 Wood required\n\r",CMStrings.padRight(L("Item"),cols[0]),CMStrings.padRight(L("Level"),cols[1]),CMStrings.padRight(L("Capacity"),cols[2])));
-			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipeNames(recipes, mask, true);
+			final StringBuffer buf=new StringBuffer(L("^H@x1 @x2 @x3 Wood required^N\n\r",CMStrings.padRight(L("Item"),cols[0]),CMStrings.padRight(L("Level"),cols[1]),CMStrings.padRight(L("Capacity"),cols[2])));
+			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipes(recipes, mask, true);
 			for(int r=0;r<listRecipes.size();r++)
 			{
 				final List<String> V=listRecipes.get(r);
@@ -276,7 +285,7 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 					final String wood=getComponentDescription(mob,V,RCP_WOOD);
 					final int capacity=CMath.s_int(V.get(RCP_CAPACITY));
 					if((level<=xlevel(mob))||allFlag)
-						buf.append(CMStrings.padRight(item,cols[0])+" "+CMStrings.padRight(""+level,cols[1])+" "+CMStrings.padRight(""+capacity,cols[2])+" "+wood+"\n\r");
+						buf.append("^w"+CMStrings.padRight(item,cols[0])+"^N "+CMStrings.padRight(""+level,cols[1])+" "+CMStrings.padRight(""+capacity,cols[2])+" "+wood+"\n\r");
 				}
 			}
 			commonTell(mob,buf.toString());
@@ -298,9 +307,14 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 			amount=CMath.s_int(commands.get(commands.size()-1));
 			commands.remove(commands.size()-1);
 		}
+		final int[] pm=checkMaterialFrom(mob,commands,new int[]{RawMaterial.MATERIAL_WOODEN});
+		if(pm==null)
+			return false;
 		final String recipeName=CMParms.combine(commands,0);
 		List<String> foundRecipe=null;
-		final List<List<String>> matches=matchingRecipeNames(recipes,recipeName,true);
+		final List<List<String>> matches=matchingRecipes(recipes,recipeName,false);
+		if(matches.size()==0)
+			matches.addAll(matchingRecipes(recipes,recipeName,true));
 		for(int r=0;r<matches.size();r++)
 		{
 			final List<String> V=matches.get(r);
@@ -317,7 +331,7 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 		}
 		if(foundRecipe==null)
 		{
-			commonTell(mob,L("You don't know how to build a '@x1'.  Try \"list\" as your parameter for a list.",recipeName));
+			commonTelL(mob,"You don't know how to build a '@x1'.  Try \"list\" as your parameter for a list.",recipeName);
 			return false;
 		}
 
@@ -332,7 +346,6 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 
 		if(amount>woodRequired)
 			woodRequired=amount;
-		final int[] pm={RawMaterial.MATERIAL_WOODEN};
 		final String misctype=foundRecipe.get(RCP_MISCTYPE);
 		final int[][] data=fetchFoundResourceData(mob,
 												woodRequired,"wood",pm,
@@ -348,26 +361,26 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 			return false;
 		final MaterialLibrary.DeadResourceRecord deadMats;
 		if((componentsFoundList.size() > 0)||(autoGenerate>0))
-			deadMats = new MaterialLibrary.DeadResourceRecord();
+			deadMats = deadRecord;
 		else
 		{
 			deadMats = CMLib.materials().destroyResources(mob.location(),woodRequired,
 					data[0][FOUND_CODE],data[0][FOUND_SUB],data[1][FOUND_CODE],data[1][FOUND_SUB]);
 		}
 		final MaterialLibrary.DeadResourceRecord deadComps = CMLib.ableComponents().destroyAbilityComponents(componentsFoundList);
-		final int lostValue=autoGenerate>0?0:(deadMats.lostValue + deadComps.lostValue);
+		final int lostValue=autoGenerate>0?0:(deadMats.getLostValue() + deadComps.getLostValue());
 		buildingI=CMClass.getItem(foundRecipe.get(RCP_CLASSTYPE));
 		final Item buildingI=this.buildingI;
 		if(buildingI==null)
 		{
-			commonTell(mob,L("There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE)));
+			commonTelL(mob,"There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE));
 			return false;
 		}
 		duration=getDuration(CMath.s_int(foundRecipe.get(RCP_TICKS)),mob,CMath.s_int(foundRecipe.get(RCP_LEVEL)),4);
 		buildingI.setMaterial(super.getBuildingMaterial(woodRequired, data, compData));
 		String itemName=determineFinalName(foundRecipe.get(RCP_FINALNAME),buildingI.material(),deadMats,deadComps);
 		if(bundling)
-			itemName="a "+woodRequired+"# "+itemName;
+			itemName=CMLib.english().startWithAorAn(woodRequired+"# "+itemName);
 		else
 			itemName=CMLib.english().startWithAorAn(itemName);
 		buildingI.setName(itemName);
@@ -402,26 +415,27 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 		final long canContain=getContainerType(foundRecipe.get(RCP_CONTAINMASK));
 		final int riders=CMath.s_int(foundRecipe.get(RCP_NUMRIDERS));
 		final String spell=(foundRecipe.size()>RCP_SPELL)?foundRecipe.get(RCP_SPELL).trim():"";
-		addSpells(buildingI,spell,deadMats.lostProps,deadComps.lostProps);
+		addSpellsOrBehaviors(buildingI,spell,deadMats.getLostProps(),deadComps.getLostProps());
 		key=null;
 		if(buildingI instanceof Rideable)
 		{
-			((Rideable)buildingI).setRideBasis(Rideable.RIDEABLE_WAGON);
+			((Rideable)buildingI).setRideBasis(Rideable.Basis.WAGON);
 			((Rideable)buildingI).setRiderCapacity(riders);
 		}
 
 		if((buildingI instanceof Container)
 		&&(!(buildingI instanceof Armor)))
 		{
+			final String[] allTypes=CMParms.parseAny(misctype, "|", true).toArray(new String[0]);
 			if(capacity>0)
 			{
 				((Container)buildingI).setCapacity(capacity+woodRequired);
 				((Container)buildingI).setContainTypes(canContain);
 			}
-			if(misctype.equalsIgnoreCase("LID"))
+			if(CMParms.contains(allTypes, "LID"))
 				((Container)buildingI).setDoorsNLocks(true,false,true,false,false,false);
 			else
-			if(misctype.equalsIgnoreCase("LOCK"))
+			if(CMParms.contains(allTypes, "LOCK"))
 			{
 				((Container)buildingI).setDoorsNLocks(true,false,true,true,false,true);
 				((Container)buildingI).setKeyName(Double.toString(Math.random()));
@@ -454,7 +468,7 @@ public class Wainwrighting extends EnhancedCraftingSkill implements ItemCraftor
 
 		if(autoGenerate>0)
 		{
-			crafted.add(buildingI);
+			crafted.add(new CraftedItem(buildingI,null,duration));
 			return true;
 		}
 

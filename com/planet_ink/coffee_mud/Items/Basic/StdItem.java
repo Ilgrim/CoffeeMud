@@ -1,5 +1,6 @@
 package com.planet_ink.coffee_mud.Items.Basic;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.Readable;
 import com.planet_ink.coffee_mud.core.interfaces.EachApplicable.ApplyAffectPhyStats;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
@@ -19,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -41,8 +42,10 @@ public class StdItem implements Item
 		return "StdItem";
 	}
 
-	protected String	name				= "an ordinary item";
-	protected String	displayText			= L("a nondescript item sits here doing nothing.");
+	private static final String DEFAULT_DISPLAY_TEXT=CMLib.lang().L("a nondescript item sits here doing nothing.");
+
+	protected String	_name				= "an ordinary item";
+	protected String	displayText			= DEFAULT_DISPLAY_TEXT;
 	protected Object	description			= null;
 	protected int		myUses				= Integer.MAX_VALUE;
 	protected long		myWornCode			= Wearable.IN_INVENTORY;
@@ -62,14 +65,14 @@ public class StdItem implements Item
 	protected String	databaseID			= "";
 	protected boolean	destroyed			= false;
 	protected Item		me					= this;
+	protected PhyStats	phyStats			= (PhyStats) CMClass.getCommon("DefaultPhyStats");
+	protected PhyStats	basePhyStats		= (PhyStats) CMClass.getCommon("DefaultPhyStats");
 
-	protected PhyStats					phyStats		= (PhyStats) CMClass.getCommon("DefaultPhyStats");
-	protected PhyStats					basePhyStats	= (PhyStats) CMClass.getCommon("DefaultPhyStats");
-	protected volatile Container		myContainer		= null;
-	protected volatile ItemPossessor	owner			= null;
-	protected SVector<Ability>			affects			= null;
-	protected SVector<Behavior>			behaviors		= null;
-	protected SVector<ScriptingEngine>	scripts			= null;
+	protected volatile Container		myContainer	= null;
+	protected volatile ItemPossessor	owner		= null;
+	protected SVector<Ability>			affects		= null;
+	protected SVector<Behavior>			behaviors	= null;
+	protected SVector<ScriptingEngine>	scripts		= null;
 
 	@SuppressWarnings("rawtypes")
 	protected ApplyAffectPhyStats		affectPhyStats	= new ApplyAffectPhyStats(this);
@@ -89,7 +92,7 @@ public class StdItem implements Item
 
 	protected boolean abilityImbuesMagic()
 	{
-		return true;
+		return false;
 	}
 
 	// protected void finalize()
@@ -110,13 +113,13 @@ public class StdItem implements Item
 	@Override
 	public String Name()
 	{
-		return name;
+		return _name;
 	}
 
 	@Override
 	public void setName(final String newName)
 	{
-		name = newName;
+		_name = newName;
 	}
 
 	@Override
@@ -190,6 +193,15 @@ public class StdItem implements Item
 	}
 
 	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("an item");
+	}
+
+
+	@Override
 	public PhyStats phyStats()
 	{
 		return phyStats;
@@ -207,11 +219,9 @@ public class StdItem implements Item
 	{
 		basePhyStats.copyInto(phyStats);
 		eachEffect(affectPhyStats);
-		if(((phyStats().ability()>0)&&abilityImbuesMagic())||(this instanceof MiscMagic))
-			phyStats().setDisposition(phyStats().disposition()|PhyStats.IS_BONUS);
 		if((owner()!=null)
 		&&(owner() instanceof MOB)
-		&&(CMLib.flags().isHidden(this)))
+		&&(CMath.bset(phyStats().disposition(), PhyStats.IS_HIDDEN)))
 			phyStats().setDisposition((int)(phyStats().disposition()&(PhyStats.ALLMASK-PhyStats.IS_HIDDEN)));
 	}
 
@@ -226,7 +236,7 @@ public class StdItem implements Item
 	{
 		try
 		{
-			return this.getClass().newInstance();
+			return this.getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -490,18 +500,24 @@ public class StdItem implements Item
 		final Wearable.CODES codes = Wearable.CODES.instance();
 		if(!wornLogicalAnd)
 		{
+			boolean couldHaveBeenHeldAt=false;
 			for(final long wornCode : codes.all())
 			{
 				if(wornCode != Wearable.IN_INVENTORY)
 				{
 					if(fitsOn(wornCode))
 					{
-						couldHaveBeenWornAt=wornCode;
+						if(wornCode == Wearable.WORN_HELD)
+							couldHaveBeenHeldAt=true;
+						else
+							couldHaveBeenWornAt=wornCode;
 						if(mob.freeWearPositions(wornCode,layer,layerAtt)>0)
 							return 0;
 					}
 				}
 			}
+			if((couldHaveBeenWornAt<0)&&(couldHaveBeenHeldAt))
+				couldHaveBeenWornAt=Wearable.WORN_HELD;
 			return couldHaveBeenWornAt;
 		}
 		for(final long wornCode : codes.all())
@@ -617,7 +633,10 @@ public class StdItem implements Item
 				if(CMLib.flags().isInDark(affected))
 					affectableStats.setDisposition(affectableStats.disposition()-PhyStats.IS_DARK);
 			}
-			if((amWearingAt(Wearable.WORN_MOUTH))&&(affected instanceof MOB))
+			if((amWearingAt(Wearable.WORN_MOUTH))
+			&&(affected instanceof MOB)
+			&&((((MOB)affected).charStats().getBodyPart(Race.BODY_MOUTH)<2)
+				||((MOB)affected).freeWearPositions(WORN_MOUTH, (short)0,(short)0)==0))
 			{
 				if(!(this instanceof Light))
 					affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_SPEAK);
@@ -827,7 +846,7 @@ public class StdItem implements Item
 	@Override
 	public String secretIdentity()
 	{
-		if((secretIdentity!=null)&&(secretIdentity.length()>0))
+		if((secretIdentity!=null)&&(secretIdentity.length()>0)&&(!(this instanceof RawMaterial)))
 			return secretIdentity+"\n\rLevel: "+phyStats().level()+tackOns();
 		return description()+"\n\rLevel: "+phyStats().level()+tackOns();
 	}
@@ -852,7 +871,10 @@ public class StdItem implements Item
 	@Override
 	public void setDisplayText(final String newDisplayText)
 	{
-		displayText=newDisplayText;
+		if(newDisplayText == null)
+			displayText="";
+		else
+			displayText=newDisplayText;
 	}
 
 	@Override
@@ -935,27 +957,29 @@ public class StdItem implements Item
 		CMLib.flags().setSavable(this, truefalse);
 	}
 
-	protected boolean canWearComplete(final MOB mob, final long wearWhere)
+	protected boolean canWearComplete(final MOB mob, final long wearWhere, final boolean quiet)
 	{
 		if(!canWear(mob,wearWhere))
 		{
-			long cantWearAt=whereCantWear(mob);
-			if(wearWhere!=0)
-				cantWearAt = cantWearAt & wearWhere;
+			final long wearMask = (wearWhere == 0) ? (long)~0 : wearWhere;
+			long cantWearAt=whereCantWear(mob) & wearMask;
 			Item alreadyWearing=(cantWearAt==0)?null:mob.fetchFirstWornItem(cantWearAt);
 			final Wearable.CODES codes = Wearable.CODES.instance();
 			if(alreadyWearing!=null)
 			{
+				final short layer=(this instanceof Armor)?((Armor)this).getClothingLayer():0;
+				final short layer2=(alreadyWearing instanceof Armor)?((Armor)alreadyWearing).getClothingLayer():0;
 				if((cantWearAt!=Wearable.WORN_HELD)&&(cantWearAt!=Wearable.WORN_WIELD))
 				{
 					final boolean amWearingOther = !alreadyWearing.amWearingAt(Item.IN_INVENTORY);
-					if(!CMLib.commands().postRemove(mob,alreadyWearing,false))
+					if((layer != layer2)
+					||(!CMLib.commands().postRemove(mob,alreadyWearing,quiet)))
 					{
 						mob.tell(L("You are already wearing @x1 on your @x2.",alreadyWearing.name(),codes.name(cantWearAt)));
 						return false;
 					}
 					if(amWearingOther && alreadyWearing.amWearingAt(Item.IN_INVENTORY) && (!canWear(mob,wearWhere)))
-						return canWearComplete(mob, wearWhere);
+						return canWearComplete(mob, wearWhere, quiet);
 					alreadyWearing=mob.fetchFirstWornItem(cantWearAt);
 					if((alreadyWearing!=null)&&(!canWear(mob,0)))
 					{
@@ -965,21 +989,27 @@ public class StdItem implements Item
 				}
 				else
 				{
-					final short layer=(this instanceof Armor)?((Armor)this).getClothingLayer():0;
-					final short layer2=(alreadyWearing instanceof Armor)?((Armor)alreadyWearing).getClothingLayer():0;
-					if((rawProperLocationBitmap() == alreadyWearing.rawProperLocationBitmap())
-					&&(rawLogicalAnd())
-					&&(alreadyWearing.rawLogicalAnd())
-					&&(layer == layer2)
-					&&(CMLib.commands().postRemove(mob,alreadyWearing,false)))
-						return true;
+					if((layer == layer2)
+					&&(CMLib.commands().postRemove(mob,alreadyWearing,quiet)))
+					{
+						if((wornLogicalAnd) && ((cantWearAt = (whereCantWear(mob) & wearMask)) != 0))
+						{
+							alreadyWearing=(cantWearAt==0)?null:mob.fetchFirstWornItem(cantWearAt);
+							if((alreadyWearing != null)
+							&&(CMLib.commands().postRemove(mob,alreadyWearing,quiet)))
+								return true;
+						}
+						else
+							return true;
+					}
+					final String wearName = (alreadyWearing != null) ? alreadyWearing.name(mob) : L("something");
 					if(cantWearAt==Wearable.WORN_HELD)
-						mob.tell(L("You are already holding @x1.",alreadyWearing.name()));
+						mob.tell(L("You are already holding @x1.",wearName));
 					else
 					if(cantWearAt==Wearable.WORN_WIELD)
-						mob.tell(L("You are already wielding @x1.",alreadyWearing.name()));
+						mob.tell(L("You are already wielding @x1.",wearName));
 					else
-						mob.tell(L("You are already wearing @x1 on your @x2.",alreadyWearing.name(),codes.name(cantWearAt)));
+						mob.tell(L("You are already wearing @x1 on your @x2.",wearName,codes.name(cantWearAt)));
 					return false;
 				}
 			}
@@ -987,10 +1017,16 @@ public class StdItem implements Item
 			if(wearWhere!=0)
 			{
 				final StringBuilder locs=new StringBuilder("");
+				int tooMany=0;
 				for(int i=0;i<codes.total();i++)
 				{
-					if((codes.get(i)&wearWhere)>0)
-						locs.append(", " + codes.name(i));
+					if((codes.get(i)&wearMask)>0)
+					{
+						if(++tooMany>4)
+							locs.setLength(0);
+						else
+							locs.append(", " + codes.name(i));
+					}
 				}
 				if(locs.length()==0)
 					mob.tell(L("You can't wear that there."));
@@ -1097,6 +1133,7 @@ public class StdItem implements Item
 		else
 		if((CMath.bset(msg.targetMajor(),CMMsg.MASK_MAGIC))
 		&&(!CMLib.flags().isGettable(this))
+		&&(!(this instanceof Boardable))
 		&&((displayText().isEmpty())
 		   ||((msg.tool() instanceof Ability)
 			&&(((Ability)msg.tool()).abstractQuality()==Ability.QUALITY_MALICIOUS))))
@@ -1115,13 +1152,32 @@ public class StdItem implements Item
 		case CMMsg.TYP_DAMAGE:
 		case CMMsg.TYP_WEAPONATTACK:
 		case CMMsg.TYP_ATTACKMISS:
-			if((this instanceof BoardableShip)
-			||((this instanceof Rideable)&&(((Rideable)this).rideBasis()==Rideable.RIDEABLE_WATER)))
+			if((this instanceof SiegableItem)
+			||(this instanceof SpaceObject)
+			||((this instanceof Rideable)&&(((Rideable)this).rideBasis()==Rideable.Basis.WATER_BASED)))
 				return true;
 			break;
-		case CMMsg.TYP_EXPIRE:
 		case CMMsg.TYP_LOOK:
 		case CMMsg.TYP_EXAMINE:
+		{
+			if(container()!=null)
+			{
+				final Item iC=ultimateContainer(null);
+				if(iC instanceof Container)
+				{
+					final Container C=(Container)iC;
+					final Container cC=container();
+					if(((C.hasADoor()&&!C.isOpen()))
+					||((cC.hasADoor()&&!cC.isOpen())))
+					{
+						msg.source().tell(L("@x1 is not open!",C.name(msg.source())));
+						return false;
+					}
+				}
+			}
+			return true;
+		}
+		case CMMsg.TYP_EXPIRE:
 		case CMMsg.TYP_READ:
 		case CMMsg.TYP_WASREAD:
 		case CMMsg.TYP_QUIETMOVEMENT:
@@ -1130,10 +1186,13 @@ public class StdItem implements Item
 		case CMMsg.TYP_SPEAK:
 		case CMMsg.TYP_OK_ACTION:
 		case CMMsg.TYP_OK_VISUAL:
+		case CMMsg.TYP_EMISSION:
 		case CMMsg.TYP_DEATH:
 		case CMMsg.TYP_NOISE:
 		case CMMsg.TYP_EMOTE:
+		case CMMsg.TYP_WEATHER:
 		case CMMsg.TYP_SNIFF:
+		case CMMsg.TYP_COMMANDREJECT:
 			return true;
 		case CMMsg.TYP_SIT:
 			if((this instanceof DeadBody)
@@ -1181,10 +1240,10 @@ public class StdItem implements Item
 			{
 				final StringBuilder str=new StringBuilder(L("You can't hold @x1.",name()));
 				if(fitsOn(Wearable.WORN_WIELD))
-					str.append(L("Try WIELDing it."));
+					str.append(L("  Try WIELDing it."));
 				else
 				if(properWornBitmap>0)
-					str.append(L("Try WEARing it."));
+					str.append(L("  Try WEARing it."));
 				mob.tell(str.toString());
 				return false;
 			}
@@ -1192,7 +1251,7 @@ public class StdItem implements Item
 				return false;
 			if(phyStats().level()>mob.phyStats().level())
 			{
-				mob.tell(L("That looks too advanced for you."));
+				mob.tell(L("@x1 looks too advanced for you.",name(msg.source())));
 				return false;
 			}
 			if((!rawLogicalAnd())||(properWornBitmap==0))
@@ -1202,7 +1261,7 @@ public class StdItem implements Item
 					final Item alreadyWearing=mob.fetchHeldItem();
 					if(alreadyWearing!=null)
 					{
-						if((!CMLib.commands().postRemove(mob,alreadyWearing,false))
+						if((!CMLib.commands().postRemove(mob,alreadyWearing,msg.othersMessage()==null))
 						||(!canWear(mob,Wearable.WORN_HELD)))
 						{
 							mob.tell(L("Your hands are full."));
@@ -1211,13 +1270,17 @@ public class StdItem implements Item
 					}
 					else
 					{
-						mob.tell(L("You need hands to hold things."));
+						if(CMath.bset(mob.charStats().getWearableRestrictionsBitmap(),Wearable.WORN_WIELD)
+						&&(mob.charStats().getBodyPart(Race.BODY_HAND)>0))
+							mob.tell(L("You need at least two properly shaped hands to hold things."));
+						else
+							mob.tell(L("You need hands to hold things."));
 						return false;
 					}
 				}
 				return true;
 			}
-			return canWearComplete(mob,0);
+			return canWearComplete(mob,0,msg.othersMessage()==null);
 		case CMMsg.TYP_WEAR:
 			if(properWornBitmap==0)
 			{
@@ -1228,10 +1291,10 @@ public class StdItem implements Item
 				return false;
 			if(phyStats().level()>mob.phyStats().level())
 			{
-				mob.tell(L("That looks too advanced for you."));
+				mob.tell(L("@x1 looks too advanced for you.",name(msg.source())));
 				return false;
 			}
-			return canWearComplete(mob,(msg.value()<=0)?0:((long)(1<<msg.value())/2));
+			return canWearComplete(mob,(msg.value()<=0)?0:((1L<<msg.value())/2),msg.othersMessage()==null);
 		case CMMsg.TYP_WIELD:
 			if((!fitsOn(Wearable.WORN_WIELD))||(properWornBitmap==0))
 			{
@@ -1242,7 +1305,7 @@ public class StdItem implements Item
 				return false;
 			if(phyStats().level()>mob.phyStats().level())
 			{
-				mob.tell(L("That looks too advanced for you."));
+				mob.tell(L("@x1 looks too advanced for you.",name(msg.source())));
 				return false;
 			}
 			if((!rawLogicalAnd())||(properWornBitmap==0))
@@ -1252,7 +1315,7 @@ public class StdItem implements Item
 					final Item alreadyWearing=mob.fetchFirstWornItem(Wearable.WORN_WIELD);
 					if(alreadyWearing!=null)
 					{
-						if(!CMLib.commands().postRemove(mob,alreadyWearing,false))
+						if(!CMLib.commands().postRemove(mob,alreadyWearing,msg.othersMessage()==null))
 						{
 							mob.tell(L("You are already wielding @x1.",alreadyWearing.name()));
 							return false;
@@ -1260,12 +1323,20 @@ public class StdItem implements Item
 					}
 					else
 					{
-						mob.tell(L("You need hands to wield things."));
+						if(CMath.bset(mob.charStats().getWearableRestrictionsBitmap(),Wearable.WORN_WIELD)
+						&&(mob.charStats().getBodyPart(Race.BODY_HAND)>0))
+							mob.tell(L("You need properly shaped hands to wield things."));
+						else
+							mob.tell(L("You need hands to wield things."));
 						return false;
 					}
 				}
 			}
-			return canWearComplete(mob,0);
+			return canWearComplete(mob,0,msg.othersMessage()==null);
+		case CMMsg.TYP_THROW:
+			if(msg.tool() instanceof MagicDust)
+				return true;
+			break;
 		case CMMsg.TYP_PUSH:
 		case CMMsg.TYP_PULL:
 			if(msg.source().isMine(this))
@@ -1451,10 +1522,12 @@ public class StdItem implements Item
 			final Ability A=fetchEffect("Burning");
 			if((A!=null)&&(!CMath.bset(A.abilityCode(), 2048))) // yes, magic numbers suck
 				return true;
+			if(this instanceof LightSource)
+				return true;
 			break;
 		}
 		case CMMsg.TYP_CAUSESINK:
-			if(this instanceof BoardableShip)
+			if(this instanceof Boardable)
 				return true;
 			break;
 		case CMMsg.TYP_FILL:
@@ -1476,8 +1549,8 @@ public class StdItem implements Item
 				return true;
 			break;
 		case CMMsg.TYP_ADVANCE:
-			if((this instanceof BoardableShip)
-			||((this instanceof Rideable)||(((Rideable)this).rideBasis()==Rideable.RIDEABLE_WATER)))
+			if((this instanceof Boardable)
+			||((this instanceof Rideable)||(((Rideable)this).rideBasis()==Rideable.Basis.WATER_BASED)))
 				return true;
 			break;
 		case CMMsg.TYP_ACTIVATE:
@@ -1503,7 +1576,7 @@ public class StdItem implements Item
 						mob.tell(L("Write what on @x1?",name()));
 					return false;
 				}
-				if(readableText().startsWith("FILE="))
+				if(readableText().startsWith(Readable.FILE_PREFIX))
 				{
 					mob.tell(L("There's no more room to write on @x1.",name()));
 					return false;
@@ -1524,7 +1597,7 @@ public class StdItem implements Item
 						mob.tell(L("Write what on @x1?",name()));
 					return false;
 				}
-				if(readableText().startsWith("FILE="))
+				if(readableText().startsWith(Readable.FILE_PREFIX))
 				{
 					mob.tell(L("There's no more room to write on @x1.",name()));
 					return false;
@@ -1536,6 +1609,10 @@ public class StdItem implements Item
 			else
 				mob.tell(L("You can't write on @x1.",name()));
 			return false;
+		case CMMsg.TYP_NEEDRELOAD:
+			if(this instanceof AmmunitionWeapon)
+				return true;
+			break;
 		default:
 			break;
 		}
@@ -1906,7 +1983,7 @@ public class StdItem implements Item
 		{
 			return affects.elementAt(index);
 		}
-		catch (final java.lang.ArrayIndexOutOfBoundsException x)
+		catch (final IndexOutOfBoundsException x)
 		{
 		}
 		return null;
@@ -1996,7 +2073,7 @@ public class StdItem implements Item
 		{
 			return behaviors.elementAt(index);
 		}
-		catch(final java.lang.ArrayIndexOutOfBoundsException x)
+		catch(final IndexOutOfBoundsException x)
 		{
 		}
 		return null;
@@ -2169,16 +2246,16 @@ public class StdItem implements Item
 	@Override
 	public String getStat(final String code)
 	{
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return ID();
 		case 1:
 			return "" + usesRemaining();
 		case 2:
-			return "" + basePhyStats().ability();
-		case 3:
 			return "" + basePhyStats().level();
+		case 3:
+			return "" + basePhyStats().ability();
 		case 4:
 			return text();
 		}
@@ -2188,7 +2265,7 @@ public class StdItem implements Item
 	@Override
 	public void setStat(final String code, final String val)
 	{
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return;
@@ -2210,7 +2287,7 @@ public class StdItem implements Item
 	@Override
 	public String L(final String str, final String... xs)
 	{
-		return CMLib.lang().fullSessionTranslation(str, xs);
+		return CMLib.lang().fullSessionTranslation(getClass(), str, xs);
 	}
 
 	protected String I(final String str)
@@ -2236,7 +2313,7 @@ public class StdItem implements Item
 		return CMParms.indexOf(getStatCodes(), code.toUpperCase().trim()) >= 0;
 	}
 
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<CODES.length;i++)
 		{

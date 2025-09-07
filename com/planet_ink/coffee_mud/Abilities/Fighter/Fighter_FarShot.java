@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -116,9 +116,12 @@ public class Fighter_FarShot extends FighterSkill
 		&&((Weapon)affected).amWearingAt(Wearable.IN_INVENTORY))
 		{
 			final Weapon targetW=(Weapon)affected;
-			qualifiedWeapons.remove(targetW);
-			targetW.delEffect(targetW.fetchEffect(ID()));
-			targetW.recoverPhyStats();
+			if(targetW != null)
+			{
+				qualifiedWeapons.remove(targetW);
+				targetW.delEffect(targetW.fetchEffect(ID()));
+				targetW.recoverPhyStats();
+			}
 		}
 		else
 		if((msg.source()==affected)
@@ -159,8 +162,11 @@ public class Fighter_FarShot extends FighterSkill
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
 		super.affectPhyStats(affected,affectableStats);
-		if(affected instanceof Item)
-			affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.SENSE_ITEMNOMAXRANGE);
+		if(affected instanceof Weapon)
+		{
+			affectableStats.setArmor((affectableStats.armor()&Weapon.MASK_MAXRANGEZERO)
+					+Weapon.MASK_MAXRANGEFLAG+100); // sets armor max-range bits to 100
+		}
 	}
 
 	@Override

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -237,7 +237,7 @@ public class Thief_HideInPlainSight extends ThiefSkill
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		final MOB highestMOB=getHighestLevelMOB(mob,null);
+		final MOB highestMOB=getHighestLevelMOB(mob,null,true);
 		final int levelDiff=mob.phyStats().level()-getMOBLevel(highestMOB)-(this.getXLEVELLevel(mob)*2);
 
 		final String str=L("You step to the side and become totally inconspicuous.");

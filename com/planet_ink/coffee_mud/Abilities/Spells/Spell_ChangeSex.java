@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -87,9 +87,10 @@ public class Spell_ChangeSex extends Spell
 
 	public void setChildStuff(final MOB M, final Environmental target)
 	{
-		if(CMLib.flags().isChild(M))
+		if(CMLib.flags().isAgedChild(M))
 		{
-			if(M.charStats().getStat(CharStats.STAT_GENDER)=='F')
+			
+			if(M.charStats().reproductiveCode()=='F')
 			{
 				M.setDescription(CMStrings.replaceWord(M.description(), "son", "daughter"));
 				M.setName(CMStrings.replaceWord(M.Name(), "son", "daughter"));
@@ -222,7 +223,7 @@ public class Spell_ChangeSex extends Spell
 					{
 						M=((CagedAnimal)target).unCageMe();
 						char gender='M';
-						if(M.baseCharStats().getStat(CharStats.STAT_GENDER)!='F')
+						if(M.baseCharStats().reproductiveCode()!='F')
 							gender='F';
 						M.baseCharStats().setStat(CharStats.STAT_GENDER,gender);
 						M.recoverCharStats();

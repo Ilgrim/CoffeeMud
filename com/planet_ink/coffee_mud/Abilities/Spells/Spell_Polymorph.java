@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,6 +70,12 @@ public class Spell_Polymorph extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_POLYMORPHING;
+	}
+
+	@Override
 	public int classificationCode()
 	{
 		return Ability.ACODE_SPELL|Ability.DOMAIN_TRANSMUTATION;
@@ -88,7 +94,6 @@ public class Spell_Polymorph extends Spell
 				affectableStats.setName(L("a @x1 called @x2",newRace.name(),affected.name()));
 			else
 				affectableStats.setName(L("@x1 the @x2",affected.name(),newRace.name()));
-			//newRace.setHeightWeight(affectableStats,(char)((MOB)affected).charStats().getStat(CharStats.STAT_GENDER));
 			affectableStats.setWeight(affectableStats.weight()+newBaseWeightAdj);
 		}
 	}
@@ -101,7 +106,12 @@ public class Spell_Polymorph extends Spell
 		{
 			final int oldCat=affected.baseCharStats().ageCategory();
 			final int oldBaseWeight = affected.baseWeight();
-			affectableStats.setMyRace(newRace);
+			if(affectableStats.getMyRace()!=newRace)
+			{
+				affectableStats.getMyRace().unaffectCharStats(affected, affectableStats);
+				affectableStats.setMyRace(newRace);
+				newRace.affectCharStats(affected, affectableStats);
+			}
 			if(this.newBaseWeightAdj == 0)
 				this.newBaseWeightAdj = affected.baseWeight() - oldBaseWeight;
 			affectableStats.setWearableRestrictionsBitmap(affectableStats.getWearableRestrictionsBitmap()|affectableStats.getMyRace().forbiddenWornBits());
@@ -158,7 +168,7 @@ public class Spell_Polymorph extends Spell
 
 		if(target.baseCharStats().getMyRace() != target.charStats().getMyRace())
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already polymorphed."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already polymorphed."));
 			return false;
 		}
 

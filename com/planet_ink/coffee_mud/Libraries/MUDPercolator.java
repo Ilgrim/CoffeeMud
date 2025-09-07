@@ -4,9 +4,11 @@ import com.planet_ink.coffee_mud.core.exceptions.CMException;
 import com.planet_ink.coffee_mud.core.exceptions.MQLException;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMProps.Str;
 import com.planet_ink.coffee_mud.core.CMSecurity.DbgFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.CraftorAbility.CraftorFilter;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.Area.State;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -16,7 +18,9 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.LayoutFlags;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.LayoutNode;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.LayoutTags;
 import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.AbilityMapping;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
@@ -26,9 +30,11 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.io.*;
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,18 +56,22 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		return "MUDPercolator";
 	}
 
-	protected final static char[] splitters=new char[]{'<','>','='};
-	protected final static Triad<Integer,Integer,Class<?>[]> emptyMetacraftFilter = new Triad<Integer,Integer,Class<?>[]>(Integer.valueOf(-1),Integer.valueOf(-1),new Class<?>[0]);
+	protected final static char[] splitters=new char[]{'<','>','=','{','}'};
+	protected final static CraftorFilter emptyMetacraftFilter = new CraftorFilter();
 	protected final static String POST_PROCESSING_STAT_SETS="___POST_PROCESSING_SETS___";
 	protected final static Set<String> UPPER_REQUIRES_KEYWORDS=new XHashSet<String>(new String[]{"INT","INTEGER","$","STRING","ANY","DOUBLE","#","NUMBER"});
 	protected final static CMParms.DelimiterChecker REQUIRES_DELIMITERS=CMParms.createDelimiter(new char[]{' ','\t',',','\r','\n'});
 	protected final static List<String> ITEM_IGNORE_STATS = Arrays.asList(GenericBuilder.GenItemCode.getAllCodeNames());
 	protected final static List<String> MOB_IGNORE_STATS =new XVector<String>(Arrays.asList(GenericBuilder.GenMOBCode.getAllCodeNames())).append("GENDER");
 
+	protected Map<Integer,List<Item>> farmablesCache = new Hashtable<Integer,List<Item>>();
+
 	protected static enum MQLSpecialFromSet
 	{
 		AREAS,
 		AREA,
+		NPROOMS,
+		ORPHROOMS,
 		ROOMS,
 		ROOM,
 		EXITS,
@@ -113,7 +123,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		{
 			return (obj != null)
 				&& (!obj.isPlayer())
-				&&((obj.amFollowing()==null)||(!obj.amUltimatelyFollowing().isPlayer()));
+				&& (!obj.getGroupLeader().isPlayer());
 		}
 
 	};
@@ -129,6 +139,70 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		}
 
 	};
+
+	private static final Filterer<Room> noPropertyFilter = new Filterer<Room>()
+	{
+		@Override
+		public boolean passesFilter(final Room obj)
+		{
+			if(obj == null)
+				return false;
+			if(obj.numEffects()==0)
+				return true;
+			for(int i=0;i<obj.numEffects();i++)
+			{
+				if(obj.fetchEffect(i) instanceof LandTitle)
+					return false;
+			}
+			return true;
+		}
+	};
+
+	private static class OrphanRoomFilterer implements Filterer<Room>
+	{
+		private final Set<Room> orphans = new HashSet<Room>();
+
+		public OrphanRoomFilterer(final Enumeration<Room> preCheck, final boolean areaFlag)
+		{
+			final LinkedList<Room> all=new LinkedList<Room>();
+			final HashSet<Room> linkedInto = new HashSet<Room>();
+			for(;preCheck.hasMoreElements();)
+			{
+				final Room R=preCheck.nextElement();
+				if(R!=null)
+				{
+					all.add(R);
+					for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+					{
+						final Room R2=R.rawDoors()[d];
+						if((R2 != null)&&(!linkedInto.contains(R2)))
+						{
+							if((areaFlag)
+							&&(R.getArea()!=R2.getArea())
+							&&(R2.getRoomInDir(Directions.getOpDirectionCode(d))==R))
+								linkedInto.add(R);
+							else
+								linkedInto.add(R2);
+						}
+					}
+				}
+			}
+			for(final Iterator<Room> r=all.iterator();r.hasNext();)
+			{
+				final Room R=r.next();
+				if((R.roomID().length()>0)
+				&&(!linkedInto.contains(R)))
+					orphans.add(R);
+			}
+		}
+		@Override
+		public boolean passesFilter(final Room obj)
+		{
+			if(obj == null)
+				return false;
+			return orphans.contains(obj);
+		}
+	}
 
 	private static final Converter<Session, MOB> sessionToMobConvereter= new Converter<Session, MOB>()
 	{
@@ -158,7 +232,6 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		}
 	};
 
-
 	@Override
 	public LayoutManager getLayoutManager(final String named)
 	{
@@ -167,7 +240,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		{
 			try
 			{
-				return mgr.newInstance();
+				return mgr.getDeclaredConstructor().newInstance();
 			}
 			catch(final Exception e)
 			{
@@ -379,7 +452,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				}
 				if(CMSecurity.isDebugging(DbgFlag.MUDPERCOLATOR))
 					Log.debugOut("MUDPercolator", "Loading '"+localid+"' from file "+from);
-				final CMFile file = new CMFile(load,null,CMFile.FLAG_LOGERRORS|CMFile.FLAG_FORCEALLOW);
+				final CMFile file = new CMFile(from,null,CMFile.FLAG_LOGERRORS|CMFile.FLAG_FORCEALLOW);
 				if(file.exists() && file.canRead())
 				{
 					final List<XMLTag> addPieces=CMLib.xml().parseAllXML(file.text());
@@ -424,10 +497,11 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		{
 			final String mqlWSelect=testMQLs[i];
 			final int x=mqlWSelect.indexOf(':');
-			final String mql=mqlWSelect.substring(x+1).toUpperCase().trim();
+			final String setmql = mqlWSelect.substring(x+1).trim();
+			final String mql=setmql.toUpperCase();
 			try
 			{
-				MQLClause.parseMQL(testMQLs[i], mql);
+				MQLClause.parseMQL(testMQLs[i], setmql, mql, SelectMQLState.STATE_SELECT0);
 			}
 			catch(final Exception e)
 			{
@@ -442,10 +516,10 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 	{
 		final String filePath="com/planet_ink/coffee_mud/Libraries/layouts";
 		final CMProps page = CMProps.instance();
-		final Vector<Object> layouts=CMClass.loadClassList(filePath,page.getStr("LIBRARY"),"/layouts",LayoutManager.class,true);
+		final List<Object> layouts=CMClass.loadClassList(filePath,page.getStr("LIBRARY"),"/layouts",LayoutManager.class,true);
 		for(int f=0;f<layouts.size();f++)
 		{
-			final LayoutManager lmgr= (LayoutManager)layouts.elementAt(f);
+			final LayoutManager lmgr= (LayoutManager)layouts.get(f);
 			final Class<LayoutManager> lmgrClass=(Class<LayoutManager>)lmgr.getClass();
 			mgrs.put(lmgr.name().toUpperCase().trim(),lmgrClass);
 		}
@@ -523,7 +597,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 
 	// vars created: ROOM_CLASS, ROOM_TITLE, ROOM_DESCRIPTION, ROOM_CLASSES, ROOM_TITLES, ROOM_DESCRIPTIONS
 	@Override
-	public Room buildRoom(final XMLTag piece, final Map<String,Object> defined, final Exit[] exits, final int direction) throws CMException
+	public Room buildRoom(final Area A, final XMLTag piece, final Map<String,Object> defined, final Exit[] exits, final int direction) throws CMException
 	{
 		addDefinition("DIRECTION",CMLib.directions().getDirectionName(direction).toLowerCase(),defined);
 
@@ -557,9 +631,9 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		final List<Ability> aV = findAffects(R,piece,defined,null);
 		for(int i=0;i<aV.size();i++)
 		{
-			final Ability A=aV.get(i);
-			A.setSavable(true);
-			R.addNonUninvokableEffect(A);
+			final Ability ableA=aV.get(i);
+			ableA.setSavable(true);
+			R.addNonUninvokableEffect(ableA);
 		}
 		final List<Behavior> bV = findBehaviors(R,piece,defined);
 		for(int i=0;i<bV.size();i++)
@@ -568,25 +642,70 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			B.setSavable(true);
 			R.addBehavior(B);
 		}
-		for(int dir=0;dir<Directions.NUM_DIRECTIONS();dir++)
+		try
 		{
-			Exit E=exits[dir];
-			if((E==null)&&(defined.containsKey("ROOMLINK_"+CMLib.directions().getDirectionChar(dir).toUpperCase())))
+			final List<XMLLibrary.XMLTag> choices = getAllChoices(R,null,null,"EXIT", piece, defined,true);
+			if((choices!=null)&&(choices.size()>0))
 			{
-				defined.put("ROOMLINK_DIR",CMLib.directions().getDirectionChar(dir).toUpperCase());
-				final Exit E2=findExit(R,piece, defined);
-				if(E2!=null)
-					E=E2;
-				defined.remove("ROOMLINK_DIR");
-				if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
-					Log.debugOut("MUDPercolator","EXIT:NEW:"+((E==null)?"null":E.ID())+":DIR="+CMLib.directions().getDirectionChar(dir).toUpperCase()+":ROOM="+R.getStat("DISPLAY"));
+				for(int dir=0;dir<Directions.NUM_DIRECTIONS();dir++)
+				{
+					Room linkR = null;
+					Exit E=exits[dir];
+					final String dirChar = CMLib.directions().getDirectionChar(dir).toUpperCase();
+					if(defined.containsKey("ROOMLINK_"+dirChar))
+					{
+						if(E==null)
+						{
+							final Pair<Exit,Room> E2=findExit(A, R, choices, defined, dir, true);
+							if(E2!=null)
+							{
+								E=E2.first;
+								linkR = E2.second;
+							}
+							if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
+								Log.debugOut("MUDPercolator","EXIT:NEW:"+((E==null)?"null":E.ID())+":DIR="+dirChar+":ROOM="+R.getStat("DISPLAY"));
+						}
+						else
+						if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
+							Log.debugOut("MUDPercolator","EXIT:OLD:"+E.ID()+":DIR="+dirChar+":ROOM="+R.getStat("DISPLAY"));
+					}
+					else
+					if(E == null)
+					{
+						final Pair<Exit,Room> E2=findExit(A, R, choices, defined, dir, false);
+						if(E2!=null)
+						{
+							E=E2.first;
+							linkR = E2.second;
+						}
+					}
+					R.setRawExit(dir, E);
+					if(linkR != null)
+					{
+						R.setRawDoor(dir, linkR);
+						if((!linkR.getArea().isRoom(linkR))
+						&&(CMLib.map().getRoom(linkR.roomID())==null))
+						{
+							linkR.setRawDoor(Directions.getOpDirectionCode(dir), R);
+							linkR.setRawExit(Directions.getOpDirectionCode(dir), E);
+							linkR.setRoomID(A.getNewRoomID(null,-1));
+							if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
+								Log.debugOut("MUDPercolator","ROOMID: "+R.roomID()+"/"+R.displayText());
+							if(!A.isRoom(linkR))
+							{
+								linkR.setArea(A);
+								A.addProperRoom(linkR);
+							}
+						}
+					}
+				}
 			}
-			else
-			if((CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))&&defined.containsKey("ROOMLINK_"+CMLib.directions().getDirectionChar(dir).toUpperCase()))
-				Log.debugOut("MUDPercolator","EXIT:OLD:"+((E==null)?"null":E.ID())+":DIR="+CMLib.directions().getDirectionChar(dir).toUpperCase()+":ROOM="+R.getStat("DISPLAY"));
-			R.setRawExit(dir, E);
-			R.startItemRejuv();
 		}
+		catch(final PostProcessException pe)
+		{
+			throw new CMException("Unable to post process this object type: "+pe.getMessage(),pe);
+		}
+		R.startItemRejuv();
 		return R;
 	}
 
@@ -766,20 +885,140 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		final List<LayoutNode> roomsToLayOut = layoutManager.generate(size,direction);
 		if((roomsToLayOut==null)||(roomsToLayOut.size()==0))
 			throw new CMException("Unable to fill area of size "+size+" off layout "+layoutManager.name());
+		defined.put("LAYOUT_NODES",new XVector<LayoutNode>(roomsToLayOut));
+		final Map<Integer,LayoutNode> mostRooms = new HashMap<Integer,LayoutNode>();
+		final LayoutNode magicRoomNode = roomsToLayOut.get(0);
+		final List<Integer> useExits = new XArrayList<Integer>(
+				Directions.INORTH, Directions.ISOUTH, Directions.IEAST, Directions.IWEST);
+		final int opDirection = Directions.getOpDirectionCode(direction);
+		boolean produceExternalExits = false;
+		for(final Integer dir : Directions.DIRECTIONS_ALL_ICODES)
+		{
+			if((dir.intValue() != opDirection)
+			&& defined.containsKey("ROOMTAG_GATEEXITROOM"+dir.toString()))
+			{
+				if(!useExits.contains(dir))
+					useExits.add(dir);
+				produceExternalExits=true;
+			}
+		}
+		if(produceExternalExits)
+		{
+			mostRooms.put(Integer.valueOf(opDirection), magicRoomNode);
+			// find the north-most, east-mode, etc rooms that can serve as extra Exits.
+			// first setup default/starting rooms, preferring non-leafs
+			for(int i=0;i<roomsToLayOut.size();i++)
+			{
+				final LayoutNode node = roomsToLayOut.get(i);
+				if(node.type()!=LayoutTypes.leaf)
+				{
+					for(final Integer dir : useExits)
+					{
+						if((!mostRooms.containsKey(dir))
+						&&(!node.links().containsKey(dir)))
+							mostRooms.put(dir, node);
+					}
+				}
+			}
+			// if non-leafs didn't work, grab the leafs
+			for(int i=0;i<roomsToLayOut.size();i++)
+			{
+				final LayoutNode node = roomsToLayOut.get(i);
+				if(node.type()==LayoutTypes.leaf)
+				{
+					for(final Integer dir : useExits)
+					{
+						if((!mostRooms.containsKey(dir))
+						&&(!node.links().containsKey(dir)))
+							mostRooms.put(dir, node);
+					}
+				}
+			}
+			// finally, just put the start node
+			if(magicRoomNode != null)
+			{
+				for(final Integer dir : useExits)
+				{
+					if(!mostRooms.containsKey(dir))
+						mostRooms.put(dir, magicRoomNode);
+				}
+			}
+		}
+		// now count the leafs,
+		// and finish the Main mostRooms by finding non-leaf
+		// rooms that better fit the direction to travel
 		int numLeafs=0;
 		for(int i=0;i<roomsToLayOut.size();i++)
 		{
 			final LayoutNode node=roomsToLayOut.get(i);
 			if(node.type()==LayoutTypes.leaf)
 				numLeafs++;
+			else
+			if(produceExternalExits)
+			{
+				for(final Integer dir : useExits)
+				{
+					final LayoutNode curMostNode = mostRooms.get(dir);
+					if((Directions.isMoreDirections(node.coord(), curMostNode.coord(), dir.intValue()))
+					&&(!node.links().containsKey(dir)))
+						mostRooms.put(dir, node);
+				}
+			}
 			if(node.links().size()==0)
 				throw new CMException("Created linkless node with "+layoutManager.name());
 		}
+		if(produceExternalExits)
+		{
+			// for finding mostRooms for UP/DOWN & GATE
+			boolean filledInDirs=true;
+			for(int i=0;i<4;i++)
+				filledInDirs = (mostRooms.containsKey(Integer.valueOf(i))) && filledInDirs;
+			if(filledInDirs)
+			{
+				long lowY = mostRooms.get(Directions.INORTH).coord()[1];
+				long lowX = mostRooms.get(Directions.IWEST).coord()[0];
+				long hiY = mostRooms.get(Directions.ISOUTH).coord()[1];
+				long hiX = mostRooms.get(Directions.IEAST).coord()[0];
+				while(lowY<hiY)
+				{
+					lowY++;
+					if(lowY<hiY)
+						hiY--;
+				}
+				while(lowX<hiX)
+				{
+					lowX++;
+					if(lowX<hiX)
+						hiX--;
+				}
+				if(magicRoomNode != null)
+				{
+					LayoutNode closestN = magicRoomNode;
+					long closestDistance = Math.abs(lowX - closestN.coord()[0]) + Math.abs(lowY - closestN.coord()[1]);
+					for(int i=0;i<roomsToLayOut.size();i++)
+					{
+						final LayoutNode node=roomsToLayOut.get(i);
+						if(node.type() != LayoutTypes.leaf)
+						{
+							final long distance = Math.abs(lowX - node.coord()[0]) + Math.abs(lowY - node.coord()[1]);
+							if(distance < closestDistance)
+							{
+								closestDistance = distance;
+								closestN = node;
+							}
+						}
+					}
+					mostRooms.put(Directions.IUP, closestN);
+					mostRooms.put(Directions.IDOWN, closestN);
+					mostRooms.put(Directions.IGATE, closestN);
+				}
+			}
+		}
+
 		defined.put("AREA_NUMLEAFS", ""+numLeafs);
 
 		// now break our rooms into logical groups, generate those rooms.
 		final List<List<LayoutNode>> roomGroups = new Vector<List<LayoutNode>>();
-		final LayoutNode magicRoomNode = roomsToLayOut.get(0);
 		final HashSet<LayoutNode> nodesAlreadyGrouped=new HashSet<LayoutNode>();
 		boolean keepLooking=true;
 		while(keepLooking)
@@ -934,37 +1173,73 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 
 		Map<String,Object> groupDefined = groupDefinitions.get(magicGroup);
 		final Room magicRoom = processRoom(A,direction,piece,magicRoomNode,groupDefined);
+		if(produceExternalExits)
+			mostRooms.put(Integer.valueOf(opDirection), magicRoomNode);
 		for(final Map<String,Object> otherDefineds : groupDefinitions.values())
 		{
 			otherDefineds.remove("ROOMTAG_NODEGATEEXIT");
+			otherDefineds.remove("ROOMTAG_NODEGATEEXIT"+opDirection);
 			otherDefineds.remove("ROOMTAG_GATEEXITROOM");
+			otherDefineds.remove("ROOMTAG_GATEEXITROOM"+opDirection);
+			otherDefineds.remove("ROOMTAG_GATEEXITCLASS");
+			otherDefineds.remove("ROOMTAG_GATEEXITCLASS"+opDirection);
 		}
+		magicRoom.basePhyStats().addAmbiance("#GATE"+opDirection);
+		magicRoom.phyStats().addAmbiance("#GATE"+opDirection);
 		updateLayoutDefinitions(defined,groupDefined,groupDefinitions,roomGroups);
+		final Map<LayoutNode,Integer> revMostRooms = new HashMap<LayoutNode,Integer>();
+		if(produceExternalExits)
+		{
+			for(final Integer key : mostRooms.keySet())
+			{
+				final LayoutNode node = mostRooms.get(key);
+				if(groupDefined.containsKey("ROOMTAG_GATEEXITROOM"+key.toString()))
+					revMostRooms.put(node, key);
+			}
+		}
 
 		//now generate the rooms and add them to the area
+		//this is where all the real work is done. (well, after the magic room)
 		for(final List<LayoutNode> group : roomGroups)
 		{
 			groupDefined = groupDefinitions.get(group);
-
 			for(final LayoutNode node : group)
 			{
-				if(node!=magicRoomNode)
-					processRoom(A,direction,piece,node,groupDefined);
+				if(node != magicRoomNode)
+				{
+					if(produceExternalExits && revMostRooms.containsKey(node))
+					{
+						final Integer dirI = revMostRooms.get(node);
+						groupDefined.put("ROOMTAG_NODEGATEEXIT",groupDefined.get("ROOMTAG_NODEGATEEXIT"+dirI.toString()));
+						groupDefined.put("ROOMTAG_GATEEXITROOM",groupDefined.get("ROOMTAG_GATEEXITROOM"+dirI.toString()));
+						groupDefined.put("ROOMTAG_GATEEXITCLASS",groupDefined.get("ROOMTAG_GATEEXITCLASS"+dirI.toString()));
+						processRoom(A,direction,piece,node,groupDefined);
+						groupDefined.remove("ROOMTAG_NODEGATEEXIT");
+						groupDefined.remove("ROOMTAG_GATEEXITROOM");
+						groupDefined.remove("ROOMTAG_GATEEXITCLASS");
+					}
+					else
+						processRoom(A,direction,piece,node,groupDefined);
+				}
 			}
 			updateLayoutDefinitions(defined,groupDefined,groupDefinitions,roomGroups);
 		}
 
-		for(final Integer linkDir : magicRoomNode.links().keySet())
+		// do the magic room Link
+		if (magicRoomNode != null)
 		{
-			if(linkDir.intValue() == Directions.getOpDirectionCode(direction))
-				Log.errOut("MUDPercolator","Generated an override exit for "+magicRoom.roomID()+", direction="+direction+", layout="+layoutManager.name());
-			else
+			for(final Integer linkDir : magicRoomNode.links().keySet())
 			{
-				final LayoutNode linkNode=magicRoomNode.getLink(linkDir.intValue());
-				if((magicRoom.getRawExit(linkDir.intValue())==null) || (linkNode.room() == null))
-					Log.errOut("MUDPercolator","Generated an unpaired node for "+magicRoom.roomID());
+				if(linkDir.intValue() == Directions.getOpDirectionCode(direction))
+					Log.errOut("MUDPercolator","Generated an override exit for "+magicRoom.roomID()+", direction="+direction+", layout="+layoutManager.name());
 				else
-					magicRoom.rawDoors()[linkDir.intValue()]=linkNode.room();
+				{
+					final LayoutNode linkNode=magicRoomNode.getLink(linkDir.intValue());
+					if((magicRoom.getRawExit(linkDir.intValue())==null) || (linkNode.room() == null))
+						Log.errOut("MUDPercolator","Generated an unpaired node for "+magicRoom.roomID());
+					else
+						magicRoom.rawDoors()[linkDir.intValue()]=linkNode.room();
+				}
 			}
 		}
 
@@ -979,13 +1254,34 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 					if((R==null)||(node.links().keySet().size()==0))
 						Log.errOut("MUDPercolator",layoutManager.name()+" generated a linkless node: "+node.toString());
 					else
-					for(final Integer linkDir : node.links().keySet())
 					{
-						final LayoutNode linkNode=node.getLink(linkDir.intValue());
-						if((R.getRawExit(linkDir.intValue())==null) || (linkNode.room() == null))
-							Log.errOut("MUDPercolator","Generated an unpaired node for "+R.roomID());
-						else
-							R.rawDoors()[linkDir.intValue()]=linkNode.room();
+						for(final Integer linkDir : node.links().keySet())
+						{
+							final LayoutNode linkNode=node.getLink(linkDir.intValue());
+							if((R.getRawExit(linkDir.intValue())==null) || (linkNode.room() == null))
+								Log.errOut("MUDPercolator","Generated an unpaired node for "+R.roomID());
+							else
+								R.rawDoors()[linkDir.intValue()]=linkNode.room();
+						}
+						if(produceExternalExits && revMostRooms.containsKey(node))
+						{
+							final Integer dirI = revMostRooms.get(node);
+							if(R.rawDoors()[dirI.intValue()]==null)
+							{
+								final Room outerRoom = (Room)groupDefined.get("ROOMTAG_GATEEXITROOM"+dirI.toString());
+								final Exit outerExit = (Exit)groupDefined.get("ROOMTAG_GATEEXITCLASS"+dirI.toString());
+								if((outerRoom != null) && (outerExit != null))
+								{
+									R.basePhyStats().addAmbiance("#GATE"+dirI.toString());
+									R.phyStats().addAmbiance("#GATE"+dirI.toString());
+									R.rawDoors()[dirI.intValue()] = outerRoom;
+									R.setRawExit(dirI.intValue(), (Exit)outerExit.copyOf());
+								}
+							}
+							groupDefined.remove("ROOMTAG_NODEGATEEXIT"+dirI.toString());
+							groupDefined.remove("ROOMTAG_GATEEXITROOM"+dirI.toString());
+							groupDefined.remove("ROOMTAG_GATEEXITCLASS"+dirI.toString());
+						}
 					}
 				}
 			}
@@ -1004,6 +1300,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		if(layoutManager == null)
 			throw new CMException("Undefined Layout "+layoutType);
 		defined.put("AREA_LAYOUT",layoutManager.name());
+		defined.put("LAYOUT_MANAGER",layoutManager);
 		String size = findStringNow("size",piece,defined);
 		if(CMath.isMathExpression(size))
 			size=Integer.toString(CMath.parseIntExpression(size));
@@ -1055,35 +1352,32 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		final Exit[] exits=new Exit[Directions.NUM_DIRECTIONS()];
 		for(final Integer linkDir : node.links().keySet())
 		{
+			final String dirChar = CMLib.directions().getDirectionChar(linkDir.intValue()).toUpperCase();
 			final LayoutNode linkNode = node.links().get(linkDir);
 			if(linkNode.room() != null)
 			{
 				final int opDir=Directions.getOpDirectionCode(linkDir.intValue());
 				exits[linkDir.intValue()]=linkNode.room().getExitInDir(opDir);
-				groupDefined.put("ROOMTITLE_"+CMLib.directions().getDirectionChar(linkDir.intValue()).toUpperCase(),linkNode.room().displayText(null));
+				groupDefined.put("ROOMTITLE_"+dirChar,linkNode.room().displayText(null));
 			}
-			groupDefined.put("NODETYPE_"+CMLib.directions().getDirectionChar(linkDir.intValue()).toUpperCase(),linkNode.type().name());
+			groupDefined.put("NODETYPE_"+dirChar,linkNode.type().name());
 			//else groupDefined.put("ROOMTITLE_"+CMLib.directions().getDirectionChar(linkDir.intValue()).toUpperCase(),"");
-			groupDefined.put("ROOMLINK_"+CMLib.directions().getDirectionChar(linkDir.intValue()).toUpperCase(),"true");
+			groupDefined.put("ROOMLINK_"+dirChar,"true");
 		}
 		if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
 		{
-			if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
-				Log.debugOut("MUDPercolator",A.Name()+": type: "+node.type().toString());
+			Log.debugOut("MUDPercolator",A.Name()+": type: "+node.type().toString());
 			final StringBuffer defs=new StringBuffer("");
 			for (final String key : groupDefined.keySet())
-			{
 				defs.append(key+"="+CMStrings.limit(groupDefined.get(key).toString(),10)+",");
-			}
-			if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
-				Log.debugOut("MUDPercolator","DEFS: "+defs.toString());
+			Log.debugOut("MUDPercolator","DEFS: "+defs.toString());
 		}
 		final Room R=findRoom(A,piece, groupDefined, exits, direction);
 		if(R==null)
 			throw new CMException("Failure to generate room from "+piece.value());
 		R.setRoomID(A.getNewRoomID(null,-1));
 		if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
-			Log.debugOut("MUDPercolator","ROOMID: "+R.roomID());
+			Log.debugOut("MUDPercolator","ROOMID: "+R.roomID()+"/"+R.displayText());
 		R.setArea(A);
 		A.addProperRoom(R);
 		node.setRoom(R);
@@ -1093,9 +1387,10 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			groupDefined.remove("ROOMTAG_"+key.toString().toUpperCase());
 		for(final Integer linkDir : node.links().keySet())
 		{
-			groupDefined.remove("NODETYPE_"+CMLib.directions().getDirectionChar(linkDir.intValue()).toUpperCase());
-			groupDefined.remove("ROOMLINK_"+CMLib.directions().getDirectionChar(linkDir.intValue()).toUpperCase());
-			groupDefined.remove("ROOMTITLE_"+CMLib.directions().getDirectionChar(linkDir.intValue()).toUpperCase());
+			final String dirChar = CMLib.directions().getDirectionChar(linkDir.intValue()).toUpperCase();
+			groupDefined.remove("NODETYPE_"+dirChar);
+			groupDefined.remove("ROOMLINK_"+dirChar);
+			groupDefined.remove("ROOMTITLE_"+dirChar);
 		}
 		return R;
 	}
@@ -1145,9 +1440,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			final String tagName="ROOM";
 			final List<XMLLibrary.XMLTag> choices = getAllChoices(null,null,null,tagName, piece, defined,true);
 			if((choices==null)||(choices.size()==0))
-			{
 				return null;
-			}
 			while(choices.size()>0)
 			{
 				final XMLLibrary.XMLTag valPiece = choices.get(CMLib.dice().roll(1,choices.size(),-1));
@@ -1176,7 +1469,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				else
 				{
 					final Exit[] rExits=exits.clone();
-					R=buildRoom(valPiece,rDefined,rExits,directions);
+					R=buildRoom(A, valPiece,rDefined,rExits,directions);
 					for(int e=0;e<rExits.length;e++)
 						exits[e]=rExits[e];
 				}
@@ -1199,7 +1492,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		return null;
 	}
 
-	protected PairVector<Room,Exit[]> findRooms(final XMLTag piece, final Map<String,Object> defined, final Exit[] exits, final int direction) throws CMException
+	protected PairVector<Room,Exit[]> findRooms(final Area A, final XMLTag piece, final Map<String,Object> defined, final Exit[] exits, final int direction) throws CMException
 	{
 		try
 		{
@@ -1217,7 +1510,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				final Exit[] theseExits=exits.clone();
 				if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
 					Log.debugOut("MUDPercolator","Build Room: "+CMStrings.limit(CMStrings.deleteCRLFTAB(valPiece.value()),80)+"...");
-				final Room R=buildRoom(valPiece,defined,theseExits,direction);
+				final Room R=buildRoom(A,valPiece,defined,theseExits,direction);
 				DV.addElement(R,theseExits);
 			}
 			return DV;
@@ -1228,34 +1521,78 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		}
 	}
 
-	protected Exit findExit(final Modifiable M, final XMLTag piece, final Map<String,Object> defined) throws CMException
+	protected Pair<Exit,Room> findExit(final Area A, final Room R, final List<XMLTag> choices, final Map<String,Object> defined,
+									   final int dir, final boolean required) throws CMException
 	{
+		final String dirChar = CMLib.directions().getDirectionChar(dir);
+		defined.put("ROOMLINK_DIR",dirChar);
+		defined.put("ROOMLINK_REQUIRED",""+required);
 		try
 		{
-			final String tagName="EXIT";
-			final List<XMLLibrary.XMLTag> choices = getAllChoices(M,null,null,tagName, piece, defined,true);
-			if((choices==null)||(choices.size()==0))
-				return null;
-			final List<Exit> exitChoices = new Vector<Exit>();
+			final List<XMLTag> exitChoices = new ArrayList<XMLTag>(choices.size());
 			for(int c=0;c<choices.size();c++)
 			{
 				final XMLTag valPiece = choices.get(c);
-				if(valPiece.parms().containsKey("VALIDATE") && !testCondition(M,null,null,CMLib.xml().restoreAngleBrackets(valPiece.getParmValue("VALIDATE")),valPiece, defined))
+				if(valPiece.parms().containsKey("VALIDATE")
+				&& !testCondition(R,null,null,CMLib.xml().restoreAngleBrackets(valPiece.getParmValue("VALIDATE")),valPiece, defined))
 					continue;
-				defineReward(M,null,null,valPiece.getParmValue("DEFINE"),valPiece,null,defined,true);
-				if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
-					Log.debugOut("MUDPercolator","Build Exit: "+CMStrings.limit(CMStrings.deleteCRLFTAB(valPiece.value()),80)+"...");
-				final Exit E=buildExit(valPiece,defined);
-				if(E!=null)
-					exitChoices.add(E);
+				final String forceDir = valPiece.parms().get("DIRECTION");
+				if((forceDir != null)&&(forceDir.length()>0))
+				{
+					if(!dirChar.equalsIgnoreCase(forceDir.substring(0,1)))
+						continue;
+				}
+				else
+				if(!required)
+					continue;
+				exitChoices.add(valPiece);
 			}
 			if(exitChoices.size()==0)
 				return null;
-			return exitChoices.get(CMLib.dice().roll(1,exitChoices.size(),-1));
+			final XMLTag chosenETag = exitChoices.get(CMLib.dice().roll(1,exitChoices.size(),-1));
+			defineReward(R,null,null,chosenETag.getParmValue("DEFINE"),chosenETag,null,defined,true);
+			if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
+				Log.debugOut("MUDPercolator","Build Exit: "+CMStrings.limit(CMStrings.deleteCRLFTAB(chosenETag.value()),80)+"...");
+			final Exit E=buildExit(chosenETag,defined);
+			Room linkR = null;
+			if(!required)
+			{
+				final String roomLinkID =
+						this.findOptionalString(E, null, null, "ROOMLINK", chosenETag, defined, false);
+				if(roomLinkID != null)
+				{
+					final Room R2 = CMLib.map().getRoom(roomLinkID);
+					if(R2 == null)
+						throw new CMException("Unable to find room '"+roomLinkID+"' for exit "+dirChar+" on "+R.roomID());
+					linkR = R2;
+				}
+				else
+				{
+					final Exit[] exits=new Exit[Directions.NUM_DIRECTIONS()];
+					final Map<String,Object> otherDefined = new XHashtable<String,Object>(defined);
+					for(final Iterator<String> i=otherDefined.keySet().iterator();i.hasNext();)
+					{
+						final String key = i.next();
+						if(key.toUpperCase().startsWith("ROOM_")||(key.toUpperCase().startsWith("EXIT_")))
+							i.remove();
+					}
+					final Room nR = this.findRoom(A, chosenETag, otherDefined, exits, dir);
+					if(nR != null)
+						linkR = nR;
+					else
+						throw new CMException("Unable to link room for exit "+dirChar+" on "+R.roomID());
+				}
+			}
+			return new Pair<Exit,Room>(E,linkR);
 		}
 		catch(final PostProcessException pe)
 		{
 			throw new CMException("Unable to post process this object type: "+pe.getMessage(),pe);
+		}
+		finally
+		{
+			defined.remove("ROOMLINK_DIR");
+			defined.remove("ROOMLINK_REQUIRED");
 		}
 	}
 
@@ -1280,6 +1617,11 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		final List<Varidentifier> list=new XVector<Varidentifier>();
 		while((x>=0)&&(x<str.length()-1))
 		{
+			if((x>0)&&(str.charAt(x-1)=='\\'))
+			{
+				x=str.indexOf('$',x+1);
+				continue;
+			}
 			final Varidentifier var = new Varidentifier();
 			var.outerStart=x;
 			x++;
@@ -1418,9 +1760,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 	{
 		final String[] statCodes = E.getStatCodes();
 		for (final String stat : statCodes)
-		{
 			fillOutStatCode(E,ignoreStats,defPrefix,stat,piece,defined, false);
-		}
 	}
 
 	protected void fillOutCopyStats(final Modifiable E, final Modifiable E2)
@@ -1471,14 +1811,28 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 						o=CMClass.getObjectOrPrototype(s);
 					if(!(o instanceof Modifiable))
 						throw new CMException("Invalid copystat: '"+s+"' on piece '"+piece.tag()+"', Data: "+CMParms.toKeyValueSlashListString(piece.parms())+":"+CMStrings.limit(piece.value(),100));
-					final Modifiable E2=(Modifiable)o;
-					if(o instanceof MOB)
+					final Modifiable copyFromE=(Modifiable)o;
+					if((o instanceof MOB)&&(E instanceof MOB))
 					{
-						((MOB)E2).setBaseCharStats((CharStats)((MOB)o).baseCharStats().copyOf());
-						((MOB)E2).setBasePhyStats((PhyStats)((MOB)o).basePhyStats().copyOf());
-						((MOB)E2).setBaseState((CharState)((MOB)o).baseState().copyOf());
+						((MOB)E).setBaseCharStats((CharStats)((MOB)o).baseCharStats().copyOf());
+						((MOB)E).setBasePhyStats((PhyStats)((MOB)o).basePhyStats().copyOf());
+						((MOB)E).setBaseState((CharState)((MOB)o).baseState().copyOf());
+						if((!((MOB)o).isGeneric())
+						&&(((MOB)E).basePhyStats().level()>0)
+						&&(((MOB)E).baseState().getHitPoints()>10))
+						{
+							((MOB)E).basePhyStats().setAbility(1+(int)Math.round(
+								CMath.div(CMath.mul(((MOB)E).baseState().getHitPoints(),1.8),((MOB)E).basePhyStats().level())));
+						}
 					}
-					fillOutCopyStats(E,E2);
+					fillOutCopyStats(E,copyFromE);
+					if(E instanceof Physical)
+						((Physical)E).recoverPhyStats();
+					if(E instanceof MOB)
+					{
+						((MOB)E).recoverCharStats();
+						((MOB)E).recoverMaxState();
+					}
 				}
 				else
 				{
@@ -1533,6 +1887,9 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			if(M.isGeneric())
 			{
 				copyFilled = fillOutCopyCodes(M,ignoreStats,"MOB_",piece,defined);
+				for(final Iterator<String> k = defined.keySet().iterator();k.hasNext();)
+					if(k.next().startsWith("MOB_"))
+						k.remove();
 				String name = fillOutStatCode(M,ignoreStats,"MOB_","NAME",piece,defined, false);
 				if((!copyFilled) && ((name == null)||(name.length()==0)))
 					name = fillOutStatCode(M,ignoreStats,"MOB_","NAME",piece,defined, false);
@@ -1556,9 +1913,17 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			@Override
 			public String attempt() throws CMException, PostProcessException
 			{
-				final String value = findOptionalString(mob,ignoreStats,"MOB_","LEVEL",piece,this.defined, false);
+				String value = findOptionalString(mob,ignoreStats,"MOB_","LEVEL",piece,this.defined, false);
 				if((value != null)&&(value.length()>0))
 				{
+					if(CMath.isInteger(value))
+					{
+						if(CMath.s_int(value)<=0)
+							value="1";
+					}
+					else
+					if(CMath.s_parseIntExpression(value)<=0)
+						value="1";
 					mob.setStat("LEVEL",value);
 					addDefinition("MOB_LEVEL",value,this.defined);
 					CMLib.leveler().fillOutMOB(mob,mob.basePhyStats().level());
@@ -1583,23 +1948,27 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 					mob.baseCharStats().setStat(CharStats.STAT_GENDER,CMLib.dice().rollPercentage()>50?'M':'F');
 				PostProcessAttempter(this.defined,new PostProcessAttempt()
 				{
+					final MOB M = mob;
 					@Override
 					public String attempt() throws CMException, PostProcessException
 					{
-						final String value = findOptionalString(mob,ignoreStats,"MOB_","RACE",piece,this.defined, false);
+						final String value = findOptionalString(M,ignoreStats,"MOB_","RACE",piece,this.defined, false);
 						if((value != null)&&(value.length()>0))
 						{
-							mob.setStat("RACE",value);
+							M.setStat("RACE",value); // WTF -- this is literally Not a Thing
 							addDefinition("MOB_RACE",value,this.defined);
 							Race R=CMClass.getRace(value);
 							if(R==null)
 							{
-								final List<Race> races=findRaces(mob,piece, this.defined);
+								final List<Race> races=findRaces(M,piece, this.defined);
 								if(races.size()>0)
 									R=races.get(CMLib.dice().roll(1, races.size(), -1));
 							}
 							if(R!=null)
-								R.setHeightWeight(mob.basePhyStats(),(char)mob.baseCharStats().getStat(CharStats.STAT_GENDER));
+							{
+								M.baseCharStats().setMyRace(R);
+								R.setHeightWeight(M.basePhyStats(),M.baseCharStats().reproductiveCode());
+							}
 						}
 						return value;
 					}
@@ -1634,7 +2003,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		fillOutStatCodes(M.baseState(),MOB_IGNORE_STATS,"MOB_",piece,defined);
 		M.recoverCharStats();
 		M.recoverPhyStats();
-		M.recoverMaxState();
+		M.resetToMaxState();
 
 		final List<Item> items = findItems(piece,defined);
 		for(int i=0;i<items.size();i++)
@@ -1653,6 +2022,38 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			A.setSavable(true);
 			M.addNonUninvokableEffect(A);
 		}
+		PostProcessAttempter(defined,new PostProcessAttempt()
+		{
+			final MOB M = mob;
+			@Override
+			public String attempt() throws CMException, PostProcessException
+			{
+				String power = findOptionalString(M,ignoreStats,"MOB_","MOB_POWERBONUS",piece,defined, false);
+				if((power==null)||(!CMath.isInteger(power)))
+					power = findOptionalString(M,ignoreStats,"MOB_","POWERBONUS",piece,defined, false);
+				if((power!=null)&&(CMath.isInteger(power))&&(M.fetchEffect("Prop_Adjuster")==null))
+				{
+					final MOB compM1 = CMLib.leveler().fillOutMOB(null,M.basePhyStats().level());
+					final MOB compM2 = CMLib.leveler().fillOutMOB(null,M.basePhyStats().level()+CMath.s_int(power));
+					M.basePhyStats().setSpeed(M.basePhyStats().speed()+(compM2.basePhyStats().speed()-compM1.basePhyStats().speed()));
+					M.basePhyStats().setArmor(M.basePhyStats().armor()+(compM2.basePhyStats().armor()-compM1.basePhyStats().armor()));
+					M.basePhyStats().setDamage(M.basePhyStats().damage()+(compM2.basePhyStats().damage()-compM1.basePhyStats().damage()));
+					M.basePhyStats().setAttackAdjustment(M.basePhyStats().attackAdjustment()+(compM2.basePhyStats().attackAdjustment()-compM1.basePhyStats().attackAdjustment()));
+					final Ability A = CMClass.getAbility("Prop_Adjuster");
+					final StringBuilder parms = new StringBuilder("");
+					parms.append("hp+"+ (compM2.baseState().getHitPoints()-compM1.baseState().getHitPoints())).append(" ");
+					parms.append("man+"+ (compM2.baseState().getMana()-compM1.baseState().getMana())).append(" ");
+					parms.append("mov+"+ (compM2.baseState().getMovement()-compM1.baseState().getMovement())).append(" ");
+					A.setMiscText(parms.toString());
+					M.addNonUninvokableEffect(A);
+					compM1.destroy();
+					compM2.destroy();
+					M.recoverPhyStats();
+					M.resetToMaxState();
+				}
+				return "";
+			}
+		});
 		final List<Behavior> bV= findBehaviors(M,piece,defined);
 		for(int i=0;i<bV.size();i++)
 		{
@@ -1926,15 +2327,12 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		}
 	}
 
-	protected String getMetacraftFilter(String recipe, final XMLTag piece, final Map<String,Object> defined, final Triad<Integer,Integer,Class<?>[]> filter) throws CMException
+	protected void getMetacraftFilter(String recipe, final XMLTag piece, final Map<String,Object> defined, final CraftorFilter filter) throws CMException
 	{
-		int levelLimit=-1;
-		int levelFloor=-1;
-		Class<?>[] deriveClasses=new Class[0];
 		final Map.Entry<Character, String>[] otherParms=CMStrings.splitMulti(recipe, splitters);
 		recipe=otherParms[0].getValue();
 		if(otherParms.length==1)
-			return recipe;
+			return;
 		for(int i=1;i<otherParms.length;i++)
 		{
 			switch(otherParms[i].getKey().charValue())
@@ -1944,9 +2342,9 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				final String lvlStr=strFilterNow(null,null,null,otherParms[i].getValue().trim(),piece, defined);
 				if(CMath.isMathExpression(lvlStr))
 				{
-					levelLimit=CMath.parseIntExpression(lvlStr);
-					if((levelLimit==0)||(levelLimit<levelFloor))
-						levelLimit=-1;
+					filter.maxLevel=CMath.parseIntExpression(lvlStr);
+					if((filter.maxLevel==0)||(filter.maxLevel<filter.minLevel))
+						filter.maxLevel=Integer.MAX_VALUE;
 				}
 				break;
 			}
@@ -1955,9 +2353,31 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				final String lvlStr=strFilterNow(null,null,null,otherParms[i].getValue().trim(),piece, defined);
 				if(CMath.isMathExpression(lvlStr))
 				{
-					levelFloor=CMath.parseIntExpression(lvlStr);
-					if((levelFloor==0)||((levelFloor>levelLimit)&&(levelLimit>0)))
-						levelFloor=-1;
+					filter.minLevel=CMath.parseIntExpression(lvlStr);
+					if((filter.minLevel==0)||((filter.minLevel>filter.maxLevel)&&(filter.maxLevel>0)))
+						filter.minLevel=-1;
+				}
+				break;
+			}
+			case '{':
+			{
+				final String valStr=strFilterNow(null,null,null,otherParms[i].getValue().trim(),piece, defined);
+				if(CMath.isMathExpression(valStr))
+				{
+					filter.maxValue=CMath.parseIntExpression(valStr);
+					if((filter.maxValue==0)||(filter.maxValue<filter.minValue))
+						filter.maxValue=Integer.MAX_VALUE;
+				}
+				break;
+			}
+			case '}':
+			{
+				final String valStr=strFilterNow(null,null,null,otherParms[i].getValue().trim(),piece, defined);
+				if(CMath.isMathExpression(valStr))
+				{
+					filter.minValue=CMath.parseIntExpression(valStr);
+					if((filter.minValue==0)||((filter.minLevel>filter.maxValue)&&(filter.maxValue>0)))
+						filter.minValue=-1;
 				}
 				break;
 			}
@@ -1967,8 +2387,11 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				final Object O=CMClass.getItemPrototype(classStr);
 				if(O!=null)
 				{
-					deriveClasses=Arrays.copyOf(deriveClasses, deriveClasses.length+1);
-					deriveClasses[deriveClasses.length-1]=O.getClass();
+					if(filter.classes == null)
+						filter.classes=new Class<?>[1];
+					else
+						filter.classes=Arrays.copyOf(filter.classes, filter.classes.length+1);
+					filter.classes[filter.classes.length-1]=O.getClass();
 				}
 				else
 					throw new CMException("Unknown metacraft class= "+classStr);
@@ -1978,23 +2401,17 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				break;
 			}
 		}
-		if(levelLimit>0)
-			filter.first=Integer.valueOf(levelLimit);
-		if(levelFloor>0)
-			filter.second=Integer.valueOf(levelFloor);
-		if(deriveClasses.length>0)
-			filter.third=deriveClasses;
-		return recipe;
+		filter.name=recipe.trim();
 	}
 
 	@SuppressWarnings("unchecked")
-	protected List<ItemCraftor.ItemKeyPair> craftAllOfThisRecipe(final ItemCraftor skill, final int material, final Map<String,Object> defined)
+	protected List<ItemCraftor.CraftedItem> craftAllOfThisRecipe(final ItemCraftor skill, final int material, final Map<String,Object> defined)
 	{
-		List<ItemCraftor.ItemKeyPair> skillContents;
+		List<ItemCraftor.CraftedItem> skillContents;
 		if(CMSecurity.isDisabled(CMSecurity.DisFlag.ITEMGENCACHE))
-			skillContents=(List<ItemCraftor.ItemKeyPair>)defined.get("____COFFEEMUD_"+skill.ID()+"_"+material+"_true");
+			skillContents=(List<ItemCraftor.CraftedItem>)defined.get("____COFFEEMUD_"+skill.ID()+"_"+material+"_true");
 		else
-			skillContents=(List<ItemCraftor.ItemKeyPair>)Resources.getResource("SYSTEM_ITEMGEN_"+skill.ID()+"_"+material+"_true");
+			skillContents=(List<ItemCraftor.CraftedItem>)Resources.getResource("SYSTEM_ITEMGEN_"+skill.ID()+"_"+material+"_true");
 		if(skillContents==null)
 		{
 			if(material>=0)
@@ -2008,22 +2425,21 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			else
 				Resources.submitResource("SYSTEM_ITEMGEN_"+skill.ID()+"_"+material+"_true", skillContents);
 		}
-		final List<ItemCraftor.ItemKeyPair> skillContentsCopy=new Vector<ItemCraftor.ItemKeyPair>(skillContents.size());
+		final List<ItemCraftor.CraftedItem> skillContentsCopy=new Vector<ItemCraftor.CraftedItem>(skillContents.size());
 		skillContentsCopy.addAll(skillContents);
 		return skillContentsCopy;
 	}
 
-	protected boolean checkMetacraftItem(final Item I, final Triad<Integer,Integer,Class<?>[]> filter)
+	protected boolean checkMetacraftItem(final Item I, final CraftorFilter filter)
 	{
-		final int levelLimit=filter.first.intValue();
-		final int levelFloor=filter.second.intValue();
-		final Class<?>[] deriveClasses=filter.third;
-		if(((levelLimit>0) && (I.basePhyStats().level() > levelLimit))
-		||((levelFloor>0) && (I.basePhyStats().level() < levelFloor)))
+		if((I.basePhyStats().level() > filter.maxLevel)
+		||(I.basePhyStats().level() <= filter.minLevel)
+		||(I.baseGoldValue() > filter.maxValue)
+		||(I.baseGoldValue() <= filter.minValue))
 			return false;
-		if(deriveClasses.length==0)
+		if(filter.classes.length==0)
 			return true;
-		for(final Class<?> C : deriveClasses)
+		for(final Class<?> C : filter.classes)
 		{
 			if(C.isAssignableFrom(I.getClass()))
 				return true;
@@ -2031,9 +2447,9 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		return false;
 	}
 
-	protected List<Item> buildItem(final XMLTag piece, final Map<String,Object> defined) throws CMException
+	protected List<Item> buildItem(final XMLTag piece, final Map<String,Object> defined) throws CMException, PostProcessException
 	{
-		final Map<String,Object> preContentDefined = new SHashtable<String,Object>(defined);
+		final SHashtable<String,Object> preContentDefined = new SHashtable<String,Object>(defined);
 		final String classID = findStringNow("class",piece,defined);
 		final List<Item> contents = new Vector<Item>();
 		final List<String> ignoreStats=new XArrayList<String>();
@@ -2041,11 +2457,16 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		if(classID.toLowerCase().startsWith("metacraft"))
 		{
 			final String classRest=classID.substring(9).toLowerCase().trim();
-			final Triad<Integer,Integer,Class<?>[]> filter = new Triad<Integer,Integer,Class<?>[]>(Integer.valueOf(-1),Integer.valueOf(-1),new Class<?>[0]);
+			final CraftorFilter filter = new CraftorFilter();
 			String recipe="anything";
 			if(classRest.startsWith(":"))
 			{
-				recipe=getMetacraftFilter(classRest.substring(1).trim(), piece, defined, filter);
+				getMetacraftFilter(classRest.substring(1).trim(), piece, defined, filter);
+				if(filter.name.trim().length()>0)
+					recipe=filter.name;
+				else
+				if(classRest.substring(1).trim().length()>1)
+					recipe=classRest.substring(1).trim();
 			}
 			else
 			{
@@ -2058,24 +2479,37 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			int material=-1;
 			if(materialStr!=null)
 				 material = RawMaterial.CODES.FIND_IgnoreCase(materialStr);
-			final List<ItemCraftor> craftors=new Vector<ItemCraftor>();
-			for(final Enumeration<Ability> e=CMClass.abilities();e.hasMoreElements();)
+			@SuppressWarnings("unchecked")
+			List<ItemCraftor> craftorPrototypes = (List<ItemCraftor>)defined.get("____SYSTEM_FILTERED_ITEM_CRAFTORS");
+			if(craftorPrototypes == null)
 			{
-				final Ability A=e.nextElement();
-				if(A instanceof ItemCraftor)
-					craftors.add((ItemCraftor)A.copyOf());
+				craftorPrototypes=new Vector<ItemCraftor>();
+				for(final Enumeration<ItemCraftor> e=CMClass.craftorAbilities();e.hasMoreElements();)
+					craftorPrototypes.add(e.nextElement());
+				defined.put("____SYSTEM_FILTERED_ITEM_CRAFTORS", craftorPrototypes);
 			}
+			final List<ItemCraftor> craftors = new ArrayList<ItemCraftor>(craftorPrototypes.size());
+			for(final ItemCraftor I : craftorPrototypes)
+				craftors.add((ItemCraftor)I.copyOf());
+
 			if(recipe.startsWith("any"))
 			{
 				if(recipe.equalsIgnoreCase("anything"))
 				{
+					// very special case to prevent ships, boats, and wagons from being junk:
+					for(int i=craftors.size()-1;i>=0;i--)
+					{
+						final String ID=craftors.get(i).ID().toLowerCase();
+						if(ID.indexOf("wright")>=0)
+							craftors.remove(i);
+					}
 					final long startTime=System.currentTimeMillis();
 					while((contents.size()==0)&&((System.currentTimeMillis()-startTime)<1000))
 					{
 						final ItemCraftor skill=craftors.get(CMLib.dice().roll(1,craftors.size(),-1));
 						if(skill.fetchRecipes().size()>0)
 						{
-							final List<ItemCraftor.ItemKeyPair> skillContents=craftAllOfThisRecipe(skill,material,defined);
+							final List<ItemCraftor.CraftedItem> skillContents=craftAllOfThisRecipe(skill,material,defined);
 							if(skillContents.size()==0) // preliminary error messaging, just for the craft skills themselves
 								Log.errOut("MUDPercolator","Tried metacrafting anything, got "+Integer.toString(skillContents.size())+" from "+skill.ID());
 							else
@@ -2111,25 +2545,25 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 						{
 							final Item I=CMLib.materials().makeItemResource(resourceCode);
 							if(I.numBehaviors()>0 || I.numScripts()>0)
-								CMLib.threads().deleteAllTicks(I);
+								CMLib.threads().unTickAll(I);
 							contents.add(I);
 						}
 					}
 					else
 					if("farmables".equals(recipe))
 					{
-						final List<Item> coll=CMLib.materials().getAllFarmables(material & RawMaterial.MATERIAL_MASK);
+						final List<Item> coll=getAllFarmables(material & RawMaterial.MATERIAL_MASK);
 						if(coll.size()>0)
 						{
 							final Item I=(Item)coll.get(CMLib.dice().roll(1, coll.size(), -1)).copyOf();
 							if(I.numBehaviors()>0 || I.numScripts()>0)
-								CMLib.threads().deleteAllTicks(I);
+								CMLib.threads().unTickAll(I);
 							contents.add(I);
 						}
 					}
 					else
 					{
-						List<ItemCraftor.ItemKeyPair> skillContents=null;
+						List<ItemCraftor.CraftedItem> skillContents=null;
 						for(final ItemCraftor skill : craftors)
 						{
 							if(skill.ID().equalsIgnoreCase(recipe))
@@ -2160,7 +2594,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			else
 			if(recipe.toLowerCase().startsWith("all"))
 			{
-				List<ItemCraftor.ItemKeyPair> skillContents=null;
+				List<ItemCraftor.CraftedItem> skillContents=null;
 				recipe=recipe.substring(3).startsWith("-")?recipe.substring(4).toLowerCase().trim():"";
 				if("rawmaterials".startsWith(recipe)||"resources".startsWith(recipe))
 				{
@@ -2172,7 +2606,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 							{
 								final Item I=CMLib.materials().makeItemResource(rsc.intValue());
 								if(I.numBehaviors()>0 || I.numScripts()>0)
-									CMLib.threads().deleteAllTicks(I);
+									CMLib.threads().unTickAll(I);
 								contents.add(I);
 							}
 						}
@@ -2184,7 +2618,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 								{
 									final Item I=CMLib.materials().makeItemResource(rsc);
 									if(I.numBehaviors()>0 || I.numScripts()>0)
-										CMLib.threads().deleteAllTicks(I);
+										CMLib.threads().unTickAll(I);
 									contents.add(I);
 								}
 							}
@@ -2194,11 +2628,11 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				else
 				if("farmables".equals(recipe))
 				{
-					for(final Item I : CMLib.materials().getAllFarmables(material))
+					for(final Item I : getAllFarmables(material))
 					{
 						final Item I2=(Item)I.copyOf();
 						if(I2.numBehaviors()>0 || I2.numScripts()>0)
-							CMLib.threads().deleteAllTicks(I2);
+							CMLib.threads().unTickAll(I2);
 						contents.add(I2);
 					}
 				}
@@ -2233,10 +2667,10 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			{
 				for(final ItemCraftor skill : craftors)
 				{
-					final List<List<String>> V=skill.matchingRecipeNames(recipe,false);
+					final List<String> V=skill.matchingRecipeNames(recipe,false);
 					if((V!=null)&&(V.size()>0))
 					{
-						ItemCraftor.ItemKeyPair pair;
+						ItemCraftor.CraftedItem pair;
 						if(material>=0)
 							pair=skill.craftItem(recipe,material,true, false);
 						else
@@ -2258,10 +2692,10 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				{
 					for(final ItemCraftor skill : craftors)
 					{
-						final List<List<String>> V=skill.matchingRecipeNames(recipe,true);
+						final List<String> V=skill.matchingRecipeNames(recipe,true);
 						if((V!=null)&&(V.size()>0))
 						{
-							ItemCraftor.ItemKeyPair pair;
+							ItemCraftor.CraftedItem pair;
 							if(material>=0)
 								pair=skill.craftItem(recipe,material,true, false);
 							else
@@ -2336,20 +2770,21 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		}
 
 		final int contentSize=contents.size();
+		SHashtable<String,Object> definedCopy = null;
 		for(int it=0;it<contentSize;it++) // no iterator, please!!
 		{
 			final Item I=contents.get(it);
 			fillOutStatCodes(I,ignoreStats,"ITEM_",piece,defined);
 			I.recoverPhyStats();
-			CMLib.itemBuilder().balanceItemByLevel(I);
 			I.recoverPhyStats();
 			fillOutStatCodes(I,ignoreStats,"ITEM_",piece,defined);
 			fillOutStatCodes(I.basePhyStats(),ITEM_IGNORE_STATS,"ITEM_",piece,defined);
 			I.recoverPhyStats();
-
 			if(I instanceof Container)
 			{
-				final List<Item> V= findContents(piece,new SHashtable<String,Object>(preContentDefined));
+				if((definedCopy == null)||(definedCopy.isDirty()))
+					definedCopy=preContentDefined.copyOf();
+				final List<Item> V= findContents(piece,preContentDefined);
 				for(int i=0;i<V.size();i++)
 				{
 					final Item I2=V.get(i);
@@ -2366,6 +2801,26 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 					I.addNonUninvokableEffect(A);
 				}
 			}
+			PostProcessAttempter(defined,new PostProcessAttempt()
+			{
+				@Override
+				public String attempt() throws CMException, PostProcessException
+				{
+					String power = findOptionalString(I,ignoreStats,"ITEM_","ITEM_POWERBONUS",piece,defined, false);
+					if((power==null)||(!CMath.isInteger(power)))
+						power = findOptionalString(I,ignoreStats,"ITEM_","POWERBONUS",piece,defined, false);
+					if((power!=null)&&(CMath.isInteger(power))&&(I.fetchEffect("Prop_Adjuster")==null))
+					{
+						final int bonus=CMath.s_int(power);
+						I.basePhyStats().setLevel(I.basePhyStats().level()+bonus);
+						I.phyStats().setLevel(I.basePhyStats().level()+bonus);
+						CMLib.itemBuilder().balanceItemByLevel(I);
+						I.basePhyStats().setLevel(I.basePhyStats().level()-bonus);
+						I.recoverPhyStats();
+					}
+					return "";
+				}
+			});
 			final List<Behavior> V = findBehaviors(I,piece,defined);
 			for(int i=0;i<V.size();i++)
 			{
@@ -2631,9 +3086,12 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		final List<Item> raceWeapons=getRaceItems(E,"WEAPON","RACE_WEAPON_",piece,defined);
 		if(raceWeapons.size()>0)
 		{
-			final Item I=raceWeapons.get(CMLib.dice().roll(1, raceWeapons.size(), -1));
-			R.setStat("WEAPONCLASS", I.ID());
-			R.setStat("WEAPONXML", I.text());
+			final StringBuilder x = new StringBuilder("");
+			x.append("<ITEMS>");
+			for(final Item I : raceWeapons)
+				x.append(CMLib.coffeeMaker().getItemXML(I));
+			x.append("</ITEMS>");
+			R.setStat("WEAPONXML", x.toString());
 		}
 		ignoreStats.addAll(Arrays.asList(new String[]{"WEAPONCLASS","WEAPONXML"}));
 
@@ -2917,77 +3375,18 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		return value;
 	}
 
-	protected String findString(final Modifiable E, final List<String> ignoreStats, final String defPrefix, String tagName, XMLTag piece, final Map<String,Object> defined) throws CMException,PostProcessException
+	protected PairList<XMLTag,String> findStrings(final boolean optional, final Modifiable E, final List<String> ignoreStats, final String defPrefix,
+												  String tagName, final XMLTag piece, final Map<String,Object> defined, final XMLTag processDefined) throws CMException,PostProcessException
 	{
 		tagName=tagName.toUpperCase().trim();
-
-		if(tagName.startsWith("SYSTEM_RANDOM_NAME:"))
-		{
-			final String[] split=tagName.substring(19).split("-");
-			if((split.length==2)&&(CMath.isInteger(split[0]))&&(CMath.isInteger(split[1])))
-				return CMLib.login().generateRandomName(CMath.s_int(split[0]), CMath.s_int(split[1]));
-			throw new CMException("Bad random name range in '"+tagName+"' on piece '"+piece.tag()+"', Data: "+CMParms.toKeyValueSlashListString(piece.parms())+":"+CMStrings.limit(piece.value(),100));
-		}
-		else
-		if(tagName.equals("ROOM_AREAGATE"))
-		{
-			if(E instanceof Environmental)
-			{
-				final Room R=CMLib.map().roomLocation((Environmental)E);
-				if(R!=null)
-				{
-					boolean foundOne=false;
-					for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
-					{
-						final Room R2=R.getRoomInDir(d);
-						foundOne=(R2!=null) || foundOne;
-						if((R2!=null) && (R2.roomID().length()>0) && (R.getArea()!=R2.getArea()))
-							return CMLib.directions().getDirectionName(d);
-					}
-					if(!foundOne)
-						throw new PostProcessException("No exits at all on on object "+R.roomID()+" in variable '"+tagName+"'");
-				}
-			}
-			return "";
-		}
-		if(defPrefix != null)
-		{
-			final Object asPreviouslyDefined = defined.get((defPrefix+tagName).toUpperCase());
-			if(asPreviouslyDefined instanceof String)
-				return strFilter(E,ignoreStats,defPrefix,(String)asPreviouslyDefined,piece, defined);
-		}
-
-		final String asParm = piece.getParmValue(tagName);
-		if(asParm != null)
-			return strFilter(E,ignoreStats,defPrefix,asParm,piece, defined);
-
-		final Object asDefined = defined.get(tagName);
-		if(asDefined instanceof String)
-			return (String)asDefined;
-
-		final String contentload = piece.getParmValue("CONTENT_LOAD");
-		if((contentload!=null)
-		&&(contentload.length()>0))
-		{
-			final CMFile file = new CMFile(contentload,null,CMFile.FLAG_LOGERRORS|CMFile.FLAG_FORCEALLOW);
-			if(file.exists() && file.canRead())
-				return strFilter(E, ignoreStats, defPrefix,file.text().toString(), piece, defined);
-			else
-				throw new CMException("Bad content_load filename in '"+tagName+"' on piece '"+piece.tag()+"', Data: "+CMParms.toKeyValueSlashListString(piece.parms())+":"+CMStrings.limit(piece.value(),100));
-		}
-
-		XMLTag processDefined=null;
-		if(asDefined instanceof XMLTag)
-		{
-			piece=(XMLTag)asDefined;
-			processDefined=piece;
-			tagName=piece.tag();
-		}
-		final List<XMLLibrary.XMLTag> choices = getAllChoices(E,ignoreStats,defPrefix,tagName, piece, defined,true);
+		final PairList<XMLTag, String> found = new PairVector<XMLTag, String>();
+		final List<XMLLibrary.XMLTag> choices = getAllChoices(E, ignoreStats, defPrefix, tagName, piece, defined, true);
 		if((choices==null)||(choices.size()==0))
-			throw new CMDataException("Unable to find tag '"+tagName+"' on piece '"+piece.tag()+"', Data: "+CMParms.toKeyValueSlashListString(piece.parms())+":"+CMStrings.limit(piece.value(),100));
-		StringBuffer finalValue = new StringBuffer("");
-
+		{
+			if(!optional)
+				throw new CMDataException("Unable to find tag '"+tagName+"' on piece '"+piece.tag()+"', Data: "+CMParms.toKeyValueSlashListString(piece.parms())+":"+CMStrings.limit(piece.value(),100));
+			return found;
+		}
 		for(int c=0;c<choices.size();c++)
 		{
 			final XMLTag valPiece = choices.get(c);
@@ -3005,35 +3404,150 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				{
 					final String id=(piece.getParmValue("ID")!=null)?piece.getParmValue("ID"):"null";
 					Log.errOut("Stack overflow trying to filter "+valPiece.value()+" on "+piece.tag()+" id '"+id+"'");
+					try {
+						value=strFilter(E,ignoreStats,defPrefix,valPiece.value(),valPiece, defined);
+					} catch(final java.lang.StackOverflowError e2) {}
 					throw new CMException("Ended because of a stack overflow.  See the log.");
 				}
 			}
-
+			if(CMath.s_bool(valPiece.getParmValue("LLM")))
+			{
+				try
+				{
+					if(!defined.containsKey("SYSTEM_LLM_Object"))
+						defined.put("SYSTEM_LLM_Object", CMLib.protocol().createLLMSession(null,null));
+					if(value.trim().length()>0)
+						value = ((ProtocolLibrary.LLMSession)defined.get("SYSTEM_LLM_Object")).chat(value);
+				}
+				catch(final Exception e)
+				{
+					throw new CMException("Ended because of failed LLM access.",e);
+				}
+			}
 			if(processDefined!=valPiece)
 				defineReward(E,ignoreStats,defPrefix,valPiece.getParmValue("DEFINE"),valPiece,value,defined,true);
+			found.add(valPiece, value);
+		}
+		return found;
+	}
 
-			String action = valPiece.getParmValue("ACTION");
-			if(action==null)
+	protected String findString(final Modifiable E, final List<String> ignoreStats, final String defPrefix, String tagName,
+								XMLTag piece, final Map<String,Object> defined) throws CMException,PostProcessException
+	{
+		tagName=tagName.toUpperCase().trim();
+
+		switch(tagName.charAt(0))
+		{
+		case 'S':
+			if(tagName.startsWith("SYSTEM_RANDOM_NAME:"))
+			{
+				final String[] split=tagName.substring(19).split("-");
+				if((split.length==2)&&(CMath.isInteger(split[0]))&&(CMath.isInteger(split[1])))
+					return CMLib.login().generateRandomName(CMath.s_int(split[0]), CMath.s_int(split[1]));
+				throw new CMException("Bad random name range in '"+tagName+"' on piece '"+piece.tag()+"', Data: "+CMParms.toKeyValueSlashListString(piece.parms())+":"+CMStrings.limit(piece.value(),100));
+			}
+			break;
+		case 'R':
+			if(tagName.equals("ROOM_AREAGATE"))
+			{
+				if(E instanceof Environmental)
+				{
+					final Room R=CMLib.map().roomLocation((Environmental)E);
+					if(R!=null)
+					{
+						boolean foundOne=false;
+						for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
+						{
+							final Room R2=R.getRoomInDir(d);
+							foundOne=(R2!=null) || foundOne;
+							if((R2!=null) && (R2.roomID().length()>0) && (R.getArea()!=R2.getArea()))
+								return CMLib.directions().getDirectionName(d);
+						}
+						if(!foundOne)
+							throw new PostProcessException("No exits at all on on object "+R.roomID()+" in variable '"+tagName+"'");
+					}
+				}
+				return "";
+			}
+			break;
+		default:
+			break;
+		}
+		if(defPrefix != null)
+		{
+			final Object asPreviouslyDefined = defined.get(defPrefix.toUpperCase()+tagName);
+			if(asPreviouslyDefined instanceof String)
+				return CMStrings.replaceAll(strFilter(E,ignoreStats,defPrefix,(String)asPreviouslyDefined,piece, defined),"\\$","$");
+		}
+
+		final String asParm = piece.getParmValue(tagName);
+		if(asParm != null)
+			return CMStrings.replaceAll(strFilter(E,ignoreStats,defPrefix,asParm,piece, defined),"\\$","$");
+
+		final Object asDefined = defined.get(tagName);
+		if(asDefined instanceof String)
+			return (String)asDefined;
+
+		final String contentload = piece.getParmValue("CONTENT_LOAD");
+		if((contentload!=null)
+		&&(contentload.length()>0))
+		{
+			final CMFile file = new CMFile(contentload,null,CMFile.FLAG_LOGERRORS|CMFile.FLAG_FORCEALLOW);
+			if(file.exists() && file.canRead())
+				return CMStrings.replaceAll(strFilter(E, ignoreStats, defPrefix,file.text().toString(), piece, defined),"\\$","$");
+			else
+				throw new CMException("Bad content_load filename in '"+tagName+"' on piece '"+piece.tag()+"', Data: "+CMParms.toKeyValueSlashListString(piece.parms())+":"+CMStrings.limit(piece.value(),100));
+		}
+
+		XMLTag processDefined=null;
+		if(asDefined instanceof XMLTag)
+		{
+			piece=(XMLTag)asDefined;
+			processDefined=piece;
+			tagName=piece.tag();
+		}
+		StringBuffer finalValue = new StringBuffer("");
+		for(final Pair<XMLTag,String> valPair :
+			this.findStrings(false, E, ignoreStats, defPrefix, tagName, piece, defined, processDefined))
+		{
+			final XMLTag valPiece = valPair.first;
+			final String value = valPair.second;
+
+			final String action = valPiece.getParmValue("ACTION");
+			if((action==null) || (action.length()==0))
 				finalValue.append(" ").append(value);
 			else
+			switch(action.charAt(0))
 			{
-				action=action.toUpperCase().trim();
-				if((action.length()==0)||(action.equals("APPEND")))
-					finalValue.append(" ").append(value);
-				else
-				if(action.equals("REPLACE"))
+			case 'a': case 'A':
+				if(action.equalsIgnoreCase("APPEND"))
+				{
+					finalValue.append(" ").append(value); //append
+					break;
+				}
+				//$FALL-THROUGH$
+			case 'r': case 'R': // replace
+				if(action.equalsIgnoreCase("REPLACE"))
+				{
 					finalValue = new StringBuffer(value);
-				else
-				if(action.equals("PREPEND"))
+					break;
+				}
+				//$FALL-THROUGH$
+			case 'p': case 'P':
+				if(action.equalsIgnoreCase("PREPEND"))
+				{
 					finalValue.insert(0,' ').insert(0,value);
-				else
-					throw new CMException("Unknown action '"+action+" on subPiece "+valPiece.tag()+" on piece '"+piece.tag()+"', Data: "+CMParms.toKeyValueSlashListString(piece.parms())+":"+CMStrings.limit(piece.value(),100));
+					break;
+				}
+				//$FALL-THROUGH$
+			default:
+				throw new CMException("Unknown action '"+action+" on subPiece "+valPiece.tag()+" on piece '"+piece.tag()+"', Data: "+CMParms.toKeyValueSlashListString(piece.parms())+":"+CMStrings.limit(piece.value(),100));
 			}
 		}
 		final String finalFinalValue=finalValue.toString().trim();
 		if(processDefined!=null)
 			defineReward(E,ignoreStats,defPrefix,piece.getParmValue("DEFINE"),processDefined,finalFinalValue,defined,true);
-		return finalFinalValue;
+		return CMStrings.deEscape(finalFinalValue,"$\\");
 	}
 
 	@Override
@@ -3053,7 +3567,6 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 	protected Object findObject(final Modifiable E, final List<String> ignoreStats, final String defPrefix, String tagName, XMLTag piece, final Map<String,Object> defined) throws CMException,PostProcessException
 	{
 		tagName=tagName.toUpperCase().trim();
-
 		if(defPrefix != null)
 		{
 			final Object asPreviouslyDefined = defined.get((defPrefix+tagName).toUpperCase());
@@ -3083,6 +3596,9 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		if(asDefined == null)
 			processDefined=piece;
 		final List<XMLLibrary.XMLTag> choices =new ArrayList<XMLLibrary.XMLTag>();
+
+		// so, this looks at sub-tags JUST to see what type they are.  If they are something interesting,
+		// then choices are grabbed, on THIS xml piece, with that tag id.
 		final Set<String> done=new HashSet<String>();
 		for(final XMLLibrary.XMLTag subTag : piece.contents())
 		{
@@ -3094,71 +3610,92 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		if(choices.size()==0)
 			choices.addAll(getAllChoices(E,ignoreStats,defPrefix,tagName, piece, defined,true));
 		if(choices.size()==0)
+		{
+			if(piece.tag().equals("ITEM")||piece.tag().equals("MOB")||piece.tag().equals("ABILITY"))
+				choices.addAll(getAllChoices(E,ignoreStats,defPrefix,piece.tag(), piece, defined,true));
+		}
+		if(choices.size()==0)
 			throw new CMDataException("Unable to find tag '"+tagName+"' on piece '"+piece.tag()+"', Data: "+CMParms.toKeyValueSlashListString(piece.parms())+":"+CMStrings.limit(piece.value(),100));
 		final List<Object> finalValues = new ArrayList<Object>();
 
-		for(int c=0;c<choices.size();c++)
+		try
 		{
-			final XMLTag valPiece = choices.get(c);
-			if(valPiece.parms().containsKey("VALIDATE") && !testCondition(E,null,null,CMLib.xml().restoreAngleBrackets(valPiece.getParmValue("VALIDATE")),valPiece, defined))
-				continue;
+			for(int c=0;c<choices.size();c++)
+			{
+				final XMLTag valPiece = choices.get(c);
+				if(valPiece.parms().containsKey("VALIDATE") && !testCondition(E,null,null,CMLib.xml().restoreAngleBrackets(valPiece.getParmValue("VALIDATE")),valPiece, defined))
+					continue;
 
-			final String valueStr=valPiece.value().toUpperCase().trim();
-			final Object value;
-			if(valueStr.startsWith("SELECT:"))
-			{
-				final List<Map<String,Object>> sel=this.doMQLSelectObjs(E, ignoreStats, defPrefix, CMLib.xml().restoreAngleBrackets(valueStr), valPiece, defined);
-				value=sel;
-				finalValues.addAll(sel);
-			}
-			else
-			if(valPiece.tag().equals("MOB"))
-			{
-				final List<MOB> objs = this.findMobs(E, valPiece, defined, null);
-				for(final MOB M : objs)
+				final String valueStr=valPiece.value().toUpperCase().trim();
+				final Object value;
+				if(valueStr.startsWith("SELECT:"))
 				{
-					CMLib.threads().deleteAllTicks(M);
-					M.setSavable(false);
-					M.setDatabaseID("DELETE");
+					final List<Map<String,Object>> sel=this.doMQLSelectObjs(E, ignoreStats, defPrefix, CMLib.xml().restoreAngleBrackets(valueStr), valPiece, defined);
+					value=sel;
+					finalValues.addAll(sel);
 				}
-				value=objs;
-				finalValues.addAll(objs);
-			}
-			else
-			if(valPiece.tag().equals("ITEM"))
-			{
-				final List<Item> objs = this.findItems(E, valPiece, defined, null);
-				for(final Item I : objs)
+				else
+				if(valPiece.tag().equals("MOB"))
 				{
-					CMLib.threads().deleteAllTicks(I);
-					I.setSavable(false);
-					I.setDatabaseID("DELETE");
-				}
-				value=objs;
-				finalValues.addAll(objs);
-			}
-			else
-			if(valPiece.tag().equals("ABILITY"))
-			{
-				final List<Ability> objs = this.findAbilities(E, valPiece, defined, null);
-				value=objs;
-				finalValues.addAll(objs);
-			}
-			else
-			{
-				try
-				{
-					final List<Object> objs = parseMQLFrom(new String[] {valueStr}, valueStr, E, ignoreStats, defPrefix, valPiece, defined, false);
+					final List<MOB> objs = this.findMobs(E, valPiece, defined, null);
+					for(final MOB M : objs)
+					{
+						CMLib.threads().unTickAll(M);
+						M.setSavable(false);
+						M.setDatabaseID("DELETE");
+					}
 					value=objs;
 					finalValues.addAll(objs);
 				}
-				catch(final CMException e)
+				else
+				if(valPiece.tag().equals("ITEM"))
 				{
-					throw new CMException("Unable to produce '"+tagName+"' on piece '"+piece.tag()+"', Data: "+CMStrings.limit(piece.value(),100)+":"+e.getMessage());
+					final List<Item> objs = this.findItems(E, valPiece, defined, null);
+					for(final Item I : objs)
+					{
+						CMLib.threads().unTickAll(I);
+						I.setSavable(false);
+						I.setDatabaseID("DELETE");
+					}
+					value=objs;
+					finalValues.addAll(objs);
 				}
+				else
+				if(valPiece.tag().equals("ABILITY"))
+				{
+					final List<Ability> objs = this.findAbilities(E, valPiece, defined, null);
+					value=objs;
+					finalValues.addAll(objs);
+				}
+				else
+				if(valPiece.tag().equals("OBJECT"))
+				{
+					final Object O=this.findObject(E, ignoreStats, defPrefix, tagName, valPiece, defined);
+					final List<Object> l=new ArrayList<Object>();
+					if(O!=null)
+						l.add(O);
+					value=l;
+					finalValues.addAll(l);
+				}
+				else
+				{
+					try
+					{
+						final List<Object> objs = parseMQLFrom(new String[] {valueStr}, valueStr, E, ignoreStats, defPrefix, valPiece, defined, false);
+						value=objs;
+						finalValues.addAll(objs);
+					}
+					catch(final CMException e)
+					{
+						throw new CMException("Unable to produce '"+tagName+"' on piece '"+piece.tag()+"', Data: "+CMStrings.limit(piece.value(),100)+":"+e.getMessage());
+					}
+				}
+				if(processDefined!=valPiece)
+					defineReward(E,ignoreStats,defPrefix,valPiece.getParmValue("DEFINE"),valPiece,value,defined,true);
 			}
-			if(processDefined!=valPiece)
-				defineReward(E,ignoreStats,defPrefix,valPiece.getParmValue("DEFINE"),valPiece,value,defined,true);
+		}
+		finally
+		{
 		}
 		if(processDefined!=null)
 			defineReward(E,ignoreStats,defPrefix,piece.getParmValue("DEFINE"),processDefined,finalValues.size()==1?finalValues.get(0):finalValues,defined,true);
@@ -3246,7 +3783,9 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		else
 		if(piece.tag().equalsIgnoreCase(tagName))
 		{
-			if((piece.parms().containsKey("LAYOUT")) && (piece.tag().equalsIgnoreCase("ROOM")) && (!defined.containsKey("ROOM_LAYOUT")))
+			if((piece.parms().containsKey("LAYOUT"))
+			&& (piece.tag().equalsIgnoreCase("ROOM"))
+			&& (!defined.containsKey("ROOM_LAYOUT")))
 				return new XVector<XMLTag>(processLikeParm(tagName,piece,defined));
 
 			boolean container=false;
@@ -3287,11 +3826,13 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 
 	protected boolean testCondition(final Modifiable E, final List<String> ignoreStats, final String defPrefix, final String condition, final XMLTag piece, final Map<String,Object> defined) throws PostProcessException
 	{
+		if(CMath.s_bool(piece.getParmValue("LLM"))&&(!CMLib.protocol().isLLMInstalled()))
+			return false;
+		if((condition == null)||(condition.length()==0))
+			return true;
 		final Map<String,Object> fixed=new HashMap<String,Object>();
 		try
 		{
-			if(condition == null)
-				return true;
 			if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
 				Log.debugOut("MudPercolator","START-TEST "+piece.tag()+": "+condition);
 			final List<Varidentifier> ids=parseVariables(condition);
@@ -3718,6 +4259,12 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		STATE_SELECT1, // as or from or ,
 		STATE_AS0, // as
 		STATE_AS1, // expect from or , ONLY
+		STATE_UPDATE0, // what
+		STATE_UPDATE1, // expect SET
+		STATE_SET0, // expect KEY
+		STATE_SET1, // expect =
+		STATE_SET2, // expect val
+		STATE_EXPECTCOMMAORWHEREOREND, // expect comma, or where, or end
 		STATE_FROM0, // loc
 		STATE_FROM1, // paren
 		STATE_EXPECTWHEREOREND, // expect where
@@ -3752,7 +4299,12 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		 * @author Bo Zimmerman
 		 *
 		 */
-		private static enum WhereComparator { EQ, NEQ, GT, LT, GTEQ, LTEQ, LIKE, IN, NOTLIKE, NOTIN }
+		private static enum WhereComparator
+		{
+			EQ, NEQ, GT, LT, GTEQ, LTEQ,
+			LIKE, IN, NOTLIKE, NOTIN,
+			MATCH, NOTMATCH
+		}
 
 		/** An abstract Where Clause
 		 * @author Bo Zimmerman
@@ -3795,6 +4347,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 
 		private static class WhatBit extends Pair<String[],String>
 		{
+			private static final long serialVersionUID = -3081263523263581063L;
 			public AggregatorFunctions aggregator = null;
 
 			private WhatBit(final String what[], final String as)
@@ -3822,8 +4375,10 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		}
 
 		private String				mql		= "";
+		private String				update	= "";
 		private final List<WhatBit>	what	= new ArrayList<WhatBit>(1);
 		private final List<String[]>froms	= new ArrayList<String[]>(1);
+		private final List<String[]>sets	= new ArrayList<String[]>(1);
 		private WhereClause			wheres	= null;
 
 		protected final static PrioritizingLimitedMap<String,MQLClause> cachedClauses = new PrioritizingLimitedMap<String,MQLClause>(1000,60000,600000,0);
@@ -3833,7 +4388,8 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			if(curr.length()<2)
 				return true;
 			if((curr.charAt(0)=='\"')
-			||(curr.charAt(0)=='\''))
+			||(curr.charAt(0)=='\'')
+			||(curr.charAt(0)=='`'))
 			{
 				final int endDex=curr.length()-1;
 				if(curr.charAt(endDex) != curr.charAt(0))
@@ -3844,20 +4400,38 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			return true;
 		}
 
+		private String cleanTermQuotes(final StringBuilder curr)
+		{
+			if(curr.length()<2)
+				return curr.toString();
+			if((curr.charAt(0)=='\"')
+			||(curr.charAt(0)=='\'')
+			||(curr.charAt(0)=='`'))
+			{
+				final int endDex=curr.length()-1;
+				if(curr.charAt(endDex) != curr.charAt(0))
+					return curr.toString();
+				return CMStrings.deEscape(curr.substring(1,endDex-1),curr.charAt(0));
+			}
+			return curr.toString();
+		}
+
 		/**
 		 * parse the mql statement into this object
 		 *
 		 * @param str the original mql statement
+		 * @param setmqlbits mql statement, minus select:
 		 * @param mqlbits mql statement, minus select: must be ALL UPPERCASE
+		 * @param startState the starting state
 		 * @return the parsed MQL clause
 		 * @throws CMException
 		 */
-		protected static MQLClause parseMQL(final String str, final String mqlbits) throws MQLException
+		protected static MQLClause parseMQL(final String str, final String setmqlbits, final String mqlbits, final SelectMQLState startState) throws MQLException
 		{
 			if(cachedClauses.containsKey(mqlbits))
 				return cachedClauses.get(mqlbits);
 			final MQLClause clause=new MQLClause();
-			clause.parseInternalMQL(str, mqlbits);
+			clause.parseInternalMQL(str, setmqlbits, mqlbits,startState);
 			if(!CMSecurity.isDisabled(CMSecurity.DisFlag.MQLCACHE))
 				cachedClauses.put(mqlbits, clause);
 			return clause;
@@ -3868,18 +4442,20 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		 * parse the mql statement into this object
 		 *
 		 * @param str the original mql statement
+		 * @param setmqlbits mql statement, minus select:
 		 * @param mqlbits mql statement, minus select: must be ALL UPPERCASE
+		 * @param state the initial parse state
 		 * @throws CMException
 		 */
-		private void parseInternalMQL(final String str, final String mqlbits) throws MQLException
+		private void parseInternalMQL(final String str, final String setmqlbits, final String mqlbits, SelectMQLState state) throws MQLException
 		{
 			this.mql=str;
 			final StringBuilder curr=new StringBuilder("");
 			int pdepth=0;
 			WhereClause wheres = new WhereClause();
 			this.wheres=wheres;
+			String[] varer = new String[2];
 			WhereComp	wcomp  = new WhereComp();
-			SelectMQLState state=SelectMQLState.STATE_SELECT0;
 			for(int i=0;i<=mqlbits.length();i++)
 			{
 				final char c=(i==mqlbits.length())?' ':mqlbits.charAt(i);
@@ -3950,6 +4526,157 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 							state=SelectMQLState.STATE_SELECT0;
 						else
 							throw new MQLException("Unexpected , in Malformed mql: "+str);
+					}
+					else
+						curr.append(c);
+					break;
+				}
+				case STATE_UPDATE0: // update what start
+				{
+					if(Character.isWhitespace(c))
+					{
+						if(curr.length()>0)
+						{
+							if(isTermProperlyEnded(curr))
+							{
+								// we just got the update set
+								update=cleanTermQuotes(curr);
+								state=SelectMQLState.STATE_UPDATE1;
+								curr.setLength(0);
+							}
+							else
+								curr.append(c);
+						}
+					}
+					else
+						curr.append(c);
+					break;
+				}
+				case STATE_UPDATE1: // update set
+				{
+					if(Character.isWhitespace(c))
+					{
+						if(curr.length()>0)
+						{
+							if(isTermProperlyEnded(curr))
+							{
+								if(!curr.toString().equalsIgnoreCase("SET"))
+									throw new MQLException("Expected SET (not '"+curr+"') in Malformed mql: "+str);
+								state=SelectMQLState.STATE_SET0;
+								curr.setLength(0);
+							}
+							else
+								curr.append(c);
+						}
+					}
+					else
+						curr.append(c);
+					break;
+				}
+				case STATE_SET1: // expect =
+				{
+					if(c=='=')
+						state=SelectMQLState.STATE_SET2;
+					else
+					if(!Character.isWhitespace(c))
+						throw new MQLException("Expected = (not '"+c+"') in Malformed mql: "+str);
+					break;
+				}
+				case STATE_SET0: // get the key
+				{
+					if(Character.isWhitespace(c))
+					{
+						if(curr.length()>0)
+						{
+							if(isTermProperlyEnded(curr))
+							{
+								varer[0] = curr.toString().toUpperCase().trim();
+								state=SelectMQLState.STATE_SET1;
+								curr.setLength(0);
+							}
+							else
+								curr.append(c);
+						}
+					}
+					else
+					if((curr.length()>0)&&(c=='='))
+					{
+						if(isTermProperlyEnded(curr))
+						{
+							varer[0] = curr.toString().toUpperCase().trim();
+							state=SelectMQLState.STATE_SET2;
+							curr.setLength(0);
+						}
+						else
+							curr.append(c);
+					}
+					else
+					if((curr.length()==0)&&((!Character.isLetter(c))))
+						throw new MQLException("Expected KEY (not '"+c+"') in Malformed mql: "+str);
+					else
+						curr.append(c);
+					break;
+				}
+				case STATE_SET2: // get the new value
+				{
+					final char lc=(i>=setmqlbits.length())?' ':setmqlbits.charAt(i);
+					if(Character.isWhitespace(c)
+					||(i==mqlbits.length()-1)
+					||((c=='\'')||(c=='\"')||(c=='`')))
+					{
+						if(curr.length()>0)
+						{
+							if(isTermProperlyEnded(curr))
+							{
+								if(!Character.isWhitespace(lc))
+									curr.append(lc);
+								String currStr = curr.toString().trim();
+								final int x = currStr.toLowerCase().indexOf("select:");
+								if((x==0)||((x==1)&&(!Character.isLetter(curr.charAt(0)))))
+									currStr = currStr.toUpperCase();
+								varer[1] = currStr;
+								sets.add(varer);
+								varer = new String[2];
+								state=SelectMQLState.STATE_EXPECTCOMMAORWHEREOREND;
+								curr.setLength(0);
+							}
+							else
+								curr.append(lc);
+						}
+						else
+						if(!Character.isWhitespace(lc))
+							curr.append(lc);
+					}
+					else
+						curr.append(lc);
+					break;
+				}
+				case STATE_EXPECTCOMMAORWHEREOREND: // expect comma, where, or valid end
+				{
+					if(Character.isWhitespace(c)||(c==',')||(c==';'))
+					{
+						if(curr.length()>0)
+						{
+							if(c==',')
+								throw new MQLException("Expected '"+curr.toString()+"' in Malformed mql: "+str);
+							else
+							if(curr.toString().equals(";"))
+							{
+								curr.setLength(0);
+								state=SelectMQLState.STATE_EXPECTNOTHING;
+							}
+							else
+							if(!curr.toString().equals("WHERE"))
+								throw new MQLException("Expected WHERE in Malformed mql: "+str);
+							else
+							{
+								curr.setLength(0);
+								state=SelectMQLState.STATE_WHERE0;
+							}
+						}
+						else
+						if(c==',')
+							state=SelectMQLState.STATE_SET0;
 					}
 					else
 						curr.append(c);
@@ -4076,7 +4803,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				}
 				case STATE_EXPECTWHEREOREND: // expect where clause
 				{
-					if(Character.isWhitespace(c)||(c==','))
+					if(Character.isWhitespace(c)||(c==',')||(c==';'))
 					{
 						if(curr.length()>0)
 						{
@@ -4268,78 +4995,122 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 							done=true;
 						if(done)
 						{
-							final String fcurr=curr.toString();
-							if(fcurr.equals("="))
+							switch((curr.length()==0)?'\0':curr.charAt(0))
 							{
-								wcomp.comp=WhereComparator.EQ;
-								curr.setLength(0);
-								state=SelectMQLState.STATE_WHERE2; // now expect RHS
+							case '=':
+								if(curr.length()==1)
+								{
+									wcomp.comp=WhereComparator.EQ;
+									curr.setLength(0);
+									state=SelectMQLState.STATE_WHERE2; // now expect RHS
+								}
+								else
+								{
+									switch(curr.charAt(1))
+									{
+									case '>':
+									{
+										wcomp.comp=WhereComparator.GTEQ;
+										curr.setLength(0);
+										state=SelectMQLState.STATE_WHERE2; // now expect RHS
+										break;
+									}
+									case '<':
+									{
+										wcomp.comp=WhereComparator.LTEQ;
+										curr.setLength(0);
+										state=SelectMQLState.STATE_WHERE2; // now expect RHS
+										break;
+									}
+									default:
+										throw new MQLException("Unexpected '"+curr+"' in Malformed mql: "+str);
+									}
+								}
+								break;
+							case '!':
+								if(curr.toString().equals("!="))
+								{
+									wcomp.comp=WhereComparator.NEQ;
+									curr.setLength(0);
+									state=SelectMQLState.STATE_WHERE2; // now expect RHS
+								}
+								else
+									throw new MQLException("Unexpected '"+curr+"' in Malformed mql: "+str);
+								break;
+							case '<':
+								if(curr.length()==1)
+								{
+									wcomp.comp=WhereComparator.LT;
+									curr.setLength(0);
+									state=SelectMQLState.STATE_WHERE2; // now expect RHS
+								}
+								else
+								{
+									switch(curr.charAt(1))
+									{
+									case '>':
+									{
+										wcomp.comp=WhereComparator.NEQ;
+										curr.setLength(0);
+										state=SelectMQLState.STATE_WHERE2; // now expect RHS
+										break;
+									}
+									case '=':
+									{
+										wcomp.comp=WhereComparator.LTEQ;
+										curr.setLength(0);
+										state=SelectMQLState.STATE_WHERE2; // now expect RHS
+										break;
+									}
+									default:
+										throw new MQLException("Unexpected '"+curr+"' in Malformed mql: "+str);
+									}
+								}
+								break;
+							case '>':
+								if(curr.length()==1)
+								{
+									wcomp.comp=WhereComparator.GT;
+									curr.setLength(0);
+									state=SelectMQLState.STATE_WHERE2; // now expect RHS
+								}
+								else
+								{
+									switch(curr.charAt(1))
+									{
+									case '=':
+									{
+										wcomp.comp=WhereComparator.GTEQ;
+										curr.setLength(0);
+										state=SelectMQLState.STATE_WHERE2; // now expect RHS
+										break;
+									}
+									case '<':
+									{
+										wcomp.comp=WhereComparator.NEQ;
+										curr.setLength(0);
+										state=SelectMQLState.STATE_WHERE2; // now expect RHS
+										break;
+									}
+									default:
+										throw new MQLException("Unexpected '"+curr+"' in Malformed mql: "+str);
+									}
+								}
+								break;
+							default:
+								{
+									final WhereComparator comp = (WhereComparator)CMath.s_valueOf(WhereComparator.class, curr.toString());
+									if(comp != null)
+									{
+										wcomp.comp=comp;
+										curr.setLength(0);
+										state=SelectMQLState.STATE_WHERE2; // now expect RHS
+									}
+									else
+										throw new MQLException("Unexpected '"+curr+"' in Malformed mql: "+str);
+								}
+								break;
 							}
-							else
-							if(fcurr.equals("!=")||fcurr.equals("<>"))
-							{
-								wcomp.comp=WhereComparator.NEQ;
-								curr.setLength(0);
-								state=SelectMQLState.STATE_WHERE2; // now expect RHS
-							}
-							else
-							if(fcurr.equals(">"))
-							{
-								wcomp.comp=WhereComparator.GT;
-								curr.setLength(0);
-								state=SelectMQLState.STATE_WHERE2; // now expect RHS
-							}
-							else
-							if(fcurr.equals("<"))
-							{
-								wcomp.comp=WhereComparator.LT;
-								curr.setLength(0);
-								state=SelectMQLState.STATE_WHERE2; // now expect RHS
-							}
-							else
-							if(fcurr.equals(">=")||fcurr.equals("=>"))
-							{
-								wcomp.comp=WhereComparator.GTEQ;
-								curr.setLength(0);
-								state=SelectMQLState.STATE_WHERE2; // now expect RHS
-							}
-							else
-							if(fcurr.equals("<=")||fcurr.equals("<="))
-							{
-								wcomp.comp=WhereComparator.LTEQ;
-								curr.setLength(0);
-								state=SelectMQLState.STATE_WHERE2; // now expect RHS
-							}
-							else
-							if(fcurr.equals("IN"))
-							{
-								wcomp.comp=WhereComparator.IN;
-								curr.setLength(0);
-								state=SelectMQLState.STATE_WHERE2; // now expect RHS
-							}
-							else
-							if(fcurr.equals("LIKE"))
-							{
-								wcomp.comp=WhereComparator.LIKE;
-								curr.setLength(0);
-								state=SelectMQLState.STATE_WHERE2; // now expect RHS
-							}
-							else
-							if(fcurr.equals("NOTIN"))
-							{
-								wcomp.comp=WhereComparator.NOTIN;
-								curr.setLength(0);
-								state=SelectMQLState.STATE_WHERE2; // now expect RHS
-							}
-							else
-							if(fcurr.equals("NOTLIKE"))
-							{
-								wcomp.comp=WhereComparator.NOTLIKE;
-								curr.setLength(0);
-								state=SelectMQLState.STATE_WHERE2; // now expect RHS
-							}
-							else
-								throw new MQLException("Unexpected '"+fcurr+"' in Malformed mql: "+str);
 							if(saveC)
 								curr.append(c);
 						}
@@ -4348,7 +5119,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				}
 				case STATE_WHERE2: // where rhs of clause
 				{
-					if(Character.isWhitespace(c))
+					if(Character.isWhitespace(c)||(c==';'))
 					{
 						if(curr.length()>0)
 						{
@@ -4356,12 +5127,21 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 							{
 								wcomp.rhs = WhereComp.parseHS(curr.toString());
 								curr.setLength(0);
-								state=SelectMQLState.STATE_EXPECTCONNOREND;
+								if(c==';')
+									state=SelectMQLState.STATE_EXPECTNOTHING;
+								else
+									state=SelectMQLState.STATE_EXPECTCONNOREND;
 							}
 							else
 								curr.append(c);
 						}
 					}
+					else
+					if((curr.length()>0)
+					&&((curr.charAt(0)=='\'')
+						||(curr.charAt(0)=='\"')
+						||(curr.charAt(0)=='`')))
+						curr.append(c);
 					else
 					if(c==')')
 					{
@@ -4482,8 +5262,9 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			}
 			if((state != SelectMQLState.STATE_EXPECTNOTHING)
 			&&(state != SelectMQLState.STATE_EXPECTWHEREOREND)
+			&&(state != SelectMQLState.STATE_EXPECTCOMMAORWHEREOREND)
 			&&(state != SelectMQLState.STATE_EXPECTCONNOREND))
-				throw new MQLException("Unpected end of clause in state "+state.toString()+" in mql: "+str);
+				throw new MQLException("Unexpected end of clause in state "+state.toString()+" in mql: "+str);
 			// finally, parse the aggregators
 			for(final WhatBit W : this.what)
 			{
@@ -4541,7 +5322,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				throw new MQLException("CMFile "+F.getAbsolutePath()+" failed mob parsing '"+err+"' in "+mql);
 			for(final MOB M : mobList)
 			{
-				CMLib.threads().deleteAllTicks(M);
+				CMLib.threads().unTickAll(M);
 				M.setSavable(false);
 				M.setDatabaseID("DELETE");
 			}
@@ -4556,7 +5337,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				throw new MQLException("CMFile "+F.getAbsolutePath()+" failed item parsing '"+err+"' in "+mql);
 			for(final Item I : itemList)
 			{
-				CMLib.threads().deleteAllTicks(I);
+				CMLib.threads().unTickAll(I);
 				I.setSavable(false);
 				I.setDatabaseID("DELETE");
 			}
@@ -4574,7 +5355,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				err=CMLib.coffeeMaker().unpackAreaFromXML(area, null, null, true, false);
 			for(final Area A : areaList)
 			{
-				CMLib.threads().deleteAllTicks(A);
+				CMLib.threads().unTickAll(A);
 				A.setSavable(false);
 				A.setAreaState(State.STOPPED);
 			}
@@ -4593,7 +5374,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			roomList.add(dumbArea.getProperMap().nextElement());
 			for(final Room R : roomList)
 			{
-				CMLib.threads().deleteAllTicks(R);
+				CMLib.threads().unTickAll(R);
 				dumbArea.delProperRoom(R);
 				R.setSavable(false);
 			}
@@ -4699,13 +5480,31 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 						break;
 					}
 					//$FALL-THROUGH$
+				case NPROOMS:
+				case ORPHROOMS:
 				case ROOMS:
 					{
 						if((from.size()==0)
 						&&(E instanceof Area))
 							from.add(E);
 						if(from.size()==0)
-							from.addAll(new XVector<Room>(CMLib.map().rooms()));
+						{
+							switch(set)
+							{
+							case NPROOMS:
+								from.addAll(new XVector<Room>(new FilteredEnumeration<Room>(CMLib.map().rooms(),noPropertyFilter)));
+								break;
+							case ORPHROOMS:
+							{
+								final Filterer<Room> orphanRoomsFilter = new OrphanRoomFilterer(CMLib.map().rooms(),false);
+								from.addAll(new XVector<Room>(new FilteredEnumeration<Room>(CMLib.map().rooms(),orphanRoomsFilter)));
+								break;
+							}
+							default:
+								from.addAll(new XVector<Room>(CMLib.map().rooms()));
+								break;
+							}
+						}
 						else
 						{
 							final List<Object> oldFrom=flattenMQLObjectList(from);
@@ -4715,7 +5514,21 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 								final Room R;
 								if(o instanceof Area)
 								{
-									from.addAll(new XVector<Room>(((Area)o).getProperMap()));
+									switch(set)
+									{
+									case NPROOMS:
+										from.addAll(new XVector<Room>(new FilteredEnumeration<Room>(((Area)o).getProperMap(),noPropertyFilter)));
+										break;
+									case ORPHROOMS:
+									{
+										final Filterer<Room> orphanRoomsFilter = new OrphanRoomFilterer(((Area)o).getProperMap(),true);
+										from.addAll(new XVector<Room>(new FilteredEnumeration<Room>(((Area)o).getProperMap(),orphanRoomsFilter)));
+										break;
+									}
+									default:
+										from.addAll(new XVector<Room>(((Area)o).getProperMap()));
+										break;
+									}
 									continue;
 								}
 								if (o instanceof Environmental)
@@ -5392,7 +6205,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 									if(RawMaterial.CODES.IS_VALID(resource))
 									{
 										final Item I=CMLib.materials().makeItemResource(resource);
-										CMLib.threads().deleteAllTicks(I);
+										CMLib.threads().unTickAll(I);
 										I.setSavable(false);
 										I.setDatabaseID("DELETE");
 										from.add(I);
@@ -5406,7 +6219,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 								for(final Item I : R.myResources())
 								{
 									final Item I2=(Item)I.copyOf();
-									CMLib.threads().deleteAllTicks(I2);
+									CMLib.threads().unTickAll(I2);
 									I2.setSavable(false);
 									I2.setDatabaseID("DELETE");
 									from.add(I2);
@@ -5419,7 +6232,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 								if(RawMaterial.CODES.IS_VALID(resource))
 								{
 									final Item I=CMLib.materials().makeItemResource(resource);
-									CMLib.threads().deleteAllTicks(I);
+									CMLib.threads().unTickAll(I);
 									I.setSavable(false);
 									I.setDatabaseID("DELETE");
 									from.add(I);
@@ -5516,7 +6329,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 									{
 										final Ability A=r.nextElement();
 										if(A!=null)
-										from.add(A);
+											from.add(A);
 									}
 								}
 								else
@@ -5605,7 +6418,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 								if(o instanceof Ability)
 									from.add(o);
 								else
-										throw new MQLException("Unknown sub-from "+f+" on "+o.toString()+" in "+mql);
+									throw new MQLException("Unknown sub-from "+f+" on "+o.toString()+" in "+mql);
 							}
 						}
 					}
@@ -5655,6 +6468,9 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 								final List<Object> l=(List<Object>)o;
 								from.addAll(l);
 							}
+							else
+							if(o == null)
+								throw new MQLException("Unknown from clause object '"+f+"' in "+mql);
 							else
 								from.add(o);
 						}
@@ -5707,7 +6523,8 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			for(final String key : m.keySet())
 			{
 				final Object o=m.get(key);
-				if(o instanceof CMObject)
+				if((o instanceof CMObject)
+				||(o instanceof List))
 					return getSimpleMQLValue(valueName,o);
 			}
 		}
@@ -5777,6 +6594,24 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 					selectFrom=(Modifiable)m.values().iterator().next();
 			}
 			return doMQLSelectObjs(selectFrom,ignoreStats,defPrefix,strpath[0],piece,defined);
+		}
+		for(int s=0;s<strpath.length;s++)
+		{
+			if(CMath.s_valueOf(MQLSpecialFromSet.class, strpath[0]) == null)
+				break;
+			if(s==strpath.length-1)
+			{
+				final Modifiable M = (from instanceof Modifiable)?(Modifiable)from:E;
+				try
+				{
+					return this.parseMQLFrom(strpath, mql, M, ignoreStats, defPrefix, piece, defined, literalsOK);
+				}
+				catch(final MQLException e)
+				{
+					// we were wrong, so just move on
+					break;
+				}
+			}
 		}
 		Object finalO=null;
 		try
@@ -5857,7 +6692,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 							{
 								final Object o =findObject(E,ignoreStats,defPrefix,"OBJECT",tag,defined);
 								if(o instanceof Tickable)
-									CMLib.threads().deleteAllTicks((Tickable)o);
+									CMLib.threads().unTickAll((Tickable)o);
 								if(o instanceof List)
 								{
 									@SuppressWarnings({ "unchecked" })
@@ -5865,14 +6700,14 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 									for(final Object o2 : l)
 									{
 										if(o2 instanceof Tickable)
-											CMLib.threads().deleteAllTicks((Tickable)o2);
+											CMLib.threads().unTickAll((Tickable)o2);
 									}
 								}
 								val=o;
 							}
 						}
 						if(val == null)
-							throw new MQLException("Unknown variable '$"+str+"' in str '"+str+"' in '"+mql+"'",new CMException("$"+str));
+							throw new MQLException("Unknown variable '$"+key+"' in str '"+str+"' in '"+mql+"'",new CMException("$"+str));
 						finalO=val;
 					}
 					break;
@@ -5957,7 +6792,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			if(e instanceof MQLException)
 				throw (MQLException)e;
 			else
-				throw new MQLException("MQL failure on $"+strpath,e);
+				throw new MQLException("MQL failure on $"+CMParms.combine(Arrays.asList(strpath),0),e);
 		}
 		return finalO;
 	}
@@ -6002,7 +6837,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				{
 					if(llhso.size()!=lrhso.size())
 						return (comp==MQLClause.WhereComparator.NEQ);
-					boolean allSame=true;
+					boolean allSame=llhso.size()==0 && lrhso.size()==0;
 					for(final Object o1 : llhso)
 					{
 						for(final Object o2 : lrhso)
@@ -6017,7 +6852,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				{
 					if(llhso.size()!=lrhso.size())
 						return (comp==MQLClause.WhereComparator.NOTLIKE);
-					boolean allSame=true;
+					boolean allSame=llhso.size()==0 && lrhso.size()==0;
 					for(final Object o1 : llhso)
 					{
 						for(final Object o2 : lrhso)
@@ -6027,10 +6862,25 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 						return (comp==MQLClause.WhereComparator.LIKE);
 					return (comp==MQLClause.WhereComparator.NOTLIKE);
 				}
+				case MATCH:
+				case NOTMATCH:
+				{
+					if(llhso.size()!=lrhso.size())
+						return (comp==MQLClause.WhereComparator.NOTMATCH);
+					boolean allSame=llhso.size()==0 && lrhso.size()==0;
+					for(final Object o1 : llhso)
+					{
+						for(final Object o2 : lrhso)
+							allSame = allSame || doMQLComparison(o1, MQLClause.WhereComparator.MATCH, o2, allFrom, from,E,ignoreStats,defPrefix,piece,defined);
+					}
+					if(allSame)
+						return (comp==MQLClause.WhereComparator.MATCH);
+					return (comp==MQLClause.WhereComparator.NOTMATCH);
+				}
 				case IN:
 				case NOTIN:
 				{
-					boolean allIn=true;
+					boolean allIn=llhso.size()==0;
 					for(final Object o1 : llhso)
 						allIn = allIn || doMQLComparison(o1, MQLClause.WhereComparator.IN, lrhso, allFrom, from,E,ignoreStats,defPrefix,piece,defined);
 					if(allIn)
@@ -6046,6 +6896,9 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			{
 				@SuppressWarnings("unchecked")
 				final List<Object> l=(List<Object>)lhso;
+				if((rhso instanceof String)
+				&&(l.size()==0))
+					return doMQLComparison("", comp, rhso, allFrom, from,E,ignoreStats,defPrefix,piece,defined);
 				boolean allIn=true;
 				for(final Object o1 : l)
 					allIn = allIn && doMQLComparison(o1, comp, rhso, allFrom, from,E,ignoreStats,defPrefix,piece,defined);
@@ -6147,7 +7000,8 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				final List lrhso=(List)rhso;
 				for(final Object o2 : lrhso)
 				{
-					if(doMQLComparison(lhso, MQLClause.WhereComparator.EQ, o2, allFrom, from,E,ignoreStats,defPrefix,piece,defined))
+					final Object o3 = (o2 instanceof Environmental)?((Environmental)o2).ID():o2;
+					if(doMQLComparison(lhso, MQLClause.WhereComparator.EQ, o3, allFrom, from,E,ignoreStats,defPrefix,piece,defined))
 						return comp==(MQLClause.WhereComparator.IN);
 				}
 				return comp==(MQLClause.WhereComparator.NOTIN);
@@ -6218,6 +7072,43 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			else
 				throw new MQLException("'"+lhstr+"' can ever be LIKE anything at all.");
 			break;
+		case NOTMATCH:
+		case MATCH:
+		{
+			if(!(rhstr instanceof String))
+				throw new MQLException("Nothing can ever be MATCHed to '"+rhstr+"'");
+			if(!(lhstr instanceof String))
+				throw new MQLException("Nothing can ever MATCH '"+lhstr+"'");
+			final Pattern P;
+			if(defined.containsKey(".MATCHER:"+rhstr+"."))
+				P=(Pattern)defined.get(".MATCHER:"+rhstr+".");
+			else
+			{
+				try
+				{
+					P = Pattern.compile(rhstr, Pattern.CASE_INSENSITIVE|Pattern.MULTILINE|Pattern.CANON_EQ|Pattern.DOTALL);
+				}
+				catch(final Exception e)
+				{
+					throw new MQLException(e.getMessage());
+				}
+				defined.put(".MATCHER:"+rhstr+".",P);
+			}
+			final Matcher M = P.matcher(lhstr);
+			if(M.matches() == (comp == MQLClause.WhereComparator.MATCH))
+			{
+				final String[] captures = new String[M.groupCount()];
+				for(int i=0;i<captures.length;i++)
+				{
+					defined.put("MATCH"+i, M.group(i+1));
+					captures[i]=M.group(i+1);
+				}
+				defined.put(".LASTMATCHED.", Arrays.asList(captures));
+				return true;
+			}
+			else
+				return false;
+		}
 		case LT:
 			if(CMath.isNumber(lhstr) && CMath.isNumber(rhstr))
 				return CMath.s_double(lhstr) < CMath.s_double(rhstr);
@@ -6315,6 +7206,46 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		return result;
 	}
 
+	protected List<UpdateSet> doSubObjUpdate(final Modifiable E, final List<String> ignoreStats, final String defPrefix,
+											 final MQLClause clause, final String mql, final XMLTag piece, final Map<String,Object> defined)
+												throws MQLException,PostProcessException
+	{
+		final List<UpdateSet> results=new ArrayList<UpdateSet>();
+		// froms can have any environmental, or tags
+		final List<Object> froms=new LinkedList<Object>();
+		if(clause.update.length()==0)
+			throw new MQLException("Empty UPDATE clause in "+clause.mql);
+		final String[] from = clause.update.split("\\\\");
+		froms.addAll(parseMQLFrom(from, clause.mql, E, ignoreStats, defPrefix, piece, defined,false));
+		final Map<String,Object> cache=new HashMap<String,Object>();
+		for(final Object o : flattenMQLObjectList(froms))
+		{
+			if(doMQLWhereClauseFilter(clause.wheres, froms, o,cache,mql,E,ignoreStats,defPrefix,piece,defined))
+			{
+				if(!(o instanceof Modifiable))
+					throw new MQLException("Unable to update '"+o+"'");
+				final Modifiable m = (Modifiable)o;
+				for(final String[] set : clause.sets)
+				{
+					if(!m.isStat(set[0]))
+						throw new MQLException("Unable to update '"+m.ID()+"', '"+set[0]+"' is not a valid stat.");
+					try
+					{
+						final String definition=strFilter(E,ignoreStats,defPrefix,set[1],piece, defined);
+						final Object o1 = getFinalMQLValue(new String[] {definition}, froms, o, cache, mql,E, ignoreStats, defPrefix, piece, defined,true);
+						results.add(new UpdateSet(m,set[0],o1.toString()));
+					}
+					catch(final CMException x)
+					{
+						doMQLWhereClauseFilter(clause.wheres, froms, o,cache,mql,E,ignoreStats,defPrefix,piece,defined);
+						throw new MQLException(x.getMessage());
+					}
+				}
+			}
+		}
+		return results;
+	}
+
 	protected List<Map<String,Object>> doSubObjSelect(final Modifiable E, final List<String> ignoreStats, final String defPrefix,
 													  final MQLClause clause, final String mql, final XMLTag piece, final Map<String,Object> defined)
 															  throws MQLException,PostProcessException
@@ -6334,7 +7265,8 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		boolean aggregate=false;
 		for(int i=0;i<clause.what.size();i++)
 		{
-			if(clause.what.get(i).aggregator != null)
+			final MQLClause.WhatBit W=clause.what.get(i);
+			if(W.aggregator != null)
 			{
 				aggregate=true;
 				break;
@@ -6348,7 +7280,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				final Map<String,Object> m=new TreeMap<String,Object>();
 				for(final MQLClause.WhatBit bit : clause.what)
 				{
-					final Object o1 = this.getFinalMQLValue(bit.what(), froms, o, cache, mql,E, ignoreStats, defPrefix, piece, defined,true);
+					final Object o1 = getFinalMQLValue(bit.what(), froms, o, cache, mql,E, ignoreStats, defPrefix, piece, defined,true);
 					if(o1 instanceof Map)
 					{
 						@SuppressWarnings("unchecked")
@@ -6407,6 +7339,8 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 						results.clear();
 						results.add(first);
 					}
+					else
+						throw new MQLException("Empty RESULTS for FIRST "+clause.mql);
 					break;
 				}
 				case ANY:
@@ -6479,6 +7413,8 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		return results;
 	}
 
+
+
 	protected String convertMQLObjectToString(final Object o1)
 	{
 		if(o1 instanceof List)
@@ -6548,10 +7484,11 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		final int x=str.indexOf(':');
 		if(x<0)
 			throw new MQLException("Malformed mql: "+str);
-		final String mqlbits=str.substring(x+1).toUpperCase();
+		final String setmqlbits=str.substring(x+1);
+		final String mqlbits=setmqlbits.toUpperCase();
 		if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
 			Log.debugOut("Starting MQL: "+CMStrings.deleteCRLFTAB(mqlbits) +" on "+((E==null)?"null":E.name()));
-		final MQLClause clause = MQLClause.parseMQL(str, mqlbits);
+		final MQLClause clause = MQLClause.parseMQL(str, setmqlbits, mqlbits, SelectMQLState.STATE_SELECT0);
 		final List<Map<String,String>> results = this.doSubSelectStr(E, ignoreStats, defPrefix, clause, str, piece, defined);
 		if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
 			Log.debugOut("Finished MQL: "+results.size()+" results");
@@ -6563,11 +7500,12 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		final int x=str.indexOf(':');
 		if(x<0)
 			throw new MQLException("Malformed mql: "+str);
-		final String mqlbits=str.substring(x+1).toUpperCase();
+		final String setmqlbits=str.substring(x+1);
+		final String mqlbits=setmqlbits.toUpperCase();
 		if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
 			Log.debugOut("Starting MQL: "+CMStrings.deleteCRLFTAB(mqlbits)+" on "+((E==null)?"null":((E instanceof Room)?((Room)E).roomID():E.name())));
 
-		final MQLClause clause = MQLClause.parseMQL(str, mqlbits);
+		final MQLClause clause = MQLClause.parseMQL(str, setmqlbits, mqlbits, SelectMQLState.STATE_SELECT0);
 		final List<Map<String,Object>> results = this.doSubObjSelect(E, ignoreStats, defPrefix, clause, str, piece, defined);
 		if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
 		{
@@ -6625,6 +7563,48 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		}
 	}
 
+	@Override
+	public List<Map<String,String>> doMQLSelectStrings(final Modifiable E, final String mql) throws MQLException
+	{
+		final Map<String,Object> defined=new TreeMap<String,Object>();
+		final XMLTag piece=CMLib.xml().createNewTag("tag", "value");
+		try
+		{
+			return doMQLSelectStrs(E,null,null,mql,piece,defined);
+		}
+		catch(final PostProcessException e)
+		{
+			throw new MQLException("Cannot post-process MQL.", e);
+		}
+	}
+
+	@Override
+	public List<UpdateSet> doMQLUpdateObjects(final Modifiable E, final String mql) throws MQLException
+	{
+		final Map<String,Object> defined=new TreeMap<String,Object>();
+		final XMLTag piece=CMLib.xml().createNewTag("tag", "value");
+		try
+		{
+			final int x=mql.indexOf(':');
+			if(x<0)
+				throw new MQLException("Malformed mql: "+mql);
+			final String setmqlbits = mql.substring(x+1);
+			final String mqlbits=setmqlbits.toUpperCase();
+			if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
+				Log.debugOut("Starting MQL: "+CMStrings.deleteCRLFTAB(mqlbits)+" on "+((E==null)?"null":((E instanceof Room)?((Room)E).roomID():E.name())));
+
+			final MQLClause clause = MQLClause.parseMQL(mql, setmqlbits, mqlbits, SelectMQLState.STATE_UPDATE0);
+			final List<UpdateSet> results = doSubObjUpdate(E, null, null, clause, mql, piece, defined);
+			if(CMSecurity.isDebugging(CMSecurity.DbgFlag.MUDPERCOLATOR))
+				Log.debugOut("Finished MQL USEL: "+results.size()+" results");
+			return results;
+		}
+		catch(final PostProcessException e)
+		{
+			throw new MQLException("Cannot post-process MQL.", e);
+		}
+	}
+
 	protected String strFilter(Modifiable E, final List<String> ignoreStats, final String defPrefix, String str, final XMLTag piece, final Map<String,Object> defined) throws CMException,PostProcessException
 	{
 		List<Varidentifier> vars=parseVariables(str);
@@ -6652,9 +7632,7 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			}
 			else
 			if(V.var.toUpperCase().startsWith("SELECT:"))
-			{
 				val=doMQLSelectString(E,ignoreStats,defPrefix,CMLib.xml().restoreAngleBrackets(V.var),piece, defined);
-			}
 			else
 			if(V.var.toUpperCase().startsWith("STAT:") && (E!=null))
 			{
@@ -6754,6 +7732,9 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 			else
 			if(V.var.length()==0)
 				continue;
+			else
+			if(V.var.equals("$"))
+				val="$";
 			else
 				val = defined.get(V.var.toUpperCase().trim());
 			if(val instanceof XMLTag)
@@ -6867,10 +7848,12 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 					{
 						final int levelDiff = newILevel - I.phyStats().level();
 						changeMade=true;
-						final int effectiveLevel =CMLib.itemBuilder().timsLevelCalculator(I) + levelDiff;
+						int effectiveLevel =CMLib.itemBuilder().timsLevelCalculator(I) + levelDiff;
+						if(effectiveLevel < 1)
+							effectiveLevel = 1;
 						I.basePhyStats().setLevel(effectiveLevel);
 						I.phyStats().setLevel(effectiveLevel);
-						CMLib.itemBuilder().itemFix(I, effectiveLevel, null);
+						CMLib.itemBuilder().itemFix(I, effectiveLevel, false, null);
 						I.basePhyStats().setLevel(newILevel);
 						I.phyStats().setLevel(newILevel);
 						I.text();
@@ -6885,8 +7868,8 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 				&&(M.getStartRoom()==room))
 				{
 					int newLevel=makeNewLevel(M.phyStats().level(),oldMin,oldMax,newMin,newMax);
-					if(newLevel <= 0)
-						newLevel = 1;
+					if(newLevel <= newMin)
+						newLevel = newMin;
 					if(newLevel != M.phyStats().level())
 					{
 						changeMade=true;
@@ -6914,10 +7897,12 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 							{
 								final int levelDiff = newILevel - mI.phyStats().level();
 								changeMade=true;
-								final int effectiveLevel =CMLib.itemBuilder().timsLevelCalculator(mI) + levelDiff;
+								int effectiveLevel =CMLib.itemBuilder().timsLevelCalculator(mI) + levelDiff;
+								if(effectiveLevel < 1)
+									effectiveLevel = 1;
 								mI.basePhyStats().setLevel(effectiveLevel);
 								mI.phyStats().setLevel(effectiveLevel);
-								CMLib.itemBuilder().itemFix(mI, effectiveLevel, null);
+								CMLib.itemBuilder().itemFix(mI, effectiveLevel, false, null);
 								mI.basePhyStats().setLevel(newILevel);
 								mI.phyStats().setLevel(newILevel);
 								mI.text();
@@ -6944,10 +7929,13 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 									{
 										final Item I2=(Item)E2;
 										final int levelDiff = newLevel - I2.phyStats().level();
-										final int effectiveLevel =CMLib.itemBuilder().timsLevelCalculator(I2) + levelDiff;
+										int effectiveLevel =CMLib.itemBuilder().timsLevelCalculator(I2) + levelDiff;
+										if(effectiveLevel < 1)
+											effectiveLevel = 1;
 										I2.basePhyStats().setLevel(effectiveLevel);
 										I2.phyStats().setLevel(effectiveLevel);
-										CMLib.itemBuilder().itemFix(I2, effectiveLevel, null);
+										CMLib.itemBuilder().itemFix(I2, effectiveLevel, false, null);
+										newLevel = effectiveLevel;
 									}
 									P2.basePhyStats().setLevel(newLevel);
 									P2.phyStats().setLevel(newLevel);
@@ -6984,4 +7972,72 @@ public class MUDPercolator extends StdLibrary implements AreaGenerationLibrary
 		return changeMade;
 	}
 
+	protected List<Item> getAllFarmables(final int materialType)
+	{
+		final Integer mat=Integer.valueOf(materialType);
+		synchronized(farmablesCache)
+		{
+			if(farmablesCache.containsKey(mat))
+				return farmablesCache.get(mat);
+		}
+		final List<Item> coll = new ArrayList<Item>();
+		final Collection<Integer> useThese;
+		if(materialType > 0)
+			useThese = RawMaterial.CODES.COMPOSE_RESOURCES(materialType);
+		else
+		if(materialType == 0)
+			useThese = Arrays.asList(new Integer[0]);
+		else
+		{
+			useThese = new ArrayList<Integer>(RawMaterial.CODES.ALL().length);
+			for(final int r : RawMaterial.CODES.ALL())
+			{
+				if(r != 0)
+					useThese.add(Integer.valueOf(r));
+			}
+		}
+		for(final Integer rsc : useThese)
+		{
+			for(final Enumeration<Room> e=CMClass.locales();e.hasMoreElements();)
+			{
+				final Room R=e.nextElement();
+				if(!(R instanceof GridLocale))
+				{
+					if((R.resourceChoices()!=null)&&(R.resourceChoices().contains(rsc)))
+					{
+						final Physical P=CMLib.materials().makeResource(rsc.intValue(),Integer.toString(R.domainType()),false,null, "");
+						if(P instanceof Item)
+						{
+							final Item I=(Item)P;
+							if((I.numBehaviors()>0)||(I.numScripts()>0))
+								CMLib.threads().unTickAll(I);
+							coll.add(I);
+						}
+						else
+						if(P instanceof MOB)
+						{
+							final MOB M=(MOB)P;
+							final Race raceR=M.baseCharStats().getMyRace();
+							if(raceR.myResources()!=null)
+							{
+								for(final RawMaterial I : raceR.myResources())
+								{
+									final Item I2=(Item)I.copyOf();
+									if((I2.numBehaviors()>0)||(I2.numScripts()>0))
+										CMLib.threads().unTickAll(I2);
+									coll.add(I2);
+								}
+							}
+						}
+						break;
+					}
+				}
+			}
+		}
+		synchronized(farmablesCache)
+		{
+			farmablesCache.put(mat, new ReadOnlyVector<Item>(coll));
+		}
+		return coll;
+	}
 }

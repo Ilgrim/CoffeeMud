@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,14 +50,20 @@ public class Aquan extends AnimalSpeak
 
 	private final static String[] soundBase = new String[]
 	{
-		"gurgle","blub","eeeeeeeee","oioioi","glub",
-		"honk","glugglge","mrrr","wurrr","llllgl","gl","lb",
-		"llrrrwwwrrr","blip","flup","glglglll","wwwrrr","lllrr",
-		"glug","blubbablup","gurglflub","blubllll","splurt",
+		"gurgle","blub","chitter","oioioi","glub",
+		"honk","glugglge","mrrr","wurrr","squeel","gl","lb",
+		"squeek","blip","flup","glglglll","whirr","lllrr",
+		"glug","blubbablup","yrrrk","blubllll","splurt",
 		"oi","eeee","rrwwwll","onkglgl","bluggg","lrrr","lg"
 	};
 
 	private static String[] animalSounds = null;
+
+	@Override
+	public String getTranslationVerb()
+	{
+		return "gurgle(s)";
+	}
 
 	@Override
 	protected String[] getSounds()

@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -127,7 +127,7 @@ public class Thief_WildernessSounds extends ThiefSkill
 			{
 				if(!super.proficiencyCheck(msg.source(), super.getXLEVELLevel(msg.source())*5, false))
 				{
-					msg.source().tell(L("You don't hear anything."));
+					commonTelL(msg.source(),"You don't hear anything.");
 					return false;
 				}
 				else

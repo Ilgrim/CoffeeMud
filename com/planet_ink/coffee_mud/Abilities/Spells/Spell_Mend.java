@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ public class Spell_Mend extends Spell
 		return "Spell_Mend";
 	}
 
-	private final static String localizedName = CMLib.lang().L("Mend");
+	private final static String localizedName = CMLib.lang().L("Lesser Mend");
 
 	@Override
 	public String name()
@@ -78,6 +78,11 @@ public class Spell_Mend extends Spell
 			mob.tell(L("@x1 cannot be mended.",target.name(mob)));
 			return false;
 		}
+		if(target.phyStats().weight()>1000)
+		{
+			mob.tell(L("@x1 is too large to be affected by this magic."));
+			return false;
+		}
 
 		if(!super.invoke(mob,commands, givenTarget, auto,asLevel))
 			return false;
@@ -87,8 +92,8 @@ public class Spell_Mend extends Spell
 		if(success)
 		{
 			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
-									(auto?"<T-NAME> begins to shimmer!"
-										 :"^S<S-NAME> incant(s) at <T-NAMESELF>!^?"));
+									(auto?L("<T-NAME> begins to shimmer!")
+										 :L("^S<S-NAME> incant(s) at <T-NAMESELF>!^?")));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

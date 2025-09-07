@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -171,7 +171,7 @@ public class Thief_KillLog extends ThiefSkill
 			{
 				final MOB mob=(MOB)affected;
 				mob.tell(L("Ah, a new one for your kill log."));
-				CMLib.leveler().postExperience(mob,null,null,mark.phyStats().level(),false);
+				CMLib.leveler().postExperience(mob,"ABILITY:"+ID(),null,null,mark.phyStats().level(), false);
 			}
 			set[1]=""+mark.phyStats().level();
 			set[3]=Integer.toString(CMath.s_int(set[3])+1);

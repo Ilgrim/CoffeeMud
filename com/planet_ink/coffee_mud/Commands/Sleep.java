@@ -8,6 +8,7 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.TimeClock.TimeOfDay;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
@@ -16,9 +17,11 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
+import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -32,7 +35,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class Sleep extends StdCommand
+public class Sleep extends StdCommand implements Tickable
 {
 	public Sleep()
 	{
@@ -43,6 +46,11 @@ public class Sleep extends StdCommand
 	public String[] getAccessWords()
 	{
 		return access;
+	}
+
+	private static enum WaitUntil
+	{
+		DAY, NIGHT, DAWN, DUSK, HEALED, FULL, RESTED
 	}
 
 	@Override
@@ -58,6 +66,37 @@ public class Sleep extends StdCommand
 		final Room R=mob.location();
 		if(R==null)
 			return false;
+
+		if((commands.size()>2)
+		&&(commands.get(commands.size()-2).equalsIgnoreCase("until")))
+		{
+			final String what = commands.get(commands.size()-1).toUpperCase().trim();
+			commands.remove(commands.size()-2);
+			commands.remove(commands.size()-1);
+			WaitUntil wait=(WaitUntil)CMath.s_valueOf(WaitUntil.class, what);
+			if(wait == null)
+			{
+				if(("DAYTIME").startsWith(what))
+					wait=WaitUntil.DAY;
+				else
+				if(("NIGHTTIME").startsWith(what))
+					wait=WaitUntil.NIGHT;
+				else
+				{
+					mob.tell(L("Unknown until '@x1', try DAY, NIGHT, DAWN, DUSK, HEALED, RESTED, or FULL",what));
+					return false;
+				}
+			}
+			mob.delAbility(mob.fetchAbility("AutoWaker"));
+			final ExtendableAbility A = (ExtendableAbility)CMClass.getAbility("ExtAbility");
+			A.setName(L("Auto-Waker"));
+			A.setDisplayText("");
+			A.setAbilityID("AutoWaker");
+			A.setTickable(this);
+			A.setMiscText(wait.name());
+			A.setSavable(false);
+			mob.addNonUninvokableEffect(A);
+		}
 		if(commands.size()<=1)
 		{
 			final CMMsg msg=CMClass.getMsg(mob,null,null,CMMsg.MSG_SLEEP,L("<S-NAME> lay(s) down and take(s) a nap."));
@@ -74,7 +113,7 @@ public class Sleep extends StdCommand
 		}
 		String mountStr=null;
 		if(E instanceof Rideable)
-			mountStr="<S-NAME> "+((Rideable)E).mountString(CMMsg.TYP_SLEEP,mob)+" <T-NAME>.";
+			mountStr=L("<S-NAME> @x1 <T-NAME>.",((Rideable)E).mountString(CMMsg.TYP_SLEEP,mob));
 		else
 			mountStr=L("<S-NAME> sleep(s) on <T-NAME>.");
 		String sourceMountStr=null;
@@ -88,6 +127,8 @@ public class Sleep extends StdCommand
 		final CMMsg msg=CMClass.getMsg(mob,E,null,CMMsg.MSG_SLEEP,sourceMountStr,mountStr,mountStr);
 		if(R.okMessage(mob,msg))
 			R.send(mob,msg);
+		else
+			CMLib.commands().postCommandRejection(msg.source(),msg.target(),msg.tool(),origCmds);
 		return false;
 	}
 
@@ -109,4 +150,72 @@ public class Sleep extends StdCommand
 		return true;
 	}
 
+	protected volatile int tickStatus = Tickable.STATUS_NOT;
+
+	@Override
+	public int getTickStatus()
+	{
+		return tickStatus;
+	}
+
+	@Override
+	public boolean tick(final Tickable ticking, final int tickID)
+	{
+		tickStatus = Tickable.STATUS_ALIVE;
+		if(!(ticking instanceof MOB))
+			return false;
+		final MOB M=(MOB)ticking;
+		final Ability A =M.fetchEffect("AutoWaker");
+		if(A ==null)
+			return false;
+		final WaitUntil w = (WaitUntil)CMath.s_valueOf(WaitUntil.class, A.text());
+		if(w == null)
+		{
+			M.delEffect(A);
+			return false;
+		}
+
+		final TimeManager mgr = CMLib.time();
+		final boolean isSleeping = CMLib.flags().isSleeping(M);
+		if(!isSleeping)
+		{
+			M.delEffect(A);
+			return false;
+		}
+		boolean wakeMeUp = false;
+		final TimeClock clock = mgr.localClock(M);
+		switch(w)
+		{
+		case DAWN:
+			wakeMeUp = clock.getTODCode()==TimeOfDay.DAWN;
+			break;
+		case DAY:
+			wakeMeUp = clock.getTODCode()==TimeOfDay.DAY;
+			break;
+		case DUSK:
+			wakeMeUp = clock.getTODCode()==TimeOfDay.DUSK;
+			break;
+		case NIGHT:
+			wakeMeUp = clock.getTODCode()==TimeOfDay.NIGHT;
+			break;
+		case FULL:
+			wakeMeUp = M.curState().getHitPoints() >= M.maxState().getHitPoints();
+			wakeMeUp &= M.curState().getMana() >= M.maxState().getMana();
+			wakeMeUp &= M.curState().getMovement() >= M.maxState().getMovement();
+			break;
+		case HEALED:
+			wakeMeUp = M.curState().getHitPoints() >= M.maxState().getHitPoints();
+			break;
+		case RESTED:
+			wakeMeUp = M.curState().getFatigue() <= 0;
+			break;
+		}
+		if(wakeMeUp)
+		{
+			M.enqueCommand(new XVector<String>("WAKE"),0, 1);
+			M.delEffect(A);
+			return false;
+		}
+		return true;
+	}
 }

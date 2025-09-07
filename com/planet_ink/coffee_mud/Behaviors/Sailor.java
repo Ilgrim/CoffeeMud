@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Behaviors;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMSecurity.DbgFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -33,7 +34,7 @@ public class Sailor extends StdBehavior
 	protected volatile int	tickDown		= -1;
 	protected int			tickWait		= -1;
 	protected int			tickBonus		= 0;
-	protected BoardableShip	loyalShipArea	= null;
+	protected Boardable	loyalShipArea	= null;
 	protected Item			loyalShipItem	= null;
 	protected Rideable		targetShipItem	= null;
 	protected boolean		combatIsOver	= false;
@@ -46,15 +47,17 @@ public class Sailor extends StdBehavior
 	protected boolean		aggrMobs		= false;
 	protected boolean		aggrLvlChk		= false;
 	protected CompiledZMask aggrMask		= null;
+	protected String		aggrMaskStr		= "";
 	protected boolean		areaOnly		= true;
 	protected boolean		wimpy			= true;
+	protected volatile int complaintTick	= 0;
 	//protected int			targetShipDist	= -1;
 
 	@Override
 	public String accountForYourself()
 	{
-		if(getParms().trim().length()>0)
-			return "aggression against "+CMLib.masking().maskDesc(getParms(),true).toLowerCase();
+		if(aggrMaskStr.trim().length()>0)
+			return "aggression against "+CMLib.masking().maskDesc(aggrMaskStr,true).toLowerCase();
 		else
 			return "aggressiveness";
 	}
@@ -73,9 +76,9 @@ public class Sailor extends StdBehavior
 
 	public Item getShip(final MOB M)
 	{
-		if(M.getStartRoom() instanceof BoardableShip)
+		if(M.getStartRoom() instanceof Boardable)
 		{
-			final Item hisShip=((BoardableShip)M.getStartRoom()).getShipItem();
+			final Item hisShip=((Boardable)M.getStartRoom()).getBoardableItem();
 			if(hisShip != null)
 				return hisShip;
 		}
@@ -88,9 +91,9 @@ public class Sailor extends StdBehavior
 		if(M.isPlayer())
 		{
 			final Room R=M.location();
-			if((R!=null)&&(R.getArea() instanceof BoardableShip))
+			if((R!=null)&&(R.getArea() instanceof Boardable))
 			{
-				final Item shipI=((BoardableShip)R.getArea()).getShipItem();
+				final Item shipI=((Boardable)R.getArea()).getBoardableItem();
 				if((shipI!=null)&&(CMLib.law().doesHaveWeakPriviledgesHere(M, M.location())))
 					return shipI;
 				final Room shipR=CMLib.map().roomLocation(shipI);
@@ -99,10 +102,10 @@ public class Sailor extends StdBehavior
 					for(final Enumeration<Item> i=shipR.items();i.hasMoreElements();)
 					{
 						final Item I=i.nextElement();
-						if((I instanceof BoardableShip)&&(I!=shipI))
+						if((I instanceof Boardable)&&(I!=shipI))
 						{
-							final Item otherShipI=((BoardableShip)I).getShipItem();
-							final Area otherShipA=((BoardableShip)I).getShipArea();
+							final Item otherShipI=((Boardable)I).getBoardableItem();
+							final Area otherShipA=((Boardable)I).getArea();
 							if((otherShipI!=null)
 							&&(otherShipA!=null)
 							&&(CMLib.law().doesHaveWeakPriviledgesHere(M, otherShipA.getRandomProperRoom())))
@@ -118,16 +121,16 @@ public class Sailor extends StdBehavior
 	public boolean amOnMyShip(final MOB M)
 	{
 		final Room R=M.location();
-		if((R!=null)&&(R.getArea() instanceof BoardableShip))
-			return (((BoardableShip)R.getArea()).getShipItem() == loyalShipItem);
+		if((R!=null)&&(R.getArea() instanceof Boardable))
+			return (((Boardable)R.getArea()).getBoardableItem() == loyalShipItem);
 		return false;
 	}
 
 	public boolean isMyShipInCombat(final MOB M)
 	{
-		if(loyalShipItem instanceof SailingShip)
+		if(loyalShipItem instanceof NavigableItem)
 		{
-			return ((SailingShip)loyalShipItem).isInCombat();
+			return ((NavigableItem)loyalShipItem).isInCombat();
 		}
 		return false;
 	}
@@ -140,9 +143,9 @@ public class Sailor extends StdBehavior
 			final Item hisShipI=getShip(M);
 			if((hisShipI == this.loyalShipItem)||(this.loyalShipItem==null)||(hisShipI==null))
 				return false;
-			if(this.loyalShipItem instanceof SailingShip)
+			if(this.loyalShipItem instanceof NavigableItem)
 			{
-				final SailingShip myShip=(SailingShip)this.loyalShipItem;
+				final NavigableItem myShip=(NavigableItem)this.loyalShipItem;
 				final ItemTicker I1=(ItemTicker)myShip.fetchEffect("ItemRejuv");
 				final ItemTicker I2=(ItemTicker)hisShipI.fetchEffect("ItemRejuv");
 				if((I1!=null)
@@ -154,9 +157,9 @@ public class Sailor extends StdBehavior
 				&&(myCombatTarget == hisShipI))
 					return true;
 			}
-			if(hisShipI instanceof SailingShip)
+			if(hisShipI instanceof NavigableItem)
 			{
-				final PhysicalAgent hisCombatTarget=((SailingShip)hisShipI).getCombatant();
+				final PhysicalAgent hisCombatTarget=((NavigableItem)hisShipI).getCombatant();
 				if((hisCombatTarget != null)
 				&&(hisCombatTarget == this.loyalShipItem))
 					return true;
@@ -182,7 +185,8 @@ public class Sailor extends StdBehavior
 		aggressive = CMParms.getParmBool(newParms, "AGGRO", false);
 		aggrMobs = CMParms.getParmBool(newParms, "AGGROMOBS", false);
 		aggrLvlChk = CMParms.getParmBool(newParms, "AGGROLEVELCHECK", false);
-		aggrMask = CMLib.masking().maskCompile(CMParms.getParmStr(newParms, "AGGROMASK", ""));
+		aggrMaskStr = CMParms.getParmStr(newParms, "AGGROMASK", "");
+		aggrMask = CMLib.masking().getPreCompiledMask(aggrMaskStr);
 		wimpy = CMParms.getParmBool(newParms, "WIMPY", true);
 		loyalShipArea	= null;
 		loyalShipItem	= null;
@@ -261,21 +265,44 @@ public class Sailor extends StdBehavior
 
 	public boolean tryMend(final MOB mob)
 	{
-		if(CMLib.flags().domainAffects(mob, Ability.ACODE_COMMON_SKILL).size()==0)
+		if(((NavigableItem)loyalShipItem).navBasis() == Rideable.Basis.LAND_BASED)
 		{
-			final Ability A=CMClass.getAbility("Shipwright");
-			if((A!=null)
-			&&((A.proficiency()==0)||(A.proficiency()==100)))
+			if(CMLib.flags().domainAffects(mob, Ability.ACODE_COMMON_SKILL).size()==0)
 			{
-				A.setProficiency((mob.phyStats().level()+1) * 4 * 3);
-				if(A.proficiency() >= 100)
-					A.setProficiency(99);
+				final Ability A=CMClass.getAbility("CaravanBuilding");
+				if((A!=null)
+				&&((A.proficiency()==0)||(A.proficiency()==100)))
+				{
+					A.setProficiency((mob.phyStats().level()+1) * 4 * 3);
+					if(A.proficiency() >= 100)
+						A.setProficiency(99);
+				}
+				final Ability mend=mob.fetchAbility("CaravanBuilding");
+				if(mend != null)
+				{
+					mob.enqueCommand(new XVector<String>("CARAVANBUILD","MEND",loyalShipItem.Name()), 0, 0);
+					return true;
+				}
 			}
-			final Ability mend=mob.fetchAbility("Shipwright");
-			if(mend != null)
+		}
+		else
+		{
+			if(CMLib.flags().domainAffects(mob, Ability.ACODE_COMMON_SKILL).size()==0)
 			{
-				mob.enqueCommand(new XVector<String>("SHIPWRIGHT","MEND",loyalShipItem.Name()), 0, 0);
-				return true;
+				final Ability A=CMClass.getAbility("Shipwright");
+				if((A!=null)
+				&&((A.proficiency()==0)||(A.proficiency()==100)))
+				{
+					A.setProficiency((mob.phyStats().level()+1) * 4 * 3);
+					if(A.proficiency() >= 100)
+						A.setProficiency(99);
+				}
+				final Ability mend=mob.fetchAbility("Shipwright");
+				if(mend != null)
+				{
+					mob.enqueCommand(new XVector<String>("SHIPWRIGHT","MEND",loyalShipItem.Name()), 0, 0);
+					return true;
+				}
 			}
 		}
 		return false;
@@ -283,21 +310,24 @@ public class Sailor extends StdBehavior
 
 	public boolean tryTrawl(final MOB mob)
 	{
-		if(CMLib.flags().domainAffects(mob, Ability.ACODE_COMMON_SKILL).size()==0)
+		if(((NavigableItem)loyalShipItem).navBasis() == Rideable.Basis.WATER_BASED)
 		{
-			final Ability A=CMClass.getAbility("Trawling");
-			if((A!=null)
-			&&((A.proficiency()==0)||(A.proficiency()==100)))
+			if(CMLib.flags().domainAffects(mob, Ability.ACODE_COMMON_SKILL).size()==0)
 			{
-				A.setProficiency((mob.phyStats().level()+1) * 4 * 3);
-				if(A.proficiency() >= 100)
-					A.setProficiency(99);
-			}
-			final Ability mend=mob.fetchAbility("Trawling");
-			if(mend != null)
-			{
-				mob.enqueCommand(new XVector<String>("TRAWL"), 0, 0);
-				return true;
+				final Ability A=CMClass.getAbility("Trawling");
+				if((A!=null)
+				&&((A.proficiency()==0)||(A.proficiency()==100)))
+				{
+					A.setProficiency((mob.phyStats().level()+1) * 4 * 3);
+					if(A.proficiency() >= 100)
+						A.setProficiency(99);
+				}
+				final Ability mend=mob.fetchAbility("Trawling");
+				if(mend != null)
+				{
+					mob.enqueCommand(new XVector<String>("TRAWL"), 0, 0);
+					return true;
+				}
 			}
 		}
 		return false;
@@ -359,7 +389,7 @@ public class Sailor extends StdBehavior
 		&&(!CMSecurity.isDisabled(CMSecurity.DisFlag.MOBILITY))
 		&&(loyalShipItem.owner() instanceof Room)
 		&&(((Room)loyalShipItem.owner()).getMobility())
-		&&(!CMLib.tracking().isAnAdminHere((Room)loyalShipItem.owner(), true)));
+		&&(!CMLib.hunt().isAnAdminHere((Room)loyalShipItem.owner(), true)));
 	}
 
 	@Override
@@ -374,7 +404,7 @@ public class Sailor extends StdBehavior
 		{
 			if(ticking instanceof Physical)
 			{
-				tickWait = (30 - tickBonus - ((Physical)ticking).phyStats().level() / 4);
+				tickWait = (20 - tickBonus - ((Physical)ticking).phyStats().level() / 4);
 				if(tickWait < 0)
 					tickWait=0;
 			}
@@ -394,10 +424,10 @@ public class Sailor extends StdBehavior
 					return true;
 
 				if((loyalShipItem==null)
-				&&(mobRoom.getArea() instanceof BoardableShip))
+				&&(mobRoom.getArea() instanceof Boardable))
 				{
-					loyalShipArea = (BoardableShip)mobRoom.getArea();
-					loyalShipItem = loyalShipArea.getShipItem();
+					loyalShipArea = (Boardable)mobRoom.getArea();
+					loyalShipItem = loyalShipArea.getBoardableItem();
 					if((mob.isMonster())
 					&&(mob.amFollowing()==null)
 					&&(!CMLib.flags().isAnimalIntelligence(mob)))
@@ -431,9 +461,9 @@ public class Sailor extends StdBehavior
 				final boolean inShipCombat = this.isMyShipInCombat(mob);
 				if((inShipCombat)
 				&&(this.targetShipItem==null)
-				&&(loyalShipItem instanceof SailingShip)
-				&&(((SailingShip)loyalShipItem).getCombatant() instanceof Rideable))
-					this.targetShipItem = (Rideable)((SailingShip)loyalShipItem).getCombatant();
+				&&(loyalShipItem instanceof NavigableItem)
+				&&(((NavigableItem)loyalShipItem).getCombatant() instanceof Rideable))
+					this.targetShipItem = (Rideable)((NavigableItem)loyalShipItem).getCombatant();
 
 				boolean amIInCombat = mob.isInCombat();
 				if((defender || boarder)&&(!amIInCombat))
@@ -449,7 +479,7 @@ public class Sailor extends StdBehavior
 								&&(M!=mob)
 								&&(mob.mayPhysicallyAttack(M))
 								&&(grantsAggressivenessTo(M))
-								&&((!aggrLvlChk)||(mob.phyStats().level()<(M.phyStats().level()+5)))
+								&&((!aggrLvlChk)||(mob.phyStats().level()<(M.phyStats().level()+CMProps.getIntVar(CMProps.Int.EXPRATE))))
 								&&(CMLib.masking().maskCheck(aggrMask,M,false)))
 								{
 									if(CMLib.combat().postAttack(mob, M, mob.fetchWieldedItem()))
@@ -469,7 +499,7 @@ public class Sailor extends StdBehavior
 					else
 					if(!amOnMyShip(mob))
 					{
-						if((mob.getStartRoom() != null)&&(mob.getStartRoom().getArea() instanceof BoardableShip))
+						if((mob.getStartRoom() != null)&&(mob.getStartRoom().getArea() instanceof Boardable))
 						{
 							CMLib.tracking().wanderAway(mob, false, true);
 						}
@@ -487,13 +517,16 @@ public class Sailor extends StdBehavior
 					//stop combat signal
 				}
 
-				if((loyalShipItem instanceof SailingShip)
+				if((loyalShipItem instanceof NavigableItem)
 				&& (((combatMover && (targetShipItem != null)) || peaceMover)))
 				{
-					if((((SailingShip)loyalShipItem).isAnchorDown())
+					if((((NavigableItem)loyalShipItem).isAnchorDown())
 					&&(canMoveShip()))
 					{
-						mob.enqueCommand(new XVector<String>("RAISE","ANCHOR"), 0, 0);
+						if(((NavigableItem)loyalShipItem).navBasis() == Rideable.Basis.WATER_BASED)
+							mob.enqueCommand(new XVector<String>("RAISE","ANCHOR"), 0, 0);
+						else
+							mob.enqueCommand(new XVector<String>("UNSET","BRAKE"), 0, 0);
 						return true;
 					}
 				}
@@ -504,9 +537,9 @@ public class Sailor extends StdBehavior
 				&&(canMoveShip()))
 					((GridLocale)loyalShipItem.owner()).getRandomGridChild().moveItemTo(loyalShipItem);
 
-				if((targetShipItem != null)&&(loyalShipItem instanceof SailingShip))
+				if((targetShipItem != null)&&(loyalShipItem instanceof SiegableItem))
 				{
-					final SailingShip sailShip=(SailingShip)loyalShipItem;
+					final SiegableItem sailShip=(SiegableItem)loyalShipItem;
 					final int distanceToTarget= sailShip.rangeToTarget();
 					if(loyalShipItem.subjectToWearAndTear()
 					&&(CMLib.dice().rollPercentage() >= loyalShipItem.usesRemaining())
@@ -519,7 +552,7 @@ public class Sailor extends StdBehavior
 						for(final Enumeration<Item> i=mobRoom.items();i.hasMoreElements();)
 						{
 							final Item I=i.nextElement();
-							if(CMLib.combat().isAShipSiegeWeapon(I)
+							if(CMLib.combat().isASiegeWeapon(I)
 							&&(I instanceof AmmunitionWeapon)
 							&&(((AmmunitionWeapon)I).ammunitionCapacity() > 0)
 							&&(((AmmunitionWeapon)I).ammunitionRemaining() < ((AmmunitionWeapon)I).ammunitionCapacity()))
@@ -533,6 +566,7 @@ public class Sailor extends StdBehavior
 									&&(((Ammunition)I2).ammunitionType().equals(((AmmunitionWeapon)I).ammunitionType())))
 									{
 										mob.enqueCommand(new XVector<String>("LOAD",I2.Name(),mobRoom.getContextName(I)), 0, 0);
+										complaintTick=0;
 										return true;
 									}
 								}
@@ -543,21 +577,27 @@ public class Sailor extends StdBehavior
 									&&(I2.container()==null)
 									&&(((Ammunition)I2).ammunitionType().equals(((AmmunitionWeapon)I).ammunitionType())))
 									{
+										if(complaintTick>2)
+										{
+											CMLib.commands().postSay(mob, L("I can't seem to get any @x1.",((AmmunitionWeapon)I).ammunitionType()));
+											complaintTick=0;
+										}
 										mob.enqueCommand(new XVector<String>("GET",""+((AmmunitionWeapon)I).ammunitionCapacity(),I2.Name()), 0, 0);
+										complaintTick++;
 										return true;
 									}
 								}
 							}
 						}
 
-						int targetSpeed = (targetShipItem instanceof SailingShip)?((SailingShip)targetShipItem).getShipSpeed():1;
+						int targetSpeed = (targetShipItem instanceof NavigableItem)?((NavigableItem)targetShipItem).getMaxSpeed():1;
 						if(targetSpeed == 0)
 							targetSpeed = 1;
 						final PairList<Weapon,int[]> aimings = sailShip.getSiegeWeaponAimings();
 						for(final Enumeration<Item> i=mobRoom.items();i.hasMoreElements();)
 						{
 							final Item I=i.nextElement();
-							if(CMLib.combat().isAShipSiegeWeapon(I))
+							if(CMLib.combat().isASiegeWeapon(I))
 							{
 								roomHasWeapons = true;
 								if((I instanceof AmmunitionWeapon)
@@ -567,7 +607,7 @@ public class Sailor extends StdBehavior
 								&&(distanceToTarget <= ((AmmunitionWeapon)I).maxRange()))
 								{
 									final int aimPt = CMLib.dice().roll(1, targetSpeed, -1);
-									mob.enqueCommand(new XVector<String>("AIM",mobRoom.getContextName(I),""+aimPt), 0, 0);
+									mob.enqueCommand(new XVector<String>(SiegableItem.SiegeCommand.AIM.name(),mobRoom.getContextName(I),""+aimPt), 0, 0);
 									return true;
 								}
 							}
@@ -604,7 +644,7 @@ public class Sailor extends StdBehavior
 									for(final Enumeration<Item> i=nextR.items();i.hasMoreElements();)
 									{
 										final Item I=i.nextElement();
-										if(CMLib.combat().isAShipSiegeWeapon(I))
+										if(CMLib.combat().isASiegeWeapon(I))
 										{
 											choices.add(Integer.valueOf(d));
 										}
@@ -660,26 +700,26 @@ public class Sailor extends StdBehavior
 					&&((!(loyalShipItem instanceof PrivateProperty))
 						||(((PrivateProperty)loyalShipItem).getOwnerName().length()==0)
 						||CMLib.law().doesOwnThisProperty(mob, (PrivateProperty)loyalShipItem))
-					&&(loyalShipItem instanceof SailingShip)
+					&&(loyalShipItem instanceof NavigableItem)
 					&&(canMoveShip())
 					)
 					{
-						int ourSpeed = ((SailingShip)loyalShipItem).getShipSpeed();
+						int ourSpeed = ((NavigableItem)loyalShipItem).getMaxSpeed();
 						if(ourSpeed == 0)
 							ourSpeed = 1;
 						ourSpeed=CMLib.dice().roll(1, ourSpeed, 0);
 						final XVector<String> course=new XVector<String>("COURSE");
-						final int lastDirI = ((SailingShip)loyalShipItem).getDirectionFacing();
+						final int lastDirI = ((NavigableItem)loyalShipItem).getDirectionFacing();
 						String lastDir=(lastDirI>=0)?CMLib.directions().getDirectionName(lastDirI):"";
 						if((lastDir==null)||(lastDir.length()==0))
 							lastDir = CMLib.directions().getDirectionName(CMLib.dice().roll(1, 4, -1));
-						final int directionToTarget = ((SailingShip)loyalShipItem).getDirectionToTarget();
+						final int directionToTarget = ((NavigableItem)loyalShipItem).getDirectionToTarget();
 						if(this.amInTrouble() && (ourSpeed >0))
 						{
 							final int escapeDir = this.getEscapeRoute(directionToTarget);
 							if(escapeDir >=0)
 							{
-								if((ourSpeed>1)&&(((SailingShip)loyalShipItem).getDirectionFacing() != escapeDir))
+								if((ourSpeed>1)&&(((NavigableItem)loyalShipItem).getDirectionFacing() != escapeDir))
 									ourSpeed=1;
 								for(int i=0;i<ourSpeed;i++)
 									course.add(CMLib.directions().getDirectionName(escapeDir));
@@ -702,6 +742,8 @@ public class Sailor extends StdBehavior
 								course.add(lastDir);
 							ourSpeed--;
 						}
+						if(CMSecurity.isDebugging(DbgFlag.SIEGECOMBAT))
+							Log.debugOut("Sailor chose "+CMParms.toListString(course)+" for "+loyalShipItem.Name());
 						mob.enqueCommand(course, 0, 0);
 					}
 				}
@@ -719,7 +761,10 @@ public class Sailor extends StdBehavior
 						if(combatMover && (!peaceMover))
 						{
 							mob.enqueCommand(new XVector<String>("COURSE"), 0, 0);
-							mob.enqueCommand(new XVector<String>("LOWER","ANCHOR"), 0, 0);
+							if(((NavigableItem)loyalShipItem).navBasis() == Rideable.Basis.WATER_BASED)
+								mob.enqueCommand(new XVector<String>("LOWER","ANCHOR"), 0, 0);
+							else
+								mob.enqueCommand(new XVector<String>("SET","BRAKE"), 0, 0);
 						}
 						for(final Enumeration<Item> i=mobRoom.items();i.hasMoreElements();)
 						{
@@ -737,11 +782,11 @@ public class Sailor extends StdBehavior
 							if((I!=null)
 							&&(I.container()==null)
 							&&(I!=loyalShipItem)
-							&&((I instanceof BoardableShip)
-								||((I instanceof Rideable)&&(((Rideable)I).rideBasis()==Rideable.RIDEABLE_WATER)))
+							&&((I instanceof Boardable)
+								||((I instanceof Rideable)&&(((Rideable)I).rideBasis()==Rideable.Basis.WATER_BASED)))
 							&&(CMLib.flags().canBeSeenBy(I, mob)))
 							{
-								final LinkedList<MOB> elligible=new LinkedList<MOB>();
+								final LinkedList<MOB> eligible=new LinkedList<MOB>();
 								if(I instanceof Rideable)
 								{
 									for(final Enumeration<Rider> r=((Rideable)I).riders();r.hasMoreElements();)
@@ -749,12 +794,12 @@ public class Sailor extends StdBehavior
 										final Rider R=r.nextElement();
 										if((R instanceof MOB)
 										&&((aggrMobs) || (((MOB)R).isPlayer())))
-											elligible.add((MOB)R);
+											eligible.add((MOB)R);
 									}
 								}
-								if(I instanceof BoardableShip)
+								if(I instanceof Boardable)
 								{
-									final Area shipArea=((BoardableShip)I).getShipArea();
+									final Area shipArea=((Boardable)I).getArea();
 									if(shipArea!=null)
 									{
 										for(final Enumeration<Room> r=shipArea.getProperMap();r.hasMoreElements();)
@@ -767,16 +812,16 @@ public class Sailor extends StdBehavior
 													final MOB M=m.nextElement();
 													if((M!=null)
 													&&((aggrMobs) || M.isPlayer()))
-														elligible.add(M);
+														eligible.add(M);
 												}
 											}
 										}
 									}
 								}
-								if(elligible.size()>0)
+								if(eligible.size()>0)
 								{
 									MOB captaiM = null;
-									for(final MOB M : elligible)
+									for(final MOB M : eligible)
 									{
 										if((M.isPlayer())
 										&&(CMLib.law().doesHaveWeakPriviledgesHere(M, M.location())))
@@ -785,7 +830,7 @@ public class Sailor extends StdBehavior
 									if(captaiM == null)
 									{
 										final MOB[] Ms=new MOB[5];
-										for(final MOB M : elligible)
+										for(final MOB M : eligible)
 										{
 											if(!M.isPlayer())
 											{
@@ -813,7 +858,7 @@ public class Sailor extends StdBehavior
 									}
 									if(captaiM == null)
 									{
-										for(final MOB M : elligible)
+										for(final MOB M : eligible)
 										{
 											if((!M.isPlayer())
 											&&(CMLib.law().doesHaveWeakPriviledgesHere(M, M.location())))
@@ -822,18 +867,18 @@ public class Sailor extends StdBehavior
 									}
 									if(captaiM==null)
 									{
-										for(final MOB M : elligible)
+										for(final MOB M : eligible)
 										{
 											if(M.isPlayer())
 												captaiM=M;
 										}
 									}
 									if(captaiM==null)
-										captaiM=elligible.get(0);
+										captaiM=eligible.get(0);
 									if((captaiM!=null)
-									&&((!aggrLvlChk)||(mob.phyStats().level()<(captaiM.phyStats().level()+5)))
+									&&((!aggrLvlChk)||(mob.phyStats().level()<(captaiM.phyStats().level()+CMProps.getIntVar(CMProps.Int.EXPRATE))))
 									&&(CMLib.masking().maskCheck(aggrMask,captaiM,false)))
-										mob.enqueCommand(new XVector<String>("TARGET",mobRoom.getContextName(I)), 0, 0);
+										mob.enqueCommand(new XVector<String>(SiegableItem.SiegeCommand.TARGET.name(),mobRoom.getContextName(I)), 0, 0);
 								}
 							}
 						}
@@ -842,11 +887,11 @@ public class Sailor extends StdBehavior
 					&&((!(loyalShipItem instanceof PrivateProperty))
 						||(((PrivateProperty)loyalShipItem).getOwnerName().length()==0)
 						||CMLib.law().doesOwnThisProperty(mob, (PrivateProperty)loyalShipItem))
-					&&(loyalShipItem instanceof SailingShip)
+					&&(loyalShipItem instanceof NavigableItem)
 					&&(canMoveShip())
 					)
 					{
-						int ourSpeed = ((SailingShip)loyalShipItem).getShipSpeed();
+						int ourSpeed = ((NavigableItem)loyalShipItem).getMaxSpeed();
 						if(ourSpeed == 0)
 							ourSpeed = 1;
 						ourSpeed=CMLib.dice().roll(1, ourSpeed, 0);

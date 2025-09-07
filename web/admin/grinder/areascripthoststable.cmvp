@@ -1,7 +1,9 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
 <HTML>
+	<META CHARSET="utf-8"/>
 <HEAD>
  	<link rel="grinder icon" href="/images/grinder.ico" >
+ 	<link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
 <meta name="robots" content="noindex,nofollow">
 <TITLE>Area Script Entry Instances</TITLE>
 <SCRIPT LANGUAGE="JavaScript">

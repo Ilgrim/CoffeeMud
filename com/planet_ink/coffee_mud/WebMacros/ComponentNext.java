@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -63,7 +63,23 @@ public class ComponentNext extends StdWebMacro
 		for(final Iterator<String> i=CMLib.ableComponents().getAbilityComponentMap().keySet().iterator();i.hasNext();)
 		{
 			componentID=i.next();
-			if((last==null)||((last.length()>0)&&(last.equals(lastID))&&(!componentID.equalsIgnoreCase(lastID))))
+			if((last==null)
+			||((last.length()>0)
+				&&(last.equals(lastID))
+				&&(!componentID.equalsIgnoreCase(lastID))))
+			{
+				httpReq.addFakeUrlParameter("COMPONENT",componentID);
+				return "";
+			}
+			lastID=componentID;
+		}
+		for(final Iterator<String> i=CMLib.ableComponents().getComponentSocials().keySet().iterator();i.hasNext();)
+		{
+			componentID=i.next();
+			if((last==null)
+			||((last.length()>0)
+				&&(last.equals(lastID))
+				&&(!componentID.equalsIgnoreCase(lastID))))
 			{
 				httpReq.addFakeUrlParameter("COMPONENT",componentID);
 				return "";

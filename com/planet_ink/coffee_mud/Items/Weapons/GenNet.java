@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ public class GenNet extends StdNet
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this,false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 	}
 
 	@Override
@@ -79,7 +79,7 @@ public class GenNet extends StdNet
 	public void setMiscText(final String newText)
 	{
 		miscText="";
-		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this,newText,false);
 		recoverPhyStats();
 	}
 
@@ -103,12 +103,6 @@ public class GenNet extends StdNet
 			GenWeapon.setGenWeaponStat(this,code,val);
 		else
 			CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);
-	}
-
-	@Override
-	protected int getCodeNum(final String code)
-	{
-		return GenWeapon.getGenWeaponCodeNum(code);
 	}
 
 	private static String[] codes=null;

@@ -1,5 +1,6 @@
 package com.planet_ink.coffee_mud.MOBS;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.ShopKeeper.ViewType;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -19,7 +20,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,7 +49,7 @@ public class GenBanker extends StdBanker
 	public GenBanker()
 	{
 		super();
-		username="a generic banker";
+		_name="a generic banker";
 		setDescription("He looks like he wants your money.");
 		setDisplayText("A generic banker stands here.");
 		basePhyStats().setAbility(CMProps.getMobHPBase()); // his only off-default
@@ -64,14 +65,14 @@ public class GenBanker extends StdBanker
 	public String text()
 	{
 		if(CMProps.getBoolVar(CMProps.Bool.MOBCOMPRESS))
-			miscText=CMLib.encoder().compressString(CMLib.coffeeMaker().getPropertiesStr(this,false));
+			miscText=CMLib.encoder().compressString(CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false));
 		else
-			miscText=CMLib.coffeeMaker().getPropertiesStr(this,false);
+			miscText=CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 		return super.text();
 	}
 
 	@Override
-	public String prejudiceFactors()
+	public String getRawPrejudiceFactors()
 	{
 		return prejudiceFactors;
 	}
@@ -83,7 +84,7 @@ public class GenBanker extends StdBanker
 	}
 
 	@Override
-	public String ignoreMask()
+	public String getRawIgnoreMask()
 	{
 		return ignoreMask;
 	}
@@ -115,7 +116,7 @@ public class GenBanker extends StdBanker
 
 	private final static String[] MYCODES={"WHATISELL","PREJUDICE","BANKCHAIN","COININT",
 											"ITEMINT","IGNOREMASK","LOANINT","PRICEMASKS",
-											"ITEMMASK"};
+											"ITEMMASK","SIVIEWTYPES"};
 	@Override
 	public String getStat(final String code)
 	{
@@ -126,7 +127,7 @@ public class GenBanker extends StdBanker
 		case 0:
 			return "" + getWhatIsSoldMask();
 		case 1:
-			return prejudiceFactors();
+			return getRawPrejudiceFactors();
 		case 2:
 			return bankChain();
 		case 3:
@@ -134,13 +135,15 @@ public class GenBanker extends StdBanker
 		case 4:
 			return "" + getItemInterest();
 		case 5:
-			return ignoreMask();
+			return getRawIgnoreMask();
 		case 6:
 			return "" + getLoanInterest();
 		case 7:
-			return CMParms.toListString(itemPricingAdjustments());
+			return CMParms.toListString(getRawItemPricingAdjustments());
 		case 8:
 			return this.getWhatIsSoldZappermask();
+		case 9:
+			return CMParms.toListString(viewFlags());
 		default:
 			return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
 		}
@@ -186,6 +189,15 @@ public class GenBanker extends StdBanker
 			break;
 		case 8:
 			this.setWhatIsSoldZappermask(val.trim());
+			break;
+		case 9:
+			viewFlags().clear();
+			for(final String s : CMParms.parseCommas(val.toUpperCase().trim(), true))
+			{
+				final ViewType V=(ViewType)CMath.s_valueOf(ViewType.class, s);
+				if(V!=null)
+					viewFlags().add(V);
+			}
 			break;
 		default:
 			CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);

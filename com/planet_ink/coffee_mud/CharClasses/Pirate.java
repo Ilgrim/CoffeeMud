@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -121,11 +121,10 @@ public class Pirate extends Thief
 		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Thief_Hide",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Thief_RideTheRigging",false);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Thief_Sneak",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Skill_SeaLegs",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Thief_BuriedTreasure",true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Skill_WandUse",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Thief_Sneak",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Thief_Wenching",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Skill_Dodge",false);
@@ -159,6 +158,9 @@ public class Pirate extends Thief
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Prayer_Curse",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Song_PirateShanty",false);
+		final Integer[] onePracCost = new Integer[AbilityMapper.AbilCostType.values().length];
+		onePracCost[AbilityMapper.AbilCostType.PRAC.ordinal()] = Integer.valueOf(1);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Song_Nothing",onePracCost);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Thief_PiecesOfEight",false,new XVector<String>("Thief_BuriedTreasure"));
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Thief_PirateFamiliar",false);
@@ -323,8 +325,8 @@ public class Pirate extends Thief
 											{
 												timeOut = timeOuts.get(victimM);
 											}
-											final MOB ultiM=victimM.amUltimatelyFollowing();
-											if((timeOut == null)&&(ultiM!=null))
+											final MOB ultiM=victimM.getGroupLeader();
+											if((timeOut == null)&&(ultiM!=victimM))
 											{
 												synchronized(timeOuts)
 												{
@@ -361,8 +363,8 @@ public class Pirate extends Thief
 											{
 												timeOut = timeOuts.get(attackerM);
 											}
-											final MOB ultiM=attackerM.amUltimatelyFollowing();
-											if((timeOut == null)&&(ultiM!=null))
+											final MOB ultiM=attackerM.getGroupLeader();
+											if((timeOut == null)&&(ultiM!=attackerM))
 											{
 												synchronized(timeOuts)
 												{
@@ -416,7 +418,7 @@ public class Pirate extends Thief
 		if((msg.sourceMinor()==CMMsg.TYP_EXPCHANGE)
 		&&(msg.value()>0)
 		&&(msg.source().charStats().getCurrentClass() == this)
-		&&(CMLib.map().areaLocation(msg.source()) instanceof BoardableShip)
+		&&(CMLib.map().areaLocation(msg.source()) instanceof Boardable)
 		&&(msg.source() != msg.target()))
 		{
 			if(msg.target() instanceof MOB)
@@ -424,16 +426,16 @@ public class Pirate extends Thief
 			else
 			if(msg.target() == null)
 			{
-				final BoardableShip shipArea = (BoardableShip)CMLib.map().areaLocation(msg.source());
-				final Room R=CMLib.map().roomLocation(shipArea.getShipItem());
+				final Boardable shipArea = (Boardable)CMLib.map().areaLocation(msg.source());
+				final Room R=CMLib.map().roomLocation(shipArea.getBoardableItem());
 				if(R!=null)
 				{
 					for(final Enumeration<Item> i=R.items();i.hasMoreElements();)
 					{
 						final Item I=i.nextElement();
-						if((I instanceof BoardableShip)
+						if((I instanceof Boardable)
 						&&(I.fetchEffect("Sinking")!=null)
-						&&(I!=shipArea.getShipItem()))
+						&&(I!=shipArea.getBoardableItem()))
 						{
 							msg.setValue(msg.value() * 2);
 							break;

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,6 +50,7 @@ public class Wand_Nourishment extends StdWand
 		secretIdentity="The wand of nourishment.  Hold the wand say \\`shazam\\` to it.";
 		baseGoldValue=200;
 		material=RawMaterial.RESOURCE_OAK;
+		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_BONUS);
 		recoverPhyStats();
 		secretWord="SHAZAM";
 	}
@@ -79,14 +80,18 @@ public class Wand_Nourishment extends StdWand
 			case CMMsg.TYP_WAND_USE:
 				if((mob.isMine(this))
 				&&(amBeingWornProperly())
+				&&(msg.tool() instanceof MOB)
+				&&(msg.target()==this)
+				&&(mob.location().isInhabitant((MOB)msg.tool()))
 				&&(msg.targetMessage()!=null))
 				{
+					final MOB M = (MOB)msg.tool();
 					if(msg.targetMessage().toUpperCase().indexOf("SHAZAM")>=0)
 					{
-						if(mob.curState().adjHunger(50,mob.maxState().maxHunger(mob.baseWeight())))
-							mob.tell(L("You are full."));
+						if(M.curState().adjHunger(50,M.maxState().maxHunger(mob.baseWeight())))
+							M.tell(L("You are full."));
 						else
-							mob.tell(L("You feel nourished."));
+							M.tell(L("You feel nourished."));
 					}
 				}
 				return;

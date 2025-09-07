@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ import java.util.*;
  * An interface for a base player account. Shared by PlayerAccount
  * and PlayerStats (since the account system is optional)
  */
-public interface AccountStats extends CMCommon, Achievable
+public interface AccountStats extends CMCommon, Achievable, PrideStats
 {
 	/**
 	 * Returns the players email address, if available.
@@ -313,26 +313,17 @@ public interface AccountStats extends CMCommon, Achievable
 	 * Returns a modifiable Set that contains the set of player
 	 * Names that constitutes this players ignored player list.
 	 * @see AccountStats#isIgnored(String)
-	 * @see AccountStats#isIgnored(MOB)
+	 * @see AccountStats#isIgnored(String, MOB)
 	 *
 	 * @return a set of player ignored player list Names
 	 */
 	public Set<String> getIgnored();
 
-	/**
-	 * Returns whether the given player is being ignored.
-	 * @see AccountStats#getIgnored()
-	 * @see AccountStats#isIgnored(String)
-	 *
-	 * @param mob the mob to check
-	 * @return true if the given mob is ignored
-	 */
-	public boolean isIgnored(final MOB mob);
 
 	/**
-	 * Returns whether the given player name is being ignored.
+	 * Returns whether the given player or account name is being ignored.
 	 * @see AccountStats#getIgnored()
-	 * @see AccountStats#isIgnored(MOB)
+	 * @see AccountStats#isIgnored(String, MOB)
 	 *
 	 * @param name the name to check
 	 * @return true if the given name is ignored
@@ -340,56 +331,16 @@ public interface AccountStats extends CMCommon, Achievable
 	public boolean isIgnored(final String name);
 
 	/**
-	 * Add to one of the pride stats for this player or account
-	 * @see PrideStat
-	 * @param stat which pride stat to add to
-	 * @param amt the amount to add
-	 */
-	public void bumpPrideStat(PrideStat stat, int amt);
-
-	/**
-	 * Get one of the pride stats for this player or account
-	 * @see PrideStat
-	 * @param period the time period to get the number for
-	 * @param stat which pride stat to get
-	 * @return the pride stat value/count/whatever
-	 */
-	public int getPrideStat(TimeClock.TimePeriod period, PrideStat stat);
-
-	/**
-	 * Returns an XML representation of all the data in this object, for
-	 * persistent storage.
+	 * Returns whether the given player or account name is being ignored
+	 * generally, or even just in the given category
+	 * @see AccountStats#getIgnored()
+	 * @see AccountStats#isIgnored(String)
 	 *
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.AccountStats#setXML(String)
-	 *
-	 * @return an XML representation of all the data in this object
+	 * @param category the name of the category
+	 * @param mob the mob to check
+	 * @return true if the given name is ignored
 	 */
-	public String getXML();
-
-	/**
-	 * Restores the data in this object from an XML document.
-	 *
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.AccountStats#getXML()
-	 *
-	 * @param str an XML representation of all the data in this object
-	 */
-	public void setXML(String str);
-
-	/**
-	 * The recorded player and account statistics.
-	 * @author Bo Zimmerman
-	 *
-	 */
-	public enum PrideStat
-	{
-		PVPKILLS,
-		AREAS_EXPLORED,
-		ROOMS_EXPLORED,
-		EXPERIENCE_GAINED,
-		MINUTES_ON,
-		QUESTS_COMPLETED,
-		QUESTPOINTS_EARNED
-	}
+	public boolean isIgnored(final String category, final MOB mob);
 
 	/**
 	 * A simple enum for picking between a player and an account
@@ -400,7 +351,22 @@ public interface AccountStats extends CMCommon, Achievable
 	{
 		PLAYER,
 		ACCOUNT,
-		CLAN
+		CLAN;
+		private String desc = null;
+
+		public String description()
+		{
+			if(desc == null)
+			{
+				switch(this)
+				{
+				case PLAYER: desc = CMLib.lang().L("Player"); break;
+				case ACCOUNT: desc = CMLib.lang().L("Account"); break;
+				case CLAN: desc = CMLib.lang().L("Clan"); break;
+				}
+			}
+			return desc;
+		}
 	}
 
 }

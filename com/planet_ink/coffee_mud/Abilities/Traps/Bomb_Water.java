@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,10 +48,10 @@ public class Bomb_Water extends StdBomb
 		return localizedName;
 	}
 
-	@Override
-	protected int trapLevel()
+	public Bomb_Water()
 	{
-		return 1;
+		super();
+		trapLevel = 1;
 	}
 
 	@Override
@@ -73,15 +73,21 @@ public class Bomb_Water extends StdBomb
 	{
 		if(!super.canSetTrapOn(mob,P))
 			return false;
-		if((!(P instanceof Drink))
-		||(((Drink)P).liquidHeld()!=((Drink)P).liquidRemaining())
-		||(((Drink)P).liquidType()!=RawMaterial.RESOURCE_FRESHWATER))
+		if((!(P instanceof LiquidHolder))
+		||(((LiquidHolder)P).liquidHeld()!=((LiquidHolder)P).liquidRemaining())
+		||(((LiquidHolder)P).liquidType()!=RawMaterial.RESOURCE_FRESHWATER))
 		{
 			if(mob!=null)
 				mob.tell(L("You need a full water container to make this out of."));
 			return false;
 		}
 		return true;
+	}
+
+	@Override
+	protected boolean canExplodeOutOf(final int material)
+	{
+		return false;
 	}
 
 	@Override
@@ -92,12 +98,18 @@ public class Bomb_Water extends StdBomb
 			if((target==invoker())
 			||(invoker().getGroupMembers(new HashSet<MOB>()).contains(target))
 			||(doesSaveVsTraps(target)))
-				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> avoid(s) the water bomb!"));
-			else
-			if(target.location().show(invoker(),target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("@x1 explodes water all over <T-NAME>!",affected.name())))
 			{
-				super.spring(target);
-				CMLib.utensils().extinguish(invoker(),target,true);
+				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,
+						getAvoidMsg(L("<S-NAME> avoid(s) the water bomb!")));
+			}
+			else
+			{
+				final String triggerMsg = getTrigMsg(L("@x1 explodes water all over <T-NAME>!",affected.name()));
+				if(target.location().show(invoker(),target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,triggerMsg))
+				{
+					super.spring(target);
+					CMLib.utensils().extinguish(invoker(),target,true);
+				}
 			}
 		}
 	}

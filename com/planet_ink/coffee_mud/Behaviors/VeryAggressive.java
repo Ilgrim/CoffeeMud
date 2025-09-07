@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,8 +57,8 @@ public class VeryAggressive extends Aggressive
 	@Override
 	public String accountForYourself()
 	{
-		if(getParms().trim().length()>0)
-			return "surprising aggression against "+CMLib.masking().maskDesc(getParms(),true).toLowerCase();
+		if(this.maskStr.trim().length()>0)
+			return "surprising aggression against "+CMLib.masking().maskDesc(this.maskStr,true).toLowerCase();
 		else
 			return "surprising aggressiveness";
 	}
@@ -74,7 +74,7 @@ public class VeryAggressive extends Aggressive
 	@Override
 	public boolean grantsAggressivenessTo(final MOB M)
 	{
-		return CMLib.masking().maskCheck(getParms(),M,false);
+		return CMLib.masking().maskCheck(this.mask,M,false);
 	}
 
 	public void tickVeryAggressively(final Tickable ticking, final int tickID,
@@ -98,14 +98,14 @@ public class VeryAggressive extends Aggressive
 				return;
 		}
 
-		if(((mob.amFollowing()!=null)
-			&&(CMLib.tracking().areNearEachOther(mob,mob.amFollowing())
-				||CMLib.tracking().areNearEachOther(mob,mob.amUltimatelyFollowing())))
-		||(!CMLib.flags().canTaste(mob)))
-			return;
-
 		// let's not do this 100%
 		if(CMLib.dice().rollPercentage()>15)
+			return;
+
+		if(((mob.amFollowing()!=null)
+			&&(CMLib.tracking().areNearEachOther(mob,mob.amFollowing())
+				||CMLib.tracking().areNearEachOther(mob,mob.getGroupLeader())))
+		||(!CMLib.flags().canTaste(mob)))
 			return;
 
 		final Room R=mob.location();
@@ -138,7 +138,7 @@ public class VeryAggressive extends Aggressive
 						if((inhab!=null)
 						&&((!inhab.isMonster())||(mobKiller))
 						&&(CMLib.flags().canSenseEnteringLeaving(inhab,mob))
-						&&((!levelCheck)||(mob.phyStats().level()<(inhab.phyStats().level()+5)))
+						&&((!levelCheck)||(mob.phyStats().level()<(inhab.phyStats().level()+CMProps.getIntVar(CMProps.Int.EXPRATE))))
 						&&(CMLib.masking().maskCheck(mask,inhab,false))
 						&&(((mask!=null)&&(mask.entries().length>0))
 							||((inhab.phyStats().level()<(mob.phyStats().level()+8))

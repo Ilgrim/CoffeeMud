@@ -21,7 +21,7 @@ import java.util.Set;
 import java.util.Vector;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -49,10 +49,10 @@ public interface MOB extends Rider, DBIdentifiable, PhysicalAgent, ItemPossessor
 	/**
 	 * Returns the raw numeric attributes bitmap
 	 * @see MOB.Attrib
-	 * @see MOB#setAttributesBitmap(int)
+	 * @see MOB#setAttributesBitmap(long)
 	 * @return the raw numeric attributes bitmap
 	 */
-	public int getAttributesBitmap();
+	public long getAttributesBitmap();
 
 	/**
 	 * Sets the raw numeric attributes bitmap
@@ -60,7 +60,7 @@ public interface MOB extends Rider, DBIdentifiable, PhysicalAgent, ItemPossessor
 	 * @see MOB#getAttributesBitmap()
 	 * @param bitmap the raw numeric attributes bitmap
 	 */
-	public void setAttributesBitmap(int bitmap);
+	public void setAttributesBitmap(long bitmap);
 
 	/**
 	 * Changes the value of a specific attribute
@@ -89,11 +89,17 @@ public interface MOB extends Rider, DBIdentifiable, PhysicalAgent, ItemPossessor
 	public String titledName();
 
 	/**
-	 * Returns the age-range and race of this mob, as if it were someone
-	 * spotted on the street that you didn't know.
-	 * @return the age-range and race of this mob
+	 * If this player is using a title, this method returns
+	 * the players Name() with the title.  If not using a
+	 * title, this method returns name(), respecting the
+	 * introduction system.
+	 *
+	 * @see com.planet_ink.coffee_mud.core.interfaces.Environmental#Name()
+	 * @see com.planet_ink.coffee_mud.core.interfaces.Tickable#name()
+	 * @param viewer the person viewing
+	 * @return the name with a title, or not
 	 */
-	public String genericName();
+	public String titledName(final MOB viewer);
 
 	/* Some general statistics about MOBs.  See the CharStats class (in interfaces) for more info. */
 
@@ -153,6 +159,26 @@ public interface MOB extends Rider, DBIdentifiable, PhysicalAgent, ItemPossessor
 	public void recoverCharStats();
 
 	/**
+	 * Returns the Triggerer for this mob.
+	 *
+	 * @see Triggerer
+	 * @see MOB#setTriggerer(Triggerer)
+	 *
+	 * @return the Triggerer for this mob.
+	 */
+	public Triggerer triggerer();
+
+	/**
+	 * Sets the Triggerer for this mob.
+	 *
+	 * @see Triggerer
+	 * @see MOB#triggerer()
+	 *
+	 * @param triggerer the Triggerer for this mob.
+	 */
+	public void setTriggerer(final Triggerer triggerer);
+
+	/**
 	 * Sets the Base CharStats object for this mob, which are the stats like saves and strength.
 	 * The Base CharStats are those stats before modification by equipment or spell effects.
 	 * @see MOB#charStats()
@@ -182,35 +208,6 @@ public interface MOB extends Rider, DBIdentifiable, PhysicalAgent, ItemPossessor
 	 * @return the base weight of this mob
 	 */
 	public int baseWeight();
-
-	/**
-	 * Returns the friendly viewable description of this mobs health status,
-	 * from the given viewer mobs point of view.
-	 * @param viewer the mob viewing this mob
-	 * @return the friendly viewable health status string
-	 */
-	public String healthText(MOB viewer);
-
-	/* Combat and death */
-	/**
-	 * Returns whether this mob is dead and presumably waiting for rejuv.
-	 * @see MOB#killMeDead(boolean)
-	 * @see MOB#bringToLife(Room, boolean)
-	 * @see MOB#removeFromGame(boolean, boolean)
-	 * @return true if this mob is dead, false otherwise
-	 */
-	public boolean amDead();
-
-	/**
-	 * Puts this mob in a dead state, removes all temporary effects,
-	 * creates a corpse, ends combat, and sends players to their graveyard.
-	 * @see MOB#amDead()
-	 * @see MOB#bringToLife(Room, boolean)
-	 * @see MOB#removeFromGame(boolean, boolean)
-	 * @param createBody true to create a corpse, false otherwise
-	 * @return the corpse, if one was created
-	 */
-	public DeadBody killMeDead(boolean createBody);
 
 	/**
 	 * Brings this mob to life, or back to life, and puts the mob
@@ -486,16 +483,16 @@ public interface MOB extends Rider, DBIdentifiable, PhysicalAgent, ItemPossessor
 	public void setPractices(int newVal);
 
 	/**
-	 * Returns the number of training points this mob has
+	 * Returns the number of training sessions this mob has
 	 * @see MOB#setTrains(int)
-	 * @return the number of training points this mob has
+	 * @return the number of training sessions this mob has
 	 */
 	public int getTrains();
 
 	/**
-	 * Sets the number of training points this mob has
+	 * Sets the number of training sessions this mob has
 	 * @see MOB#getTrains()
-	 * @param newVal the number of training points this mob has
+	 * @param newVal the number of training sessions this mob has
 	 */
 	public void setTrains(int newVal);
 
@@ -666,39 +663,6 @@ public interface MOB extends Rider, DBIdentifiable, PhysicalAgent, ItemPossessor
 	public boolean isMarriedToLiege();
 
 	/**
-	 * Returns the name of the Deity mob that this player/mob worships.
-	 * Empty string means they are an atheist. :) The name here should
-	 * always be the same as a Deity type mob in the game in order for
-	 * the religion system to work correctly.  For Clerics, this field
-	 * has particular importance.
-	 * @see MOB#setWorshipCharID(String)
-	 * @see MOB#getMyDeity()
-	 * @return the name of the Deity mob that this player/mob worships.
-	 */
-	public String getWorshipCharID();
-
-	/**
-	 * Sets the name of the Deity mob that this player/mob worships.
-	 * Empty string means they are an atheist. :) The name here should
-	 * always be the same as a Deity type mob in the game in order for
-	 * the religion system to work correctly.  For Clerics, this field
-	 * has particular importance.
-	 * @see MOB#setWorshipCharID(String)
-	 * @see MOB#getMyDeity()
-	 * @param newVal the name of the Deity mob that this player/mob worships.
-	 */
-	public void setWorshipCharID(String newVal);
-
-	/**
-	 * Returns the Deity object of the mob that this player/mob worships.
-	 * A null return means they are an atheist.  Very important for Clerics.
-	 * @see MOB#getWorshipCharID()
-	 * @see MOB#setWorshipCharID(String)
-	 * @return the Deity object of the mob that this player/mob worships
-	 */
-	public Deity getMyDeity();
-
-	/**
 	 * Returns the number of hit points below which this mob will
 	 * automatically flee combat.
 	 * @see MOB#setWimpHitPoint(int)
@@ -789,17 +753,29 @@ public interface MOB extends Rider, DBIdentifiable, PhysicalAgent, ItemPossessor
 	 * also refer to the room in which this mob/player WOULD be standing if they
 	 * were still in the game.
 	 * @see MOB#setLocation(Room)
-	 * @see com.planet_ink.coffee_mud.Locales.interfaces.Room#isInhabitant(MOB)
+	 * @see MOB#lastLocation()
+	 * @see com.planet_ink.coffee_mud.core.interfaces.MOBCollection#isInhabitant(MOB)
 	 * @return the room in which this mob/player is currently standing
 	 */
 	public Room location();
+
+	/**
+	 * Returns the room in which this mob/player was previously standing.
+	 *
+	 * @see MOB#location()
+	 * @see MOB#setLocation(Room)
+	 * @see com.planet_ink.coffee_mud.core.interfaces.MOBCollection#isInhabitant(MOB)
+	 * @return the room in which this mob/player is currently standing
+	 */
+	public Room lastLocation();
 
 	/**
 	 * Sets the room in which this mob/player is currently standing. It can
 	 * also refer to the room in which this mob/player WOULD be standing if they
 	 * were still in the game.
 	 * @see MOB#location()
-	 * @see com.planet_ink.coffee_mud.Locales.interfaces.Room#isInhabitant(MOB)
+	 * @see MOB#lastLocation()
+	 * @see com.planet_ink.coffee_mud.core.interfaces.MOBCollection#isInhabitant(MOB)
 	 * @param newRoom the room in which this mob/player is currently standing
 	 */
 	public void setLocation(Room newRoom);
@@ -1033,7 +1009,7 @@ public interface MOB extends Rider, DBIdentifiable, PhysicalAgent, ItemPossessor
 	/**
 	 * Returns the expertise and number for the given code. The
 	 * code is a full expertise code, including number.  This
-	 * will only return a value if the mob has one at or below
+	 * will only return a value if the mob has one at or above
 	 * the given level, returning null if the mob does not have
 	 * a sufficient expertise as the one given.
 	 * @see MOB#delAllExpertises()
@@ -1104,11 +1080,14 @@ public interface MOB extends Rider, DBIdentifiable, PhysicalAgent, ItemPossessor
 		AUTOMAP(true),//24
 		NOBATTLESPAM(false),//25
 		TELNET_GA(false,"TELNET-GA"), // 26
-		ANSI16(false,"16 COLOR"), //27
+		ANSI16ONLY(false,"16 COLOR ONLY"), //27
 		PRIVACY(false), // 28
-		// .. up to /31
+		NOREPROMPT(false), // 29
+		NOSPAM(false),//30
+		AUTOATTACK(true),//31
+		ANSI256ONLY(false,"256 COLOR ONLY"), //32
 		;
-		private final int bitCode;
+		private final long bitCode;
 		private final boolean autoReverse;
 		private final String desc;
 
@@ -1116,21 +1095,21 @@ public interface MOB extends Rider, DBIdentifiable, PhysicalAgent, ItemPossessor
 		{
 			this.autoReverse=reversed;
 			this.desc=desc;
-			this.bitCode=(int)Math.round(Math.pow(2,this.ordinal()));
+			this.bitCode=Math.round(Math.pow(2,this.ordinal()));
 		}
 
 		private Attrib(final boolean reversed)
 		{
 			this.autoReverse=reversed;
 			this.desc=this.name();
-			this.bitCode=(int)Math.round(Math.pow(2,this.ordinal()));
+			this.bitCode=Math.round(Math.pow(2,this.ordinal()));
 		}
 
 		/**
 		 * Returns the bitmap mask of this attribute
 		 * @return the bitmap mask of this attribute
 		 */
-		public int getBitCode()
+		public long getBitCode()
 		{
 			return bitCode;
 		}

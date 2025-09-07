@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -105,13 +105,16 @@ public class Fighter_Endurance extends FighterSkill
 		{
 			final int bonus=(getXLEVELLevel(mob)/3)+1;
 			for(int x=0;x<bonus;x++)
-				CMLib.combat().recoverTick(mob);
+				CMLib.combat().recoverTick(mob, mob.curState());
 			final CharState curState = mob.curState();
 			final CharState maxState = mob.maxState();
 			if((curState.getHitPoints() < maxState.getHitPoints())
-			&&(curState.getMana() < maxState.getMana())
-			&&(curState.getMovement() < maxState.getMovement()))
-				helpProficiency(mob, 0);
+			||(curState.getMana() < maxState.getMana())
+			||(curState.getMovement() < maxState.getMovement()))
+			{
+				if(CMLib.dice().rollPercentage()<3)
+					helpProficiency(mob, 0);
+			}
 		}
 		return super.tick(ticking,tickID);
 	}

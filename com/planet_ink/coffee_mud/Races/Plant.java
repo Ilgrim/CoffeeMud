@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -134,6 +134,10 @@ public class Plant extends Vine
 	{
 		super.affectCharStats(affectedMOB, affectableStats);
 		affectableStats.setStat(CharStats.STAT_GENDER,'N');
+		affectableStats.setRacialStat(CharStats.STAT_INTELLIGENCE,1);
+		affectableStats.setRacialStat(CharStats.STAT_WISDOM,1);
+		affectableStats.setRacialStat(CharStats.STAT_CHARISMA,1);
+		affectableStats.setRacialStat(CharStats.STAT_STRENGTH,1);
 		affectableStats.setStat(CharStats.STAT_SAVE_POISON,affectableStats.getStat(CharStats.STAT_SAVE_POISON)+100);
 		affectableStats.setStat(CharStats.STAT_SAVE_MIND,affectableStats.getStat(CharStats.STAT_SAVE_MIND)+100);
 		affectableStats.setStat(CharStats.STAT_SAVE_GAS,affectableStats.getStat(CharStats.STAT_SAVE_GAS)+100);
@@ -155,18 +159,19 @@ public class Plant extends Vine
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public Weapon[] getNaturalWeapons()
 	{
-		if(naturalWeapon==null)
+		if(this.naturalWeaponChoices.length==0)
 		{
-			naturalWeapon=CMClass.getWeapon("StdWeapon");
+			final Weapon naturalWeapon=CMClass.getWeapon("GenWeapon");
 			naturalWeapon.setName(L("a nasty vine"));
 			naturalWeapon.setRanges(0,3);
 			naturalWeapon.setMaterial(RawMaterial.RESOURCE_BONE);
 			naturalWeapon.setUsesRemaining(1000);
 			naturalWeapon.setWeaponDamageType(Weapon.TYPE_BASHING);
+			this.naturalWeaponChoices = new Weapon[] { naturalWeapon };
 		}
-		return naturalWeapon;
+		return super.getNaturalWeapons();
 	}
 
 	@Override
@@ -193,7 +198,7 @@ public class Plant extends Vine
 		if(!super.tick(ticking,tickID))
 			return false;
 		if((tickID==Tickable.TICKID_MOB)&&(ticking instanceof MOB))
-			CMLib.combat().recoverTick((MOB)ticking);
+			CMLib.combat().recoverTick((MOB)ticking, ((MOB)ticking).curState());
 		return true;
 	}
 

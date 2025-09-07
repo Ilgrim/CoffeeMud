@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -73,24 +73,25 @@ public class Unlock extends StdCommand
 		if(unlockThis instanceof Exit)
 		{
 			final boolean locked=((Exit)unlockThis).isLocked();
-			if((mob.location().okMessage(msg.source(),msg))
+			final Room R=mob.location();
+			if((R!=null)
+			&&(R.okMessage(msg.source(),msg))
 			&&(locked))
 			{
-				mob.location().send(msg.source(),msg);
+				R.send(msg.source(),msg);
 				if(dirCode<0)
-				for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 				{
-					if(mob.location().getExitInDir(d)==unlockThis)
+					for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 					{
-						dirCode=d;
-						break;
+						if(R.getExitInDir(d)==unlockThis)
+						{
+							dirCode=d;
+							break;
+						}
 					}
-
 				}
-				final Room R=mob.location();
-				final Room opR=(R==null)?null:R.getRoomInDir(dirCode);
+				final Room opR=R.getRoomInDir(dirCode);
 				if((dirCode>=0)
-				&&(R!=null)
 				&&(opR!=null))
 				{
 					final Exit opE=R.getPairedExit(dirCode);
@@ -104,8 +105,8 @@ public class Unlock extends StdCommand
 					&&(!opE.isLocked())
 					&&(!((Exit)unlockThis).isLocked()))
 					{
-						final boolean useShipDirs=(opR instanceof BoardableShip)||(opR.getArea() instanceof BoardableShip);
-						final String inDirName=useShipDirs?CMLib.directions().getShipInDirectionName(opCode):CMLib.directions().getInDirectionName(opCode);
+						final Directions.DirType dirType=CMLib.flags().getDirType(opR);
+						final String inDirName=CMLib.directions().getInDirectionName(opCode, dirType);
 						opR.showHappens(CMMsg.MSG_OK_ACTION,L("@x1 @x2 is unlocked from the other side.",opE.name(),inDirName));
 					}
 				}
@@ -114,6 +115,8 @@ public class Unlock extends StdCommand
 		else
 		if(mob.location().okMessage(mob,msg))
 			mob.location().send(mob,msg);
+		else
+			CMLib.commands().postCommandRejection(msg.source(),msg.target(),msg.tool(),origCmds);
 		return false;
 	}
 

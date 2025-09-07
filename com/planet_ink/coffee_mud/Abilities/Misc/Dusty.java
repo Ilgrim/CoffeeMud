@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -137,17 +137,17 @@ public class Dusty extends StdAbility
 				}
 				case 2:
 				{
-					affectableStats.setName(L("a dusty " + CMLib.english().removeArticleLead(affected.name())));
+					affectableStats.setName(L("a dusty @x1",CMLib.english().removeArticleLead(affected.name())));
 					break;
 				}
 				case 3:
 				{
-					affectableStats.setName(affected.name()+L(", covered in dust"));
+					affectableStats.setName(L("@x1, covered in dust",affected.name()));
 					break;
 				}
 				case 4:
 				{
-					affectableStats.setName(affected.name()+L(", covered in a thick layer of dust"));
+					affectableStats.setName(L("@x1, covered in a thick layer of dust",affected.name()));
 					break;
 				}
 				case 5:
@@ -175,6 +175,7 @@ public class Dusty extends StdAbility
 			final Area A=R.getArea();
 			if(A!=null)
 			{
+				final Physical affected = this.affected;
 				final int weather = A.getClimateObj().weatherType(R);
 				switch(weather)
 				{
@@ -187,7 +188,7 @@ public class Dusty extends StdAbility
 					if(affected != null)
 					{
 						affected.delEffect(this);
-						affected=null;
+						this.affected=null;
 					}
 					break;
 				case Climate.WEATHER_DUSTSTORM:
@@ -195,10 +196,11 @@ public class Dusty extends StdAbility
 					if(affected != null)
 					{
 						affected.delEffect(this);
-						affected=null;
+						this.affected=null;
 					}
 					break;
 				case Climate.WEATHER_CLEAR:
+				case Climate.WEATHER_FOG:
 				case Climate.WEATHER_CLOUDY:
 				case Climate.WEATHER_WINDY:
 				case Climate.WEATHER_HEAT_WAVE:
@@ -283,6 +285,7 @@ public class Dusty extends StdAbility
 		super.executeMsg(host,msg);
 		if(msg.target()==affected)
 		{
+			final Physical affected = this.affected;
 			if(msg.targetMinor()==CMMsg.TYP_GET)
 			{
 				final int choice=CMLib.dice().roll(1, 7, -1);
@@ -310,7 +313,7 @@ public class Dusty extends StdAbility
 				if(affected != null)
 				{
 					affected.delEffect(this);
-					affected=null;
+					this.affected=null;
 				}
 			}
 			else
@@ -319,7 +322,7 @@ public class Dusty extends StdAbility
 				if(affected != null)
 				{
 					affected.delEffect(this);
-					affected=null;
+					this.affected=null;
 				}
 			}
 		}

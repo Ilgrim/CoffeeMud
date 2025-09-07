@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class HillGiant extends StdMOB
 	public HillGiant()
 	{
 		super();
-		username="a Hill Giant";
+		_name="a Hill Giant";
 		setDescription("A tall humanoid standing about 16 feet tall and very smelly.");
 		setDisplayText("A Hill Giant glares at you.");
 		CMLib.factions().setAlignment(this,Faction.Align.EVIL);
@@ -58,7 +58,7 @@ public class HillGiant extends StdMOB
 
 		basePhyStats().setDamage(19);
 		basePhyStats().setSpeed(1.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(12);
 		basePhyStats().setArmor(0);
 

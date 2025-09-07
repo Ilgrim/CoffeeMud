@@ -8,7 +8,7 @@
 Novice Archon's Guide</font></span></strong>
 <b><span style="font-size: 18pt;"><br>
 <font size="6">to CoffeeMud
-5.9</font></span></b></p>
+5.10</font></span></b></p>
 <p style="text-align: center;" align="center"><strong>By
 Archon Grothus
 Gallslanger of the Free City of Maltan</strong></p>
@@ -102,7 +102,7 @@ copy, for those moments when one pot pie just won't do.</p>
 this command can bring almost
 anything into existence, from rooms to doors, from monsters to items.
 The create command is discussed at length in the sections on building
-rooms and areas. It is also featured prominantly in the<a href="GameBuildersGuide.html">Game Builders Guide</a>.</p>
+rooms and areas. It is also featured prominently in the<a href="GameBuildersGuide.html">Game Builders Guide</a>.</p>
 <p align="left"><em>DESTROY<br>
 </em> This powerful command can be
 used to banish objects and
@@ -432,7 +432,7 @@ different types of locales, most of which are self-explanatory. They
 include:</p>
 <table bgcolor="yellow" border="1" cellpadding="1" cellspacing="1" width="75%">
 <tbody>
-<tr>
+<tr><td>AutoGrid</td><td>a randomly generated grid of rooms. &nbsp;See Random Areas guide.</td></tr><tr><td>CaveGrid</td><td>a dark, dank, multi-room grid of cave</td></tr><tr>
 <td style="width: 20%;" width="20%">CaveMaze</td>
 <td>a dark, dank, multi-room
 maze of caves</td>
@@ -441,7 +441,7 @@ maze of caves</td>
 <td>CaveRoom</td>
 <td>dark and dank</td>
 </tr>
-<tr>
+<tr><td>CaveSeaPort</td><td>an dark underground place to park your ships</td></tr><tr>
 <td>CaveSurface</td>
 <td>dark and dank
 ClimbableSurface</td>
@@ -460,7 +460,7 @@ up to</td>
 <td>an area that can only be
 climbed or flown through</td>
 </tr>
-<tr>
+<tr><td>DarkStoneRoom</td><td>an indoor room of stone, but its dark</td></tr><tr>
 <td>Desert</td>
 <td>a hot, dry, outside
 locale</td>
@@ -519,7 +519,7 @@ multi-room, locale below the lake surface</td>
 <td>as GreatLake but using
 less memory/more cpu</td>
 </tr>
-<tr>
+<tr><td>HideoutShelter</td><td>a magic shelter for spell-use</td></tr><tr>
 <td>Hills</td>
 <td>green rolling hills</td>
 </tr>
@@ -538,7 +538,7 @@ less memory/more cpu</td>
 <td>a hot, stone, indoor
 place</td>
 </tr>
-<tr>
+<tr><td>IcePlains</td><td>the icey plains. think: Canada</td></tr><tr>
 <td>IceRoom</td>
 <td>a cold, icey, indoor
 place</td>
@@ -752,14 +752,40 @@ Ships can be initially docked here.</td>
 <td>ShallowWater</td>
 <td>a wet, outdoor area</td>
 </tr>
-<tr><td>ShipDeck</td><td>for prototyping Sailing Ships, a wooden deck with limited capacity</td></tr><tr><td>ShipHold</td><td>for prototyping&nbsp;Sailing Ships, a wooden room with high, but limited capacity</td></tr><tr><td>ShipMagazine</td><td>for prototyping Sailing Ships, a wooden room with med, but limited capacity</td></tr><tr><td>ShipLightGunDeck<br>ShipMedGunDeck<br>ShipHeavyGunDeck</td><td>for
+<tr>
+<td>ShipDeck</td>
+<td>for prototyping Sailing Ships, a wooden deck with
+limited capacity</td>
+</tr>
+<tr>
+<td>ShipHold</td>
+<td>for prototyping&nbsp;Sailing Ships, a wooden room
+with high, but limited capacity</td>
+</tr>
+<tr>
+<td>ShipMagazine</td>
+<td>for prototyping Sailing Ships, a wooden room with med,
+but limited capacity</td>
+</tr>
+<tr>
+<td>ShipLightGunDeck<br>
+ShipMedGunDeck<br>
+ShipHeavyGunDeck</td>
+<td>for
 prototyping Sailing ships, a wooden deck with low capacity, but which
-allows an increasing number of siege engines at around 200 pounds each.</td></tr><tr><td>ShipQuarter</td><td>for prototyping Sailing Ships, a wooden room with low limited capacity</td></tr><tr>
+allows an increasing number of siege engines at around 200 pounds each.</td>
+</tr>
+<tr>
+<td>ShipQuarter</td>
+<td>for prototyping Sailing Ships, a wooden room with low
+limited capacity</td>
+</tr>
+<tr>
 <td>Shore</td>
 <td>some solid ground to
 fish from, if water is nearby</td>
 </tr>
-<tr>
+<tr><td>ShoreGrid</td><td>a large multi-room grid of shoreline. hows that work?</td></tr><tr><td>SpacePort</td><td>the place for space ships to land</td></tr><tr>
 <td>StdGrid</td>
 <td>the basis for all of the
 Grid locales -- do not use.</td>
@@ -823,7 +849,7 @@ less memory/more cpu</td>
 <td>a wooden
 ClimbableSurface, such as the trunk of a tree</td>
 </tr>
-<tr>
+<tr><td>UndergroundCityStreet</td><td>a path in an underground city. e.g. the underdark.</td></tr><tr>
 <td>UnderSaltWater</td>
 <td>beneath the ocean</td>
 </tr>
@@ -872,7 +898,7 @@ using less memory/more cpu</td>
 <td>a huge multi-room maze
 of underwater locales -- be careful!</td>
 </tr>
-<tr>
+<tr><td>Void</td><td>no air, no climate, floating in the void</td></tr><tr>
 <td>WaterSurface</td>
 <td>the surface of a lake or
 river</td>
@@ -888,7 +914,7 @@ river</td>
 <td>as WaterSurface but
 depths use less mem/more cpu</td>
 </tr>
-<tr>
+<tr><td>WetCaveGrid</td><td>a dark underground multi-room grid of wet caves</td></tr><tr>
 <td>WetCaveMaze</td>
 <td>as CaveMaze, but
 extremely wet and nasty</td>
@@ -897,7 +923,7 @@ extremely wet and nasty</td>
 <td>WetCaveRoom</td>
 <td>a wet and nasty CaveRoom</td>
 </tr>
-<tr>
+<tr><td>Whirlpool</td><td>a water surface that pulls you down</td></tr><tr>
 <td>WoodenDeck</td>
 <td>a resourceless outdoor
 room that inherets weather</td>
@@ -927,7 +953,7 @@ multi-indoor-maze with wooden walls and ceiling</td>
 <td>thick with trees and
 life, the bright forest</td>
 </tr>
-<tr>
+<tr><td>WoodSeaPort</td><td>an indoor wooden room, but you can park your ships</td></tr><tr>
 <td>WoodsGrid</td>
 <td>thick with trees and
 life, multi-room expanse</td>
@@ -1134,15 +1160,14 @@ be seen by any means</td>
 </tbody>
 </table>
 <br>
-<br>
-<p>As you finish your graph
+As you finish your graph
 parchment drawing, be sure to note those
 places where there are doors, locked doors, pit traps, and open
 walkways. If a door is one way, or if a door leads to one place when
 one enters, but does not go back to there when one leaves, make a note
 of that too. The doors listed above are ever vigilant in decorum--
 doors that are opened by players will re-close in time, and locks are
-resecured.</p>
+resecured.
 <p>However, it may come to pass
 that there is a rickety straw door to
 some hut you wish to have, but it was not listed among your choices.
@@ -1301,7 +1326,7 @@ in uppercase. Valid codes include: SUMMER, SPRING, WINTER, FALL, DAY,
 NIGHT, DUSK, DAWN, RAIN, SLEET, SNOW, CLEAR, HEATWAVE, THUNDERSTORM,
 BLIZZARD, WINDY, DROUGHT, DUSTSTORM, COLD, HAIL, CLOUDY,&nbsp;
 SWIMMING, FLYING, CRAWLING, SITTING, CLIMBING, FALLING, INVISIBLE,
-HIDDEN, VISITED, and MASKx. &nbsp;That last tag consists of the
+HIDDEN, VISITED, FROMUNKNOWN, FROMNORTH (etc..),&nbsp; and MASKx. &nbsp;That last tag consists of the
 word
 MASK and a unique number, followed by a space and an argument
 representing a ZAPPERMASK, such as, for example<span style="font-family: monospace;"> &lt;MASK22 -RACE
@@ -1379,7 +1404,7 @@ cool.<br>
 room.<br>
 "FieryRoom" - stuff catches on fire here! watch out!<br>
 "InstantDeath" - nuff said.<br>
-"Mime" causes the room to mimic players. Wierd.. yea, I know.<br>
+"Mime" causes the room to mimic players. Weird.. yea, I know.<br>
 "MovingRoom" the fast train to somewhere.<br>
 "ProtectedCitizens" will allow resident mobs to scream for help and
 receive it when attacked.<br>
@@ -1707,7 +1732,9 @@ so, the copy will be erased from memory. &nbsp;This area type is
 great
 when you want every player or group to experience a particular area in
 its pristine state, no matter how many of them want to go there at the
-same time.</td>
+same time.<br>
+These areas can be reset from scripts: MPGSET $a RESET_INSTANCE ''<br>
+A timeout in ticks using: MPGSET $a TIMEOUT_INSTANCE '240'</td>
 </tr>
 <tr>
 <td>StdTimeZone</td>
@@ -1737,7 +1764,9 @@ thin copy of the area whose
 name follows. &nbsp;For example, "New_Midgaard" or "New Midgaard"
 would
 create a thin
-version of Midgaard.</td>
+version of Midgaard.<br>
+These areas can be reset from scripts: MPGSET $a RESET_INSTANCE ''<br>
+A timeout in ticks using: MPGSET $a TIMEOUT_INSTANCE '240'</td>
 </tr>
 </tbody>
 </table>
@@ -1772,12 +1801,10 @@ mentions all this stuff in more detail. Typically, a player is listed
 as Staff, and then given several area creation privileges in order to
 assist in area building and modifying. After all, sometimes creating a
 universe becomes a little bit too much work for one person.</p>
-<p>Strange settings like <em>Technology
-Level</em> and <em>Archive
-File Name</em>
-are available on the area promptings. Don't worry about these. The
-former is not very important at the moment, and the second is a bit too
-obscure for these lessons. And then there are <span style="font-style: italic;">Blurb Flags</span>,
+<p>Strange settings like <em>Theme Settings</em><em></em>
+are available on the area promptings. Don't worry about them for
+now.&nbsp;And then there are <span style="font-style: italic;">Blurb
+Flags</span>,
 which are flags whose
 descriptions can be displayed when one displays the help for the area.
 &nbsp;</p>
@@ -1804,8 +1831,11 @@ of the random rooms, a &nbsp;<span style="font-style: italic;">level_range
 level range of your area, an <span style="font-style: italic;">aggrochance
 </span>formula
 to determine
-the percentage chance the random mobs are aggressive,&nbsp;an areasize
-formula to determine the number of rooms in the new area, and <span style="font-style: italic;">passivemins</span> to set the number of minutes an instance remains passive before being deleted. &nbsp;You
+the percentage chance the random mobs are aggressive,&nbsp;an
+areasize
+formula to determine the number of rooms in the new area, and <span style="font-style: italic;">passivemins</span> to set
+the number of minutes an instance remains passive before being deleted.
+&nbsp;You
 may
 insert the string @x1 through @x7 into your math formulas to substitute
 the current
@@ -1937,7 +1967,9 @@ coins, and golden notes, whole notes, and Archon notes. You can change
 this system by defining your own, however. The way you do this is by
 entering a name for your currency, followed by an equal sign, and then
 a series of relative values and currency names, all separated by
-semicolons. Let's look at an example:</p>
+semicolons. An entry may also include the flag NOTRADE to mark the
+entire currency as unable to be exchanged with or for another currency.
+&nbsp;Let's look at an example:</p>
 <pre>US=1.0 penny(s);10.0 dime(s);25.0 quarter(s);100.0 dollar(s)<br></pre>
 <p>In the currency we have defined
 here, we have four different
@@ -2050,7 +2082,8 @@ number of unique items of a kind which a shopkeeper will purchase from
 players.</p>
 <p>The way this works is by
 defining how far the price drops, in
-percentage, every time the player sells an item to a shopkeeper.
+percentage (0.0-100.0), every time the player sells an item to a
+shopkeeper.
 Decimals (real numbers) are allowed in this field. This field may also
 be used to differentiate between the rate of devaluation of raw
 resources and other finished items. A devaluation rate consisting of a
@@ -2106,7 +2139,8 @@ Factors</span></p>
 <p>The prejudice factor allows the
 Archon to adjust the prices the
 ShopKeeper sells from the programmed normal, based on the buyers Race,
-Alignment, Sex, Class, or Faction. It always works in tandem with the
+Alignment, Sex, Class, Tattoo, or Faction. It always works in tandem
+with the
 Devalue Rate below, as well as such factors as the Charisma of the
 player dealing with your shopkeeper. The prejudice factor also serves
 as a catch-all for a few other shopkeeper settings.<br>
@@ -2136,7 +2170,8 @@ racial categories should be listed LAST. In the above example, Dwarves
 and Elves are given a very good deal, where everyone else gets a normal
 one. In addition to Racial Categories, you may also list alignments
 (good, neutral, or evil), a sex (male, female, and neuter), a character
-class, or the name of a faction range. Remember that this field is
+class, the name of a faction range, or a tattoo. Remember that this
+field is
 evaluated from left to right, so any matches made on the left that
 apply to a player will cancel evaluation of the rest of the field!</p>
 <p>Just as bonus feature, if the
@@ -2199,7 +2234,8 @@ exit. Such as "the grand portal", or
 <td><em>Description</em> </td>
 <td>what one sees when this
 exit is LOOKed at with the LOOK
-command</td>
+command. &nbsp;The code '@x1' can be used to substitute the next
+rooms display text.</td>
 </tr>
 <tr>
 <td><em>Display
@@ -2451,7 +2487,8 @@ Rejuvenating Items and Mobs" or "How to Save a Room".<br>
 If this item is located in a mobs inventory, this value represents the
 % chance of it NOT appearing in the mobs inventory after reset. In this
 case, the value should be between 1-100, or 0 to also
-represent&nbsp;always available, or -1 to make an item only appear at
+represent&nbsp;always available, or -1 to make an item only appear
+at
 boot time. See
 the section on "Equipping Mobs" for more
 information on this feature.</p>
@@ -2487,6 +2524,11 @@ Display</span></td>
 <td>whether item appears in
 the room description instead of the
 item list, such as when the player is viewing compressed room data.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Semi-Hidden</span></td>
+<td>whether the item requires a Long Look to be seen (or a
+See Hidden effect)</td>
 </tr>
 <tr>
 <td><em>Is
@@ -2661,7 +2703,8 @@ GenPipe may be refilled with herbs to continue.</td>
 <br>
 GenJournals and GenBooks are similar ways of persistent message
 storage. GenJournals represent message boards for players to commonly
-post on and everyone to read. All GenJournals who have the same NAME
+post on and everyone to read. All GenJournals/GenBooks who have the
+same NAME
 field will display the same set of messages to readers, regardless of
 how many instances of the same journal/book there are. GenBooks display
 a table of contents listing the "chapters" available for reading.
@@ -2721,6 +2764,14 @@ A reply requirement is specified by putting REPLY=
 followed by some requirements. <br>
 A writing requirement is specified by
 putting WRITE= followed by some requirements. <br>
+A message limit is specified by putting LIMIT= followed by a number.<br>
+A character limit per msg is set by putting MAXCHARS= followed by a
+number.<br>
+Setting how long until a message expires is specified by putting
+EXPIRE= followed by the number of days.<br>
+An attachments requirement is specified by putting ATTACH=
+followed by some requirements, and a maximum number of attachments with
+MAXATTACH= followed by the number. <br>
 A named TO: filter can be given by putting
 FILTER= followed by a comma-delimited list of names (or ALL).<br>
 putting WRITE= followed by some requirements. <br>
@@ -3203,6 +3254,7 @@ worn. &nbsp;It may, but need not actually be, a cloak.</p>
 much like the GenArmor above, you are
 presented with a list of properties to fill in. Pressing enter will
 leave the property unchanged. The properties include everything listed
+
 under GenArmor, plus one more:</p>
 <table style="width: 100%;" bgcolor="yellow" border="1" cellpadding="1" cellspacing="1" width="100%">
 <tbody>
@@ -3239,6 +3291,8 @@ above, you are presented with a list of properties to fill in. Pressing
 enter will leave the property unchanged. The properties include all of
 the fields listed above under GenItem, and GenContainer, plus a few
 more:</p>
+"HOOK" is not mountable
+at all, but has capacity limited by riders, and displays its contents.
 <table style="width: 100%;" bgcolor="yellow" border="1" cellpadding="1" cellspacing="1" width="100%">
 <tbody>
 <tr>
@@ -3498,7 +3552,13 @@ under GenWeapon, plus one more:</p>
 <td width="25%"><strong>Property</strong></td>
 <td width="75%"><strong>Description</strong></td>
 </tr>
-<tr><td><span style="font-style: italic;">Enchant Type</span></td><td>The type of magic that the staff/wand can be enchanted with.</td></tr><tr>
+<tr>
+<td><span style="font-style: italic;">Enchant
+Type</span></td>
+<td>The type of magic that the staff/wand can be enchanted
+with.</td>
+</tr>
+<tr>
 <td><em>Assigned
 Spell</em></td>
 <td>List here the name of
@@ -3535,7 +3595,13 @@ under GenItem, plus one more:</p>
 <td width="25%"><strong>Property</strong></td>
 <td width="75%"><strong>Description</strong></td>
 </tr>
-<tr><td><span style="font-style: italic;">Enchant Type</span></td><td>The type of magic that the staff/wand can be enchanted with.</td></tr><tr>
+<tr>
+<td><span style="font-style: italic;">Enchant
+Type</span></td>
+<td>The type of magic that the staff/wand can be enchanted
+with.</td>
+</tr>
+<tr>
 <td><em>Assigned
 Spell</em></td>
 <td>List here the name of
@@ -3656,6 +3722,53 @@ single meal. 100 would represent a snack.</td>
 </tbody>
 </table>
 <br>
+<p><strong><a name="geni129"><font style="background-color: lime;">The
+"GenQuestBoard"</font></a></strong></p>
+<p>A GenQuestBoard is a readable item
+that automatically has qualifying quests listed on it by number. These
+quests can be accepted by reading the details for a particular "page"
+and accept the prompt.&nbsp;</p>
+<p>Whenever a GenQuestBoard is
+created, much like the GenItem above, you
+are presented with a list of properties to fill in. Pressing enter will
+leave the property unchanged. The properties include everything listed
+under GenItem, plus one more:</p>
+<table style="width: 100%;" bgcolor="yellow" border="1" cellpadding="1" cellspacing="1" width="100%">
+<tbody>
+<tr>
+<td width="25%"><strong>Property</strong></td>
+<td width="75%"><strong>Description</strong></td>
+</tr>
+<tr>
+<td><em>Assigned Read Text</em></td>
+<td>One or more parameters that act as filters of the
+quests that this
+board will show. &nbsp;The parameters are of the form
+PARAMETER1="VALUE1" PARAMETER2="VALUE2", etc...&nbsp;See the Game
+Builders Guide for more details on qualifying quests, but the quest
+must have&nbsp;CAN_ACCEPT, DO_ACCEPT, and DO_DROP functions, and
+have
+INSTRUCTIONS assigned. &nbsp;Parameters include:<br>
+<ul>
+<li>SAREAMASK: &nbsp;A zappermask for the area of the
+first quest mob SET in the quest. (see AHELP ZAPPERMASK) </li>
+<li>TAREAMASK:
+&nbsp;A zappermask for the any area referenced in a quest except
+the
+first SET quest mob's area. (see AHELP ZAPPERMASK) </li>
+<li>AAREAMASK: &nbsp;A zappermask for any areas
+referenced in a quest. (see AHELP ZAPPERMASK) </li>
+<li>GIVERMASK: &nbsp;A zappermask for the first quest
+mob SET in the quest. (see AHELP ZAPPERMASK)</li>
+<li>TYPFILTER: A substring to search for in the
+QuestMaker quest type of the quest (e.g. normal_collect4)</li>
+<li>CATFILTER: A word to match in the optional SET
+CATEGORY of&nbsp;quests.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
 <br>
 <p><strong><a name="geni17"><font style="background-color: lime;">The
 "GenScroll"</font></a></strong></p>
@@ -3808,7 +3921,7 @@ item that can act as a gateway between
 two rooms via the ENTER command. The item can be made gettable or not,
 blended or not, having all the advantages of a standard item, while
 still getting you from here to there like an Exit. The
-Rideable-specific fields Rideable Type and MOBs Held are also
+Rideable-specific fields Rideable Type and Rider Capacity are also
 unchangeable due to the specific nature of the portal, although you
 will see them listed on the editor screens. They also share the same
 re-closing and re-locking behaviors noted above with GenContainers.<br>
@@ -3868,21 +3981,26 @@ the exits list.</td>
 <br>
 <br>
 <p><strong><a name="geni7-3"><font style="background-color: lime;">The
-"GenSailingShip"</font></a></strong></p>
-<p>A GenSailingShip is Portal type
-item that has its self contained instanced area with custom rooms,
-property ownership, and special sailing commands. As an object, they
+"GenSailingShip", "GenCaravan", "GenCastle", "GenClanCastle"</font></a></strong></p>
+<p>These are&nbsp; Portal type
+items that have&nbsp;self contained instanced areas with custom
+rooms,
+property ownership, and, for sailing ships and
+caravans,&nbsp;special nvaigation commands. As an object, they
 have all the properties of the GenPortal above except that the portal
 can be moved around, and still exited from inside the instanced Area,
 so long as the
-special building rules are followed. &nbsp;The GenSailingShip is
+special building rules are followed. &nbsp;These objects are
 saved
-along with the owning player or clan, and comes back into existence
+along with the owning player or clan, and come back into existence
 when the player or clan does.</p>
-A GenSailingShip is intended to be sold to players or clans through
+Sailing ships and caravans ares intended to be sold to players or clans
+through
 shopkeepers that operate in the same area (but not necessarily the same
-room) as either a SeaPort locale room, or the shore to an ocean or big
-river. &nbsp;To make one for this purpose, create a GenSailingShip
+room) as either a SeaPort locale room,&nbsp; the shore to an ocean
+or big
+river, or another room type appropriate to the class. &nbsp;To make
+one for this purpose, create the
 item
 in the same room as the shopkeeper, give it a player-modifiable name if
 desired, such as "the sailing ship [NEWNAME]", and then ENTER the ship
@@ -3891,35 +4009,40 @@ to create the rooms inside the ship. &nbsp;<br>
 Rooms
 are created the
 same
-way as in any other area, except that, instead of NORTH, SOUTH, etc.
+way as in any other area. &nbsp;For sailing ships, instead of
+NORTH, SOUTH, etc.
 you must use ship-directions, such as PORT, STARBOARD, FORE, AFT,
 ABOVE, and BELOW.&nbsp; A ship should generally be built
 NORTH-SOUTH
 (which is the same as FORE-AFT). &nbsp;At least one of the rooms
 should
 be outdoors, preferably something like a WoodenDeck locale, so that
-players can see what is around the ship, and so that they have a place
+players can see what is around the structure, and so that they have a
+place
 to build siege weapons. &nbsp;The deck is also the
 place to put some exits that link back to the room with the shopkeeper
 (or whatever, since such exits links will be automatically modified as
-the ship
+the ship/caravan
 moves). &nbsp;<br>
 <br>
-When making NPC ships (ships with no owners), be
-sure to give each ship, and each internal instance area inside, a
+When making NPC ships/caravans (with no owners), be
+sure to give each item, and each internal instance area inside, a
 unique name. &nbsp;Many skills and systems need to look up rooms by
 their IDs, but if multiple ships all have the same room ids, the system
-can become confused about which ship is actually being addressed.
-&nbsp;NPC ships can be populated with mobs, shipwright mobs, mobile
+can become confused about which item is actually being addressed.
+&nbsp;NPC ships/caravans can be populated with mobs,
+shipwright/caravan building mobs, mobile
 mobs,&nbsp;siege weapons, siege ammunition, etc. &nbsp;
 Behaviors like
 the Sailor behavior can be given to mobs to make them sail the ship
 around and engage in ship combat.<br>
 <br>
-When designing your sailing ships, be sure to put Prop_ReqCapacity on
+When designing your castles, sailing ships, or caravans, be sure to put
+Prop_ReqCapacity on
 your rooms, especially the deck rooms. &nbsp;This is the only thing
 that can limit the number of siege weapons that players can add to
-their ship. &nbsp;Using parameters of "weight=715" will allow one
+their structure. &nbsp;Using parameters of "weight=715" will allow
+one
 of
 all of the siege weapons to be built, but not two. &nbsp;Using
 parameters of "weight=400" will allow only one of the light
@@ -3928,12 +4051,12 @@ weapons, &nbsp;and weight="900" will allow two light weapons or one
 normal or one light. etc.<br>
 <br>
 When this is completed, you
-can add the GenSailingShip
+can add the GenSailingShip/GenCaravan
 item to the shopkeepers inventory. &nbsp;Don't run around with
-ships in
+ships or caravans or castles in
 your own inventory, or, for goodness sake, inside another ship.<br>
 <br>
-Whenever a GenSailingShip is
+Whenever a GenSailingShip/GenCaravan/GenCastle is
 created, much like the GenPortal, GenContainer, GenExit, and
 GenRideables,
 you are presented with a list of properties to fill in. Pressing enter
@@ -3964,11 +4087,12 @@ value, of the property.</td>
 </tbody>
 </table>
 <br>
-<br>
+In the cast of the GenClanCastle, in addition to the above, there are
+also standard clan item attributes, described below.<br>
 <p><strong><a name="geni21"><font style="background-color: lime;">The
 "GenClanItem", "GenClanCommonContainer", "GenClanApron",
 "GenClanCommonItem", "GenClanContainer", "GenClanFlag",
-"GenClanPamphlet", and "GenClanSpecialItem"</font></a></strong></p>
+"GenClanSailorsCap", "GenClanPamphlet", and "GenClanSpecialItem"</font></a></strong></p>
 <p>The above are all basis for the
 items created by the Clan Crafting
 skill. The GenClanItem and GenClanContainer are standard holdable items
@@ -4136,19 +4260,20 @@ purposes of several of the Minstrel songs.</td>
 </tr>
 </tbody>
 </table>
-
 <p><strong><a name="genimagicinstrument"><font style="background-color: lime;">The
 "GenMagicInstrument"</font></a></strong></p>
 <p>The GenMagicInstrument represents a
 musical instrument for the purposes
-of the several Minstrel spells. &nbsp;They also have the properties of
+of the several Minstrel spells. &nbsp;They also have the properties
+of
 a Wand, allowing those with the proper musical skill to invoke a
 magical property from the instrument.</p>
 <p>Whenever a GenMagicInstrument is
 created, much like the GenInstrument&nbsp;
 above, you are presented with a list of properties to fill in. Pressing
 enter will leave the property unchanged. The properties include
-everything listed under GenItem, and GenInstrument, and GenWand. &nbsp;See those three sections for more information.</p>
+everything listed under GenItem, and GenInstrument, and GenWand.
+&nbsp;See those three sections for more information.</p>
 <p><a name="geni24"><strong><font style="background-color: lime;">The
 "GenLimb"</font></strong></a></p>
 <p>This strange item represents
@@ -4173,7 +4298,7 @@ Secret Identity</em></td>
 fields must *END* with the name
 of a valid body part in order for the GenLimb to operate properly.
 Value body parts include:
-"ANTENNEA","EYE","EAR","HEAD","NECK","ARM","HAND","TORSO","LEG","FOOT",
+"ANTENNA","EYE","EAR","HEAD","NECK","ARM","HAND","TORSO","LEG","FOOT",
 "NOSE","GILL","MOUTH","WAIST","TAIL",and "WING"</td>
 </tr>
 <tr>
@@ -4246,7 +4371,8 @@ Here are some important effects you may consider for your items:</p>
 "Prop_ItemTransporter" makes an item that transports things.<br>
 "Prop_ItemTransReceiver" makes an item receives transported things.<br>
 "Prop_LangTranslator" makes the item a translator of languages.<br>
-"Prop_LimitedEquip" can limit the number of particular items that can be equipped.<br>
+"Prop_LimitedEquip" can limit the number of particular items that can
+be equipped.<br>
 "Prop_LimitedItems" can limit the number of a particular item ever to
 be owned.<br>
 "Prop_LocationBound" limits where an item can be taken from.<br>
@@ -4707,20 +4833,11 @@ have a locked door for each room, and that each of the locked doors in
 your inn has a key code equal to "INN1", "INN2", etc.. up to the number
 of locked doors for each room in the Inn. Players will then buy the
 keys to rooms, and the keys will automatically return to the
-shopkeepers stock after a single mud "day". The only other trick to
+shopkeepers stock after a single mud "day". Inn keys will only be
+usuable in the ShopKeepers area. &nbsp;The only other trick to
 making a successful inn is to make sure you do the "reset room" command
 to the room with the innkeeper in it, after the keys have all been
 given to him, and the room has been saved.</p>
-<p>ShopKeepers are much more savvy
-about money and economy than most.
-They will often draw not only from the loose gold a player has, but any
-high-denomination Notes the player has in his or her inventory. The
-ShopKeeper will also give change in this manner. The player will often
-need to check the "change bag" newly arrived in their inventory to see
-the change that a ShopKeeper might have given them. These change bags
-will often contain the high-denomination notes mentioned before (such
-as a Golden Note, or a Half Note). Each of these notes are convertable
-into loose gold merely by GETting them from the change bag.</p>
 <p>Whenever a GenShopKeeper is
 created, much like the GenMob above, you
 are presented with a list of properties to fill in. Pressing enter will
@@ -4736,7 +4853,7 @@ listed above under GenMob, plus a few more:</p>
 <td><em>Type</em></td>
 <td>a shopkeeper can sell
 Anything, General items, Armor,
-Miscellanous magic items not included amongst armor or weapons,
+Miscellaneous magic items not included amongst armor or weapons,
 Weapons, Pets, Leather items, Only buys the things he also sells (but
 sells whatever you give him to sell), Trains players in spells,
 prayers, skills, or songs, Casts prayers, spells, or songs on the
@@ -4745,7 +4862,22 @@ sell, excluding Trainers and Casters. a shopkeeper can also sell a
 combination of these, though some combinations will not be allowed
 (such as a spell caster and a spell trainer). &nbsp;You can even
 narrow
-the type further using the mask described by the next field.</td>
+the type further using the mask described by the next field. &nbsp;<br>*
+Note: Casters will check the spell to see if it can be cast on a mob,
+and if so, will cast it on the buying player. &nbsp;If it can be cast
+on an item, then the players first wielded, held, worn, or unworn item
+will be the target of the spell.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">View
+Flag/Type</span></td>
+<td>what
+kind of information a shopkeeper gives about their products from the
+VIEW command. &nbsp;BASIC is standard information, IDENTIFY
+includes
+information one would get from the Identify spell, while FALSE will
+cause the shopeeker to fudge the numbers and qualities to make the item
+seem better than it is.</td>
 </tr>
 <tr>
 <td><span style="font-style: italic;">Item Buy
@@ -4798,6 +4930,12 @@ and subtracting 1000. So a given price of -1001 would mean that the
 item costs 1 experience point, while a price of -9876 would mean that
 the item costs 8876 experience points.</p>
 </td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Currency</span></td>
+<td>See the section above
+called "What Areas are Worth" for more
+information on this field and its syntax.</td>
 </tr>
 <tr>
 <td><em>Prejudice
@@ -4883,7 +5021,6 @@ for each item they list for auction.</td>
 <td><em>Listing
 Cut/%Pct per day</em></td>
 <td>This field allows the
-
 auctioneer to take a cut for
 high-price listings. This is the percentage of the listed items BASE
 price PER day of the auction that is charged at the time the auction is
@@ -4930,7 +5067,7 @@ collateral, and automatically handle interest and payment plans.
 &nbsp;Bankers are&nbsp;interacted with using the BORROW,
 WITHDRAW, and
 DEPOSIT commands for their unique services, and LIST, BUY, SELL, VALUE,
-and INFO for some of their mundaine ones. &nbsp;A
+and VIEW for some of their mundaine ones. &nbsp;A
 Banker may also be designated as a Clan Banker, meaning that it will
 only deal with Clan Treasurers. &nbsp;</p>
 <p>Whenever a GenBanker is
@@ -4958,7 +5095,9 @@ Interest</em></td>
 <td>This is the amount of
 interest paid (or CHARGED if negative)
 every game month (about once a real day) on items left in a users
-account.<br>The ability to hold items can be disabled by making this amount &gt; 0.5</td>
+account.<br>
+The ability to hold items can be disabled by making this amount
+&gt; 0.5</td>
 </tr>
 <tr>
 <td><em>Loan
@@ -4966,7 +5105,9 @@ Interest</em></td>
 <td>This is the amount of
 interest charged every game month
 (about once a real day) on gold money loaned to players or clans
-account.<br>The ability to make loans can be disabled by making this amount &lt; -0.5</td>
+account.<br>
+The ability to make loans can be disabled by making this amount
+&lt; -0.5</td>
 </tr>
 <tr>
 <td><em>Bank
@@ -4975,6 +5116,46 @@ Name</em></td>
 identifier for the bank chain. All
 GenBankers with the same Bank Name will offer the same accounts to
 players.</td>
+</tr>
+</tbody>
+</table>
+<p><strong><a name="gencb"><font style="background-color: lime;">The
+"GenCraftBroker"</font></a></strong></p>
+<p>A Broker is a special type of
+ShopKeeper that allows item specifications and prices to be listed by
+players using the REQUEST command. &nbsp;Other players may then come
+along and sell an item to the shopkeeper that fulfills a specification.
+&nbsp;The original player who listed the specification may then return
+to the broker to purchase those items they requested. &nbsp;The broker
+takes a commission on the final sale.</p>
+<p>Whenever a GenCraftBroker is
+created, much like the GenShopKeeper above,
+you are presented with a list of properties to fill in. Pressing enter
+will leave the property unchanged. The properties include all of the
+fields listed above under GenMob and GenShopKeeper, plus a few more:</p>
+<table style="width: 100%;" bgcolor="yellow" border="1" cellpadding="1" cellspacing="1" width="100%">
+<tbody>
+<tr>
+<td width="25%"><strong>Property</strong></td>
+<td width="75%"><strong>Description</strong></td>
+</tr>
+<tr>
+<td><em>Broker Chain</em></td>
+<td>The name of the chain that connects the listings between different Craft Brokers.</td>
+</tr>
+<tr>
+<td><em>Listing Mud-Days</em></td>
+<td>This is the maximum number of days that a listing, either of the
+request or the filfillment items, can remain in the CraftBrokers
+listings before bring automatically removed. 0 is forever.</td>
+</tr>
+<tr>
+<td><em>Maximum Listings</em></td>
+<td>This is the maximum number of requests that a player can list. &nbsp;0 is infinite.</td>
+</tr>
+<tr>
+<td><em>Commission Pct</em></td>
+<td>The percentage of the final price that is charged to the final item buyer.</td>
 </tr>
 </tbody>
 </table>
@@ -5031,7 +5212,7 @@ but when librarians are part of a single Library Chain, then every
 member of the chain will share checkout records and assume to be
 sharing their common items. &nbsp;Librarians
 are&nbsp;interacted with
-using the BORROW, GIVE, LIST, SELL, and INFO commands for their unique
+using the BORROW, GIVE, LIST, SELL, and VIEW commands for their unique
 services.</p>
 <p>Whenever a GenLibrarian is
 created, much like the GenShopKeeper above,
@@ -5208,10 +5389,9 @@ item this is, from a floater to a flyer,
 etc.</td>
 </tr>
 <tr>
-<td><em>MOBs
-Held</em></td>
-<td>th emaximum number of
-mobs which may ride this animal at once.</td>
+<td><em>Rider Capacity</em></td>
+<td>the maximum number of
+riders which may ride this one at once.</td>
 </tr>
 </tbody>
 </table>
@@ -5226,10 +5406,13 @@ have any meaning. Since deities of this sort being attacked and killed
 can have a negative effect on game-play, it is important that deities
 be placed in a room where they will be save from players. Give the room
 where your deities are Prop_NoSummon and Prop_NoTeleport to keep mages
-from zapping deities in or out of their safe room.
+from zapping deities in or out of their safe room. &nbsp;It's also
+good
+to give your deity some weapons in order to influence the nature of
+certain divine magic of their worshippers.
 <p>There are a few important
 points to understand about these supreme
-beings before continueing. Deities may have separate requirements for
+beings before continuing. Deities may have separate requirements for
 who may worship them, and who may be their clerics. You will specify
 these below. Deities may also have a list of blessings they may bestow
 upon their clerics and their non-cleric worshippers. When their clerics
@@ -5291,15 +5474,25 @@ typically granted to Clerics of the deity.</td>
 <tr>
 <td><em>Cleric
 Ritual</em></td>
-<td> For a cleric to receive
+<td>For a cleric to receive
 the blessings of the deity,
 the cleric must perform a particular ritual consisting of one or more
 actions. This field will list the tasks in the ritual which must be
 performed. Each task is separated by a "|" to mean that either of the
 tasks on either side of the "|" is sufficient, or a "&amp;" to mean
-that both of the tasks on either side of the "&amp;" is required.
-The
-tasks themselves must be of one of the following forms:<br>
+that both of the tasks on either side of the "&amp;" is required
+and in
+that order.
+The first task should be one of: SAY, PUTTHING, BURNMATERIAL,
+BURNTHING,
+EAT, DRINK, CAST, EMOTE, PUTVALUE, PUTMATERIAL, BURNVALUE, READING,
+CHECK, or
+INCLUDE, SOCIAL.<br>
+If a task requires assistance from the from others defined by the
+INCLUDE task, it should be prefixed with ASSIST or ASSIST# (e.g
+ASSISTSAY), where # is which (1..n) assistant must do the task.
+<br>
+The tasks themselves must be of one of the following forms:<br>
 <ul>
 <li>SAY [TEXT] - the text
 specified must be said by the player.
@@ -5337,6 +5530,8 @@ example: CAST Prayer_Bless</li>
 <li>EMOTE - the player
 must emote the following thing. For
 example: EMOTE kneels before the throan</li>
+<li>SOCIAL - the player must use the exact social.
+&nbsp;For example: GOODNIGHT &lt;T-NAME&gt; or YAWN</li>
 <li>PUTVALUE [MINIMUM
 VALUE] [CONTAINER NAME] - an item worth
 at least the specified amount must be placed in the specified
@@ -5360,6 +5555,17 @@ example: RANDOM 10</li>
 STRING] - Use this with care. This
 allows masks to be entered which the player must meet. The mask is of
 the same format as described in Cleric Requirements above.</li>
+<li>INCLUDE [MIN] [REQUIREMENT
+STRING] - Use this with care. This allows [MIN] other nps, who match
+the mask to assist with ASSIST: tasks. The mask is of
+the same format as described in Cleric Requirements above.</li>
+<li>TIMEOUT [SECONDS] - How many seconds to complete each
+following task before the entire trigger state is reset.</li>
+<li>SOCIAL [SOCIAL NAME] [SOCIAL TARGET] - the player
+does the specific social
+with the specific target (or none). &nbsp; For example SOCIAL SMILE
+&lt;T-NAME&gt;, or just SOCIAL SMILE, or SOCIAL SMILE * for all
+versions of the smile social.</li>
 <li>SITTING 0 - the player
 must be sitting (the 0 is required!)</li>
 <li>STANDING 0 - the
@@ -5440,6 +5646,29 @@ the deity, the player must perform a particular ritual consisting of
 one or more actions. This field will list the tasks in the ritual which
 must be performed, and uses the exact same format as the Cleric Ritual
 field above.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Clerical
+Service Ritual</span></td>
+<td>Priests
+of a deity are uniquely enabled to Infuse a particular room with
+holiness (or unholiness, or balanace), and then hold religeous
+services. &nbsp;The ritual that makes up the service is defined
+here,
+and is made up of all nearby NPCs who have been converted to the same
+deity. &nbsp;When the service is completed, the priest receives a
+boost
+of experience. &nbsp;Each service should start with some very
+unique
+action that the Priest must actively do in the infused room, followed
+by a couple of WAIT 10 steps, in order to give worshippers time to
+arrive. &nbsp;The 4th step should then be something that happens
+automatically. &nbsp;From here on, a service should alternate
+between
+things the Priest must actively do, and things that NPCs do, or which
+happen automatically. &nbsp;The steps of the service are the same
+as
+those for other services (see Cleric Ritual). &nbsp;</td>
 </tr>
 </tbody>
 </table>
@@ -5725,7 +5954,7 @@ rejuvenation of the mob. Variable items are created by modifying the
 Rejuv/Pct field on the item in the mobs inventory. You can do this with
 the command MODIFY ITEMNAME@MOBNAME and then selecting the Rejuv/Pct
 field. &nbsp;If the value of this
-field is -1, then the item will only appear in the the MOBs inventory
+field is -1, then the item will only appear in the MOBs inventory
 at boot or creation time. &nbsp;If it is otherwise less than 1 or
 greater than 99, then the item will always
 appear in the MOBs inventory. If the value of the field is between 1
@@ -6131,8 +6360,8 @@ container. </div>
 <div> misc text - The reading,
 writing, and replying requirements
 for the journal. The proper format is READ=REQUIREMENTS
-WRITE=REQUIREMENTS REPLY=REQUIREMENTS ADMIN=REQUIREMENTS, etc... The
-REQUIREMENTS are as described above under the Assigned Readable Text
+WRITE=REQUIREMENTS REPLY=REQUIREMENTS ADMIN=REQUIREMENTS, etc... Other
+parameters are as described above under the Assigned Readable Text
 field in the GenJournal entry. </div>
 </li>
 </ul>
@@ -6262,6 +6491,19 @@ Area for which this book operates.</li>
 a semicoloon-delimited list of
 roomIDs that this portal leads to. For the return trip, a portal object
 would need to be in both rooms.</li>
+</ul>
+StdNavigableBoardable<br>
+<ul>
+<li>ability - number of allowed moves per tick or combat tick</li>
+</ul>
+StdQuestBoard<br>
+<ul>
+<li>misc text - Parameters in STAT="VALUE"
+format. &nbsp;Filters for &nbsp;"SAREAMASK", "TAREAMASK",
+"AAREAMASK",
+"GIVERMASK", "TYPFILTER", "CATFILTER". &nbsp;See GenQuestBoard for
+more
+information.</li>
 </ul>
 <p>Ring_Protection</p>
 <ul>
@@ -8130,13 +8372,17 @@ per percentage of resistance</strong></p>
 </tr>
 <tr>
 <td valign="top" width="115">
-<p align="center">1/5</p>
+<p align="center">5</p>
 </td>
 <td valign="top" width="444">
 <p>Gas, Fire, Electrical,
 Mind, Magic, Cold, Acid, Water, Evil
 (Undead), Justice (thief abilities and others)</p>
 </td>
+</tr>
+<tr>
+<td style="text-align: center;">30</td>
+<td>General resistance</td>
 </tr>
 <tr>
 <td valign="top" width="115">
@@ -8629,10 +8875,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>1</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="86">
@@ -8736,10 +8986,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>20</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="86">
@@ -8826,10 +9080,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>20</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="84">
@@ -9025,10 +9283,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>120</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="84">
@@ -9040,10 +9302,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>80</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 </tbody>
 </table>
@@ -9093,7 +9359,8 @@ then skip this step.</p>
 <td valign="top" width="83">
 <p>3</p>
 </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="89">
@@ -9157,10 +9424,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>2</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="84">
@@ -9172,10 +9443,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>4</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="84">
@@ -9210,10 +9485,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>5</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="84">
@@ -9225,10 +9504,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>10</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="84">
@@ -9240,10 +9523,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>20</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="84">
@@ -9255,10 +9542,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>5</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="84">
@@ -9322,8 +9613,10 @@ then skip this step.</p>
 <td valign="top" width="83">
 <p>10</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
 <td valign="top" width="84">
 <p>+2</p>
 </td>
@@ -9341,10 +9634,14 @@ then skip this step.</p>
 <td valign="top" width="83">
 <p>10</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 </tbody>
 </table>
@@ -9385,8 +9682,10 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>20</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
 <td valign="top" width="84">
 <p>+1</p>
 </td>
@@ -9404,10 +9703,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>10</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="84">
@@ -9419,10 +9722,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>10</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="84">
@@ -9434,10 +9741,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>5</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="84">
@@ -9449,10 +9760,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>4</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="84">
@@ -9464,10 +9779,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>200</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="84">
@@ -9479,10 +9798,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>4</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 </tbody>
 </table>
@@ -9523,10 +9846,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>10</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="84">
@@ -9561,10 +9888,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>30</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="84">
@@ -9576,10 +9907,14 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>10</p>
 </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="85"> </td>
-<td valign="top" width="84"> </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="85"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="84">
@@ -9634,7 +9969,8 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>10</p>
 </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 </tbody>
 </table>
@@ -9666,7 +10002,8 @@ then skip this step.</p>
 <td valign="top" width="53">
 <p>4</p>
 </td>
-<td valign="top" width="78"> </td>
+<td valign="top" width="78"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="103">
@@ -9678,7 +10015,8 @@ then skip this step.</p>
 <td valign="top" width="53">
 <p>6</p>
 </td>
-<td valign="top" width="78"> </td>
+<td valign="top" width="78"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="103">
@@ -9690,7 +10028,8 @@ then skip this step.</p>
 <td valign="top" width="53">
 <p>8</p>
 </td>
-<td valign="top" width="78"> </td>
+<td valign="top" width="78"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="103">
@@ -9702,7 +10041,8 @@ then skip this step.</p>
 <td valign="top" width="53">
 <p>3</p>
 </td>
-<td valign="top" width="78"> </td>
+<td valign="top" width="78"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="103">
@@ -9714,7 +10054,8 @@ then skip this step.</p>
 <td valign="top" width="53">
 <p>4</p>
 </td>
-<td valign="top" width="78"> </td>
+<td valign="top" width="78"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="103">
@@ -9726,7 +10067,8 @@ then skip this step.</p>
 <td valign="top" width="53">
 <p>5</p>
 </td>
-<td valign="top" width="78"> </td>
+<td valign="top" width="78"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="103">
@@ -9772,7 +10114,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>1</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9784,7 +10127,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>1</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9796,7 +10140,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>1</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9808,7 +10153,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>1</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9820,7 +10166,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>1</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9832,7 +10179,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>1</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9844,7 +10192,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>1</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9856,7 +10205,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>2</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9868,7 +10218,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>2</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9880,7 +10231,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>2</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9892,7 +10244,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>2</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9904,7 +10257,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>2</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9916,7 +10270,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>3</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9928,7 +10283,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>2</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9940,7 +10296,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>1</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9952,7 +10309,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>2</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9964,7 +10322,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>2</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9976,7 +10335,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>1</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -9988,7 +10348,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>4</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -10000,7 +10361,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>1</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -10012,7 +10374,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>1</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -10024,7 +10387,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>1</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -10036,7 +10400,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>1</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -10048,7 +10413,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>2</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -10060,7 +10426,8 @@ then skip this step.</p>
 <td valign="top" width="78">
 <p>2</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 </tbody>
 </table>
@@ -10092,7 +10459,8 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>0</p>
 </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="86">
@@ -10104,7 +10472,8 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>0</p>
 </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="86">
@@ -10116,7 +10485,8 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>0</p>
 </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="86">
@@ -10128,7 +10498,8 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>2</p>
 </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="86">
@@ -10140,7 +10511,8 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>1</p>
 </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="86">
@@ -10208,7 +10580,8 @@ then skip this step.</p>
 <td valign="top" width="84">
 <p>0</p>
 </td>
-<td valign="top" width="84"> </td>
+<td valign="top" width="84"> <br>
+</td>
 </tr>
 </tbody>
 </table>
@@ -10240,7 +10613,8 @@ then skip this step.</p>
 <td valign="top" width="74">
 <p>50</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -10294,7 +10668,8 @@ then skip this step.</p>
 <td valign="top" width="74">
 <p>80</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -10306,7 +10681,8 @@ then skip this step.</p>
 <td valign="top" width="74">
 <p>300</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -10318,7 +10694,8 @@ then skip this step.</p>
 <td valign="top" width="74">
 <p>70</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -10330,7 +10707,8 @@ then skip this step.</p>
 <td valign="top" width="74">
 <p>50</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -10342,7 +10720,8 @@ then skip this step.</p>
 <td valign="top" width="74">
 <p>200</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -10354,7 +10733,8 @@ then skip this step.</p>
 <td valign="top" width="74">
 <p>80</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 <tr>
 <td valign="top" width="94">
@@ -10366,7 +10746,8 @@ then skip this step.</p>
 <td valign="top" width="74">
 <p>50</p>
 </td>
-<td valign="top" width="83"> </td>
+<td valign="top" width="83"> <br>
+</td>
 </tr>
 </tbody>
 </table>
@@ -10421,7 +10802,7 @@ underneath.<br>
 <td valign="top" width="480">Tattoo,
 piercing</td>
 </tr>
-<tr style="">
+<tr>
 <td valign="top" width="79">-4</td>
 <td valign="top" width="480">Hose,
 leotards, Hairpieces</td>
@@ -10473,9 +10854,6 @@ Golashes</td>
 </tr>
 </tbody>
 </table>
-<br>
-<br>
-<br>
 <p><a name="appd"><strong><font color="#008000" size="5">Appendix D:
 Index</font></strong></a></p>
 <table border="1" cellpadding="0" cellspacing="0" width="100%">
@@ -10671,57 +11049,80 @@ Item Types
 </td>
 <td> <a href="#geni15"><font color="black">GenPowder</font></a>
 </td>
-<td> <a href="#geni1"><font color="black">GenReadable</font></a>
+<td> <a href="#geni29"><font color="black">GenQuestBoard</font></a>
 </td>
 </tr>
 <tr>
+<td> <a href="#geni1"><font color="black">GenReadable</font></a>
+</td>
 <td> <a href="#geni25"><font color="black">GenRecipe</font></a>
 </td>
 <td> <a href="#geni1"><font color="black">GenResource</font></a>
 </td>
 <td> <a href="#geni8"><font color="black">GenRideable</font></a>
 </td>
-<td> <a href="#geni7-3"><font color="black">GenSailingShip<br>
-</font></a> </td>
 </tr>
 <tr>
+<td> <a href="#geni7-3"><font color="black">GenSailingShip<br>
+</font></a> </td>
 <td> <a href="#geni28"><font color="black">GenScale<br>
 </font></a> </td>
 <td> <a href="#geni17"><font color="black">GenScroll</font></a>
 </td>
 <td> <a href="#geni7"><font color="black">GenShield</font></a>
 </td>
-<td> <a href="#geni4"><font color="black">GenSling</font></a>
-</td>
 </tr>
 <tr>
+<td> <a href="#geni4"><font color="black">GenSling</font></a>
+</td>
 <td> <a href="#geni4"><font color="black">GenSpear</font></a>
 </td>
 <td> <a href="#geni13"><font color="black">GenStaff</font></a>
 </td>
 <td> <a href="#geni16"><font color="black">GenSuperPill</font></a>
 </td>
-<td> <a href="#geni8"><font color="black">GenTable</font></a>
-</td>
 </tr>
 <tr>
+<td> <a href="#geni8"><font color="black">GenTable</font></a>
+</td>
 <td> <a href="#geni7-2"><font color="black">GenThinArmor<br>
 </font></a> </td>
 <td> <a href="#geni18"><font color="black">GenTitle</font></a>
 </td>
 <td> <a href="#geni8"><font color="black">GenTub</font></a>
 </td>
-<td> <a href="#geni9"><font color="black">GenTub</font></a>
-</td>
 </tr>
 <tr>
+<td> <a href="#geni9"><font color="black">GenTub</font></a>
+</td>
 <td> <a href="#geni22"><font color="black">GenWallpaper</font></a>
 </td>
 <td> <a href="#geni14"><font color="black">GenWand</font></a>
 </td>
 <td> <a href="#geni9"><font color="black">GenWater</font></a>
 </td>
+</tr>
+<tr>
 <td> <a href="#geni4"><font color="black">GenWeapon</font></a>
+</td>
+<td> <a href="ArchonGuide.html#geni7-3"><font color="black">GenCaravan</font></a><a href="ArchonGuide.html#geni7-3"><font color="black"><br>
+</font></a></td>
+<td> <a href="ArchonGuide.html#geni7-3"><font color="black">GenCastle</font></a><a href="ArchonGuide.html#geni7-3"><font color="black"><br>
+</font></a></td>
+<td> <a href="ArchonGuide.html#geni7-3"><font color="black">GenClanCastle</font></a><a href="ArchonGuide.html#geni7-3"><font color="black"><br>
+</font></a></td>
+<td> <br>
+</td>
+</tr>
+<tr>
+<td>GenGangLine</td>
+<td><br>
+</td>
+<td><br>
+</td>
+<td><br>
+</td>
+<td><br>
 </td>
 </tr>
 </tbody>
@@ -10747,6 +11148,13 @@ MOB Types
 </font></a> </td>
 <td width="20%"><a href="#gencow"><font color="black">GenCow<br>
 </font></a> </td>
+</tr>
+<tr>
+<td width="20%"><a href="#genmcb"><font color="black">GenCraftBroker</font></a></td>
+<td width="20%"></td>
+<td width="20%"></td>
+<td width="20%"></td>
+<td width="20%"></td>
 </tr>
 </tbody>
 </table>

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class Herbology extends CommonSkill
+public class Herbology extends CommonSkill implements RecipeDriven
 {
 	@Override
 	public String ID()
@@ -84,6 +84,52 @@ public class Herbology extends CommonSkill
 		verb=L("evaluating");
 	}
 
+	// so we can override it on a skill-by-skill basis
+	@Override
+	protected List<List<String>> loadList(final StringBuffer str)
+	{
+		return CMLib.utensils().loadRecipeList(str.toString(), false);
+	}
+
+	@Override
+	public List<List<String>> fetchRecipes()
+	{
+		return loadRecipes(getRecipeFilename());
+	}
+
+	@Override
+	public String getRecipeFormat()
+	{
+		return "HERB_NAME";
+	}
+
+	@Override
+	public String getRecipeFilename()
+	{
+		return "herbology.txt";
+	}
+
+	@Override
+	public List<String> matchingRecipeNames(final String recipeName, final boolean beLoose)
+	{
+		final List<String> matches = new Vector<String>();
+		for(final List<String> list : fetchRecipes())
+		{
+			final String name=list.get(RecipeDriven.RCP_FINALNAME);
+			if(name.equalsIgnoreCase(recipeName)
+			||(beLoose && (name.toUpperCase().indexOf(recipeName.toUpperCase())>=0)))
+				matches.add(name);
+		}
+		return matches;
+	}
+
+	@Override
+	public Pair<String, Integer> getDecodedItemNameAndLevel(final List<String> recipe)
+	{
+		return new Pair<String,Integer>(recipe.get( RecipeDriven.RCP_FINALNAME ),
+				Integer.valueOf(1));
+	}
+
 	@Override
 	public void unInvoke()
 	{
@@ -96,28 +142,26 @@ public class Herbology extends CommonSkill
 			{
 				final MOB mob=(MOB)affected;
 				if(messedUp)
-					commonTell(mob,L("You lose your concentration on @x1.",found.name()));
+					commonTelL(mob,"You lose your concentration on @x1.",found.name());
 				else
 				{
-					final List<String> herbList=Resources.getFileLineVector(Resources.getFileResource("skills/herbology.txt",true));
+					final List<List<String>> herbList=this.fetchRecipes();
 					Item origFound=found;
 					while(found != null)
 					{
 						if(found.phyStats().weight()>1)
-							found=(Item)CMLib.materials().unbundle(found, 1, null);
-						String herb=null;
-						while((herbList.size()>2)&&((herb==null)||(herb.trim().length()==0)))
-							herb=herbList.get(CMLib.dice().roll(1,herbList.size(),-1)).trim().toLowerCase();
-
-						if(found.rawSecretIdentity().length()>0)
-						{
-							herb=found.rawSecretIdentity();
-							found.setSecretIdentity("");
-						}
+							found=CMLib.materials().unbundle(found, 1, null);
+						String herb=found.rawSecretIdentity();
+						found.setSecretIdentity("");
+						int tries = 100;
+						while((herbList.size()>0)
+						&&(--tries>0)
+						&&((herb==null)||(herb.trim().length()==0)||(herb.toLowerCase().startsWith(L("unknown")))))
+							herb=herbList.get(CMLib.dice().roll(1,herbList.size(),-1)).get(0).trim().toLowerCase();
 						if(herb == null)
-							herb=L("unknown");
+							herb=L("unknown herb");
 
-						commonTell(mob,L("@x1 appears to be @x2.",found.name(),herb));
+						commonTelL(mob,"@x1 appears to be @x2.",found.name(),herb);
 						String name=found.Name();
 						name=name.substring(0,name.length()-5).trim();
 						if(name.length()>0)
@@ -177,14 +221,14 @@ public class Herbology extends CommonSkill
 			return true;
 		if(commands.size()<1)
 		{
-			commonTell(mob,L("You must specify what herb you want to identify."));
+			commonTelL(mob,"You must specify what herb you want to identify.");
 			return false;
 		}
 		final String finalName=CMParms.combine(commands,0);
 		Item target=mob.fetchItem(null,Wearable.FILTER_UNWORNONLY,finalName);
 		if((target==null)||(!CMLib.flags().canBeSeenBy(target,mob)))
 		{
-			commonTell(mob,L("You don't seem to have a '@x1'.",(commands.get(0))));
+			commonTelL(mob,"You don't seem to have a '@x1'.",(commands.get(0)));
 			return false;
 		}
 		commands.remove(commands.get(0));
@@ -196,11 +240,11 @@ public class Herbology extends CommonSkill
 		||(!(target instanceof RawMaterial))
 		||(!target.isGeneric()))
 		{
-			commonTell(mob,L("You can only identify unknown herbs."));
+			commonTelL(mob,"You can only identify unknown herbs.");
 			return false;
 		}
 		if(isLimitedToOne() && target.basePhyStats().weight()>1)
-			target=(Item)CMLib.materials().unbundle(target, 1, null);
+			target=CMLib.materials().unbundle(target, 1, null);
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 		verb=L("studying @x1",target.name());

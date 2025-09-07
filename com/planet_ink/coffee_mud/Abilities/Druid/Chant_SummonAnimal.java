@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ public class Chant_SummonAnimal extends Chant
 	@Override
 	protected int canAffectCode()
 	{
-		return 0;
+		return CAN_MOBS;
 	}
 
 	@Override
@@ -122,7 +122,7 @@ public class Chant_SummonAnimal extends Chant
 		}
 	}
 
-	public List<Integer> outdoorChoices(final Room R)
+	protected static List<Integer> outdoorChoices(final Room R)
 	{
 		final List<Integer> choices=new ArrayList<Integer>();
 		if(R==null)
@@ -192,7 +192,7 @@ public class Chant_SummonAnimal extends Chant
 			if(room.okMessage(mob,msg))
 			{
 				room.send(mob,msg);
-				final MOB target = determineMonster(mob, adjustedLevel(mob,asLevel));
+				final MOB target = determineMonster(mob, adjustedLevel(mob,asLevel), text());
 				target.bringToLife(newRoom,true);
 				CMLib.beanCounter().clearZeroMoney(target,null);
 				target.setMoneyVariation(0);
@@ -229,148 +229,47 @@ public class Chant_SummonAnimal extends Chant
 		return success;
 	}
 
-	public MOB determineMonster(final MOB caster, int level)
+	private static final String[] mobIDs = new String[] { "Alligator", "Bat",
+		"BlackBear", "BrownBear", "Buck", "Buffalo", "Bull", "Cat", "Cheetah", "Chicken",
+		"Cobra", "CommonBat", "Cow", "Deer", "Doe", "Dog", "Falcon", "GardenSnake", "GiantBat",
+		"GiantScorpion", "Jaguar", "LargeBat", "Lizard", "Panther", "Parakeet", "Pig", "Python",
+		"Rattlesnake", "Sheep", "Tiger", "WildEagle", "Wolf",
+		"Ape", "Chimp", "Duck", "Kitten",
+		"Monkey", "Mouse", "Puppy", "Rabbit", "Rat", "Turtle", "Raven",
+		"Bear", "Beaver", "Eagle", "Fox", "Goat", "Gorilla", "GrizzlyBear", "Hawk", "Horse", "Lion",
+		"Moose", "Orangutan", "Owl", "Penguin", "PolarBear", "Porcupine", "Puma", "Squirrel",
+		"Tarantula", "Walrus", "Worm"
+	};
+
+	protected static MOB determineMonster(final MOB caster, int level, String text)
 	{
 		MOB newMOB=null;
 		if(level>5)
 			level=level-3;
 		else
 			level=1;
+		if((text==null)||(text.length()==0))
+			text = mobIDs[CMLib.dice().roll(1, mobIDs.length, -1)];
+		newMOB = CMClass.getMOB(text);
 		while(newMOB==null)
 		{
-			switch(CMLib.dice().rollPercentage()/2)
+			final Race R=CMClass.getRace(text);
+			if(R != null)
 			{
-			case 1:
-				newMOB = CMClass.getMOB("BlackBear");
-				break;
-			case 2:
-				newMOB = CMClass.getMOB("BrownBear");
-				break;
-			case 3:
-				newMOB = CMClass.getMOB("Buck");
-				break;
-			case 4:
-				newMOB = CMClass.getMOB("Buffalo");
-				break;
-			case 5:
-				newMOB = CMClass.getMOB("Bull");
-				break;
-			case 6:
-				newMOB = CMClass.getMOB("Cat");
-				break;
-			case 7:
-				newMOB = CMClass.getMOB("Cheetah");
-				break;
-			case 8:
-				newMOB = CMClass.getMOB("Chicken");
-				break;
-			case 9:
-				newMOB = CMClass.getMOB("Cobra");
-				break;
-			case 10:
-				newMOB = CMClass.getMOB("CommonBat");
-				break;
-			case 11:
-				newMOB = CMClass.getMOB("Cow");
-				break;
-			case 12:
-				newMOB = CMClass.getMOB("Deer");
-				break;
-			case 13:
-				newMOB = CMClass.getMOB("Doe");
-				break;
-			case 14:
-				newMOB = CMClass.getMOB("Dog");
-				break;
-			case 15:
-				newMOB = CMClass.getMOB("Falcon");
-				break;
-			case 16:
-				newMOB = CMClass.getMOB("GardenSnake");
-				break;
-			case 17:
-				newMOB = CMClass.getMOB("GiantBat");
-				break;
-			case 18:
-				newMOB = CMClass.getMOB("GiantScorpion");
-				break;
-			case 19:
-				newMOB = CMClass.getMOB("Jaguar");
-				break;
-			case 20:
-				newMOB = CMClass.getMOB("LargeBat");
-				break;
-			case 21:
-				newMOB = CMClass.getMOB("Lizard");
-				break;
-			case 22:
-				newMOB = CMClass.getMOB("Panther");
-				break;
-			case 23:
-				newMOB = CMClass.getMOB("Parakeet");
-				break;
-			case 24:
-				newMOB = CMClass.getMOB("Pig");
-				break;
-			case 25:
-				newMOB = CMClass.getMOB("Python");
-				break;
-			case 26:
-				newMOB = CMClass.getMOB("Rattlesnake");
-				break;
-			case 27:
-				newMOB = CMClass.getMOB("Sheep");
-				break;
-			case 28:
-				newMOB = CMClass.getMOB("Tiger");
-				break;
-			case 29:
-				newMOB = CMClass.getMOB("WildEagle");
-				break;
-			case 30:
-				newMOB = CMClass.getMOB("Wolf");
-				break;
-			case 31:
-				newMOB = CMClass.getMOB("Ape");
-				break;
-			case 32:
-				newMOB = CMClass.getMOB("Chimp");
-				break;
-			case 33:
-				newMOB = CMClass.getMOB("Duck");
-				break;
-			case 34:
-				newMOB = CMClass.getMOB("Kitten");
-				break;
-			case 35:
-				newMOB = CMClass.getMOB("Monkey");
-				break;
-			case 36:
-				newMOB = CMClass.getMOB("Mouse");
-				break;
-			case 37:
-				newMOB = CMClass.getMOB("Puppy");
-				break;
-			case 38:
-				newMOB = CMClass.getMOB("Rabbit");
-				break;
-			case 39:
-				newMOB = CMClass.getMOB("Rat");
-				break;
-			case 40:
-				newMOB = CMClass.getMOB("Turtle");
-				break;
-			case 41:
-				newMOB = CMClass.getMOB("Raven");
-				break;
-			default:
+				newMOB = CMClass.getMOB("GenMob");
+				newMOB.setName(CMLib.english().startWithAorAn(R.name()));
+				newMOB.setDisplayText(CMLib.lang().L("@x1 is here",CMLib.english().startWithAorAn(R.name())));
+				newMOB.baseCharStats().setMyRace(R);
+				R.startRacing(newMOB, false);
 				break;
 			}
+			text = mobIDs[CMLib.dice().roll(1, mobIDs.length, -1)];
+			newMOB = CMClass.getMOB(text);
 		}
 
 		newMOB.setLocation(caster.location());
 		newMOB.basePhyStats().setLevel(level);
-		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase());
+		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase());//normal
 		CMLib.leveler().fillOutMOB(newMOB,newMOB.basePhyStats().level());
 		newMOB.setMoney(0);
 		newMOB.setMoneyVariation(0);
@@ -387,11 +286,14 @@ public class Chant_SummonAnimal extends Chant
 		genM.setBasePhyStats((PhyStats)newMOB.basePhyStats().copyOf());
 		genM.setBaseState((CharState)newMOB.baseState().copyOf());
 		genM.setLocation(caster.location());
-		genM.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		genM.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		CMLib.leveler().fillOutMOB(genM,genM.basePhyStats().level());
 		genM.setMoney(0);
 		genM.setMoneyVariation(0);
 		genM.basePhyStats().setRejuv(PhyStats.NO_REJUV);
+		genM.text();
 		genM.recoverCharStats();
 		genM.recoverPhyStats();
 		genM.recoverMaxState();

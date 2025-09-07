@@ -24,7 +24,7 @@ import com.planet_ink.coffee_mud.core.exceptions.*;
 import java.io.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -268,6 +268,7 @@ public class ProcessSMTPrequest implements Runnable
 						else
 						{
 							replyData=("250 Message accepted for delivery."+cr).getBytes();
+							CMSecurity.clearConnectState(sock);
 							msgsSent++;
 							boolean startBuffering=false;
 							StringBuilder finalData=new StringBuilder("");
@@ -993,7 +994,7 @@ public class ProcessSMTPrequest implements Runnable
 						replyData=null;
 						if((cmdQueue.size()==0)&&(respQueue.size()>0))
 						{
-							// we should be looping through these .. why does ZD act so wierd?!
+							// we should be looping through these .. why does ZD act so weird?!
 							//final byte [] resp=respQueue.getLast();
 							for(final byte[] resp : respQueue)
 							{
@@ -1029,7 +1030,9 @@ public class ProcessSMTPrequest implements Runnable
 			if((e != null)
 			&&(e.getMessage() != null)
 			&&(e.getMessage().toLowerCase().indexOf("connection reset")>=0))
-				Log.debugOut(runnableName,"Exception: " + e.getMessage() );
+			{
+				//Log.debugOut(runnableName,"Exception: " + e.getMessage() );
+			}
 			else
 			{
 				final String errorMessage=e.getMessage();

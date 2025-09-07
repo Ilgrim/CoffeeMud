@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -56,6 +56,12 @@ public class Spell_MassDisintegrate extends Spell
 	}
 
 	@Override
+	protected int canTargetCode()
+	{
+		return 0;
+	}
+
+	@Override
 	public int abstractQuality()
 	{
 		return Ability.QUALITY_MALICIOUS;
@@ -77,7 +83,7 @@ public class Spell_MassDisintegrate extends Spell
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		Set<MOB> h=properTargets(mob,givenTarget,auto);
-		if((h==null)||(h.size()<0))
+		if((h==null)||(h.size()<=0))
 		{
 			if(mob.location().numItems()==0)
 			{
@@ -98,7 +104,8 @@ public class Spell_MassDisintegrate extends Spell
 		}
 		if(h.size()>0)
 			avgLevel=avgLevel/h.size();
-		int levelDiff=avgLevel-(mob.phyStats().level()+(2*getXLEVELLevel(mob)));
+		final int ppowerLevel=mob.phyStats().level()+(getXLEVELLevel(mob)/2);
+		int levelDiff=avgLevel-(mob.phyStats().level()+ppowerLevel);
 		if(levelDiff<0)
 			levelDiff=0;
 
@@ -109,16 +116,20 @@ public class Spell_MassDisintegrate extends Spell
 		{
 			if(avgLevel <= 0)
 				avgLevel = 1;
+			final int successThreshold = 100 / CMProps.getIntVar(CMProps.Int.EXPRATE);
 			int failChance=0;
-			if(mob.location().show(mob,null,this,somanticCastCode(mob,null,auto),auto?L("Something is happening!"):L("^S<S-NAME> wave(s) <S-HIS-HER> arms and utter(s) a trecherous spell!^?")))
+			if(mob.location().show(mob,null,this,somaticCastCode(mob,null,auto),auto?L("Something is happening!"):L("^S<S-NAME> wave(s) <S-HIS-HER> arms and utter(s) a trecherous spell!^?")))
 			{
 				for (final Object element : h)
 				{
 					final MOB target=(MOB)element;
+					int tlevelDiff=(target.phyStats().level()-ppowerLevel);
+					if(tlevelDiff<0)
+						tlevelDiff=0;
 					if((CMath.div(target.phyStats().level(),avgLevel)<2.0)
 					&&((target.phyStats().level()-avgLevel)<CMProps.getIntVar(CMProps.Int.EXPRATE)))
 					{
-						final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),null);
+						final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),null);
 						if(mob.location().okMessage(mob,msg))
 						{
 							mob.location().send(mob,msg);
@@ -126,8 +137,11 @@ public class Spell_MassDisintegrate extends Spell
 							{
 								if(target.curState().getHitPoints()>0)
 								{
-									if(CMLib.dice().rollPercentage()>failChance)
+									if(CMLib.dice().rollPercentage()>(levelDiff*successThreshold)+failChance)
+									{
+										failChance+=successThreshold;
 										CMLib.combat().postDamage(mob,target,this,target.curState().getHitPoints()*100,CMMsg.MASK_ALWAYS|CMMsg.TYP_CAST_SPELL,Weapon.TYPE_BURSTING,("^SThe spell <DAMAGE> <T-NAME>!^?")+CMLib.protocol().msp("spelldam2.wav",40));
+									}
 									else
 										CMLib.combat().postDamage(mob,target,this,target.curState().getHitPoints()/2,CMMsg.MASK_ALWAYS|CMMsg.TYP_CAST_SPELL,Weapon.TYPE_BURSTING,("^SThe spell <DAMAGE> <T-NAME>!^?")+CMLib.protocol().msp("spelldam2.wav",40));
 									failChance+=5;
@@ -167,7 +181,7 @@ public class Spell_MassDisintegrate extends Spell
 				||(!((DeadBody)I).isPlayerCorpse())
 				||(((DeadBody)I).getMobName().equals(mob.Name())))
 				{
-					final CMMsg msg=CMClass.getMsg(mob,I,this,somanticCastCode(mob,I,auto),L("@x1 disintegrates!",I.name()));
+					final CMMsg msg=CMClass.getMsg(mob,I,this,somaticCastCode(mob,I,auto),L("@x1 disintegrates!",I.name()));
 					if(mob.location().okMessage(mob,msg))
 					{
 						mob.location().send(mob,msg);

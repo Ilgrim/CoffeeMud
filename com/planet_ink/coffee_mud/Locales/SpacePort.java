@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -40,13 +40,13 @@ public class SpacePort extends StdRoom implements LocationRoom
 		return "SpacePort";
 	}
 
-	protected double[] dirFromCore = new double[2];
+	protected Dir3D dirFromCore = new Dir3D();
 
 	public SpacePort()
 	{
 		super();
 		name="the space port";
-		basePhyStats.setWeight(1);
+		setMovementCost(1);
 		recoverPhyStats();
 	}
 
@@ -57,24 +57,24 @@ public class SpacePort extends StdRoom implements LocationRoom
 	}
 
 	@Override
-	public long[] coordinates()
+	public Coord3D coordinates()
 	{
-		final SpaceObject planet=CMLib.map().getSpaceObject(this,true);
+		final SpaceObject planet=CMLib.space().getSpaceObject(this,true);
 		if(planet!=null)
-			return CMLib.map().getLocation(planet.coordinates(),dirFromCore,planet.radius());
-		return new long[]{0,0,0};
+			return CMLib.space().getLocation(planet.coordinates(),dirFromCore,planet.radius());
+		return new Coord3D();
 	}
 
 	@Override
-	public double[] getDirectionFromCore()
+	public Dir3D getDirectionFromCore()
 	{
 		return dirFromCore;
 	}
 
 	@Override
-	public void setDirectionFromCore(final double[] dir)
+	public void setDirectionFromCore(final Dir3D dir)
 	{
-		if((dir!=null)&&(dir.length==2))
+		if((dir!=null)&&(dir.length()==2))
 			dirFromCore=dir;
 	}
 
@@ -85,7 +85,7 @@ public class SpacePort extends StdRoom implements LocationRoom
 		switch(getLocCodeNum(code))
 		{
 		case 0:
-			return CMParms.toListString(this.getDirectionFromCore());
+			return CMParms.toListString(this.getDirectionFromCore().toDoubles());
 		default:
 			return super.getStat(code);
 		}
@@ -97,7 +97,7 @@ public class SpacePort extends StdRoom implements LocationRoom
 		switch(getLocCodeNum(code))
 		{
 		case 0:
-			this.setDirectionFromCore(CMParms.toDoubleArray(CMParms.parseCommas(val, true)));
+			this.setDirectionFromCore(new Dir3D(CMParms.toDoubleArray(CMParms.parseCommas(val, true))));
 			break;
 		default:
 			super.setStat(code, val);

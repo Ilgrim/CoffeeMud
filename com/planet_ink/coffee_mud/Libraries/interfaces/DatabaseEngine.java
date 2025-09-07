@@ -28,6 +28,8 @@ import com.planet_ink.coffee_mud.Common.interfaces.Clan.MemberRecord;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.PlayerLibrary.PlayerCode;
+import com.planet_ink.coffee_mud.Libraries.interfaces.PlayerLibrary.ThinPlayer;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -35,7 +37,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -84,7 +86,21 @@ public interface DatabaseEngine extends CMLibrary
 		DBJOURNALS,
 		DBQUEST,
 		DBCLANS,
-		DBBACKLOG
+		DBBACKLOG,
+		DBCOMMANDS
+	}
+
+	/**
+	 * Flags for reading room content
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public static enum ReadRoomDisableFlag
+	{
+		STATUS,
+		LIVE,
+		MOBS,
+		ITEMS
 	}
 
 	/**
@@ -149,6 +165,18 @@ public interface DatabaseEngine extends CMLibrary
 	public List<String[]> DBRawQuery(String sql) throws CMException;
 
 	/**
+	 * Validates that the database is at the proper version
+	 * @return null if the version is correct, otherwise an error message
+	 */
+	public String validateDatabaseVersion();
+
+	/**
+	 * Upgrades the database to the current version, if possible.
+	 * @return null if the version is correct or was upgraded, otherwise an error message
+	 */
+	public String upgradeDatabaseVersion();
+
+	/**
 	 * Table category: DBMAP
 	 * Loads both the mob and item catalogs into the catalog library.
 	 */
@@ -171,6 +199,28 @@ public interface DatabaseEngine extends CMLibrary
 	 * @param makeLive true to bring the mobs to life, false to leave them dead.
 	 */
 	public void DBReadContent(String roomID, Room thisRoom, boolean makeLive);
+
+	/**
+	 * Table category: DBMAP
+	 * This method is used to load the content (mobs only) of the
+	 * given room id into the given room object, without activating
+	 * the contents to live use.  startItemRejuv() is not called also.
+	 *
+	 * @param roomID the id of the room to load
+	 * @param thisRoom the room object to load the content into (required!)
+	 */
+	public void DBReadMobContent(final String roomID, final Room thisRoom);
+
+	/**
+	 * Table category: DBMAP
+	 * This method is used to load the content (items only) of the
+	 * given room id into the given room object, without activating
+	 * the contents to live use.  startItemRejuv() is not called also.
+	 *
+	 * @param roomID the id of the room to load
+	 * @param thisRoom the room object to load the content into (required!)
+	 */
+	public void DBReadItemContent(final String roomID, final Room thisRoom);
 
 	/**
 	 * Table category: DBMAP
@@ -221,6 +271,8 @@ public interface DatabaseEngine extends CMLibrary
 	 * @see DatabaseEngine#DBReadAreaFull(String)
 	 *
 	 * @param areaName the name of the area to load
+	 *
+	 * @return the Area object
 	 */
 	public Area DBReadAreaObject(String areaName);
 
@@ -236,6 +288,8 @@ public interface DatabaseEngine extends CMLibrary
 	 * @see DatabaseEngine#DBReadAreaObject(String)
 	 *
 	 * @param areaName the name of the area to load
+	 *
+	 * @return true if the area was read into the system map
 	 */
 	public boolean DBReadAreaFull(String areaName);
 
@@ -257,6 +311,24 @@ public interface DatabaseEngine extends CMLibrary
 	public String DBIsAreaName(String name);
 
 	/**
+	 * Returns a thin record of all mobs in an area
+	 * proper
+	 *
+	 * @param name the name of the area
+	 * @return all the room content records
+	 */
+	public RoomContent[] DBReadAreaMobs(String name);
+
+	/**
+	 * Returns a thin record of all items in an area
+	 * proper
+	 *
+	 * @param name the name of the area
+	 * @return all the room content records
+	 */
+	public RoomContent[] DBReadAreaItems(String name);
+
+	/**
 	 * Table category: DBMAP
 	 * Permanently Loads and returns a single Room object,
 	 * without populating its contents yet. This is often done in
@@ -266,7 +338,7 @@ public interface DatabaseEngine extends CMLibrary
 	 *
 	 * @see DatabaseEngine#DBReadContent(String, Room, boolean)
 	 * @see DatabaseEngine#DBReReadRoomData(Room)
-	 * @see DatabaseEngine#DBReadRoomObject(String, boolean)
+	 * @see DatabaseEngine#DBReadRoomObject(String, boolean, boolean)
 	 *
 	 * @param roomID the room id of the room object to load
 	 * @param reportStatus true to populate global status, false otherwise
@@ -292,10 +364,11 @@ public interface DatabaseEngine extends CMLibrary
 	 * to an area or to the map.
 	 * @see DatabaseEngine#DBReadRoom(String, boolean)
 	 * @param roomIDtoLoad the id of the room to load
+	 * @param loadXML populates room effects, behavs, etc
 	 * @param reportStatus true to populate global status, false otherwise
 	 * @return the room loaded, or null if it could not be
 	 */
-	public Room DBReadRoomObject(String roomIDtoLoad, boolean reportStatus);
+	public Room DBReadRoomObject(String roomIDtoLoad, boolean loadXML, boolean reportStatus);
 
 	/**
 	 * Table category: DBMAP
@@ -308,6 +381,27 @@ public interface DatabaseEngine extends CMLibrary
 	 * @return the rooms loaded
 	 */
 	public Room[] DBReadRoomObjects(String areaName, boolean reportStatus);
+
+	/**
+	 * Table category: DBMAP
+	 * Reads all the room ids that are affected by the given array of
+	 * Ability IDs as properties/affects.
+	 *
+	 * @param parentA the parent area to limit yourself to
+	 * @param metro true to also search children
+	 * @param propIDs the list of Ability IDs.
+	 * @param propArgs the list of ability arguments to search for
+	 * @return the list of room ids
+	 */
+	public Set<String> DBReadAffectedRoomIDs(final Area parentA, final boolean metro, final String[] propIDs, String[] propArgs);
+
+	/**
+	 * Table category: DBMAP
+	 * Reads all the room ids and exits that link to the given room id
+	 * @param roomID the room id to find links to
+	 * @return the map of directions to a pair of outgoing room ids and exit ids
+	 */
+	public Map<Integer,Pair<String,String>> DBReadIncomingRoomExitIDsMap(final String roomID);
 
 	/**
 	 * Table category: DBMAP
@@ -331,6 +425,28 @@ public interface DatabaseEngine extends CMLibrary
 
 	/**
 	 * Table category: DBMAP
+	 * Returns a sterile prototype of the given room item
+	 * freshly created.  It must exist in a room.
+	 *
+	 * @param roomID the room id
+	 * @param itemNum the item database id code
+	 * @return the item object
+	 */
+	public Item DBReadRoomItem(final String roomID, final String itemNum);
+
+	/**
+	 * Table category: DBMAP
+	 * Returns a sterile prototype of the given room mob
+	 * freshly created.  It must exist in a room.
+	 *
+	 * @param roomID the room id
+	 * @param mobID the mob database id code
+	 * @return the mob object
+	 */
+	public MOB DBReadRoomMOB(final String roomID, final String mobID);
+
+	/**
+	 * Table category: DBMAP
 	 * Reads the exits of the room with the given room id
 	 * and populates them into the given room object. It
 	 * also connects each exit to the room if it can
@@ -341,6 +457,17 @@ public interface DatabaseEngine extends CMLibrary
 	 * @param reportStatus true to populate global status, false otherwise
 	 */
 	public void DBReadRoomExits(String roomID, Room room, boolean reportStatus);
+
+	/**
+	 * Table category: DBMAP
+	 * Reads the exits of the room with the given room id
+	 * and populates them into the pair array, indexed by
+	 * direction.  The pair is exit class id, next room id
+	 *
+	 * @param roomID the room id
+	 * @return the pair of exit class id, next room id, indexed by direction
+	 */
+	public Pair<String,String>[] DBReadRoomExitIDs(final String roomID);
 
 	/**
 	 * Table category: DBMAP
@@ -440,6 +567,16 @@ public interface DatabaseEngine extends CMLibrary
 	 * @param room the room that needs resaving.
 	 */
 	public void DBUpdateRoom(Room room);
+
+	/**
+	 * Table category: DBMAP
+	 * Reads the rooms and their exits and their properties into
+	 * a fake area of the given name.
+	 *
+	 * @param areaName the area to read
+	 * @return the list of rooms in the fake area.
+	 */
+	public List<Room> DBReadAreaNavStructure(final String areaName);
 
 	/**
 	 * Table category: DBMAP
@@ -594,7 +731,6 @@ public interface DatabaseEngine extends CMLibrary
 	 * Table category: DBPLAYERS
 	 * Populates and returns a list of player account
 	 * objects that match the given lowercase substring.
-	 * Does this by doing a full scan. :/
 	 * @param mask lowercase substring to search for or null
 	 * @return the list of playeraccount objects
 	 */
@@ -602,43 +738,44 @@ public interface DatabaseEngine extends CMLibrary
 
 	/**
 	 * Table category: DBPLAYERS
-	 * Re-builds the entire top-10 player tables from the
-	 * database.  It returns a two dimensional array of
-	 * lists of players and their scores, in reverse sorted
-	 * order by score.  The first dimension of the array is
-	 * the time period ordinal (month, year, whatever), and the
-	 * second is the pridestat ordinal.
-	 *
-	 * The cpu percent is the percent (0-100) of each second of work
-	 * to spend actually working.  The balance is spent sleeping.
-	 *
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.TimeClock.TimePeriod
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.AccountStats.PrideStat
-	 * @param topThisMany the number of items in each list
-	 * @param scanCPUPercent the percent (0-100) to spend working
-	 * @return the arrays of lists of top winner players
+	 * Populates and returns a list of player account
+	 * name that match the given lowercase substring.
+	 * @param mask lowercase substring to search for or null
+	 * @return the list of playeraccount objects
 	 */
-	public List<Pair<String,Integer>>[][] DBScanPridePlayerWinners(int topThisMany, short scanCPUPercent);
+	public List<String> DBListAccountNames(String mask);
 
 	/**
 	 * Table category: DBPLAYERS
-	 * Re-builds the entire top-10 account tables from the
-	 * database.  It returns a two dimensional array of
-	 * lists of accounts and their scores, in reverse sorted
-	 * order by score.  The first dimension of the array is
-	 * the time period ordinal (month, year, whatever), and the
-	 * second is the pridestat ordinal.
+	 * Scans the player pride stat xml and calls back your method
+	 * on every chunk of player data found.  You should use this
+	 * data to compile your top 10 pride stat indexes.
 	 *
 	 * The cpu percent is the percent (0-100) of each second of work
 	 * to spend actually working.  The balance is spent sleeping.
 	 *
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.TimeClock.TimePeriod
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.AccountStats.PrideStat
-	 * @param topThisMany the number of items in each list
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PrideStats.PrideStat
+	 * @param callBack a call back containing the user id and data for each period
 	 * @param scanCPUPercent the percent (0-100) to spend working
-	 * @return the arrays of lists of top winner accounts
 	 */
-	public List<Pair<String,Integer>>[][] DBScanPrideAccountWinners(int topThisMany, short scanCPUPercent);
+	public void DBScanPridePlayerWinners(final CMCallback<Pair<ThinPlayer,Pair<Long,int[]>[]>> callBack, final short scanCPUPercent);
+
+	/**
+	 * Table category: DBPLAYERS
+	 * Scans the account pride stat xml and calls back your method
+	 * on every chunk of account data found.  You should use this
+	 * data to compile your top 10 pride stat indexes.
+	 *
+	 * The cpu percent is the percent (0-100) of each second of work
+	 * to spend actually working.  The balance is spent sleeping.
+	 *
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.TimeClock.TimePeriod
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.PrideStats.PrideStat
+	 * @param callBack a call back containing the user id and data for each period
+	 * @param scanCPUPercent the percent (0-100) to spend working
+	 */
+	public void DBScanPrideAccountWinners(final CMCallback<Pair<String,Pair<Long,int[]>[]>> callBack, final short scanCPUPercent);
 
 	/**
 	 * Table category: DBPLAYERS
@@ -648,6 +785,15 @@ public interface DatabaseEngine extends CMLibrary
 	 * @param mob the player mob to update
 	 */
 	public void DBUpdatePlayer(MOB mob);
+
+	/**
+	 * Changes all player start from from the old to new room id, where
+	 * applicable.  This is called when a room's id number is changed.
+	 *
+	 * @param oldID the old room id
+	 * @param newID the new room id
+	 */
+	public void DBUpdatePlayerStartRooms(final String oldID, final String newID);
 
 	/**
 	 * Table category: DBPLAYERS
@@ -725,13 +871,43 @@ public interface DatabaseEngine extends CMLibrary
 
 	/**
 	 * Table category: DBPLAYERS
-	 * Reads the item class and misc text of each item in the given
-	 * players inventory.
+	 * Returns only list of clan names and roles this player belongs to
+	 * player name
+	 * @param name the player to read clan info for
+	 * @return the list of clan names and roles
+	 */
+	public PairList<String,Integer> DBReadPlayerClans(String name);
+
+	/**
+	 * Table category: DBPLAYERS
+	 * Returns a specific piece of player data from the database.
+	 * @see PlayerLibrary.PlayerCode
+	 * @param name the player to read info for
+	 * @param code the piece of data to return
+	 * @return the specific data, usually a string, Integer, or list of pairs
+	 */
+	public Object DBReadPlayerValue(final String name, final PlayerCode code);
+
+	/**
+	 * Table category: DBPLAYERS
+	 * Sets a specific piece of player data in the database.
+	 * @see PlayerLibrary.PlayerCode
+	 * @param name the player to set info for
+	 * @param code the piece of data to set
+	 * @param value the specific data, usually a string, Integer, or list of pairs
+	 */
+	public void DBSetPlayerValue(final String name, final PlayerCode code, final Object value);
+
+	/**
+	 * Table category: DBPLAYERS
+	 * Reads the item dbid, class and misc text of each item in the given
+	 * players inventory, along with all 9 fields a growing item needs.
 	 * @param name the name of the player
-	 * @param searchStr a string to search the misctext for, or nothing
+	 * @param classLocFilter null, or a filter for the itemid and/or location string
+	 * @param textFilter null, or a filter for the misctext
 	 * @return the list of matching items
 	 */
-	public PairList<String,String> DBReadPlayerItemData(String name, final String searchStr);
+	public List<String[]> DBReadPlayerItemData(final String name, final Filterer<Pair<String,String>> classLocFilter, final Filterer<String> textFilter);
 
 	/**
 	 * Table category: DBPLAYERS
@@ -780,6 +956,15 @@ public interface DatabaseEngine extends CMLibrary
 	 * @return the name of the player, or null if not found
 	 */
 	public String DBPlayerEmailSearch(String email);
+
+	/**
+	 * Table category: DBPLAYERS
+	 * Returns the name of the account with the given email
+	 * address.
+	 * @param email the email address to look for
+	 * @return the name of the account, or null if not found
+	 */
+	public String DBAccountEmailSearch(final String email);
 
 	/**
 	 * Table category: DBPLAYERS
@@ -839,10 +1024,22 @@ public interface DatabaseEngine extends CMLibrary
 	 * will be a new instance, unconnected to any given online
 	 * player, and is for reference or searching only.
 	 *
+	 * @see DatabaseEngine#DBSearchPFIL(String)
+	 *
 	 * @param name the name of the player
 	 * @return the player stats object, or null.
 	 */
 	public PlayerStats DBLoadPlayerStats(String name);
+
+	/**
+	 * Table category: DBPLAYERS
+	 * Searches all player PFIL records for the given match.
+	 * Returns the names, and last login dates from the DB.
+	 *
+	 * @param match the substring to find
+	 * @return the list of names and login dates
+	 */
+	public PairList<String, Long> DBSearchPFIL(String match);
 
 	/**
 	 * Table category: DBPLAYERS
@@ -875,6 +1072,15 @@ public interface DatabaseEngine extends CMLibrary
 	 * @return null if not found, or a thinner player record
 	 */
 	public PlayerLibrary.ThinnerPlayer DBUserSearch(String Login);
+
+	/**
+	 * Table category: DBPLAYERS
+	 * Returns the leige for the given player
+	 *
+	 * @param Login the player for whom the leige is needed
+	 * @return the name of the leige, or "", or null
+	 */
+	public String DBLeigeSearch(final String Login);
 
 	/**
 	 * Table category: DBPLAYERS
@@ -946,6 +1152,20 @@ public interface DatabaseEngine extends CMLibrary
 
 	/**
 	 * Table category: DBCLANS
+	 * Given a user, this will return the clans that user
+	 * belongs to.  You an then lookup the clan and get their
+	 * member records.
+	 *
+	 * @see DatabaseEngine#DBGetClanMember(String, String)
+	 * @see DatabaseEngine#DBUpdateClanMembership(String, String, int)
+	 * @see DatabaseEngine#DBUpdateClanKills(String, String, int, int)
+	 * @param userID the name of the clan to read members for
+	 * @return the list of all the members clans
+	 */
+	public List<String> DBReadMemberClans(String userID);
+
+	/**
+	 * Table category: DBCLANS
 	 * Reads information about a single clan member of the given exact
 	 * name from the clan of the given exact name.
 	 * @see MemberRecord
@@ -990,8 +1210,9 @@ public interface DatabaseEngine extends CMLibrary
 	 * @param name the name of the member to update
 	 * @param adjGold the number of ADDITIONAL (plus or minus) clan gold donations
 	 * @param adjXP the number of ADDITIONAL (plus or minus) clan xp adjustments
+	 * @param adjDues the number of ADDITIONAL (plus or minus) clan dues made
 	 */
-	public void DBUpdateClanDonates(String clan, String name, double adjGold, int adjXP);
+	public void DBUpdateClanDonates(String clan, String name, double adjGold, int adjXP, double adjDues);
 
 	/**
 	 * Table category: DBCLANS
@@ -1147,8 +1368,9 @@ public interface DatabaseEngine extends CMLibrary
 	 * @see DatabaseEngine#DBUpdateJournal(String, String, String, long)
 	 * @param journalID the name/id of the journal
 	 * @param entry the enttry to create
+	 * @return the new entry key or null
 	 */
-	public void DBWriteJournal(String journalID, JournalEntry entry);
+	public String DBWriteJournal(String journalID, JournalEntry entry);
 
 	/**
 	 * Table category: DBJOURNALS
@@ -1164,8 +1386,9 @@ public interface DatabaseEngine extends CMLibrary
 	 * @param to who the message is to, such as ALL
 	 * @param subject the subject of the message
 	 * @param message the message to write
+	 * @return the new entry key or null
 	 */
-	public void DBWriteJournal(String journalID, String from, String to, String subject, String message);
+	public String DBWriteJournal(String journalID, String from, String to, String subject, String message);
 
 	/**
 	 * Table category: DBJOURNALS
@@ -1211,8 +1434,9 @@ public interface DatabaseEngine extends CMLibrary
 	 * @param to the recipient
 	 * @param subject the subject of the message
 	 * @param message the email message
+	 * @return the new entry key or null
 	 */
-	public void DBWriteJournalEmail(String mailBoxID, String journalSource, String from, String to, String subject, String message);
+	public String DBWriteJournalEmail(String mailBoxID, String journalSource, String from, String to, String subject, String message);
 
 	/**
 	 * Table category: DBJOURNALS
@@ -1228,6 +1452,14 @@ public interface DatabaseEngine extends CMLibrary
 	 * @return the updated journal entry
 	 */
 	public JournalEntry DBWriteJournalReply(String journalID, String messageKey, String from, String to, String subject, String message);
+
+	/**
+	 * Deletes all messages in the given journal from the given source.
+	 *
+	 * @param journal the journal
+	 * @param from the source
+	 */
+	public void DBDeleteJournalMessagesByFrom(String journal, String from);
 
 	/**
 	 * Table category: DBJOURNALS
@@ -1328,6 +1560,71 @@ public interface DatabaseEngine extends CMLibrary
 
 	/**
 	 * Table category: DBJOURNALS
+	 * Returns all messages from the given journal, in which the update time
+	 * lies within the given ranges.
+	 * @see DatabaseEngine#DBReadJournalMsgsByUpdateDate(String, boolean)
+	 * @see DatabaseEngine#DBReadJournalMsgsByUpdateDate(String, boolean, int, String[])
+	 * @see DatabaseEngine#DBReadJournalMsgsByTimeStamps(String, String, long, long)
+	 * @see DatabaseEngine#DBReadJournalMsgsByExpiRange(String, String, long, long, String)
+	 * @param journalID the journal to read all the messages from
+	 * @param from the source of the entry or null or ''
+	 * @param startRange the starting timestamp for the range of update times
+	 * @param endRange the ending timestamp for the range of update times
+	 * @return the list of the messages in this journal, an empty list, or null on error
+	 */
+	public List<JournalEntry> DBReadJournalMsgsByUpdateRange(String journalID, final String from, long startRange, long endRange);
+
+	/**
+	 * Table category: DBJOURNALS
+	 * Returns all messages from the given journal, in which the expiration time
+	 * lies within the given ranges.
+	 * @see DatabaseEngine#DBReadJournalMsgsByUpdateDate(String, boolean)
+	 * @see DatabaseEngine#DBReadJournalMsgsByUpdateDate(String, boolean, int, String[])
+	 * @see DatabaseEngine#DBReadJournalMsgsByTimeStamps(String, String, long, long)
+	 * @see DatabaseEngine#DBReadJournalMsgsByUpdateRange(String, String, long, long)
+	 * @param journalID the journal to read all the messages from
+	 * @param from the source of the entry or null or ''
+	 * @param startRange the starting timestamp for the range of update times
+	 * @param endRange the ending timestamp for the range of update times
+	 * @param searchStr null, or a search str to match in the DATA (metadata)
+	 * @return the list of the messages in this journal, an empty list, or null on error
+	 */
+	public List<JournalEntry> DBReadJournalMsgsByExpiRange(String journalID, final String from, long startRange, long endRange, String searchStr);
+
+	/**
+	 * Table category: DBJOURNALS
+	 * Returns all messages from the given journal, in which the expiration time
+	 * is after the given range, and the date string contains the given search term.
+	 * !!NOTE!! - this method does not correct/fix update timestamp issues!
+	 * @see DatabaseEngine#DBReadJournalMsgsByUpdateDate(String, boolean)
+	 * @see DatabaseEngine#DBReadJournalMsgsByUpdateDate(String, boolean, int, String[])
+	 * @see DatabaseEngine#DBReadJournalMsgsByTimeStamps(String, String, long, long)
+	 * @see DatabaseEngine#DBReadJournalMsgsByUpdateRange(String, String, long, long)
+	 * @param journalID the journal to read all the messages from
+	 * @param startRange the starting timestamp for the range of update times
+	 * @param searchStr null, or a search str to match in the DATA (metadata)
+	 * @return the list of the messages in this journal, an empty list, or null on error
+	 */
+	public List<JournalEntry> DBReadAllJournalMsgsByExpiDateStr(final String journalID, final long startRange, final String searchStr);
+
+	/**
+	 * Table category: DBJOURNALS
+	 * Returns all messages from the given journal, in which either the update time
+	 * starts within the given ranges or the expiration time ends within it.
+	 * @see DatabaseEngine#DBReadJournalMsgsByUpdateDate(String, boolean)
+	 * @see DatabaseEngine#DBReadJournalMsgsByUpdateDate(String, boolean, int, String[])
+	 * @see DatabaseEngine#DBReadJournalMsgsByUpdateRange(String, String, long, long)
+	 * @see DatabaseEngine#DBReadJournalMsgsByExpiRange(String, String, long, long, String)
+	 * @param journalID the journal to read all the messages from
+	 * @param from the source of the entry or null or ''
+	 * @param startRange the starting timestamp for the range of times
+	 * @param endRange the ending timestamp for the range of times
+	 * @return the list of the messages in this journal, an empty list, or null on error
+	 */
+	public List<JournalEntry> DBReadJournalMsgsByTimeStamps(String journalID, final String from, long startRange, long endRange);
+
+	/**
+	 * Table category: DBJOURNALS
 	 * Returns a limited number of messages from the given journal, optionally sorted by update date,
 	 * ascending, but only those marked as TO the given string array.
 	 * @see DatabaseEngine#DBReadJournalMsgsByUpdateDate(String, boolean, int)
@@ -1393,15 +1690,41 @@ public interface DatabaseEngine extends CMLibrary
 
 	/**
 	 * Table category: DBJOURNALS
+	 * Counts all the messages optionally sent to the given user (or ALL) that
+	 * are newer than the given date.
+	 * @see DatabaseEngine#DBReadJournalMsgsOlderThan(String, String, long)
+	 * @param journalID the name/ID of the journal/forum
+	 * @param to NULL, ALL, or a user the messages were sent to
+	 * @param olderDate the date beyond which to return messages for
+	 * @return the count of messages that were found
+	 */
+	public int DBCountJournalMsgsNewerThan(final String journalID, final String to, final long olderDate);
+
+	/**
+	 * Table category: DBJOURNALS
 	 * Returns all the messages optionally sent to the given user (or ALL) that
 	 * are older than the given date.
 	 * @see DatabaseEngine#DBReadJournalMsgsNewerThan(String, String, long)
+	 * @see DatabaseEngine#DBReadJournalMsgsExpiredBefore(String, String, long)
 	 * @param journalID the name/ID of the journal/forum
 	 * @param to NULL, ALL, or a user the messages were sent to
 	 * @param newestDate the date before which to return messages for
 	 * @return the list of messages that were found
 	 */
 	public List<JournalEntry> DBReadJournalMsgsOlderThan(String journalID, String to, long newestDate);
+
+	/**
+	 * Table category: DBJOURNALS
+	 * Returns all the messages optionally sent to the given user (or ALL) that
+	 * are expired before the given date.
+	 * @see DatabaseEngine#DBReadJournalMsgsNewerThan(String, String, long)
+	 * @see DatabaseEngine#DBReadJournalMsgsOlderThan(String, String, long)
+	 * @param journalID the name/ID of the journal/forum
+	 * @param to NULL, ALL, or a user the messages were sent to
+	 * @param newestDate the date before which to return messages for
+	 * @return the list of messages that were found
+	 */
+	public List<JournalEntry> DBReadJournalMsgsExpiredBefore(final String journalID, final String to, final long newestDate);
 
 	/**
 	 * Table category: DBJOURNALS
@@ -1429,9 +1752,10 @@ public interface DatabaseEngine extends CMLibrary
 	 * @param parentKey the message key of the parent message this is a reply to
 	 * @param subject the subject of the reply message
 	 * @param message the message text of the reply message
+	 * @return the new entry key or null
 	 */
-	public void DBWriteJournalChild(String journalID, String journalSource, String from, String to,
-									String parentKey, String subject, String message);
+	public String DBWriteJournalChild(String journalID, String journalSource, String from, String to,
+									  String parentKey, String subject, String message);
 
 	/**
 	 * Table category: DBJOURNALS
@@ -1514,10 +1838,12 @@ public interface DatabaseEngine extends CMLibrary
 	 * Table category: DBPLAYERDATA
 	 * Read a specific set of data for the given player, belonging
 	 * to the given section
+	 *
 	 * @see DatabaseEngine.PlayerData
 	 * @see DatabaseEngine#DBCountPlayerData(String, String)
 	 * @see DatabaseEngine#DBDeletePlayerData(String, String)
 	 * @see DatabaseEngine#DBReadPlayerData(String, List)
+	 * @see DatabaseEngine#DBReadPlayerDataKeys(String, String)
 	 * @param playerID the user id for the player to read data for
 	 * @param section the section/type of data to read.
 	 * @return the data for the player in the section
@@ -1526,10 +1852,25 @@ public interface DatabaseEngine extends CMLibrary
 
 	/**
 	 * Table category: DBPLAYERDATA
+	 * Read a specific set of keys for the given player, belonging
+	 * to the given section
+	 * @see DatabaseEngine.PlayerData
+	 * @see DatabaseEngine#DBCountPlayerData(String, String)
+	 * @see DatabaseEngine#DBDeletePlayerData(String, String)
+	 * @see DatabaseEngine#DBReadPlayerData(String, List)
+	 * @param playerID the user id for the player to read data for
+	 * @param section the section/type of data to read.
+	 * @return the keys for the player in the section
+	 */
+	public List<String> DBReadPlayerDataKeys(String playerID, String section);
+
+	/**
+	 * Table category: DBPLAYERDATA
 	 * Counts the number of rows of data/entries
 	 * @see DatabaseEngine#DBReadPlayerData(String, String)
 	 * @see DatabaseEngine#DBDeletePlayerData(String, String)
 	 * @see DatabaseEngine#DBReadPlayerData(String, List)
+	 * @see DatabaseEngine#DBReadPlayerDataKeys(String, String)
 	 * @param playerID the user id of the player to count the data of
 	 * @param section the section/type of data to count
 	 * @return the number of entries for the given player and section
@@ -1542,6 +1883,7 @@ public interface DatabaseEngine extends CMLibrary
 	 * @see DatabaseEngine#DBReadPlayerData(String, String)
 	 * @see DatabaseEngine#DBDeletePlayerData(String, String)
 	 * @see DatabaseEngine#DBReadPlayerData(String, List)
+	 * @see DatabaseEngine#DBReadPlayerDataKeys(String, String)
 	 *
 	 * @param section the cross-player section of data
 	 * @return the number of entries for the given section
@@ -1586,6 +1928,20 @@ public interface DatabaseEngine extends CMLibrary
 	 * @return the player data records that match the player and sections
 	 */
 	public List<PlayerData> DBReadPlayerData(String player, List<String> sections);
+
+	/**
+	 * Table category: DBPLAYERDATA
+	 * Reads in all unique sections with the given owner/name
+	 *
+	 * @see DatabaseEngine.PlayerData
+	 * @see DatabaseEngine#DBReadPlayerData(String, String)
+	 * @see DatabaseEngine#DBCountPlayerData(String, String)
+	 * @see DatabaseEngine#DBDeletePlayerData(String, String)
+	 * @see DatabaseEngine#DBExistsPlayerData(String, String)
+	 * @param name the user id of the player/clan/whatever
+	 * @return the list of unique sections
+	 */
+	public Set<String> DBReadUniqueSections(String name);
 
 	/**
 	 * Table category: DBPLAYERDATA
@@ -1703,7 +2059,7 @@ public interface DatabaseEngine extends CMLibrary
 	/**
 	 * Table category: DBPLAYERDATA
 	 * Creates or Updates a single player data entry.  This is the same as an
-	 * upset where, if the key already exists, an update is done, otherwise
+	 * upsert where, if the key already exists, an update is done, otherwise
 	 * an insert is done.
 	 * All fields are required.
 	 * @see DatabaseEngine.PlayerData
@@ -1781,8 +2137,53 @@ public interface DatabaseEngine extends CMLibrary
 	 * @see DatabaseEngine#DBReadRaces()
 	 * @see DatabaseEngine#DBDeleteRace(String)
 	 * @see DatabaseEngine#DBCreateRace(String, String)
+	 * @see DatabaseEngine#updateAllRaceDates()
+	 * @see DatabaseEngine#pruneOldRaces()
 	 */
 	public void DBUpdateRaceCreationDate(final String raceID);
+
+	/**
+	 * Table category: DBRACE
+	 * Registers a generic race as being used recently
+	 *
+	 * @see DatabaseEngine#isRaceExpired(String)
+	 * @see DatabaseEngine#DBUpdateRaceCreationDate(String)
+	 * @see DatabaseEngine#updateAllRaceDates()
+	 * @see DatabaseEngine#pruneOldRaces()
+	 *
+	 * @param R the race to update
+	 */
+	public void registerRaceUsed(final Race R);
+
+	/**
+	 * Table category: DBRACE
+	 * Registers a generic race as being used recently
+	 *
+	 * @see DatabaseEngine#isRaceExpired(String)
+	 * @see DatabaseEngine#DBUpdateRaceCreationDate(String)
+	 * @see DatabaseEngine#updateAllRaceDates()
+	 *
+	 * @see DatabaseEngine#isRaceExpired(String)
+	 * @see DatabaseEngine#DBUpdateRaceCreationDate(String)
+	 * @see DatabaseEngine#registerRaceUsed(Race)
+	 * @see DatabaseEngine#updateAllRaceDates()
+	 *
+	 * @return number of races pruned
+	 */
+	public int pruneOldRaces();
+
+	/**
+	 * Table category: DBRACE
+	 * Updates all generic races used recently.
+	 *
+	 * @see DatabaseEngine#isRaceExpired(String)
+	 * @see DatabaseEngine#DBUpdateRaceCreationDate(String)
+	 * @see DatabaseEngine#registerRaceUsed(Race)
+	 * @see DatabaseEngine#pruneOldRaces()
+	 *
+	 * @return the number of generic races updated
+	 */
+	public int updateAllRaceDates();
 
 	/**
 	 * Table category: DBRACE
@@ -1791,6 +2192,7 @@ public interface DatabaseEngine extends CMLibrary
 	 * @see DatabaseEngine#isRaceExpired(String)
 	 * @see DatabaseEngine#DBUpdateRaceCreationDate(String)
 	 * @see DatabaseEngine#DBCreateRace(String, String)
+	 *
 	 * @param raceID the ID of the race to delete
 	 */
 	public void DBDeleteRace(String raceID);
@@ -1880,6 +2282,43 @@ public interface DatabaseEngine extends CMLibrary
 	public void DBCreateAbility(String classID, String typeClass, String data);
 
 	/**
+	 * Table category: DBCOMMAND
+	 * Reads all records from the CMCDAC table and returns the
+	 * AckRecord for all of them in a list, to do with as you please.
+	 * These are the generic commands.
+	 *
+	 * @see DatabaseEngine.AckRecord
+	 * @see DatabaseEngine#DBDeleteCommand(String)
+	 * @see DatabaseEngine#DBCreateCommand(String, String, String)
+	 *
+	 * @return the generic command records
+	 */
+	public List<AckRecord> DBReadCommands();
+
+	/**
+	 * Table category: DBCOMMAND
+	 * Removes a generic command from the CMCDAC table.
+	 * @see DatabaseEngine#DBReadCommands()
+	 * @see DatabaseEngine#DBCreateCommand(String, String, String)
+	 * @param classID the ID of the command to delete
+	 * @return an AckRecord containing the deleted command, or null if not found
+	 */
+	public AckRecord DBDeleteCommand(String classID);
+
+	/**
+	 * Table category: DBCOMMAND
+	 * Creates a new entry in the generic command (CMCDAC)
+	 * table with the given unique ID and xml definition
+	 * data.
+	 * @see DatabaseEngine#DBReadCommands()
+	 * @see DatabaseEngine#DBDeleteCommand(String)
+	 * @param classID the unique CommandID
+	 * @param baseClassID the Command class ID to base off of
+	 * @param data the xml data defining the generic command
+	 */
+	public void DBCreateCommand(String classID, String baseClassID, String data);
+
+	/**
 	 * Table category: DBSTATS
 	 * Reads a days worth of stats from the CMSTAT table in
 	 * the database.  Returning as a CofeeTableRow object
@@ -1960,6 +2399,19 @@ public interface DatabaseEngine extends CMLibrary
 	 * @return the group of statistics requested.
 	 */
 	public List<CoffeeTableRow> DBReadStats(long startTime, long endTime);
+
+	/**
+	 * Table category: DBSTATS
+	 * Read the oldest start recorded.
+
+	 * @see DatabaseEngine#DBUpdateStat(long, String)
+	 * @see DatabaseEngine#DBDeleteStat(long)
+	 * @see DatabaseEngine#DBCreateStat(long, long, String)
+	 * @see DatabaseEngine#DBReadStat(long)
+	 *
+	 * @return startTime the timestamp of the first row
+	 */
+	public long DBReadOldestStatMs();
 
 	/**
 	 * Table category: DBPOLLS
@@ -2104,6 +2556,7 @@ public interface DatabaseEngine extends CMLibrary
 	 *
 	 * @see com.planet_ink.coffee_mud.core.CMFile.CMVFSFile
 	 * @see DatabaseEngine#DBReadVFSDirectory()
+	 * @see DatabaseEngine#DBDeleteVFSFileLike(String, int)
 	 * @see DatabaseEngine#DBCreateVFSFile(String, int, String, long, Object)
 	 * @see DatabaseEngine#DBUpSertVFSFile(String, int, String, long, Object)
 	 * @see DatabaseEngine#DBDeleteVFSFile(String)
@@ -2115,12 +2568,32 @@ public interface DatabaseEngine extends CMLibrary
 
 	/**
 	 * Table category: DBVFS
+	 * Reads the vfs record keys for the given files.  The
+	 * filename does not begin with a /, and is also case-insensitive
+	 * and partial/LIKE.
+	 * @param minMask 0, or minimum mask value
+	 * @param partialFilename the partial filename of the files to read
+	 *
+	 * @see com.planet_ink.coffee_mud.core.CMFile.CMVFSFile
+	 * @see DatabaseEngine#DBReadVFSDirectory()
+	 * @see DatabaseEngine#DBDeleteVFSFileLike(String, int)
+	 * @see DatabaseEngine#DBCreateVFSFile(String, int, String, long, Object)
+	 * @see DatabaseEngine#DBUpSertVFSFile(String, int, String, long, Object)
+	 * @see DatabaseEngine#DBDeleteVFSFile(String)
+	 *
+	 * @return the complete file records, including data
+	 */
+	public List<String> DBReadVFSKeysLike(final String partialFilename, int minMask);
+
+	/**
+	 * Table category: DBVFS
 	 * Creates a new file in the DBFS filesystem stored in the CBVFS table.
 	 * The filename does not begin with a /.  The data may be a String,
 	 * StringBuffer, or byte array.  The bits are found in CMFile.
 	 * @see CMFile#VFS_MASK_MASKSAVABLE
 	 *
 	 * @see DatabaseEngine#DBReadVFSDirectory()
+	 * @see DatabaseEngine#DBDeleteVFSFileLike(String, int)
 	 * @see DatabaseEngine#DBReadVFSFile(String)
 	 * @see DatabaseEngine#DBUpSertVFSFile(String, int, String, long, Object)
 	 * @see DatabaseEngine#DBDeleteVFSFile(String)
@@ -2141,6 +2614,7 @@ public interface DatabaseEngine extends CMLibrary
 	 * @see CMFile#VFS_MASK_MASKSAVABLE
 	 *
 	 * @see DatabaseEngine#DBReadVFSDirectory()
+	 * @see DatabaseEngine#DBDeleteVFSFileLike(String, int)
 	 * @see DatabaseEngine#DBReadVFSFile(String)
 	 * @see DatabaseEngine#DBCreateVFSFile(String, int, String, long, Object)
 	 * @see DatabaseEngine#DBDeleteVFSFile(String)
@@ -2160,6 +2634,7 @@ public interface DatabaseEngine extends CMLibrary
 	 *
 	 * @see DatabaseEngine#DBReadVFSDirectory()
 	 * @see DatabaseEngine#DBReadVFSFile(String)
+	 * @see DatabaseEngine#DBDeleteVFSFileLike(String, int)
 	 * @see DatabaseEngine#DBCreateVFSFile(String, int, String, long, Object)
 	 * @see DatabaseEngine#DBUpSertVFSFile(String, int, String, long, Object)
 	 *
@@ -2168,22 +2643,41 @@ public interface DatabaseEngine extends CMLibrary
 	public void DBDeleteVFSFile(String filename);
 
 	/**
+	 * Table category: DBVFS
+	 * Deletes file(s) from the DBFS in the DBVFS table.  The
+	 * path does not begin with a /.  The argument is a partial
+	 * case-insensitive filename.
+	 * @param minMask 0, or minimum mask value
+	 * @param partialFilename the partial case-insensitive filename
+	 *
+	 * @see DatabaseEngine#DBReadVFSDirectory()
+	 * @see DatabaseEngine#DBReadVFSFile(String)
+	 * @see DatabaseEngine#DBDeleteVFSFile(String)
+	 * @see DatabaseEngine#DBCreateVFSFile(String, int, String, long, Object)
+	 * @see DatabaseEngine#DBUpSertVFSFile(String, int, String, long, Object)
+	 */
+	public void DBDeleteVFSFileLike(final String partialFilename, int minMask);
+
+	/**
 	 * Table category: DBBACKLOG
 	 * Adds a CHANNEL message to the backlog table
-	 * @see DatabaseEngine#getBackLogEntries(String, int, int)
+	 *
+	 * @see DatabaseEngine#getBackLogEntries(String, int, int, int)
 	 * @see DatabaseEngine#delBackLogEntry(String, long)
 	 * @see DatabaseEngine#trimBackLogEntries(String[], int, long)
+	 *
 	 * @param channelName the unique name of the channel
+	 * @param subNameField the sub-category of the channel message
 	 * @param timeStamp the time the message was added in millis
 	 * @param entry message
 	 */
-	public void addBackLogEntry(String channelName, long timeStamp, final String entry);
+	public void addBackLogEntry(String channelName, int subNameField, long timeStamp, final String entry);
 
 	/**
 	 * Table category: DBBACKLOG
 	 * Removes a CHANNEL message from the backlog table
-	 * @see DatabaseEngine#getBackLogEntries(String, int, int)
-	 * @see DatabaseEngine#addBackLogEntry(String, long, String)
+	 * @see DatabaseEngine#getBackLogEntries(String, int, int, int)
+	 * @see DatabaseEngine#addBackLogEntry(String, int, long, String)
 	 * @see DatabaseEngine#trimBackLogEntries(String[], int, long)
 	 * @param channelName the unique name of the channel
 	 * @param timeStamp the time the message was posted
@@ -2193,20 +2687,68 @@ public interface DatabaseEngine extends CMLibrary
 	/**
 	 * Table category: DBBACKLOG
 	 * Returns a list of channel messages for the given channel and criteria.
-	 * The list returned includes the message, and the timestamp of the
+	 * The list returned includes the message, index, and the timestamp of the
 	 * message.  The list is date-sorted, so list returns can ge "paged"
 	 * by setting the number to skip and the number to return.
 	 *
-	 * @see DatabaseEngine#addBackLogEntry(String, long, String)
+	 * @see DatabaseEngine#addBackLogEntry(String, int, long, String)
 	 * @see DatabaseEngine#delBackLogEntry(String, long)
 	 * @see DatabaseEngine#trimBackLogEntries(String[], int, long)
+	 * @see DatabaseEngine#getBackLogPageEnd(String, int)
 	 *
 	 * @param channelName the unique name of the channel to return messages from
+	 * @param subNameField any extra query field, or 0
 	 * @param newestToSkip the number of "newest" messages to skip
 	 * @param numToReturn the number of total messages to return
 	 * @return a list of applicable messages, coded as string,timestamp
 	 */
-	public List<Pair<String,Long>> getBackLogEntries(String channelName, final int newestToSkip, final int numToReturn);
+	public List<Triad<String,Integer,Long>> getBackLogEntries(String channelName, int subNameField, final int newestToSkip, final int numToReturn);
+
+	/**
+	 * Table category: DBBACKLOG
+	 * Returns the lowest backlog index number of messages after the given timestamp
+	 *
+	 * @param channelName the unique name of the channel to return messages from
+	 * @param subNameField any extra query field, or 0
+	 * @param afterDate the date after which we want the lowest index
+	 * @return the lowest index, or -1
+	 */
+	public int getLowestBackLogIndex(final String channelName, final int subNameField, final long afterDate);
+
+	/**
+	 * Table category: DBBACKLOG
+	 * Returns matching channel messages for the given channel and criteria.
+	 * The list returned includes the message, index, and the timestamp of the
+	 * message.  The list is date-sorted, so list returns can ge "paged"
+	 * by setting the number to skip and the number to return.
+	 *
+	 * @see DatabaseEngine#addBackLogEntry(String, int, long, String)
+	 * @see DatabaseEngine#delBackLogEntry(String, long)
+	 * @see DatabaseEngine#trimBackLogEntries(String[], int, long)
+	 * @see DatabaseEngine#getBackLogPageEnd(String, int)
+	 *
+	 * @param channelName the unique name of the channel to return messages from
+	 * @param subNameField any extra query field, or 0
+	 * @param search the substring to search for
+	 * @param numToReturn the number of total messages to return
+	 * @return a list of applicable messages, coded as string,timestamp
+	 */
+	public List<Triad<String, Integer, Long>> searchBackLogEntries(final String channelName, final int subNameField, final String search, final int numToReturn);
+
+	/**
+	 * Table category: DBBACKLOG
+	 * Returns the highest page index for the given channel in the backlog table
+	 *
+	 * @see DatabaseEngine#addBackLogEntry(String, int, long, String)
+	 * @see DatabaseEngine#delBackLogEntry(String, long)
+	 * @see DatabaseEngine#trimBackLogEntries(String[], int, long)
+	 * @see DatabaseEngine#getBackLogEntries(String, int, int, int)
+	 *
+	 * @param channelName the unique name of the channel to return messages from
+	 * @param subNameField any extra query field, or 0
+	 * @return the highest page index for messages
+	 */
+	public int getBackLogPageEnd(String channelName, int subNameField);
 
 	/**
 	 * Table category: DBBACKLOG
@@ -2215,15 +2757,25 @@ public interface DatabaseEngine extends CMLibrary
 	 * number of messages to retain (absolute), and the oldest message
 	 * to return (absolute timestamp -- no 0 nonsense).  Both criteria
 	 * will be used in the trimming.
-	 * @see DatabaseEngine#getBackLogEntries(String, int, int)
+	 * @see DatabaseEngine#getBackLogEntries(String, int, int, int)
 	 * @see DatabaseEngine#delBackLogEntry(String, long)
-	 * @see DatabaseEngine#addBackLogEntry(String, long, String)
+	 * @see DatabaseEngine#addBackLogEntry(String, int, long, String)
 	 *
 	 * @param channels the list of channels to go through.
 	 * @param maxMessages the maximum number of messages to retain
 	 * @param oldestTime the oldest message to retain
 	 */
 	public void trimBackLogEntries(final String[] channels, final int maxMessages, final long oldestTime);
+
+	/**
+	 * Table category: DBBACKLOG
+	 * This method checks if the backlog table requires any upgrades and, if so, does them.
+	 * @see DatabaseEngine#getBackLogEntries(String, int, int, int)
+	 * @see DatabaseEngine#delBackLogEntry(String, long)
+	 * @see DatabaseEngine#addBackLogEntry(String, int, long, String)
+	 * @param channels the channels library to which the backlog applies
+	 */
+	public void checkUpgradeBacklogTable(final ChannelsLibrary channels);
 
 	/**
 	 * Table category: DBPLAYERDATA
@@ -2454,4 +3006,52 @@ public interface DatabaseEngine extends CMLibrary
 		 */
 		public String typeClass();
 	}
+
+
+	/**
+	 * Table category: CMROCH, CMROIT
+	 * A record from one of the above tables
+	 * A room content object
+	 *
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public static interface RoomContent
+	{
+		/**
+		 * The Object Class ID
+		 *
+		 * @return the class id
+		 */
+		public String ID();
+
+		/**
+		 * The Object name
+		 *
+		 * @return name
+		 */
+		public String name();
+
+		/**
+		 * The room ID
+		 *
+		 * @return room id
+		 */
+		public String roomID();
+
+		/**
+		 * The object DB key
+		 *
+		 * @return room object db key
+		 */
+		public String dbKey();
+
+		/**
+		 * A has of content obj data
+		 *
+		 * @return the content obj data
+		 */
+		public int contentHash();
+	}
+
 }

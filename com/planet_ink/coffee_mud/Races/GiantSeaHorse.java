@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -89,11 +89,17 @@ public class GiantSeaHorse extends SeaHorse
 	{
 		affectableStats.setRacialStat(CharStats.STAT_INTELLIGENCE,1);
 		affectableStats.adjStat(CharStats.STAT_DEXTERITY,4);
-		affectableStats.adjStat(CharStats.STAT_MAX_DEXTERITY_ADJ,4);
-		affectableStats.adjStat(CharStats.STAT_DEXTERITY,2);
-		affectableStats.adjStat(CharStats.STAT_MAX_DEXTERITY_ADJ,2);
 		affectableStats.adjStat(CharStats.STAT_CONSTITUTION,2);
-		affectableStats.adjStat(CharStats.STAT_MAX_CONSTITUTION_ADJ,2);
+	}
+
+	@Override
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
+	{
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.setStat(CharStats.STAT_INTELLIGENCE,affectedMOB.baseCharStats().getStat(CharStats.STAT_INTELLIGENCE));
+		affectableStats.setStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ,affectedMOB.baseCharStats().getStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ));
+		affectableStats.adjStat(CharStats.STAT_DEXTERITY,-4);
+		affectableStats.adjStat(CharStats.STAT_CONSTITUTION,-2);
 	}
 
 	@Override
@@ -122,7 +128,7 @@ public class GiantSeaHorse extends SeaHorse
 				for(int i=0;i<5;i++)
 				{
 					resources.addElement(makeResource
-					(L("some @x1",name().toLowerCase()),RawMaterial.RESOURCE_FISH));
+					(L("some @x1 meat",name().toLowerCase()),RawMaterial.RESOURCE_FISH));
 				}
 				for(int i=0;i<10;i++)
 				{

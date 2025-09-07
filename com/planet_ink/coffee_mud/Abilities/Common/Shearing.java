@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ public class Shearing extends CommonSkill
 	@Override
 	public int classificationCode()
 	{
-		return Ability.ACODE_COMMON_SKILL | Ability.DOMAIN_ANIMALAFFINITY;
+		return Ability.ACODE_COMMON_SKILL | Ability.DOMAIN_GATHERINGSKILL;
 	}
 
 	@Override
@@ -128,7 +128,7 @@ public class Shearing extends CommonSkill
 				if((sheep!=null)&&(!aborted)&&(mob.location()!=null))
 				{
 					if((failed)||(!mob.location().isInhabitant(sheep)))
-						commonTell(mob,L("You messed up your shearing completely."));
+						commonTelL(mob,"You messed up your shearing completely.");
 					else
 					{
 						final int yield=(baseYield()+abilityCode())<=0?1:(baseYield()+abilityCode());
@@ -184,7 +184,7 @@ public class Shearing extends CommonSkill
 		}
 		else
 		if(commands.size()==0)
-			mob.tell(L("Shear what?"));
+			commonTelL(mob,"Shear what?");
 		else
 			target=super.getTarget(mob,commands,givenTarget);
 
@@ -193,7 +193,7 @@ public class Shearing extends CommonSkill
 		if((getMyWool(target).size()<=0)
 		||(!target.okMessage(target,CMClass.getMsg(target,target,this,CMMsg.MSG_OK_ACTION,null))))
 		{
-			commonTell(mob,target,null,L("You can't shear <T-NAME>, there's no wool left on <T-HIM-HER>."));
+			commonTelL(mob,target,null,"You can't shear <T-NAME>, there's no wool left on <T-HIM-HER>.");
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))

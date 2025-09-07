@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -55,11 +55,24 @@ public class Poison_Alcohol extends Poison
 	}
 
 	private static final String[] triggerStrings = I(new String[] { "POISONALCOHOL" });
+	private final static String localizedDisplay1 = CMLib.lang().L("(Holding your own)");
+	private final static String localizedDisplay2 = CMLib.lang().L("(Tipsy)");
+	private final static String localizedDisplay3 = CMLib.lang().L("(Drunk)");
+	private final static String localizedDisplay4 = CMLib.lang().L("(Smashed)");
 
 	@Override
 	public String displayText()
 	{
-		return (drunkness <= 0) ? "(Holding your own)" : (drunkness <= 3) ? "(Tipsy)" : ((drunkness < 10) ? "(Drunk)" : "(Smashed)");
+		if(drunkness <= 0)
+			return localizedDisplay1;
+		else
+		if(drunkness <= 3)
+			return localizedDisplay2;
+		else
+		if(drunkness < 10)
+			return localizedDisplay3;
+		else
+			return localizedDisplay4;
 	}
 
 	@Override
@@ -89,13 +102,13 @@ public class Poison_Alcohol extends Poison
 	@Override
 	protected String POISON_DONE()
 	{
-		return "You feel sober again.";
+		return L("You feel sober again.");
 	}
 
 	@Override
 	protected String POISON_START()
 	{
-		return "^G<S-NAME> burp(s)!^?";
+		return L("^G<S-NAME> burp(s)!^?");
 	}
 
 	@Override
@@ -107,13 +120,13 @@ public class Poison_Alcohol extends Poison
 	@Override
 	protected String POISON_CAST()
 	{
-		return "^F^<FIGHT^><S-NAME> inebriate(s) <T-NAMESELF>!^</FIGHT^>^?";
+		return L("^F^<FIGHT^><S-NAME> inebriate(s) <T-NAMESELF>!^</FIGHT^>^?");
 	}
 
 	@Override
 	protected String POISON_FAIL()
 	{
-		return "<S-NAME> attempt(s) to inebriate <T-NAMESELF>, but fail(s).";
+		return L("<S-NAME> attempt(s) to inebriate <T-NAMESELF>, but fail(s).");
 	}
 
 	@Override
@@ -124,14 +137,14 @@ public class Poison_Alcohol extends Poison
 
 	protected boolean disableHappiness = false;
 
-	protected int alchoholContribution()
+	protected int alcoholContribution()
 	{
-		return 1;
+		return (int)Math.round(rank);
 	}
 
-	protected int level()
+	protected int alchoholLevel()
 	{
-		return 1;
+		return (int)Math.round(rank);
 	}
 
 	protected int drunkness = 5;
@@ -146,6 +159,31 @@ public class Poison_Alcohol extends Poison
 	public void setAbilityCode(final int newCode)
 	{
 		drunkness=newCode;
+	}
+
+	protected Ability mood = null;
+
+	protected Ability getMood()
+	{
+		if(mood == null)
+		{
+			final Physical affected=this.affected;
+			if(affected == null)
+				return null;
+			mood = CMClass.getAbility("Mood");
+			if((mood == null)
+			||(affected.phyStats().isAmbiance(PhyStats.Ambiance.SUPPRESS_MOOD))
+			||(affected.phyStats().isAmbiance(PhyStats.Ambiance.SUPPRESS_DRUNKENNESS)))
+				return null;
+			final String moods[] = {"HAPPY","MEAN","SILLY","ANGRY","SAD",""};
+			final String moodStr = moods[Math.abs(affected.Name().hashCode())%moods.length];
+			if(moodStr.length()==0)
+				return null;
+			mood.setMiscText(moodStr);
+			mood.setAffectedOne(affected);
+		}
+		mood.setAffectedOne(affected);
+		return mood;
 	}
 
 	@Override
@@ -164,6 +202,12 @@ public class Poison_Alcohol extends Poison
 	}
 
 	@Override
+	protected int POISON_ADDICTION_CHANCE()
+	{
+		return (alcoholContribution()*alcoholContribution()*alcoholContribution()/10);
+	}
+
+	@Override
 	public void unInvoke()
 	{
 		if((affected instanceof MOB)&&(canBeUninvoked()))
@@ -178,28 +222,6 @@ public class Poison_Alcohol extends Poison
 			CMLib.commands().postStand(mob,true, false);
 		}
 		super.unInvoke();
-	}
-
-	@Override
-	protected boolean catchIt(final MOB mob, final Physical target)
-	{
-		final boolean caughtIt=super.catchIt(mob,target);
-		if(!(affected instanceof Drink))
-			return caughtIt;
-		if(CMLib.dice().roll(1,1000,0)>(alchoholContribution()*alchoholContribution()*alchoholContribution()))
-			return caughtIt;
-		if((target!=null)&&(target instanceof MOB)&&(target.fetchEffect(ID())==null))
-		{
-			final MOB targetMOB=(MOB)target;
-			Ability A=targetMOB.fetchEffect("Addictions");
-			if(A==null)
-			{
-				A=CMClass.getAbility("Addictions");
-				if(A!=null)
-					A.invoke(targetMOB,affected,true,0);
-			}
-		}
-		return caughtIt;
 	}
 
 	@Override
@@ -221,8 +243,16 @@ public class Poison_Alcohol extends Poison
 		if(mob==null)
 			return true;
 
+		final Ability mood = getMood();
+		if((mood != null)
+		&&(CMLib.dice().rollPercentage()<(4*drunkness)))
+			mood.tick(mob, Tickable.TICKID_MOB);
+
 		final Room room=mob.location();
-		if((CMLib.dice().rollPercentage()<(4*drunkness))&&(CMLib.flags().isAliveAwakeMobile(mob,true))&&(room!=null))
+		if((CMLib.dice().rollPercentage()<(4*drunkness))
+		&&(CMLib.flags().isAliveAwakeMobile(mob,true))
+		&&(!mob.phyStats().isAmbiance(PhyStats.Ambiance.SUPPRESS_DRUNKENNESS))
+		&&(room!=null))
 		{
 			if(CMLib.flags().isEvil(mob))
 			switch(CMLib.dice().roll(1,9,-1))
@@ -335,13 +365,19 @@ public class Poison_Alcohol extends Poison
 			if(msg.source().location()==null)
 				return true;
 
+			final Ability mood = getMood();
+			if((mood != null)
+			&&(!mood.okMessage(msg.source(), msg)))
+				return false;
+
 			if((msg.amISource((MOB)affected))
 			&&(msg.sourceMessage()!=null)
 			&&(msg.tool()==null)
 			&&(drunkness>=5)
 			&&((msg.sourceMinor()==CMMsg.TYP_SPEAK)
 			   ||(msg.sourceMinor()==CMMsg.TYP_TELL)
-			   ||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_CHANNEL))))
+			   ||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_CHANNEL)))
+			&&(!msg.source().phyStats().isAmbiance(PhyStats.Ambiance.SUPPRESS_DRUNKENNESS)))
 			{
 				final Ability A=CMClass.getAbility("Drunken");
 				if(A!=null)
@@ -356,7 +392,8 @@ public class Poison_Alcohol extends Poison
 			else
 			if((!msg.targetMajor(CMMsg.MASK_ALWAYS))
 			&&(CMLib.dice().rollPercentage()<(drunkness*20))
-			&&(msg.targetMajor()>0))
+			&&(msg.targetMajor()>0)
+			&&(!msg.source().phyStats().isAmbiance(PhyStats.Ambiance.SUPPRESS_DRUNKENNESS)))
 			{
 
 				final Room room=msg.source().location();
@@ -383,7 +420,7 @@ public class Poison_Alcohol extends Poison
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		int largest=alchoholContribution();
+		int largest=alcoholContribution();
 		if((givenTarget instanceof MOB)&&(auto))
 		{
 			final Vector<Ability> found=new Vector<Ability>();
@@ -395,13 +432,13 @@ public class Poison_Alcohol extends Poison
 				if(A instanceof Poison_Alcohol)
 				{
 					largest+=((Poison_Alcohol)A).drunkness;
-					if(((Poison_Alcohol)A).level()>=level())
+					if(((Poison_Alcohol)A).alchoholLevel()>=alchoholLevel())
 						found.addElement(A);
 					else
 						remove.addElement(A);
 				}
 			}
-			largest+=alchoholContribution();
+			largest+=alcoholContribution();
 			if(found.size()>0)
 			{
 				final CMMsg msg=CMClass.getMsg(mob,givenTarget,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_POISON|CMMsg.MASK_ALWAYS,POISON_CAST());

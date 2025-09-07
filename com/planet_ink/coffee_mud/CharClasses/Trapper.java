@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -71,6 +71,7 @@ public class Trapper extends Thief
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Carpentry",0,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Wainwrighting",0,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Thief_Caltrops",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Thief_DetectBombs",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Thief_Hide",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Thief_TrophyCount",false);
@@ -86,6 +87,7 @@ public class Trapper extends Thief
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Thief_Sneak",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Skill_Dodge",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Herding",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Thief_UsePoison",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Skill_IdentifyPoison",false);
@@ -93,16 +95,19 @@ public class Trapper extends Thief
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Thief_RemoveTraps",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Thief_Trap",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Skill_RopeTricks",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Thief_SneakAttack",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Thief_Listen",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Thief_WildernessSounds",false,CMParms.parseSemicolons("Thief_Listen", true),null);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Fighter_RopeTrip",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Thief_AutoMarkTraps",false,CMParms.parseSemicolons("Thief_MarkTrapped;Thief_DetectTraps", true),null);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Thief_AutoDetectTraps",false,CMParms.parseSemicolons("Thief_DetectTraps", true),null);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Fighter_TrueShot",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Skill_Parry",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Skill_ResistBuck",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Ranger_Track",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Thief_Autocaltrops",false,CMParms.parseSemicolons("Thief_Caltrops", true),null);
@@ -135,6 +140,8 @@ public class Trapper extends Thief
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Skill_Cage",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Domesticating",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Thief_SetTimer",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Thief_ConcealPathway",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Thief_Snipe",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Skill_AttackHalf",false);
@@ -144,6 +151,7 @@ public class Trapper extends Thief
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"AnimalTraining",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Thief_DisablingCaltrops",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Spell_DetonateBombs",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Thief_TrapImmunity",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Thief_Kamikaze",true);
@@ -199,11 +207,11 @@ public class Trapper extends Thief
 			{
 				int xp=125;
 				if((xp>0)
-				&&((xp=CMLib.leveler().postExperience(myChar,null,null,xp,true))>0))
+				&&((xp=CMLib.leveler().postExperience(myChar,"CLASS:"+ID(),null,null,xp, true))>0))
 					msg.addTrailerMsg(CMClass.getMsg(myChar,null,null,CMMsg.MSG_OK_VISUAL,L("You gain @x1 experience for selling @x2.",""+xp,((MOB)msg.target()).name(myChar)),CMMsg.NO_EFFECT,null,CMMsg.NO_EFFECT,null));
 			}
 			if((((myChar.location().domainType()&Room.INDOORS)>0))
-			||(myChar.location().domainType()==Room.DOMAIN_OUTDOORS_CITY))
+			||(CMLib.flags().isACityRoom(myChar.location())))
 			{
 				if((msg.tool().ID().equalsIgnoreCase("Thief_Hide"))
 				||(msg.tool().ID().equalsIgnoreCase("Thief_Sneak")))

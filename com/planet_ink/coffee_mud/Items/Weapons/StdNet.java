@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,12 +53,19 @@ public class StdNet extends StdWeapon
 		basePhyStats().setDamage(0);
 		baseGoldValue=10;
 		recoverPhyStats();
-		minRange=1;
-		maxRange=1;
+		setRanges(1, 1);
 		weaponDamageType=Weapon.TYPE_NATURAL;
 		material=RawMaterial.RESOURCE_HEMP;
 		weaponClassification=Weapon.CLASS_THROWN;
 		setRawLogicalAnd(true);
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a net");
 	}
 
 	@Override
@@ -122,6 +129,7 @@ public class StdNet extends StdWeapon
 					final Ability A=CMClass.getAbility("Thief_Bind");
 					if(A!=null)
 					{
+						A.setMiscText(""); // defaults
 						A.setAffectedOne(this);
 						A.invoke(msg.source(),M2,true,phyStats().level());
 					}

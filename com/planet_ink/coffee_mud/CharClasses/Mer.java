@@ -13,6 +13,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.TimeClock.TidePhase;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -20,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -244,9 +245,15 @@ public class Mer extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Chant_CharmArea",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Chant_Whirlpool",false);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Chant_Crossbreed",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Chant_FishyFecundity",false);
+
+		CMLib.ableMapper().addCharAbilityMapping(ID(),28,"Chant_PlanarAdaptation", 0, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Chant_Tsunami",true);
+
+		CMLib.ableMapper().addCharAbilityMapping(ID(),35,"Druid_Krakenform", 0, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
 	}
 
 	@Override
@@ -286,6 +293,58 @@ public class Mer extends StdCharClass
 	{
 		super.executeMsg(host,msg);
 		Druid.doAnimalFreeingCheck(this,host,msg);
+		if((msg.source()==host)
+		&&(!msg.source().isMonster())
+		&&(msg.sourceMinor()==CMMsg.TYP_CAST_SPELL)
+		&&(msg.tool() instanceof Ability)
+		&&(msg.tool().ID().equals("Chant_PredictTides"))
+		&&(msg.source().charStats().getCurrentClass()==this)
+		&&((((Ability)msg.tool()).classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)
+		&&(msg.source().isMine(msg.tool()))
+		&&(isQualifyingAuthority(msg.source(),(Ability)msg.tool())))
+		{
+			final Room room = msg.source().location();
+			if((msg.source().charStats().getClassLevel(this)>=5)&&(room != null))
+			{
+				final TidePhase phase = room.getArea().getTimeObj().getTidePhase(room);
+				final double factor = phase.getFactor();
+				if(factor != 0.0)
+				{
+					final String sentence;
+					if(factor > 0)
+					{
+						if(factor > 1)
+							sentence = L("The tides greatly improve movement, hit points, and armor, and greatly decrease mana and attack.");
+						else
+						if(factor > 0.5)
+							sentence = L("The tides improve movement, hit points, and armor, and decrease mana and attack.");
+						else
+							sentence = L("The tides slightly improve movement, hit points, and armor, and slightly decrease mana and attack.");
+					}
+					else
+					{
+						if(factor < -1)
+							sentence = L("The tides greatly decrease movement, hit points, and armor, and greatly improve mana and attack.");
+						else
+						if(factor < -0.5)
+							sentence = L("The tides decrease movement, hit points, and armor, and improve mana and attack.");
+						else
+							sentence = L("The tides slightly decrease movement, hit points, and armor, and slightly improve mana and attack.");
+					}
+					CMLib.threads().scheduleRunnable(new Runnable()
+					{
+						final String msgStr = sentence;
+						final Room R = room;
+						@Override
+						public void run()
+						{
+							R.send(msg.source(),CMClass.getMsg(msg.source(), null, null, CMMsg.MSG_THINK|CMMsg.MASK_ALWAYS,
+									CMMsg.NO_EFFECT, CMMsg.NO_EFFECT, msgStr));
+						}
+					}, 50);
+				}
+			}
+		}
 	}
 
 	private final String[] raceRequiredList=new String[]{
@@ -423,7 +482,12 @@ public class Mer extends StdCharClass
 				if((A!=null)
 				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
-					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+				{
+					giveMobAbility(mob,A,
+								   CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),
+								   CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),
+								   isBorrowedClass);
+				}
 			}
 		}
 	}
@@ -438,6 +502,7 @@ public class Mer extends StdCharClass
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

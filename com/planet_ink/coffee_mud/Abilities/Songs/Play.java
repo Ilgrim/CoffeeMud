@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -82,6 +82,14 @@ public class Play extends StdAbility
 	protected Room				originRoom		= null;
 	protected volatile int		playDepth		= 0;
 
+	protected volatile Pair<Double,Integer> bonusCache		= null;
+
+	// needs to be area-only, because of the aggro-tracking rule
+	private static final TrackingLibrary.TrackingFlags scopeFlags = CMLib.tracking().newFlags()
+																	.plus(TrackingLibrary.TrackingFlag.OPENONLY)
+																	.plus(TrackingLibrary.TrackingFlag.AREAONLY)
+																	.plus(TrackingLibrary.TrackingFlag.NOAIR);
+
 	@Override
 	public int classificationCode()
 	{
@@ -97,6 +105,64 @@ public class Play extends StdAbility
 	protected boolean maliciousButNotAggressiveFlag()
 	{
 		return false;
+	}
+
+	@Override
+	public void setAffectedOne(final Physical P)
+	{
+		bonusCache = null;
+		super.setAffectedOne(P);
+	}
+
+	@Override
+	public void setInvoker(final MOB mob)
+	{
+		super.setInvoker(mob);
+		bonusCache = null;
+	}
+
+	protected synchronized Pair<Double,Integer> getBonuses()
+	{
+		if(bonusCache != null)
+			return bonusCache;
+		final Double d = Double.valueOf(innerStatBonusPct());
+		final Integer i = Integer.valueOf(innerAvgStat());
+		bonusCache = new Pair<Double,Integer>(d,i);
+		return bonusCache;
+	}
+
+	protected double statBonusPct()
+	{
+		return getBonuses().first.doubleValue();
+	}
+
+	protected int avgStat()
+	{
+		return getBonuses().second.intValue();
+	}
+
+	protected double innerStatBonusPct()
+	{
+		if(invoker()==null)
+			return 1.0;
+		final double max = CMProps.getIntVar(CMProps.Int.BASEMAXSTAT);
+		double pct = CMath.div(invoker().charStats().getStat(CharStats.STAT_CHARISMA)+3, max);
+		pct += CMath.div(invoker().charStats().getStat(CharStats.STAT_INTELLIGENCE)+3, max);
+		if(instrument!=null)
+			pct+=CMath.div(instrument.phyStats().ability() * 2, max);
+		return pct / 2.0;
+	}
+
+	protected int innerAvgStat()
+	{
+		final int max = CMProps.getIntVar(CMProps.Int.BASEMAXSTAT);
+		if(invoker()==null)
+			return max;
+		double pct = CMath.div((invoker().charStats().getStat(CharStats.STAT_CHARISMA)+3)
+							+ (invoker().charStats().getStat(CharStats.STAT_INTELLIGENCE)+3),2.0);
+		if(instrument!=null)
+			pct+=instrument.phyStats().ability();
+		return (int)Math.round(pct);
 	}
 
 	@Override
@@ -151,6 +217,11 @@ public class Play extends StdAbility
 	public int adjustedLevel(final MOB mob, final int asLevel)
 	{
 		int level=super.adjustedLevel(mob,asLevel);
+		if(mob != null)
+		{
+			level += (mob.charStats().getStat(CharStats.STAT_CHARISMA)-10)/4;
+			level += (mob.charStats().getStat(CharStats.STAT_INTELLIGENCE)-10)/5;
+		}
 		if(instrument!=null)
 			level+=instrument.phyStats().ability();
 		return level;
@@ -185,7 +256,7 @@ public class Play extends StdAbility
 					&&(mob.fetchFirstWornItem(Wearable.WORN_WIELD)==null)
 					&&(mob.fetchHeldItem()==null));
 		}
-		return mob.isMine(I)&&(!I.amWearingAt(Wearable.IN_INVENTORY));
+		return mob.isMine(I)&&(I.amBeingWornProperly());
 	}
 
 	@Override
@@ -195,7 +266,9 @@ public class Play extends StdAbility
 			return false;
 
 		final MOB mob=(MOB)affected;
-		if((affected==invoker())&&(invoker()!=null)&&(invoker().location()!=originRoom))
+		if((affected==invoker())
+		&&(invoker()!=null)
+		&&(invoker().location()!=originRoom))
 		{
 			final List<Room> V=getInvokerScopeRoomSet(this.playDepth);
 			commonRoomSet.clear();
@@ -352,7 +425,7 @@ public class Play extends StdAbility
 	public static MusicalInstrument getInstrument(final MOB mob, final InstrumentType requiredInstrumentType, final boolean noisy)
 	{
 		MusicalInstrument instrument=null;
-		if((mob.riding()!=null)&&(mob.riding() instanceof MusicalInstrument))
+		if(mob.riding() instanceof MusicalInstrument)
 		{
 			if(!usingInstrument((MusicalInstrument)mob.riding(),mob))
 			{
@@ -363,16 +436,18 @@ public class Play extends StdAbility
 			instrument=(MusicalInstrument)mob.riding();
 		}
 		if(instrument==null)
-		for(int i=0;i<mob.numItems();i++)
 		{
-			final Item I=mob.getItem(i);
-			if((I!=null)
-			&&(I instanceof MusicalInstrument)
-			&&(I.container()==null)
-			&&(usingInstrument((MusicalInstrument)I,mob)))
+			for(int i=0;i<mob.numItems();i++)
 			{
-				instrument = (MusicalInstrument) I;
-				break;
+				final Item I=mob.getItem(i);
+				if((I!=null)
+				&&(I instanceof MusicalInstrument)
+				&&(I.container()==null)
+				&&(usingInstrument((MusicalInstrument)I,mob)))
+				{
+					instrument = (MusicalInstrument) I;
+					break;
+				}
 			}
 		}
 		if(instrument==null)
@@ -421,13 +496,7 @@ public class Play extends StdAbility
 			return listR;
 		}
 		final ArrayList<Room> rooms=new ArrayList<Room>();
-		// needs to be area-only, because of the aggro-tracking rule
-		TrackingLibrary.TrackingFlags flags;
-		flags = CMLib.tracking().newFlags()
-				.plus(TrackingLibrary.TrackingFlag.OPENONLY)
-				.plus(TrackingLibrary.TrackingFlag.AREAONLY)
-				.plus(TrackingLibrary.TrackingFlag.NOAIR);
-		CMLib.tracking().getRadiantRooms(invokerRoom, rooms,flags, null, depth, null);
+		CMLib.tracking().getRadiantRooms(invokerRoom, rooms,scopeFlags, null, depth, null);
 		if(!rooms.contains(invokerRoom))
 			rooms.add(invokerRoom);
 		return rooms;
@@ -503,6 +572,11 @@ public class Play extends StdAbility
 		return h;
 	}
 
+	protected boolean isMine(final MOB mob)
+	{
+		return mob.isMine(this);
+	}
+
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
@@ -553,7 +627,7 @@ public class Play extends StdAbility
 		&&(!mob.isMonster())
 		&&(!disregardsArmorCheck(mob))
 		&&(!CMLib.utensils().armorCheck(mob,CharClass.ARMOR_LEATHER))
-		&&(mob.isMine(this))
+		&&(isMine(mob))
 		&&(mob.location()!=null)
 		&&(CMLib.dice().rollPercentage()<50))
 		{
@@ -596,7 +670,7 @@ public class Play extends StdAbility
 			{
 				final Room R=commonRoomSet.get(v);
 				final String msgStr=getCorrectMsgString(R,str,v);
-				final CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),msgStr);
+				final CMMsg msg=CMClass.getMsg(mob,null,this,somaticCastCode(mob,null,auto),msgStr);
 				if(R.okMessage(mob,msg))
 				{
 					final Play newOne=(Play)this.copyOf();

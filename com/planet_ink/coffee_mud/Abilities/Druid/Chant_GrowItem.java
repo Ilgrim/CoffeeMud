@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ public class Chant_GrowItem extends Chant
 			{
 				mob.location().send(mob,msg);
 				final ItemCraftor A=(ItemCraftor)CMClass.getAbility("Carpentry");
-				ItemCraftor.ItemKeyPair pair=null;
+				ItemCraftor.CraftedItem pair=null;
 				if(A!=null)
 					pair=A.craftAnyItem(material);
 				if(pair==null)

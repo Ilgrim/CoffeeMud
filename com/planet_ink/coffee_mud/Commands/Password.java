@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -63,61 +63,83 @@ public class Password extends StdCommand
 				@Override
 				public void showPrompt()
 				{
-					sess.promptPrint(L("Enter your old password : "));
+					sess.changeTelnetMode(Session.TELNET_ECHO, true);
+					sess.setClientTelnetMode(Session.TELNET_ECHO, false);
+					sess.promptPrint(L("\n\rEnter your old password : "));
 				}
 
 				@Override
 				public void timedOut()
 				{
+					sess.changeTelnetMode(Session.TELNET_ECHO, false);
 				}
 
 				@Override
 				public void callBack()
 				{
 					final String old = this.input;
+					if(old.length()==0)
+					{
+						sess.changeTelnetMode(Session.TELNET_ECHO, false);
+						sess.println(L("\n\rOld password not entered."));
+						return;
+					}
 					sess.prompt(new InputCallback(InputCallback.Type.PROMPT)
 					{
 						@Override
 						public void showPrompt()
 						{
-							sess.promptPrint(L("Enter a new password    : "));
+							sess.changeTelnetMode(Session.TELNET_ECHO, true);
+							sess.setClientTelnetMode(Session.TELNET_ECHO, false);
+							sess.promptPrint(L("\n\rEnter a new password    : "));
 						}
-
 						@Override
 						public void timedOut()
 						{
+							sess.changeTelnetMode(Session.TELNET_ECHO, false);
 						}
 
 						@Override
 						public void callBack()
 						{
 							final String nep = this.input;
+							if(nep.length()==0)
+							{
+								sess.changeTelnetMode(Session.TELNET_ECHO, false);
+								sess.println(L("\n\rNew password not entered."));
+								return;
+							}
 							sess.prompt(new InputCallback(InputCallback.Type.PROMPT)
 							{
 								@Override
 								public void showPrompt()
 								{
-									sess.promptPrint(L("Enter new password again: "));
+									sess.promptPrint(L("\n\rEnter new password again: "));
 								}
 
 								@Override
 								public void timedOut()
 								{
+									sess.changeTelnetMode(Session.TELNET_ECHO, false);
 								}
 
 								@Override
 								public void callBack()
 								{
+									sess.changeTelnetMode(Session.TELNET_ECHO, false);
 									final String ne2 = this.input;
 									if (!pstats.matchesPassword(old))
-										mob.tell(L("Your old password was not entered correctly."));
+										mob.tell(L("\n\rYour old password was not entered correctly."));
 									else
 									if (!nep.equals(ne2))
-										mob.tell(L("Your new password was not entered the same way twice!"));
+										mob.tell(L("\n\rYour new password was not entered the same way twice!"));
+									else
+									if (nep.length()>40)
+										mob.tell(L("\n\rYour new password is too long!"));
 									else
 									{
 										pstats.setPassword(nep);
-										mob.tell(L("Your password has been changed."));
+										mob.tell(L("\n\rYour password has been changed."));
 										if (pstats.getAccount() != null)
 											CMLib.database().DBUpdateAccount(pstats.getAccount());
 										CMLib.database().DBUpdatePassword(mob.Name(), pstats.getPasswordStr());

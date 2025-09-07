@@ -22,7 +22,7 @@ import java.net.URLEncoder;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -264,7 +264,7 @@ public class AccountCreate extends StdWebMacro
 					L("Password for @x1",acct.getAccountName()),
 					L("Your password for @x1 is '@x2'.\n\r",acct.getAccountName(),password)+
 					L("You can login by pointing your mud client at @x1 port(s): @x2.\n\r",
-							CMProps.getVar(CMProps.Str.MUDDOMAIN),CMProps.getVar(CMProps.Str.MUDPORTS))+
+							CMProps.getVar(CMProps.Str.MUDDOMAIN),CMProps.getVar(CMProps.Str.ALLMUDPORTS))+
 					L("After creating a character, you may use the PASSWORD command to change it once you are online."));
 		}
 		if(parms.containsKey("LOGIN"))

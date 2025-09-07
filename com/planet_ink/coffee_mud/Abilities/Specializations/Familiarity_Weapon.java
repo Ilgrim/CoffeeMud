@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -99,30 +99,13 @@ public class Familiarity_Weapon extends StdAbility
 		if((W.weaponClassification()==weaponClass)
 		||(weaponClass<0)
 		||(W.weaponClassification()==secondWeaponClass))
-			return (mob != null) && getBrand(W).equalsIgnoreCase(mob.Name());
+			return (mob != null) && CMLib.ableParms().getCraftingBrand(W).equalsIgnoreCase(mob.Name());
 		return false;
 	}
 
 	protected boolean canDamage(final MOB mob, final Weapon W)
 	{
 		return W.amBeingWornProperly();
-	}
-
-	protected String getBrand(final Item buildingI)
-	{
-		if(buildingI != null)
-		{
-			final int x=buildingI.secretIdentity().indexOf(ItemCraftor.CRAFTING_BRAND_STR_PREFIX);
-			if(x>=0)
-			{
-				final int y=buildingI.secretIdentity().indexOf('.',x+ItemCraftor.CRAFTING_BRAND_STR_PREFIX.length());
-				if(y>=0)
-				{
-					return buildingI.secretIdentity().substring(x,y);
-				}
-			}
-		}
-		return "";
 	}
 
 	protected boolean isWearableItem(final MOB mob, final Item I)

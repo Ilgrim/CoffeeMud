@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -110,7 +110,8 @@ public class Skill_HonoraryDegreeCommoner extends StdSkill
 				final CharClass C=c.nextElement();
 				if(C.baseClass().equals(getBaseClassID())
 				&&(C.availabilityCode()!=0)
-				&&((C.availabilityCode()&Area.THEME_SKILLONLYMASK)==0))
+				&&(!CMSecurity.isCharClassDisabled(C.ID()))
+				&&(((C.availabilityCode()&Area.THEME_SKILLONLYMASK)==0)||(CMSecurity.isCharClassEnabled(C.ID()))))
 					classes.add(C);
 			}
 			final List<String[]> nearFinal = new ArrayList<String[]>();
@@ -126,7 +127,7 @@ public class Skill_HonoraryDegreeCommoner extends StdSkill
 	protected final Set<String>		myTitles	= new HashSet<String>();
 	protected volatile int			numSkills	= -1;
 	protected volatile CharClass	activatedC	= null;
-	protected volatile CharClass	elligibleC	= null;
+	protected volatile CharClass	eligibleC	= null;
 	protected String				lastTitle	= "";
 
 	@Override
@@ -203,7 +204,7 @@ public class Skill_HonoraryDegreeCommoner extends StdSkill
 						}
 					}
 					final PlayerStats pStats = mob.playerStats();
-					if((pStats!=null)&&(pStats.getTitles()!=null))
+					if(pStats!=null)
 					{
 						for(int ci=0;ci<allDegrees.length;ci++)
 						{
@@ -213,24 +214,25 @@ public class Skill_HonoraryDegreeCommoner extends StdSkill
 								if(!this.myClasses.contains(degree))
 								{
 									while(CMParms.numContains(pStats.getTitles(), degree[DEG_TITLE]) >= 1)
-										pStats.getTitles().remove(degree[DEG_TITLE]);
+										pStats.delTitle(degree[DEG_TITLE]);
 								}
 							}
 							else
 							if(this.myClasses.contains(degree))
-								pStats.getTitles().add(degree[DEG_TITLE]);
+								pStats.addTitle(degree[DEG_TITLE]);
 						}
 					}
 					this.lastTitle="";
 				}
 				final PlayerStats pStats = mob.playerStats();
-				if((pStats!=null)
-				&&(lastTitle != pStats.getActiveTitle()))
+				final String title = (pStats!=null) ? pStats.getActiveTitle() : null;
+				if(title != null)
 				{
+					boolean help=false;
 					synchronized(this)
 					{
-						this.lastTitle=pStats.getActiveTitle();
-						this.elligibleC = null;
+						this.lastTitle=title;
+						this.eligibleC = null;
 						if((this.lastTitle!=null)
 						&&(myTitles.contains(this.lastTitle)))
 						{
@@ -238,13 +240,15 @@ public class Skill_HonoraryDegreeCommoner extends StdSkill
 							{
 								if(degree[DEG_TITLE].equals(this.lastTitle))
 								{
-									this.elligibleC = CMClass.getCharClass(degree[DEG_CID]);
-									this.helpProficiency(mob,0);
+									this.eligibleC = CMClass.getCharClass(degree[DEG_CID]);
+									help=true;
 									break;
 								}
 							}
 						}
 					}
+					if(help)
+						this.helpProficiency(mob,0);
 				}
 			}
 		}
@@ -260,29 +264,34 @@ public class Skill_HonoraryDegreeCommoner extends StdSkill
 		{
 			C=this.activatedC;
 		}
-		if((C != null)&&(affectableStats.getCurrentClass()!=C))
+		synchronized(affectableStats)
 		{
-			final int level = affectableStats.getCurrentClassLevel();
-			affectableStats.setCurrentClass(C);
-			affectableStats.setCurrentClassLevel(level);
+			if((C != null)&&(affectableStats.getCurrentClass()!=C))
+			{
+				final int level = affectableStats.getCurrentClassLevel();
+				affectableStats.setCurrentClass(C);
+				affectableStats.setCurrentClassLevel(level);
+			}
 		}
 	}
 
 	private void activateDegree(final CMMsg msg)
 	{
+		final boolean proficient = super.proficiencyCheck(msg.source(), 0, false);
 		synchronized(this)
 		{
-			if(this.elligibleC != null)
+			if(this.eligibleC != null)
 			{
-				if(!super.proficiencyCheck(msg.source(), 0, false))
+				if(!proficient)
 					return;
 
-				this.activatedC = this.elligibleC;
-				msg.source().recoverCharStats();
+				this.activatedC = this.eligibleC;
+				// recover below this block
 			}
 			else
 				return;
 		}
+		msg.source().recoverCharStats();
 		final Skill_HonoraryDegreeCommoner me = this;
 		final MOB mob=msg.source();
 		msg.addTrailerRunnable(new Runnable()
@@ -293,8 +302,8 @@ public class Skill_HonoraryDegreeCommoner extends StdSkill
 				synchronized(me)
 				{
 					me.activatedC = null;
-					mob.recoverCharStats();
 				}
+				mob.recoverCharStats();
 			}
 		});
 	}
@@ -325,8 +334,8 @@ public class Skill_HonoraryDegreeCommoner extends StdSkill
 					synchronized(this)
 					{
 						this.activatedC = null;
-						mob.recoverCharStats();
 					}
+					mob.recoverCharStats();
 				}
 			}
 		}

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -102,31 +102,31 @@ public class Poison_Hives extends Poison
 	@Override
 	protected String POISON_DONE()
 	{
-		return "The hives clear up.";
+		return L("The hives clear up.");
 	}
 
 	@Override
 	protected String POISON_START()
 	{
-		return "^G<S-NAME> break(s) out in hives!^?";
+		return L("^G<S-NAME> break(s) out in hives!^?");
 	}
 
 	@Override
 	protected String POISON_AFFECT()
 	{
-		return "^G<S-NAME> scratch(es) <S-HIM-HERSELF> as more hives break out.";
+		return L("^G<S-NAME> scratch(es) <S-HIM-HERSELF> as more hives break out.");
 	}
 
 	@Override
 	protected String POISON_CAST()
 	{
-		return "^F^<FIGHT^><S-NAME> poison(s) <T-NAMESELF>!^</FIGHT^>^?";
+		return L("^F^<FIGHT^><S-NAME> poison(s) <T-NAMESELF>!^</FIGHT^>^?");
 	}
 
 	@Override
 	protected String POISON_FAIL()
 	{
-		return "<S-NAME> attempt(s) to poison <T-NAMESELF>, but fail(s).";
+		return L("<S-NAME> attempt(s) to poison <T-NAMESELF>, but fail(s).");
 	}
 
 	@Override
@@ -167,8 +167,8 @@ public class Poison_Hives extends Poison
 	{
 		if(affected==null)
 			return;
-		affectableStats.setStat(CharStats.STAT_CHARISMA,affectableStats.getStat(CharStats.STAT_CHARISMA)-1);
-		affectableStats.setStat(CharStats.STAT_DEXTERITY,affectableStats.getStat(CharStats.STAT_DEXTERITY)-3);
+		affectableStats.setStat(CharStats.STAT_CHARISMA,affectableStats.getStat(CharStats.STAT_CHARISMA)-(int)Math.round(rank));
+		affectableStats.setStat(CharStats.STAT_DEXTERITY,affectableStats.getStat(CharStats.STAT_DEXTERITY)-2-(int)Math.round(rank));
 		if(affectableStats.getStat(CharStats.STAT_CHARISMA)<=0)
 			affectableStats.setStat(CharStats.STAT_CHARISMA,1);
 		if(affectableStats.getStat(CharStats.STAT_DEXTERITY)<=0)

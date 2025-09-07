@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -108,7 +108,7 @@ public class Thief_SenseLaw extends ThiefSkill
 			final MOB M=room.fetchInhabitant(m);
 			if((M!=null)
 			&&(M.isMonster())
-			&&(B.isElligibleOfficer(legalObject,M)))
+			&&(B.isEligibleOfficer(legalObject,M)))
 				V.add(M);
 		}
 		return V;

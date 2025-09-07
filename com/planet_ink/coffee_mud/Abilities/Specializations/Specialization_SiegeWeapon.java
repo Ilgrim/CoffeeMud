@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -105,7 +105,7 @@ public class Specialization_SiegeWeapon extends StdAbility
 
 		if((msg.targetMinor()==CMMsg.TYP_DAMAGE)
 		&&(msg.tool() instanceof AmmunitionWeapon)
-		&&(CMLib.combat().isAShipSiegeWeapon((Item)msg.tool()))
+		&&(CMLib.combat().isASiegeWeapon((Item)msg.tool()))
 		&&(affected instanceof MOB)
 		&&(((MOB)affected).location()==CMLib.map().roomLocation(msg.tool()))
 		&&(msg.value()>0))
@@ -116,5 +116,4 @@ public class Specialization_SiegeWeapon extends StdAbility
 		}
 		return true;
 	}
-
 }

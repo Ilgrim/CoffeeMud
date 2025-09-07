@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -130,7 +130,10 @@ public class Spell_WallOfFire extends Spell
 					&&(mob.getVictim()==invoker)
 					&&(mob.rangeToTarget()==1))
 					{
-						final int damage = CMLib.dice().roll((int)Math.round((invoker.phyStats().level()+super.getXLEVELLevel(invoker())+(2.0*super.getX1Level(invoker())))/4.0),6,1);
+						final int invokerAdjustedLevel=super.adjustedLevel(invoker, 0);
+						final int levelCap=mob.phyStats().level()+CMProps.getIntVar(CMProps.Int.EXPRATE);
+						final int invokerLevel=invokerAdjustedLevel>levelCap?levelCap:invokerAdjustedLevel;
+						final int damage = CMLib.dice().roll((int)Math.round((invokerLevel+super.getXLEVELLevel(invoker())+(2.0*super.getX1Level(invoker())))/4.0),6,1);
 						CMLib.combat().postDamage(invoker,mob,this,damage,CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS|CMMsg.TYP_FIRE,Weapon.TYPE_BURNING,L("The wall of fire flares and <DAMAGE> <T-NAME>!"));
 						if((!mob.isInCombat())&&(mob.isMonster())&&(mob!=invoker)&&(invoker!=null)&&(mob.location()==invoker.location())&&(mob.location().isInhabitant(invoker))&&(CMLib.flags().canBeSeenBy(invoker,mob)))
 							CMLib.combat().postAttack(mob,invoker,mob.fetchWieldedItem());
@@ -189,7 +192,9 @@ public class Spell_WallOfFire extends Spell
 		if(success)
 		{
 
-			final CMMsg msg = CMClass.getMsg(mob, target, this,verbalCastCode(mob,target,auto),L(auto?"A blazing wall of fire appears!":"^S<S-NAME> conjur(s) up a blazing wall of fire!^?")+CMLib.protocol().msp("fireball.wav",10));
+			final CMMsg msg = CMClass.getMsg(mob, target, this,verbalCastCode(mob,target,auto),
+					L(auto?"A blazing wall of fire appears!":"^S<S-NAME> conjur(s) up a blazing wall of fire!^?")
+					+CMLib.protocol().msp("fireball.wav",10));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

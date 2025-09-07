@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -79,36 +79,44 @@ public class Draw extends Get
 		boolean quiet=false;
 		boolean noerrors=false;
 		boolean ifNecessary=false;
+		boolean held = false;
 		final Vector<String> origCmds=new XVector<String>(commands);
-		if((commands.size()>0)&&(commands.get(commands.size()-1).equalsIgnoreCase("IFNECESSARY")))
-		{
+		if(CMath.bset(metaFlags, MUDCmdProcessor.METAFLAG_QUIETLY))
 			quiet=true;
-			noerrors=true;
-			commands.remove(commands.size()-1);
-			if((commands.size()>0)
-			&&(commands.get(commands.size()-1).equalsIgnoreCase("HELD")))
+		for(int i=commands.size()-1;i>=0;i--)
+		{
+			final String s = commands.get(i);
+			if(s.equalsIgnoreCase("QUIETLY"))
 			{
-				commands.remove(commands.size()-1);
+				quiet=true;
+				commands.remove(i);
+			}
+			else
+			if(s.equalsIgnoreCase("IFNECESSARY"))
+			{
+				ifNecessary=true;
+				noerrors=true;
+				commands.remove(i);
+			}
+			else
+			if(s.equalsIgnoreCase("HELD"))
+			{
+				held=true;
+				commands.remove(i);
+			}
+			else
+				break;
+		}
+		if(ifNecessary)
+		{
+			if(held)
+			{
 				if(mob.fetchHeldItem()!=null)
 					return false;
 			}
 			else
 			if(mob.fetchWieldedItem()!=null)
 				return false;
-		}
-		else
-		{
-			if((commands.size()>0)&&(commands.get(commands.size()-1).equalsIgnoreCase("QUIETLY")))
-			{
-				commands.remove(commands.size()-1);
-				quiet=true;
-			}
-			if((commands.size()>0)&&(commands.get(commands.size()-1).equalsIgnoreCase("IFNECESSARY")))
-			{
-				ifNecessary=true;
-				commands.remove(commands.size()-1);
-				noerrors=true;
-			}
 		}
 
 		boolean allFlag=false;
@@ -207,17 +215,21 @@ public class Draw extends Get
 				{
 					if(getThis.container()==null)
 					{
-						if(mob.freeWearPositions(Wearable.WORN_WIELD,(short)0,(short)0)==0)
+						if(held || (mob.freeWearPositions(Wearable.WORN_WIELD,(short)0,(short)0)==0))
 						{
 							final CMMsg newMsg=CMClass.getMsg(mob,getThis,null,CMMsg.MSG_HOLD,null);
 							if(mob.location().okMessage(mob,newMsg))
 								mob.location().send(mob,newMsg);
+							else
+								CMLib.commands().postCommandRejection(newMsg.source(),newMsg.target(),newMsg.tool(),origCmds);
 						}
 						else
 						{
 							final CMMsg newMsg=CMClass.getMsg(mob,getThis,null,CMMsg.MSG_WIELD,null);
 							if(mob.location().okMessage(mob,newMsg))
 								mob.location().send(mob,newMsg);
+							else
+								CMLib.commands().postCommandRejection(newMsg.source(),newMsg.target(),newMsg.tool(),origCmds);
 						}
 					}
 				}

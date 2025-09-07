@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2020-2020 Bo Zimmerman
+   Copyright 2020-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ public class Prayer_RechargeRelic extends Prayer
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_HOLY|Ability.FLAG_UNHOLY;
+		return Ability.FLAG_NEUTRAL;
 	}
 
 	@Override
@@ -116,11 +116,13 @@ public class Prayer_RechargeRelic extends Prayer
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L(auto?"<T-NAME> appear(s) recharged!":"^S<S-NAME> re-enchant(s) <T-NAMESELF>"+inTheNameOf(mob)+".^?"));
+			final String msgStr = auto?L("<T-NAME> appear(s) recharged!")
+					: L("^S<S-NAME> re-enchant(s) <T-NAMESELF>@x1.^?",inTheNameOf(mob));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),msgStr);
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				if(((Wand)target).usesRemaining() >= ((Wand)target).maxUses())
+				if(((Wand)target).getCharges() >= ((Wand)target).getMaxCharges())
 				{
 					mob.location().show(mob,target,CMMsg.MSG_OK_VISUAL,L("<T-NAME> glow(s) divinely then disintigrates!"));
 					target.destroy();
@@ -128,14 +130,14 @@ public class Prayer_RechargeRelic extends Prayer
 				else
 				{
 					boolean willBreak = false;
-					if((((Wand)target).usesRemaining()+RECHARGE_AMT) > ((Wand)target).maxUses())
+					if((((Wand)target).getCharges()+RECHARGE_AMT) > ((Wand)target).getMaxCharges())
 					{
 						willBreak = true;
-						((Wand)target).setUsesRemaining(((Wand)target).maxUses());
+						((Wand)target).setCharges(((Wand)target).getMaxCharges());
 					}
 					else
 					{
-						((Wand)target).setUsesRemaining(((Wand)target).usesRemaining()+RECHARGE_AMT);
+						((Wand)target).setCharges(((Wand)target).getCharges()+RECHARGE_AMT);
 					}
 					if(!(willBreak))
 					{

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,6 +52,8 @@ public interface DiseaseAffect extends HealthCondition
 	public final static int SPREAD_GET=32;
 	/** denotes a diseases spread by hearing someone who is infected. @see Ability#abilityCode() */
 	public final static int SPREAD_HEARING=64;
+	/** denotes a diseases spread by birth who is infected. @see Ability#abilityCode() */
+	public final static int SPREAD_INHERETED=128;
 
 	/**
 	 * Descriptions of the SPREAD_ constants
@@ -63,7 +65,8 @@ public interface DiseaseAffect extends HealthCondition
 		"ingestion",
 		"blood contact",
 		"picking up",
-		"hearing"
+		"hearing",
+		"inheritance"
 	};
 
 	/**

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -82,7 +82,10 @@ public class Prayer_Thunderbolt extends Prayer
 		if(success)
 		{
 			final Prayer_Thunderbolt newOne=(Prayer_Thunderbolt)this.copyOf();
-			final CMMsg msg=CMClass.getMsg(mob,target,newOne,verbalCastCode(mob,target,auto),L(auto?"<T-NAME> is filled with a holy charge!":"^S<S-NAME> "+prayForWord(mob)+" to strike down <T-NAMESELF>!^?")+CMLib.protocol().msp("lightning.wav",40));
+			final CMMsg msg=CMClass.getMsg(mob,target,newOne,verbalCastCode(mob,target,auto),
+					(auto?L("<T-NAME> is filled with a holy charge!"):
+						L("^S<S-NAME> @x1 to strike down <T-NAMESELF>!^?",prayForWord(mob))
+						+CMLib.protocol().msp("lightning.wav",40)));
 			final CMMsg msg2=CMClass.getMsg(mob,target,this,CMMsg.MSK_CAST_MALICIOUS_VERBAL|CMMsg.TYP_ELECTRIC|(auto?CMMsg.MASK_ALWAYS:0),null);
 			if((R.okMessage(mob,msg))&&((R.okMessage(mob,msg2))))
 			{

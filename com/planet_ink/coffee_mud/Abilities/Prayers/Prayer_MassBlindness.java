@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -124,11 +124,14 @@ public class Prayer_MassBlindness extends Prayer
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
-			return false;
-
 		final Set<MOB> h=properTargets(mob,givenTarget,auto);
-		if(h==null)
+		if((h==null)||(h.size()==0))
+		{
+			mob.tell(L("You don't have any targets!"));
+			return false;
+		}
+
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
 		boolean success=proficiencyCheck(mob,0,auto);
@@ -140,7 +143,8 @@ public class Prayer_MassBlindness extends Prayer
 				final MOB target=(MOB)element;
 				if(auto||(target.charStats().getBodyPart(Race.BODY_EYE)>0))
 				{
-					final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto)|CMMsg.MASK_MALICIOUS,auto?"":L("^S<S-NAME> @x1 an unholy blindness upon <T-NAMESELF>.^?",prayForWord(mob)));
+					final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto)|CMMsg.MASK_MALICIOUS,
+							auto?"":L("^S<S-NAME> @x1 an unholy blindness upon <T-NAMESELF>.^?",prayForWord(mob)));
 					if((target!=mob)&&(mob.location().okMessage(mob,msg)))
 					{
 						mob.location().send(mob,msg);

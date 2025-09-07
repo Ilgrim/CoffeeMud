@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -191,7 +191,7 @@ public class Chant_AstralProjection extends Chant
 			target.makePeace(true);
 			peaceAt(target);
 			final MOB spirit=CMClass.getMOB("StdMOB");
-			spirit.setName(L("The Spirit of @x1",target.Name()));
+			spirit.setName(L("astral @x1",target.Name()));
 			spirit.baseCharStats().setMyRace(CMClass.getRace("Spirit"));
 			spirit.setPlayerStats(target.playerStats());
 			spirit.setLocation(target.location());

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ public class Chant_SummonElemental extends Chant
 	{
 		if(tickID==Tickable.TICKID_MOB)
 		{
-			if((affected!=null)&&(affected instanceof MOB)&&(invoker!=null))
+			if((affected instanceof MOB)&&(invoker!=null))
 			{
 				final MOB mob=(MOB)affected;
 				if(((mob.amFollowing()==null)
@@ -176,11 +176,11 @@ public class Chant_SummonElemental extends Chant
 		if(success)
 		{
 			invoker=mob;
-			final CMMsg msg=CMClass.getMsg(mob,null,this,verbalCastCode(mob,null,auto),auto?"":L("^S<S-NAME> chant(s) and summon(s) help from another Plain.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,null,this,verbalCastCode(mob,null,auto),auto?"":L("^S<S-NAME> chant(s) and summon(s) help from another plane.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				final MOB target = determineMonster(mob, mob.phyStats().level()+(2*getXLEVELLevel(mob)));
+				final MOB target = determineMonster(mob, asLevel);
 				beneficialAffect(mob,target,asLevel,0);
 				if(target.isInCombat())
 					target.makePeace(true);
@@ -196,10 +196,14 @@ public class Chant_SummonElemental extends Chant
 		return success;
 	}
 
-	public MOB determineMonster(final MOB caster, final int level)
+	public MOB determineMonster(final MOB caster, final int asLevel)
 	{
 		final MOB newMOB=CMClass.getMOB("GenMOB");
-		newMOB.basePhyStats().setLevel(adjustedLevel(caster,0));
+		int level=adjustedLevel(caster,asLevel);
+		final int altLevel = (caster.phyStats().level()-5)+(super.getXLEVELLevel(caster)/2);
+		if(altLevel > level)
+			level = altLevel;
+		newMOB.basePhyStats().setLevel(level);
 		switch(CMLib.dice().roll(1,4,0))
 		{
 		case 1:
@@ -225,7 +229,7 @@ public class Chant_SummonElemental extends Chant
 			newMOB.setDescription(L("A large beast, made of rock and dirt, with a hard stare."));
 			CMLib.factions().setAlignment(newMOB,Faction.Align.NEUTRAL);
 			newMOB.baseCharStats().setMyRace(CMClass.getRace("EarthElemental"));
-			newMOB.addAbility(CMClass.getAbility("Gasbreath"));
+			newMOB.addAbility(CMClass.getAbility("Acidbreath"));
 			break;
 		case 4:
 			newMOB.setName(L("an air elemental"));
@@ -238,13 +242,15 @@ public class Chant_SummonElemental extends Chant
 		}
 		newMOB.recoverPhyStats();
 		newMOB.recoverCharStats();
-		newMOB.basePhyStats().setAbility(newMOB.basePhyStats().ability()*2);
+		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase()*2);
 		newMOB.basePhyStats().setArmor(CMLib.leveler().getLevelMOBArmor(newMOB));
 		newMOB.basePhyStats().setAttackAdjustment(CMLib.leveler().getLevelAttack(newMOB));
 		newMOB.basePhyStats().setSpeed(CMLib.leveler().getLevelMOBSpeed(newMOB));
 		newMOB.basePhyStats().setDamage(CMLib.leveler().getLevelMOBDamage(newMOB));
 		newMOB.basePhyStats().setSensesMask(newMOB.basePhyStats().sensesMask()|PhyStats.CAN_SEE_DARK);
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		newMOB.addBehavior(CMClass.getBehavior("CombatAbilities"));
 		newMOB.setLocation(caster.location());
 		newMOB.basePhyStats().setRejuv(PhyStats.NO_REJUV);

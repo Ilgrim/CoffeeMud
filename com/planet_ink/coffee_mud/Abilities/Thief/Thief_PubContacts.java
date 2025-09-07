@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -49,10 +49,18 @@ public class Thief_PubContacts extends ThiefSkill
 		return localizedName;
 	}
 
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Pub Contacts)");
+
+	@Override
+	public String displayText()
+	{
+		return localizedStaticDisplay;
+	}
+
 	@Override
 	protected int canAffectCode()
 	{
-		return 0;
+		return CAN_MOBS;
 	}
 
 	@Override
@@ -107,13 +115,14 @@ public class Thief_PubContacts extends ThiefSkill
 					final ShopKeeper SK=CMLib.coffeeShops().getShopKeeper(M);
 					if(SK!=null)
 					{
-						for(final Iterator<Environmental> i=SK.getShop().getStoreInventory();i.hasNext();)
+						final CoffeeShop shop = SK.getShop();
+						for(final Iterator<Environmental> i=shop.getStoreInventory();i.hasNext();)
 						{
 							final Environmental E=i.next();
 							if((E instanceof Item)&&(CMLib.flags().isAlcoholic((Item)E)))
 							{
 								double moneyPrice=0;
-								final ShopKeeper.ShopPrice price=CMLib.coffeeShops().sellingPrice(M,mob,E,SK,SK.getShop(), true);
+								final ShopKeeper.ShopPrice price=CMLib.coffeeShops().sellingPrice(M,mob,E,SK,shop, true);
 								if(price.experiencePrice>0)
 									moneyPrice=(100 * price.experiencePrice);
 								else
@@ -176,9 +185,9 @@ public class Thief_PubContacts extends ThiefSkill
 						}
 					}
 					final Map<Room,List<Item>> allShips=new HashMap<Room,List<Item>>(CMLib.map().numShips());
-					for(final Enumeration<BoardableShip> ship=CMLib.map().ships();ship.hasMoreElements();)
+					for(final Enumeration<Boardable> ship=CMLib.map().ships();ship.hasMoreElements();)
 					{
-						final BoardableShip S=ship.nextElement();
+						final Boardable S=ship.nextElement();
 						if((S!=null)
 						&&(S instanceof Item)
 						&&((level==3)||(CMLib.flags().canBeSeenBy(S, mob))))
@@ -195,6 +204,7 @@ public class Thief_PubContacts extends ThiefSkill
 						}
 					}
 					final TrackingLibrary.TrackingFlags flags=CMLib.tracking().newFlags();
+					flags.plus(TrackingLibrary.TrackingFlag.PASSABLE);
 					final int range = baseWaterRange + super.getXLEVELLevel(mob)+super.getXMAXRANGELevel(mob);
 					final List<Room> nearby=CMLib.tracking().findTrailToAnyRoom(R, TrackingFlag.WATERSURFACEONLY.myFilter, flags, range);
 					Room shore=null;
@@ -368,6 +378,7 @@ public class Thief_PubContacts extends ThiefSkill
 				return false;
 			}
 			final TrackingLibrary.TrackingFlags flags=CMLib.tracking().newFlags();
+			flags.plus(TrackingLibrary.TrackingFlag.PASSABLE);
 			final int range = baseWaterRange + super.getXLEVELLevel(mob)+super.getXMAXRANGELevel(mob);
 			final List<Room> nearby=CMLib.tracking().findTrailToAnyRoom(R, TrackingFlag.WATERSURFACEONLY.myFilter, flags, range);
 			if((nearby==null)||(nearby.size()==0))

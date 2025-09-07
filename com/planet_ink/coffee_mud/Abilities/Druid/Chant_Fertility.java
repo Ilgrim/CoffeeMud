@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -99,11 +99,11 @@ public class Chant_Fertility extends Chant
 			&&(msg.tool().Name().equals("MATE <T-NAME>")
 				||msg.tool().Name().equals("SEX <T-NAME>"))
 			&&(msg.sourceMinor()!=CMMsg.TYP_CHANNEL)
-			&&(myChar.charStats().getStat(CharStats.STAT_GENDER)!=mate.charStats().getStat(CharStats.STAT_GENDER))
-			&&((mate.charStats().getStat(CharStats.STAT_GENDER)==('M'))
-			   ||(mate.charStats().getStat(CharStats.STAT_GENDER)==('F')))
-			&&((myChar.charStats().getStat(CharStats.STAT_GENDER)==('M'))
-			   ||(myChar.charStats().getStat(CharStats.STAT_GENDER)==('F')))
+			&&(myChar.charStats().reproductiveCode()!=mate.charStats().reproductiveCode())
+			&&((mate.charStats().reproductiveCode()==('M'))
+			   ||(mate.charStats().reproductiveCode()==('F')))
+			&&((myChar.charStats().reproductiveCode()==('M'))
+			   ||(myChar.charStats().reproductiveCode()==('F')))
 			&&(mate.charStats().getMyRace().canBreedWith(myChar.charStats().getMyRace(),false))
 			&&(myChar.charStats().getMyRace().canBreedWith(mate.charStats().getMyRace(),false))
 			&&(myChar.location()==mate.location())
@@ -112,7 +112,7 @@ public class Chant_Fertility extends Chant
 			{
 				MOB female=myChar;
 				MOB male=mate;
-				if((mate.charStats().getStat(CharStats.STAT_GENDER)==('F')))
+				if((mate.charStats().reproductiveCode()==('F')))
 				{
 					female=mate;
 					male=myChar;
@@ -129,6 +129,7 @@ public class Chant_Fertility extends Chant
 		}
 	}
 
+	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
 		if(!super.tick(ticking, tickID))
@@ -143,10 +144,9 @@ public class Chant_Fertility extends Chant
 				if((CMLib.dice().roll(1, 160+((numKids-1)*50)-(super.getXLEVELLevel(mob)*10), 0)==1)
 				&&(numKids<9)
 				&&(canBeUninvoked()))
-				{
 					pregA.setStat("NUMBABIES", ""+(numKids+1));
-					this.unInvoke();
-				}
+				if(canBeUninvoked() && (CMLib.dice().rollPercentage()<10))
+					unInvoke();
 			}
 		}
 		return true;

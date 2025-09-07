@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,7 +59,19 @@ public class Chant_LandLegs extends Chant
 	@Override
 	public int abstractQuality()
 	{
-		return Ability.QUALITY_BENEFICIAL_SELF;
+		return Ability.QUALITY_OK_SELF;
+	}
+
+	@Override
+	public int castingQuality(final MOB mob, final Physical target)
+	{
+		if(mob!=null)
+		{
+			if(!CMLib.flags().canBreatheHere(mob, mob.location())
+			&&(!CMLib.flags().isUnderWateryRoom(mob.location())))
+				return Ability.QUALITY_BENEFICIAL_SELF;
+		}
+		return super.castingQuality(mob,target);
 	}
 
 	@Override
@@ -74,8 +86,8 @@ public class Chant_LandLegs extends Chant
 		super.affectPhyStats(affected,affectableStats);
 	}
 
-	protected String arriveStr = L("arrives");
-	protected String leaveStr = L("leaves");
+	protected static final String arriveStr = CMLib.lang().L("arrives");
+	protected static final String leaveStr = CMLib.lang().L("leaves");
 	protected int[] lastSet=null;
 	protected int[] newSet=null;
 
@@ -149,7 +161,7 @@ public class Chant_LandLegs extends Chant
 		if((target.fetchEffect(this.ID())!=null)
 		||(target.charStats().getBodyPart(Race.BODY_LEG)>0))
 		{
-			mob.tell(target,null,null,L("<S-NAME> already <S-HAS-HAVE> land legs."));
+			failureTell(mob,target,auto,L("<S-NAME> already <S-HAS-HAVE> land legs."));
 			return false;
 		}
 

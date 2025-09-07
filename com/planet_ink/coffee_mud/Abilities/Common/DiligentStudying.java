@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -118,8 +118,6 @@ public class DiligentStudying extends StdAbility
 					msg.source().tell(L("^NYou got no bonus practice points because @x1 and @x2 where the same level.\n\r^N",""+(msg.value()),""+msg.source().basePhyStats().level()));
 
 				msg.source().setPractices(msg.source().getPractices() + amt);
-				if(msg.source().getPractices()<0)
-					msg.source().setPractices(0);
 			}
 		}
 		super.executeMsg(myHost,msg);

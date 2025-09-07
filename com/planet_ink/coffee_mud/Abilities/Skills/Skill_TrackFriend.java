@@ -16,10 +16,12 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
+import java.lang.ref.Reference;
+import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,8 +50,9 @@ public class Skill_TrackFriend extends StdAbility
 	{
 		return localizedName;
 	}
+	private static final String DEFAULT_DISPLAY_TEXT=CMLib.lang().L("(Friend Tracking)");
 
-	protected String	displayText	= L("(Friend Tracking)");
+	protected String displayText=DEFAULT_DISPLAY_TEXT;
 
 	@Override
 	public String displayText()
@@ -108,6 +111,7 @@ public class Skill_TrackFriend extends StdAbility
 	}
 
 	protected List<Room>	theTrail		= null;
+	protected Reference<MOB>mobr			= null;
 	public int				nextDirection	= -2;
 
 	@Override
@@ -134,7 +138,8 @@ public class Skill_TrackFriend extends StdAbility
 				unInvoke();
 			}
 			else
-			if(nextDirection==-1)
+			if((nextDirection==-1)
+			||((mobr!=null)&&(mobr.get()!=null)&&(!CMLib.flags().canSmell(mob,mobr.get()))))
 			{
 				mob.tell(L("The trail dries up here."));
 				nextDirection=-999;
@@ -251,7 +256,8 @@ public class Skill_TrackFriend extends StdAbility
 		boolean possible=false;
 		for(final MOB M : H)
 		{
-			if(M.name().toUpperCase().startsWith(mobName.toUpperCase()) && (M!=mob))
+			if(M.name().toUpperCase().startsWith(mobName.toUpperCase())
+			&& (M!=mob))
 				possible=true;
 		}
 		if(!possible)
@@ -264,22 +270,29 @@ public class Skill_TrackFriend extends StdAbility
 
 		TrackingLibrary.TrackingFlags flags;
 		flags=CMLib.tracking().newFlags()
+			.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 			.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
 			.plus(TrackingLibrary.TrackingFlag.NOAIR)
 			.plus(TrackingLibrary.TrackingFlag.NOWATER);
 		final ArrayList<Room> rooms=new ArrayList<Room>();
 		final int range=50 + (2*super.getXLEVELLevel(mob))+(10*super.getXMAXRANGELevel(mob));
-		final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,range);
-		for (final Room room : checkSet)
-		{
-			final Room R=CMLib.map().getRoom(room);
-			final MOB M=R.fetchInhabitant(mobName);
-			if((M!=null)
-			&&(H.contains(M))
-			&&(CMLib.flags().canAccess(mob, room))
-			&&(CMLib.flags().isSeeable(M)))
-				rooms.add(R);
-		}
+		final List<Room> trashRooms = new ArrayList<Room>();
+		if(CMLib.tracking().getRadiantRoomsToTarget(mob.location(), trashRooms, flags, new TrackingLibrary.RFilter() {
+			@Override
+			public boolean isFilteredOut(final Room hostR, Room R, final Exit E, final int dir)
+			{
+				R=CMLib.map().getRoom(R);
+				final MOB M=R.fetchInhabitant(mobName);
+				if((M!=null)
+				&&(H.contains(M))
+				&&(CMLib.flags().canAccess(mob, R))
+				&&(CMLib.flags().isSeeable(M))
+				&& (CMLib.flags().canSmell(mob,M)))
+					return false;
+				return true;
+			}
+		}, range))
+			rooms.add(trashRooms.get(trashRooms.size()-1));
 
 		if(rooms.size()>0)
 			theTrail=CMLib.tracking().findTrailToAnyRoom(mob.location(),rooms,flags,range);
@@ -303,6 +316,7 @@ public class Skill_TrackFriend extends StdAbility
 				if(mob.fetchEffect(newOne.ID())==null)
 					mob.addEffect(newOne);
 				mob.recoverPhyStats();
+				newOne.mobr = new WeakReference<MOB>(target);
 				newOne.nextDirection=CMLib.tracking().trackNextDirectionFromHere(theTrail,mob.location(),true);
 			}
 		}

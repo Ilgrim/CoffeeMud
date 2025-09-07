@@ -20,7 +20,7 @@ import java.util.Vector;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ public interface LocationRoom extends Room
 	 * @see LocationRoom#getDirectionFromCore()
 	 * @return Coordinates of the place
 	 */
-	public long[] coordinates();
+	public Coord3D coordinates();
 
 	/**
 	 * Returns the direction from the core of the planet to the
@@ -57,7 +57,7 @@ public interface LocationRoom extends Room
 	 * is always the radius of the planet.
 	 * @return direction to this place from planets core.
 	 */
-	public double[] getDirectionFromCore();
+	public Dir3D getDirectionFromCore();
 
 	/**
 	 * Sets the direction from the core of the planet to the
@@ -65,5 +65,5 @@ public interface LocationRoom extends Room
 	 * is always the radius of the planet.
 	 * @param dir direction to this place from planets core.
 	 */
-	public void setDirectionFromCore(double[] dir);
+	public void setDirectionFromCore(Dir3D dir);
 }

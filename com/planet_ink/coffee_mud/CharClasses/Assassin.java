@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -114,7 +114,6 @@ public class Assassin extends Thief
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Skill_Dirt",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Thief_DetectTraps",false);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Skill_WandUse",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Skill_Dodge",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Thief_Pick",false);
@@ -152,6 +151,7 @@ public class Assassin extends Thief
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Fighter_DualParry",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Skill_AttackHalf",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Thief_CutThroat",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Fighter_ChokeHold",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Fighter_CriticalShot",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Specialization_Hammer",false);
@@ -163,6 +163,8 @@ public class Assassin extends Thief
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Thief_HighMarks",true,CMParms.parseSemicolons("Thief_Mark",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Specialization_Polearm",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Skill_TwoDaggerFighting",false,CMParms.parseSemicolons("Skill_TwoWeaponFighting",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Thief_SilentWield",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Thief_SilentHold",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Thief_Trap",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Skill_Stability",false);

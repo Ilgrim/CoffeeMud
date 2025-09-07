@@ -11,7 +11,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
-import com.planet_ink.coffee_mud.Items.interfaces.TechComponent.ShipDir;
+import com.planet_ink.coffee_mud.Items.interfaces.ShipDirectional.ShipDir;
 import com.planet_ink.coffee_mud.Items.interfaces.Technical.TechType;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ public class StdShipThruster extends StdCompFuelConsumer implements ShipEngine
 	protected boolean		constantThrust	= true;
 	protected volatile double		thrust	= 0;
 
-	protected TechComponent.ShipDir[] ports	= TechComponent.ShipDir.values();
+	protected ShipDirectional.ShipDir[] ports	= ShipDirectional.ShipDir.values();
 
 	public StdShipThruster()
 	{
@@ -159,24 +159,24 @@ public class StdShipThruster extends StdCompFuelConsumer implements ShipEngine
 	}
 
 	@Override
-	public boolean isConstantThruster()
+	public boolean isReactionEngine()
 	{
 		return constantThrust;
 	}
 
 	@Override
-	public void setConstantThruster(final boolean isConstant)
+	public void setReactionEngine(final boolean isConstant)
 	{
 		constantThrust = isConstant;
 	}
 
 	/**
 	 * Gets set of available thrust ports on this engine.
-	 * @see ShipEngine#setAvailPorts(TechComponent.ShipDir[])
+	 * @see ShipEngine#setAvailPorts(ShipDirectional.ShipDir[])
 	 * @return the set of available thrust ports.
 	 */
 	@Override
-	public TechComponent.ShipDir[] getAvailPorts()
+	public ShipDirectional.ShipDir[] getAvailPorts()
 	{
 		return ports;
 	}
@@ -187,7 +187,7 @@ public class StdShipThruster extends StdCompFuelConsumer implements ShipEngine
 	 * @param ports the set of available thrust ports.
 	 */
 	@Override
-	public void setAvailPorts(final TechComponent.ShipDir[] ports)
+	public void setAvailPorts(final ShipDirectional.ShipDir[] ports)
 	{
 		this.ports = ports;
 	}
@@ -263,19 +263,22 @@ public class StdShipThruster extends StdCompFuelConsumer implements ShipEngine
 		return fuel;
 	}
 
-	public static boolean executeThrust(final ShipEngine me, final String circuitKey, final MOB mob, final Software controlI, final TechComponent.ShipDir portDir, final double amount)
+	public static boolean executeThrust(final ShipEngine me, final String circuitKey, final MOB mob, final Software controlI, final ShipDirectional.ShipDir portDir, final double amount)
 	{
 		final LanguageLibrary lang=CMLib.lang();
-		final SpaceObject obj=CMLib.map().getSpaceObject(me, true);
+		final SpaceObject obj=CMLib.space().getSpaceObject(me, true);
 		final Manufacturer manufacturer=me.getFinalManufacturer();
-		final String rumbleWord = (me instanceof FuelConsumer) ? "rumble" : "hum";
+		final String rumbleWord = (me instanceof FuelConsumer) ? lang.L("rumbles") : lang.L("hums");
 		if(!(obj instanceof SpaceShip))
-			return reportError(me, controlI, mob, lang.L("@x1 "+rumbleWord+"s and fires, but nothing happens.",me.name(mob)), lang.L("Failure: @x1: exhaust ports.",me.name(mob)));
+			return reportError(me, controlI, mob, lang.L("@x1 @x2 and fires, but nothing happens.",me.name(mob),rumbleWord),
+					lang.L("Failure: @x1: exhaust ports.",me.name(mob)));
 		final SpaceShip ship=(SpaceShip)obj;
 		if((portDir==null)||(amount<0))
-			return reportError(me, controlI, mob, lang.L("@x1 "+rumbleWord+"s loudly, but accomplishes nothing.",me.name(mob)), lang.L("Failure: @x1: exhaust control.",me.name(mob)));
+			return reportError(me, controlI, mob, lang.L("@x1 @x2s loudly, but accomplishes nothing.",me.name(mob),rumbleWord),
+					lang.L("Failure: @x1: exhaust control.",me.name(mob)));
 		if(!CMParms.contains(me.getAvailPorts(), portDir))
-			return reportError(me, controlI, mob, lang.L("@x1 "+rumbleWord+"s a little, but accomplishes nothing.",me.name(mob)), lang.L("Failure: @x1: port control.",me.name(mob)));
+			return reportError(me, controlI, mob, lang.L("@x1 @x2 a little, but accomplishes nothing.",me.name(mob),rumbleWord),
+					lang.L("Failure: @x1: port control.",me.name(mob)));
 		double thrust=me.getInstalledFactor() * amount;
 		if(thrust > me.getMaxThrust())
 			thrust=me.getMaxThrust();
@@ -290,7 +293,7 @@ public class StdShipThruster extends StdCompFuelConsumer implements ShipEngine
 		}
 		else
 			thrust=manufacturer.getReliabilityPct() * thrust;
-		if(portDir==TechComponent.ShipDir.AFT) // when thrusting aft, the thrust is continual, so save it
+		if(portDir==ShipDirectional.ShipDir.AFT) // when thrusting aft, the thrust is continual, so save it
 		{
 			if(amount == 0.0)
 			{
@@ -313,28 +316,30 @@ public class StdShipThruster extends StdCompFuelConsumer implements ShipEngine
 		final int fuelToConsume=getFuelToConsume(me, manufacturer, portDir, thrust);
 
 		final double acceleration;
-		if(portDir==TechComponent.ShipDir.AFT) // when thrusting aft, there's a smidgeon more power
+		if(portDir==ShipDirectional.ShipDir.AFT) // when thrusting aft, there's a smidgeon more power
 		{
 			acceleration = (thrust * me.getSpecificImpulse() / ship.getMass());
 			if(acceleration < me.getMinThrust())
-				return reportError(me, controlI, mob, lang.L("@x1 "+rumbleWord+"s loudly, but nothing happens.",me.name(mob)), lang.L("Failure: @x1: insufficient thrust.",me.name(mob)));
+				return reportError(me, controlI, mob, lang.L("@x1 @x2 loudly, but nothing happens.",me.name(mob),rumbleWord),
+						lang.L("Failure: @x1: insufficient thrust.",me.name(mob)));
 		}
-		else
+		else // if we ever make multi-directional thrusters that don't care about facing, change this
 			acceleration = thrust;
 
-		//if((amount > 1)&&((portDir!=TechComponent.ShipDir.AFT) || (me.getThrust() > (oldThrust * 10))))
-		//	tellWholeShip(me,mob,CMMsg.MSG_NOISE,CMLib.lang().L("You feel a "+rumbleWord+" and hear the blast of @x1.",me.name(mob)));
+		//if((amount > 1)&&((portDir!=ShipDirComponent.ShipDir.AFT) || (me.getThrust() > (oldThrust * 10))))
+		//	tellWholeShip(me,mob,CMMsg.MSG_NOISE,CMLib.lang().L("You feel a @x2 and hear the blast of @x1.",me.name(mob),rumbleWord));
 		if(acceleration == 0.0)
 		{
-			final String code=Technical.TechCommand.COMPONENTFAILURE.makeCommand(TechType.SHIP_ENGINE, "Failure: "+me.name()+": insufficient_thrust_capacity.");
+			final String code=TechCommand.COMPONENTFAILURE.makeCommand(TechType.SHIP_ENGINE, "Failure: "+me.name()+": insufficient_thrust_capacity.");
 			sendComputerMessage(me,circuitKey,mob,controlI,code);
-			return reportError(me, controlI, mob, lang.L("@x1 "+rumbleWord+"s very loudly, but nothing is happening.",me.name(mob)), lang.L("Failure: @x1: insufficient engine thrust capacity.",me.name(mob)));
+			return reportError(me, controlI, mob, lang.L("@x1 @x2 very loudly, but nothing is happening.",me.name(mob),rumbleWord),
+					lang.L("Failure: @x1: insufficient engine thrust capacity.",me.name(mob)));
 		}
 		else
 		if(me.consumeFuel(fuelToConsume))
 		{
 			final SpaceObject spaceObject=ship.getShipSpaceObject();
-			final String code=Technical.TechCommand.ACCELERATION.makeCommand(portDir.opposite(),Double.valueOf(acceleration),Boolean.valueOf(me.isConstantThruster()));
+			final String code=TechCommand.ACCELERATION.makeCommand(portDir.opposite(),Double.valueOf(acceleration),Boolean.valueOf(me.isReactionEngine()));
 			final CMMsg msg=CMClass.getMsg(mob, spaceObject, me, CMMsg.NO_EFFECT, null, CMMsg.MSG_ACTIVATE|CMMsg.MASK_CNTRLMSG, code, CMMsg.NO_EFFECT,null);
 			if(spaceObject.okMessage(mob, msg))
 			{
@@ -344,9 +349,10 @@ public class StdShipThruster extends StdCompFuelConsumer implements ShipEngine
 		}
 		else
 		{
-			final String code=Technical.TechCommand.COMPONENTFAILURE.makeCommand(TechType.SHIP_ENGINE, "Failure:_"+me.name().replace(' ','_')+":_insufficient_fuel.");
+			final String code=TechCommand.COMPONENTFAILURE.makeCommand(TechType.SHIP_ENGINE, "Failure:_"+me.name().replace(' ','_')+":_insufficient_fuel.");
 			sendComputerMessage(me,circuitKey,mob,controlI,code);
-			return reportError(me, controlI, mob, lang.L("@x1 "+rumbleWord+"s loudly, then sputters down.",me.name(mob)), lang.L("Failure: @x1: insufficient fuel.",me.name(mob)));
+			return reportError(me, controlI, mob, lang.L("@x1 @x2 loudly, then sputters down.",me.name(mob),rumbleWord),
+					lang.L("Failure: @x1: insufficient fuel.",me.name(mob)));
 		}
 		return false;
 	}
@@ -363,15 +369,14 @@ public class StdShipThruster extends StdCompFuelConsumer implements ShipEngine
 		}
 		else
 		{
-			final String[] parts=msg.targetMessage().split(" ");
-			final TechCommand command=TechCommand.findCommand(parts);
+			final TechCommand command=TechCommand.findCommand(msg.targetMessage());
 			if(command==null)
 				return reportError(me, controlI, mob, lang.L("@x1 does not respond.",me.name(mob)), lang.L("Failure: @x1: control failure.",me.name(mob)));
-			final Object[] parms=command.confirmAndTranslate(parts);
+			final Object[] parms=command.confirmAndTranslate(msg.targetMessage());
 			if(parms==null)
 				return reportError(me, controlI, mob, lang.L("@x1 did not respond.",me.name(mob)), lang.L("Failure: @x1: control syntax failure.",me.name(mob)));
 			if(command == TechCommand.THRUST)
-				return executeThrust(me, circuitKey, mob, controlI, (TechComponent.ShipDir)parms[0],((Double)parms[1]).doubleValue());
+				return executeThrust(me, circuitKey, mob, controlI, (ShipDirectional.ShipDir)parms[0],((Double)parms[1]).doubleValue());
 			return reportError(me, controlI, mob, lang.L("@x1 refused to respond.",me.name(mob)), lang.L("Failure: @x1: control command failure.",me.name(mob)));
 		}
 	}
@@ -390,13 +395,13 @@ public class StdShipThruster extends StdCompFuelConsumer implements ShipEngine
 				if(me.activated())
 				{
 					// when a constant thruster deactivates, all speed stops
-					final SpaceObject obj=CMLib.map().getSpaceObject(me, true);
+					final SpaceObject obj=CMLib.space().getSpaceObject(me, true);
 					if(obj instanceof SpaceShip)
 					{
 						final MOB mob=msg.source();
 						final SpaceShip ship=(SpaceShip)obj;
 						final SpaceObject spaceObject=ship.getShipSpaceObject();
-						final String code=Technical.TechCommand.ACCELERATION.makeCommand(TechComponent.ShipDir.AFT,Double.valueOf(0),Boolean.valueOf(true));
+						final String code=TechCommand.ACCELERATION.makeCommand(ShipDirectional.ShipDir.AFT,Double.valueOf(0),Boolean.valueOf(true));
 						final CMMsg msg2=CMClass.getMsg(mob, spaceObject, me, CMMsg.NO_EFFECT, null, CMMsg.MSG_ACTIVATE|CMMsg.MASK_CNTRLMSG, code, CMMsg.NO_EFFECT,null);
 						if(spaceObject.okMessage(mob, msg2))
 							spaceObject.executeMsg(mob, msg2);
@@ -410,18 +415,17 @@ public class StdShipThruster extends StdCompFuelConsumer implements ShipEngine
 				if(me.activated())
 				{
 					if((me.getThrust()>0.0)
-					&& (CMParms.contains(me.getAvailPorts(),TechComponent.ShipDir.AFT)))
+					&& (CMParms.contains(me.getAvailPorts(),ShipDirectional.ShipDir.AFT)))
 					{
 						final Manufacturer manufacturer=me.getFinalManufacturer();
-						//TODO: isn't there a method for this fuel thing?
-						final int fuelToConsume=(int)Math.round(CMath.ceiling(me.getThrust()*me.getFuelEfficiency()*Math.max(.33, Math.abs(2.0-manufacturer.getEfficiencyPct()))/getFuelDivisor()));
+						final int fuelToConsume=getFuelToConsume(me, manufacturer, ShipDirectional.ShipDir.AFT, me.getThrust());
 						if(me.consumeFuel(fuelToConsume))
 						{
-							final SpaceObject obj=CMLib.map().getSpaceObject(me, true);
+							final SpaceObject obj=CMLib.space().getSpaceObject(me, true);
 							if(obj instanceof SpaceShip)
 							{
 								final SpaceObject ship=((SpaceShip)obj).getShipSpaceObject();
-								final String code=Technical.TechCommand.THRUST.makeCommand(TechComponent.ShipDir.AFT,Double.valueOf(me.getThrust()));
+								final String code=TechCommand.THRUST.makeCommand(ShipDirectional.ShipDir.AFT,Double.valueOf(me.getThrust()));
 								final CMMsg msg2=CMClass.getMsg(msg.source(), me, null, CMMsg.NO_EFFECT, null, CMMsg.MSG_ACTIVATE|CMMsg.MASK_CNTRLMSG, code, CMMsg.NO_EFFECT,null);
 								if(me.owner() instanceof Room)
 								{
@@ -435,6 +439,7 @@ public class StdShipThruster extends StdCompFuelConsumer implements ShipEngine
 						}
 					}
 					else
+					if(!(me instanceof PowerGenerator))
 					{
 						final CMMsg msg2=CMClass.getMsg(msg.source(), me, me, CMMsg.NO_EFFECT, null, CMMsg.MSG_DEACTIVATE|CMMsg.MASK_CNTRLMSG, "", CMMsg.NO_EFFECT,null);
 						if(me.owner() instanceof Room)
@@ -445,7 +450,7 @@ public class StdShipThruster extends StdCompFuelConsumer implements ShipEngine
 						else
 						if(me.okMessage(msg.source(), msg2))
 							me.executeMsg(msg.source(), msg2);
-						final String code=Technical.TechCommand.COMPONENTFAILURE.makeCommand(TechType.SHIP_ENGINE, "Failure: "+me.name()+": insufficient_fuel.");
+						final String code=TechCommand.COMPONENTFAILURE.makeCommand(TechType.SHIP_ENGINE, "Failure: "+me.name()+": insufficient_fuel.");
 						sendComputerMessage(me,circuitKey,msg.source(),null,code);
 					}
 				}

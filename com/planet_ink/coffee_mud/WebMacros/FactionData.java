@@ -9,9 +9,11 @@ import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.FactionManager.FAbilityMaskType;
 import com.planet_ink.coffee_mud.Commands.interfaces.Command;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent;
+import com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent.MiscTrigger;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
@@ -21,7 +23,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -127,6 +129,13 @@ public class FactionData extends StdWebMacro
 						old=F.showInEditor()?"on":"";
 					str.append((old.equalsIgnoreCase("on")?"CHECKED":"")+", ");
 				}
+				if(parms.containsKey("INHERITED"))
+				{
+					String old=httpReq.getUrlParameter("INHERITED");
+					if(old==null)
+						old=F.isInheritable()?"on":"";
+					str.append((old.equalsIgnoreCase("on")?"CHECKED":"")+", ");
+				}
 				if(parms.containsKey("SHOWINREPORTS"))
 				{
 					String old=httpReq.getUrlParameter("SHOWINREPORTS");
@@ -223,7 +232,7 @@ public class FactionData extends StdWebMacro
 				|| parms.containsKey("PLAYERCHOICES"))
 				{
 					String prefix="";
-					Enumeration<String> Fset=null;
+					Enumeration<Pair<Integer,String>> Fset=null;
 					if(parms.containsKey("AUTOVALUES"))
 					{
 						prefix="AUTOVALUE";
@@ -249,28 +258,9 @@ public class FactionData extends StdWebMacro
 					{
 						for(;Fset.hasMoreElements();)
 						{
-							String def=Fset.nextElement();
-							int lastSp=0;
-							int spDex=def.indexOf(' ',lastSp+1);
-							int finalValue=-1;
-							while(spDex>0)
-							{
-								if(CMath.isInteger(def.substring(lastSp,spDex).trim()))
-								{
-									finalValue=CMath.s_int(def.substring(lastSp,spDex).trim());
-									def=def.substring(0,lastSp)+def.substring(spDex);
-									break;
-								}
-								lastSp=spDex;
-								spDex=def.indexOf(' ',lastSp+1);
-							}
-							if((finalValue<0)&&CMath.isInteger(def.substring(lastSp).trim()))
-							{
-								finalValue=CMath.s_int(def.substring(lastSp).trim());
-								def=def.substring(0,lastSp);
-							}
-							httpReq.addFakeUrlParameter(prefix+v,""+finalValue);
-							httpReq.addFakeUrlParameter(prefix+"MASK"+v,def);
+							final Pair<Integer,String> def=Fset.nextElement();
+							httpReq.addFakeUrlParameter(prefix+v,def.first.toString());
+							httpReq.addFakeUrlParameter(prefix+"MASK"+v,def.second);
 							v++;
 						}
 
@@ -320,6 +310,8 @@ public class FactionData extends StdWebMacro
 									httpReq.addFakeUrlParameter("XP"+v,""+E.getBonusXP());
 									httpReq.addFakeUrlParameter("RPXP"+v,""+E.getBonusRoleplayXP());
 									httpReq.addFakeUrlParameter("CHANGESTPARM"+v,E.triggerParameters());
+									httpReq.addFakeUrlParameter("CHGRESTIME"+v,""+E.getFlagValue("RESTIME"));
+									httpReq.addFakeUrlParameter("CHGANNOUNCE"+v,""+E.getFlagValue("ANNOUNCE"));
 									String id="";
 									final Vector<String> flags=CMParms.parse(E.flagCache());
 									for(int f=0;f<flags.size();f++)
@@ -352,6 +344,7 @@ public class FactionData extends StdWebMacro
 							val=""+httpReq.getUrlParameter("CHANGESTPARM"+num);
 							str.append("<INPUT TYPE=TEXT NAME=CHANGESTPARM"+showNum+" SIZE=20 MAXLENGTH=255 VALUE=\""+htmlOutgoingFilter(val)+"\">");
 							str.append("</TD><TD>");
+							str.append("<FONT SIZE=-1 COLOR=WHITE>Direction:</FONT><BR>");
 							val=""+CMath.s_int(httpReq.getUrlParameter("CHANGESDIR"+num));
 							str.append("<SELECT NAME=CHANGESDIR"+showNum+">");
 							for(int f=0;f<Faction.FactionChangeEvent.CHANGE_DIRECTION_DESCS.length;f++)
@@ -362,9 +355,9 @@ public class FactionData extends StdWebMacro
 								str.append(">"+CMStrings.capitalizeAndLower(Faction.FactionChangeEvent.CHANGE_DIRECTION_DESCS[f]));
 							}
 							str.append("</SELECT>");
-							str.append("</TD><TD>");
+							str.append("<FONT SIZE=-1 COLOR=WHITE>Factor:</FONT><BR>");
 							val=CMath.toPct(httpReq.getUrlParameter("CHANGESFACTOR"+num));
-							str.append("<INPUT TYPE=TEXT NAME=CHANGESFACTOR"+showNum+" SIZE=3 VALUE=\""+val+"\">");
+							str.append("<INPUT TYPE=TEXT NAME=CHANGESFACTOR"+showNum+" SIZE=2 VALUE=\""+val+"\">");
 							str.append("</TD><TD>");
 							final Vector<String> flags=new Vector<String>();
 							String id="";
@@ -382,13 +375,31 @@ public class FactionData extends StdWebMacro
 							str.append("</SELECT>");
 							str.append("</TD><TD>");
 							val=""+httpReq.getUrlParameter("CHANGESMASK"+num);
-							str.append("<textarea NAME=CHANGESMASK"+showNum+" rows=4 cols=18 wrap=hard>"+htmlOutgoingFilter(val)+"</textarea>");
-							str.append("</TD><TD><FONT COLOR=WHITE>");
+							str.append("<textarea NAME=CHANGESMASK"+showNum+" rows=4 cols=15 wrap=soft>"+htmlOutgoingFilter(val)+"</textarea>");
+							str.append("</TD><TD>");
+							str.append("<TABLE BORDER=0 CELLPADDING=0 CELLSPACING=0>");
+							str.append("<TR><TD><FONT COLOR=WHITE>");
+							str.append("XP:");
+							str.append("</FONT></TD><TD>");
 							val=""+CMath.s_int(httpReq.getUrlParameter("XP"+num));
-							str.append("XP:<INPUT TYPE=TEXT NAME=XP"+showNum+" SIZE=3 VALUE=\""+val+"\"><BR>");
+							str.append("<INPUT TYPE=TEXT NAME=XP"+showNum+" SIZE=3 VALUE=\""+val+"\">");
+							str.append("</TD></TR><TR><TD><FONT COLOR=WHITE>");
+							str.append("RP:");
+							str.append("</FONT></TD><TD>");
 							val=""+CMath.s_int(httpReq.getUrlParameter("RPXP"+num));
-							str.append("RP:<INPUT TYPE=TEXT NAME=RPXP"+showNum+" SIZE=3 VALUE=\""+val+"\"><BR>");
-							str.append("</FONT></TD></TR>");
+							str.append("<INPUT TYPE=TEXT NAME=RPXP"+showNum+" SIZE=3 VALUE=\""+val+"\">");
+							str.append("</TD></TR><TR><TD><FONT COLOR=WHITE>");
+							str.append("RTime:");
+							str.append("</FONT></TD><TD>");
+							val=httpReq.getUrlParameter("CHGRESTIME"+num);
+							str.append("<INPUT TYPE=TEXT NAME=CHGRESTIME"+showNum+" SIZE=3 VALUE=\""+htmlOutgoingFilter(val)+"\">");
+							str.append("</TD></TR><TR><TD><FONT COLOR=WHITE>");
+							str.append("Announce:");
+							str.append("</FONT></TD><TD>");
+							val=""+httpReq.getUrlParameter("CHGANNOUNCE"+num);
+							str.append("<INPUT TYPE=TEXT NAME=CHGANNOUNCE"+showNum+" SIZE=3 VALUE=\""+htmlOutgoingFilter(val)+"\">");
+							str.append("</TD></TR></TABLE>");
+							str.append("</TD></TR>");
 						}
 						num++;
 					}
@@ -396,11 +407,11 @@ public class FactionData extends StdWebMacro
 					str.append("<TR><TD>");
 					str.append("<SELECT NAME=CHANGESTRIGGER"+showNum+" ONCHANGE=\"AddItem(this);\">");
 					str.append("<OPTION VALUE=\"\">Select a trigger");
-					for (final String element : Faction.FactionChangeEvent.MISC_TRIGGERS)
+					for (final MiscTrigger element : Faction.FactionChangeEvent.MiscTrigger.values())
+						str.append("<OPTION VALUE=\""+element+"\">"+CMStrings.limit(CMStrings.capitalizeAndLower(element.name()),20));
+					for (final String element : Ability.ACODE.DESCS)
 						str.append("<OPTION VALUE=\""+element+"\">"+CMStrings.limit(CMStrings.capitalizeAndLower(element),20));
-					for (final String element : Ability.ACODE_DESCS)
-						str.append("<OPTION VALUE=\""+element+"\">"+CMStrings.limit(CMStrings.capitalizeAndLower(element),20));
-					for (final String element : Ability.DOMAIN_DESCS)
+					for (final String element : Ability.DOMAIN.DESCS)
 						str.append("<OPTION VALUE=\""+element+"\">"+CMStrings.limit(CMStrings.capitalizeAndLower(element),20));
 					for (final String element : Ability.FLAG_DESCS)
 						str.append("<OPTION VALUE=\""+element+"\">"+CMStrings.limit(CMStrings.capitalizeAndLower(element),20));
@@ -425,11 +436,12 @@ public class FactionData extends StdWebMacro
 					str.append("<BR>");
 					str.append("<INPUT TYPE=TEXT NAME=CHANGESTPARM"+showNum+" SIZE=20 MAXLENGTH=255 VALUE=\"\">");
 					str.append("</TD><TD>");
+					str.append("<FONT SIZE=-1 COLOR=WHITE>Direction:</FONT><BR>");
 					str.append("<SELECT NAME=CHANGESDIR"+showNum+">");
 					for(int f=0;f<Faction.FactionChangeEvent.CHANGE_DIRECTION_DESCS.length;f++)
 						str.append("<OPTION VALUE=\""+f+"\">"+CMStrings.capitalizeAndLower(Faction.FactionChangeEvent.CHANGE_DIRECTION_DESCS[f]));
 					str.append("</SELECT>");
-					str.append("</TD><TD>");
+					str.append("<FONT SIZE=-1 COLOR=WHITE>Factor:</FONT><BR>");
 					str.append("<INPUT TYPE=TEXT NAME=CHANGESFACTOR"+showNum+" SIZE=3 VALUE=\"\">");
 					str.append("</TD><TD>");
 					str.append("<SELECT NAME=CHANGESFLAGS"+showNum+"_ MULTIPLE>");
@@ -437,11 +449,27 @@ public class FactionData extends StdWebMacro
 						str.append("<OPTION VALUE=\""+element+"\">"+CMStrings.capitalizeAndLower(element));
 					str.append("</SELECT>");
 					str.append("</TD><TD>");
-					str.append("<textarea NAME=CHANGESMASK"+showNum+" rows=4 cols=18 wrap=hard></textarea>");
-					str.append("</TD><TD><FONT COLOR=WHITE>");
-					str.append("XP:<INPUT TYPE=TEXT NAME=XP"+showNum+" SIZE=3 VALUE=\"0\"><BR>");
-					str.append("RP:<INPUT TYPE=TEXT NAME=RPXP"+showNum+" SIZE=3 VALUE=\"0\"><BR>");
-					str.append("</FONT></TD></TR>");
+					str.append("<textarea NAME=CHANGESMASK"+showNum+" rows=4 cols=15 wrap=soft></textarea>");
+					str.append("</TD><TD>");
+					str.append("<TABLE BORDER=0 CELLPADDING=0 CELLSPACING=0>");
+					str.append("<TR><TD><FONT COLOR=WHITE>");
+					str.append("XP:");
+					str.append("</FONT></TD><TD>");
+					str.append("<INPUT TYPE=TEXT NAME=XP"+showNum+" SIZE=3 VALUE=\"0\">");
+					str.append("</TD></TR><TR><TD><FONT COLOR=WHITE>");
+					str.append("RP:");
+					str.append("</FONT></TD><TD>");
+					str.append("<INPUT TYPE=TEXT NAME=RPXP"+showNum+" SIZE=3 VALUE=\"0\">");
+					str.append("</TD></TR><TR><TD><FONT COLOR=WHITE>");
+					str.append("RTime:");
+					str.append("</FONT></TD><TD>");
+					str.append("<INPUT TYPE=TEXT NAME=CHGRESTIME"+showNum+" SIZE=3 VALUE=\"\">");
+					str.append("</TD></TR><TR><TD><FONT COLOR=WHITE>");
+					str.append("Announce:");
+					str.append("</FONT></TD><TD>");
+					str.append("<INPUT TYPE=TEXT NAME=CHGANNOUNCE"+showNum+" SIZE=3 VALUE=\"\">");
+					str.append("</TD></TR></TABLE>");
+					str.append("</TD></TR>");
 				}
 				if(parms.containsKey("ADJUSTMENTFACTORS"))
 				{
@@ -561,7 +589,7 @@ public class FactionData extends StdWebMacro
 							}
 							else
 								httpReq.addFakeUrlParameter("ABILITYUSE"+v,CMClass.getAbility(E.abilityFlags()).ID());
-							httpReq.addFakeUrlParameter("ABILITYMIN"+v,""+E.low());
+							httpReq.addFakeUrlParameter("ABILITYMIN"+v,(E.notRange()?"!":"")+E.low());
 							httpReq.addFakeUrlParameter("ABILITYMAX"+v,""+E.high());
 						}
 					}
@@ -578,12 +606,13 @@ public class FactionData extends StdWebMacro
 							showNum++;
 							String val=abilityID;
 							str.append("<TR><TD>");
-							final int usedType=CMLib.factions().getAbilityFlagType(val);
+							final FAbilityMaskType usedType=CMLib.factions().getAbilityFlagType(val);
 							str.append("<SELECT NAME=ABILITYUSE"+showNum+" ONCHANGE=\"DelItem(this);\">");
 							str.append("<OPTION VALUE=\"\">Delete!");
 							str.append("<OPTION VALUE=\""+val+"\" SELECTED>"+CMStrings.capitalizeAndLower(val));
 							str.append("</SELECT>");
-							if(usedType>0)
+							if((usedType!=null)
+							&&(usedType != FAbilityMaskType.ID))
 							{
 								int x=-1;
 								int sx=-1;
@@ -607,12 +636,12 @@ public class FactionData extends StdWebMacro
 								str.append("<BR>"+sfont+"AND&nbsp;"+efont);
 								str.append("<SELECT NAME=ABILITYUSE"+showNum+"_"+sx+" ONCHANGE=\"AddItem(this);\">");
 								str.append("<OPTION VALUE=\"\" SELECTED>Select an option");
-								for(int i=0;i<Ability.ACODE_DESCS.length;i++)
-									if(!doneSet.contains(Ability.ACODE_DESCS[i]))
-									str.append("<OPTION VALUE=\""+Ability.ACODE_DESCS[i]+"\">"+CMStrings.capitalizeAndLower(Ability.ACODE_DESCS[i]));
-								for(int i=0;i<Ability.DOMAIN_DESCS.length;i++)
-									if(!doneSet.contains(Ability.DOMAIN_DESCS[i]))
-									str.append("<OPTION VALUE=\""+Ability.DOMAIN_DESCS[i]+"\">"+CMStrings.capitalizeAndLower(Ability.DOMAIN_DESCS[i]));
+								for(int i=0;i<Ability.ACODE.DESCS.size();i++)
+									if(!doneSet.contains(Ability.ACODE.DESCS.get(i)))
+									str.append("<OPTION VALUE=\""+Ability.ACODE.DESCS.get(i)+"\">"+CMStrings.capitalizeAndLower(Ability.ACODE.DESCS.get(i)));
+								for(int i=0;i<Ability.DOMAIN.DESCS.size();i++)
+									if(!doneSet.contains(Ability.DOMAIN.DESCS.get(i)))
+									str.append("<OPTION VALUE=\""+Ability.DOMAIN.DESCS.get(i)+"\">"+CMStrings.capitalizeAndLower(Ability.DOMAIN.DESCS.get(i)));
 								for(int i=0;i<Ability.FLAG_DESCS.length;i++)
 									if(!doneSet.contains(Ability.FLAG_DESCS[i]))
 									str.append("<OPTION VALUE=\""+Ability.FLAG_DESCS[i]+"\">"+CMStrings.capitalizeAndLower(Ability.FLAG_DESCS[i]));
@@ -635,9 +664,9 @@ public class FactionData extends StdWebMacro
 					str.append("<TR><TD>");
 					str.append("<SELECT NAME=ABILITYUSE"+showNum+" ONCHANGE=\"AddItem(this);\">");
 					str.append("<OPTION VALUE=\"\" SELECTED>Select an option");
-					for (final String element : Ability.ACODE_DESCS)
+					for (final String element : Ability.ACODE.DESCS)
 						str.append("<OPTION VALUE=\""+element+"\">"+CMStrings.capitalizeAndLower(element));
-					for (final String element : Ability.DOMAIN_DESCS)
+					for (final String element : Ability.DOMAIN.DESCS)
 						str.append("<OPTION VALUE=\""+element+"\">"+CMStrings.capitalizeAndLower(element));
 					for (final String element : Ability.FLAG_DESCS)
 						str.append("<OPTION VALUE=\""+element+"\">"+CMStrings.capitalizeAndLower(element));
@@ -769,7 +798,7 @@ public class FactionData extends StdWebMacro
 							str.append("</SELECT>");
 							str.append("</TD><TD VALIGN=TOP>");
 							val=""+httpReq.getUrlParameter("REACTIONMASK"+num);
-							str.append("<INPUT TYPE=TEXT NAME=REACTIONMASK"+showNum+" SIZE=18 VALUE=\""+htmlOutgoingFilter(val)+"\">");
+							str.append("<INPUT TYPE=TEXT NAME=REACTIONMASK"+showNum+" SIZE=15 VALUE=\""+htmlOutgoingFilter(val)+"\">");
 							str.append("</TD><TD>");
 							str.append("<SELECT NAME=REACTIONABC"+showNum+">");
 							val=""+httpReq.getUrlParameter("REACTIONABC"+num);
@@ -800,7 +829,7 @@ public class FactionData extends StdWebMacro
 							str.append("</SELECT>");
 							str.append("</TD><TD VALIGN=TOP>");
 							val=""+httpReq.getUrlParameter("REACTIONPARM"+num);
-							str.append("<INPUT TYPE=TEXT NAME=REACTIONPARM"+showNum+" SIZE=18 VALUE=\""+htmlOutgoingFilter(val)+"\">");
+							str.append("<INPUT TYPE=TEXT NAME=REACTIONPARM"+showNum+" SIZE=15 VALUE=\""+htmlOutgoingFilter(val)+"\">");
 							str.append("</TD>");
 							str.append("</TR>");
 						}
@@ -814,19 +843,19 @@ public class FactionData extends StdWebMacro
 						str.append("<OPTION VALUE=\""+(rangeCodes.getFirst(i)+"\">"+rangeCodes.getSecond(i)));
 					str.append("</SELECT>");
 					str.append("</TD><TD VALIGN=TOP>");
-					str.append("<INPUT TYPE=TEXT NAME=REACTIONMASK"+showNum+" SIZE=18 VALUE=\"\">");
+					str.append("<INPUT TYPE=TEXT NAME=REACTIONMASK"+showNum+" SIZE=15 VALUE=\"\">");
 					str.append("</TD><TD VALIGN=TOP>");
 					str.append("<SELECT NAME=REACTIONABC"+showNum+">");
 					str.append("<OPTION VALUE=\"\" SELECTED>Select action");
 					for(final Enumeration<Behavior> e=CMClass.behaviors();e.hasMoreElements();)
 					{
 						final Behavior B=e.nextElement();
-						str.append("<OPTION VALUE=\""+B.ID()+"\">"+CMStrings.limit(B.ID(),20));
+						str.append("<OPTION VALUE=\""+B.ID()+"\">"+CMStrings.limit(B.ID(),16));
 					}
 					for(final Enumeration<Ability> e=CMClass.abilities();e.hasMoreElements();)
 					{
 						final Ability A=e.nextElement();
-						str.append("<OPTION VALUE=\""+A.ID()+"\">"+CMStrings.limit(A.ID(),20));
+						str.append("<OPTION VALUE=\""+A.ID()+"\">"+CMStrings.limit(A.ID(),16));
 					}
 					for(final Enumeration<Command> e=CMClass.commands();e.hasMoreElements();)
 					{
@@ -838,7 +867,7 @@ public class FactionData extends StdWebMacro
 					}
 					str.append("</SELECT>");
 					str.append("</TD><TD VALIGN=TOP>");
-					str.append("<INPUT TYPE=TEXT NAME=REACTIONPARM"+showNum+" SIZE=18 VALUE=\"\">");
+					str.append("<INPUT TYPE=TEXT NAME=REACTIONPARM"+showNum+" SIZE=15 VALUE=\"\">");
 					str.append("</TD></TR>");
 				}
 
@@ -880,22 +909,24 @@ public class FactionData extends StdWebMacro
 	{
 		switch(CMLib.factions().getAbilityFlagType(val))
 		{
-		case 1:
-			for(int i=0;i<Ability.ACODE_DESCS.length;i++)
+		case ACODE:
+			for(int i=0;i<Ability.ACODE.DESCS.size();i++)
 			{
-				if(!done.contains(Ability.ACODE_DESCS[i].toUpperCase()))
-					done.add(Ability.ACODE_DESCS[i].toUpperCase());
+				if(!done.contains(Ability.ACODE.DESCS.get(i).toUpperCase()))
+					done.add(Ability.ACODE.DESCS.get(i).toUpperCase());
 			}
 			break;
-		case 2:
-			for(int i=0;i<Ability.DOMAIN_DESCS.length;i++)
+		case DOMAIN:
+			for(int i=0;i<Ability.DOMAIN.DESCS.size();i++)
 			{
-				if(!done.contains(Ability.DOMAIN_DESCS[i].toUpperCase()))
-					done.add(Ability.DOMAIN_DESCS[i].toUpperCase());
+				if(!done.contains(Ability.DOMAIN.DESCS.get(i).toUpperCase()))
+					done.add(Ability.DOMAIN.DESCS.get(i).toUpperCase());
 			}
 			break;
-		case 3:
+		case FLAG:
 			done.add(val.toUpperCase());
+			break;
+		default:
 			break;
 		}
 	}

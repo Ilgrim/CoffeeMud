@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -111,10 +111,11 @@ public class Chant_PlantSelf extends Chant
 
 		if((msg.amISource(mob))
 		&&(msg.tool()!=this)
+		&&(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_ALWAYS)) // prevents endless loops
 		&&(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_CHANNEL))
 		&&((CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOVE))
 				||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_HANDS))
-				||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOUTH))))
+				||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOUTH)&&CMath.bset(msg.sourceMajor(),CMMsg.MASK_SOUND))))
 			unInvoke();
 		return;
 	}
@@ -148,18 +149,18 @@ public class Chant_PlantSelf extends Chant
 			if(CMLib.factions().getAlignPurity(myAlignment,Faction.Align.MODERATE)<99)
 			{
 				if(CMLib.factions().getAlignPurity(myAlignment,Faction.Align.EVIL)<CMLib.factions().getAlignPurity(myAlignment,Faction.Align.GOOD))
-					CMLib.factions().postFactionChange(mob,this, CMLib.factions().getAlignmentID(), oneHalfPct);
+					CMLib.factions().postSkillFactionChange(mob,this, CMLib.factions().getAlignmentID(), oneHalfPct);
 				else
-					CMLib.factions().postFactionChange(mob,this, CMLib.factions().getAlignmentID(), -oneHalfPct);
+					CMLib.factions().postSkillFactionChange(mob,this, CMLib.factions().getAlignmentID(), -oneHalfPct);
 				if(mob.fetchFaction(CMLib.factions().getInclinationID())!=Integer.MAX_VALUE)
 				{
 					final int myInclination=mob.fetchFaction(CMLib.factions().getInclinationID());
 					final int inclinationTotal=CMLib.factions().getTotal(CMLib.factions().getInclinationID());
 					final int inclinationRatePct=(int)Math.round(CMath.mul(inclinationTotal,.01));
 					if(CMLib.factions().getInclinationPurity(myInclination,Faction.Align.CHAOTIC)<CMLib.factions().getInclinationPurity(myInclination,Faction.Align.LAWFUL))
-						CMLib.factions().postFactionChange(mob,this, CMLib.factions().getInclinationID(), inclinationRatePct);
+						CMLib.factions().postSkillFactionChange(mob,this, CMLib.factions().getInclinationID(), inclinationRatePct);
 					else
-						CMLib.factions().postFactionChange(mob,this, CMLib.factions().getInclinationID(), -inclinationRatePct);
+						CMLib.factions().postSkillFactionChange(mob,this, CMLib.factions().getInclinationID(), -inclinationRatePct);
 				}
 				switch(CMLib.dice().roll(1,10,0))
 				{
@@ -225,8 +226,7 @@ public class Chant_PlantSelf extends Chant
 		}
 		if(R.myResource()!=RawMaterial.RESOURCE_DIRT)
 		{
-			if((R.domainType()==Room.DOMAIN_OUTDOORS_CITY)
-			||(R.domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT)
+			if((CMLib.flags().isACityRoom(R))
 			||(R.domainType()==Room.DOMAIN_OUTDOORS_UNDERWATER)
 			||(R.domainType()==Room.DOMAIN_OUTDOORS_DESERT)
 			||(R.domainType()==Room.DOMAIN_OUTDOORS_MOUNTAINS)
@@ -244,7 +244,7 @@ public class Chant_PlantSelf extends Chant
 		if(success)
 		{
 			invoker=mob;
-			final CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),L("^S<S-NAME> plant(s) <S-HIM-HERSELF> in the earth while chanting softly...^?"));
+			final CMMsg msg=CMClass.getMsg(mob,null,this,somaticCastCode(mob,null,auto),L("^S<S-NAME> plant(s) <S-HIM-HERSELF> in the earth while chanting softly...^?"));
 			if(R.okMessage(mob,msg))
 			{
 				R.send(mob,msg);

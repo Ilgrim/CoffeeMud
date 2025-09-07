@@ -20,7 +20,7 @@ import java.net.URLEncoder;
 import java.util.*;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -202,10 +202,10 @@ public class AreaScriptData extends AreaScriptNext
 			Resources.removeResource(entry.instanceKey);
 
 		if(parms.containsKey("ISCUSTOM") && (entry != null))
-			str.append(entry.key.equalsIgnoreCase("Custom")+", ");
+			str.append(entry.key.toLowerCase().startsWith("custom")+", ");
 
 		if(parms.containsKey("ISFILE") && (entry != null))
-			str.append(!entry.key.equalsIgnoreCase("Custom")+", ");
+			str.append(!entry.key.toLowerCase().startsWith("custom")+", ");
 
 		String strstr=str.toString();
 		if(strstr.endsWith(", "))

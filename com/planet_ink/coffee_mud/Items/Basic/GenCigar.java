@@ -18,7 +18,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ public class GenCigar extends StdSmokable
 		setDescription("");
 		baseGoldValue=5;
 		capacity=0;
-		durationTicks=200;
+		setDuration(200);
 		recoverPhyStats();
 	}
 
@@ -64,6 +64,11 @@ public class GenCigar extends StdSmokable
 	public void setReadableText(final String text)
 	{
 		readableText=text;
+		if(CMath.isInteger(text))
+		{
+			baseDuration=CMath.s_int(text);
+			durationTicks = baseDuration;
+		}
 	}
 
 	@Override
@@ -87,14 +92,14 @@ public class GenCigar extends StdSmokable
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this,false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 	}
 
 	@Override
 	public void setMiscText(final String newText)
 	{
 		miscText="";
-		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this,newText,false);
 		recoverPhyStats();
 	}
 

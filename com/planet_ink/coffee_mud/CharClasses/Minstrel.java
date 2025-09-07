@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -195,6 +195,7 @@ public class Minstrel extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Play_Pianos",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Play_Solo",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Herding",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Skill_Attack2",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Song_Quickness",false);
@@ -247,7 +248,12 @@ public class Minstrel extends StdCharClass
 				if((A!=null)
 				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SONG)
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
-					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+				{
+					giveMobAbility(mob,A,
+								   CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),
+								   CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),
+								   isBorrowedClass);
+				}
 			}
 		}
 	}
@@ -330,8 +336,8 @@ public class Minstrel extends StdCharClass
 			if(i!=null)
 			{
 				i.setName(L("pan pipes"));
-				i.setDisplayText("some pan pipes lie here");
-				i.setDescription("A simple musical instrument that minstrels use.");
+				i.setDisplayText(L("some pan pipes lie here"));
+				i.setDescription(L("A simple musical instrument that minstrels use."));
 				i.basePhyStats().setLevel(1);
 				i.basePhyStats().setWeight(2);
 				i.setBaseValue(0);
@@ -342,6 +348,7 @@ public class Minstrel extends StdCharClass
 				i.recoverPhyStats();
 				outfitChoices.add(i);
 			}
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

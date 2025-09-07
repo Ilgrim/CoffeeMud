@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -114,24 +114,32 @@ public class Prayer_FlameWeapon extends Prayer
 		&&(msg.target() instanceof MOB)
 		&&(!((MOB)msg.target()).amDead()))
 		{
-			try
+			final Physical affected = this.affected;
+			if(affected != null)
 			{
-				notAgain=true;
-				final CMMsg msg2=CMClass.getMsg(msg.source(),msg.target(),affected,CMMsg.MSG_OK_ACTION,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_FIRE,CMMsg.MSG_NOISYMOVEMENT,null);
-				if(msg.source().location().okMessage(msg.source(),msg2))
+				try
 				{
-					msg.source().location().send(msg.source(), msg2);
-					if(msg2.value()<=0)
+					notAgain=true;
+					final CMMsg msg2=CMClass.getMsg(msg.source(),msg.target(),affected,CMMsg.MSG_OK_ACTION,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_FIRE,CMMsg.MSG_NOISYMOVEMENT,null);
+					if(msg.source().location().okMessage(msg.source(),msg2))
 					{
-						int flameDamage = (int) Math.round( Math.random() * 6 );
-						flameDamage *= (super.getXLEVELLevel(invoker())+(super.getX1Level(invoker())));
-						msg.addTrailerMsg(CMClass.getMsg(msg.source(),msg.target(),CMMsg.MSG_OK_ACTION,L("^RThe flame around @x1 @x2 <T-NAME>!^?",affected.name(),CMLib.combat().standardHitWord(Weapon.TYPE_BURNING,flameDamage))));
-						final CMMsg msg3=CMClass.getMsg(msg.source(),msg.target(),null,CMMsg.MASK_ALWAYS|CMMsg.TYP_FIRE,CMMsg.MSG_DAMAGE,CMMsg.NO_EFFECT,null);
-						msg3.setValue(flameDamage);
-						msg.addTrailerMsg(msg3);
+						msg.source().location().send(msg.source(), msg2);
+						if(msg2.value()<=0)
+						{
+							int flameDamage = (int) Math.round( Math.random() * 6 );
+							flameDamage *= (super.getXLEVELLevel(invoker())+(super.getX1Level(invoker())));
+							msg.addTrailerMsg(CMClass.getMsg(msg.source(),msg.target(),CMMsg.MSG_OK_ACTION,L("^RThe flame around @x1 @x2 <T-NAME>!^?",affected.name(),CMLib.combat().standardHitWord(Weapon.TYPE_BURNING,flameDamage))));
+							final CMMsg msg3=CMClass.getMsg(msg.source(),msg.target(),null,CMMsg.MASK_ALWAYS|CMMsg.TYP_FIRE,CMMsg.MSG_DAMAGE,CMMsg.NO_EFFECT,null);
+							msg3.setValue(flameDamage);
+							msg.addTrailerMsg(msg3);
+						}
 					}
 				}
-			}finally{notAgain=false;}
+				finally
+				{
+					notAgain=false;
+				}
+			}
 		}
 	}
 
@@ -142,7 +150,7 @@ public class Prayer_FlameWeapon extends Prayer
 		// undo the affects of this spell
 		if(canBeUninvoked())
 		{
-			if((affected!=null)&&(affected instanceof Item))
+			if((affected instanceof Item))
 			{
 				if(((((Weapon)affected).material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_WOODEN)
 				||((((Weapon)affected).material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_VEGETATION))

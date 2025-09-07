@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,6 +59,14 @@ public class StdDrink extends StdContainer implements Drink,Item
 		baseGoldValue=5;
 		material=RawMaterial.RESOURCE_LEATHER;
 		recoverPhyStats();
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a drinkable");
 	}
 
 	@Override
@@ -143,7 +151,7 @@ public class StdDrink extends StdContainer implements Drink,Item
 	}
 
 	@Override
-	public boolean containsDrink()
+	public boolean containsLiquid()
 	{
 		if((!CMLib.flags().isGettable(this))
 		&&(owner()!=null)
@@ -178,7 +186,7 @@ public class StdDrink extends StdContainer implements Drink,Item
 			case CMMsg.TYP_DRINK:
 				if((mob.isMine(this))||(phyStats().weight()>1000)||(!CMLib.flags().isGettable(this)))
 				{
-					if(!containsDrink())
+					if(!containsLiquid())
 					{
 						mob.tell(L("@x1 is empty.",name()));
 						return false;
@@ -232,7 +240,7 @@ public class StdDrink extends StdContainer implements Drink,Item
 				&&(msg.tool() instanceof Drink))
 				{
 					final Drink thePuddle=(Drink)msg.tool();
-					if(!thePuddle.containsDrink())
+					if(!thePuddle.containsLiquid())
 					{
 						mob.tell(L("@x1 is empty.",thePuddle.name()));
 						return false;
@@ -255,7 +263,7 @@ public class StdDrink extends StdContainer implements Drink,Item
 	}
 
 	@Override
-	public int amountTakenToFillMe(final Drink theSource)
+	public int amountTakenToFillMe(final LiquidHolder theSource)
 	{
 		int amountToTake=amountOfLiquidHeld-totalDrinkContained();
 		if(amountOfLiquidHeld>=500000)

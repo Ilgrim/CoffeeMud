@@ -1,5 +1,5 @@
 package com.planet_ink.coffee_mud.Items.BasicTech;
-import com.planet_ink.coffee_mud.Items.Basic.StdBoardable;
+import com.planet_ink.coffee_mud.Items.Basic.GenBoardable;
 import com.planet_ink.coffee_mud.Items.Basic.StdPortal;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.interfaces.ItemPossessor.Expire;
@@ -17,7 +17,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.Session.InputCallback;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
-import com.planet_ink.coffee_mud.Items.interfaces.TechComponent.ShipDir;
+import com.planet_ink.coffee_mud.Items.interfaces.ShipDirectional.ShipDir;
 import com.planet_ink.coffee_mud.Items.interfaces.Technical.TechCommand;
 import com.planet_ink.coffee_mud.Items.interfaces.Technical.TechType;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
@@ -29,7 +29,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
+public class GenSpaceShip extends GenBoardable implements Electronics, SpaceShip
 {
 	@Override
 	public String ID()
@@ -53,14 +53,18 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 
 	protected Manufacturer	cachedManufact  = null;
 	protected String	 	manufacturer	= "RANDOM";
-	public long[]   		coordinates 	= new long[3];
-	public double[] 		direction   	= new double[2];
+	public Coord3D   		coordinates 	= new Coord3D();
+	public Dir3D	 		direction   	= new Dir3D();
 	public double			roll			= 0.0;
 	public double 			speed			= 0;
 	protected SpaceObject	spaceTarget 	= null;
-	protected double[]		facing			= new double[2];
+	protected Dir3D			facing			= new Dir3D();
 	protected Set<ShipFlag>	shipFlags		= new SHashSet<ShipFlag>();
-	protected volatile double	speedTick	= 0;
+
+	protected volatile double				speedTick	= 0;
+	protected volatile List<TechComponent>	sensors		= null;
+
+	protected Map<TechCommand,List<MsgListener>> extListeners = new SHashtable<TechCommand,List<MsgListener>>();
 
 	public GenSpaceShip()
 	{
@@ -72,9 +76,13 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 	}
 
 	@Override
-	public boolean isGeneric()
+	public String genericName()
 	{
-		return true;
+		if(this.speed()>0)
+			return L("a ship");
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a ship");
 	}
 
 	@Override
@@ -89,13 +97,33 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 		return "StdSpaceShip";
 	}
 
+	protected synchronized List<TechComponent> getShipSensors()
+	{
+		if(sensors == null)
+		{
+			sensors=new Vector<TechComponent>(1);
+			final String circuitKey=getElectronicsKey();
+			if(circuitKey.length()>0)
+			{
+				final List<Electronics> components=CMLib.tech().getMakeRegisteredElectronics(circuitKey);
+				for(final Electronics E : components)
+				{
+					if((E instanceof TechComponent)
+					&&(E.getTechType()==TechType.SHIP_SENSOR))
+						sensors.add((TechComponent)E);
+				}
+			}
+		}
+		return sensors;
+	}
 
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
 		if(!super.tick(ticking, tickID))
 			return false;
-		if(tickID==Tickable.TICKID_AREA) // ticking from the area
+		if((tickID==Tickable.TICKID_AREA) // ticking from the area
+		||(tickID==Tickable.TICKID_PROPERTY_SPECIAL))
 		{
 			this.speedTick = 0.0;
 		}
@@ -111,16 +139,16 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 	}
 
 	@Override
-	public Area getShipArea()
+	public Area getArea()
 	{
 		if((!destroyed)&&(area==null))
 		{
-			final Area area=super.getShipArea();
+			final Area area=super.getArea();
 			if(area != null)
 				area.setTheme(Area.THEME_TECHNOLOGY);
 			return area;
 		}
-		return super.getShipArea();
+		return super.getArea();
 	}
 
 	@Override
@@ -129,8 +157,8 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 		if((CMSecurity.isDebugging(DbgFlag.SPACESHIP))&&(getIsDocked()==null))
 			Log.debugOut("SpaceShip "+name()+" is docking at '"+R.displayText()+"' ("+R.roomID()+")");
 		if(R instanceof LocationRoom)
-			setCoords(CMLib.map().moveSpaceObject(((LocationRoom)R).coordinates(), ((LocationRoom)R).getDirectionFromCore(), radius()));
-		CMLib.map().delObjectInSpace(getShipSpaceObject());
+			setCoords(CMLib.space().moveSpaceObject(((LocationRoom)R).coordinates(), ((LocationRoom)R).getDirectionFromCore(), radius()));
+		CMLib.space().delObjectInSpace(getShipSpaceObject());
 		setSpeed(0);
 		super.dockHere(R);
 	}
@@ -144,61 +172,95 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 		final Room exitRoom = super.unDock(moveToOutside);
 		if(R instanceof LocationRoom)
 		{
-			setDirection(Arrays.copyOf(((LocationRoom)R).getDirectionFromCore(),2));
-			direction()[0]+=CMLib.dice().plusOrMinus(Math.PI/10.0);
-			if(direction[0] > 2*Math.PI)
-				direction[0] -= 2*Math.PI;
-			if(direction()[0]<0)
-				direction()[0]+=(Math.PI*2);
-			direction()[1]+=CMath.abs(CMLib.dice().plusOrMinus(Math.PI/10.0));
-			if(direction[1] > Math.PI)
-				direction[1] -= Math.PI;
-			setFacing(Arrays.copyOf(direction(),2));
+			setDirection(((LocationRoom)R).getDirectionFromCore().copyOf());
+			CMLib.space().changeDirection(direction, CMLib.dice().plusOrMinus(Math.PI/10.0), CMath.abs(CMLib.dice().plusOrMinus(Math.PI/10.0)));
+			setFacing(direction().copyOf());
 		}
 		if(moveToOutside)
 		{
 			final SpaceObject o = getShipSpaceObject();
-			final SpaceObject planetO = CMLib.map().getSpaceObject(R, true);
-			final long[] newCoordinates = CMLib.map().moveSpaceObject(((LocationRoom)R).coordinates(), direction(), radius()+radius());
+			final SpaceObject planetO = CMLib.space().getSpaceObject(R, true);
+			final Coord3D newCoordinates;
+			if(R instanceof LocationRoom)
+				newCoordinates = CMLib.space().moveSpaceObject(((LocationRoom)R).coordinates(), direction(), radius()+radius());
+			else
+			{
+				SpaceObject op = CMLib.space().getSpaceObject(R, false);
+				if(op != null)
+					newCoordinates = CMLib.space().moveSpaceObject(op.coordinates(), direction(), radius()+radius());
+				else
+					newCoordinates = o.coordinates();
+			}
 			if((o != null)&&(R instanceof LocationRoom))
 			{
-				CMLib.map().addObjectToSpace(o,newCoordinates);
-				final double gravity = CMLib.tech().getGravityForce(o, planetO);
+				CMLib.space().addObjectToSpace(o, newCoordinates);
+				final double gravity = CMLib.space().getGravityForce(o, planetO);
 				setShipFlag(SpaceShip.ShipFlag.IN_THE_AIR,(gravity > 0.0));
 			}
 		}
 		return exitRoom;
 	}
 
-	@Override
-	public void renameShip(final String newName)
+	protected String getElectronicsKey()
 	{
-		final Area area=this.getShipArea();
-		if(area instanceof BoardableShip)
+		final Area area=this.getArea();
+		if(area instanceof Boardable)
 		{
-			final String oldName=area.Name();
 			String registryNum=area.getBlurbFlag("REGISTRY");
 			if(registryNum==null)
 				registryNum="";
-			super.renameShip(newName);
-			CMLib.tech().unregisterElectronics(null, oldName+registryNum);
-			registryNum=Double.toString(Math.random());
-			area.addBlurbFlag("REGISTRY Registry#"+registryNum.substring(registryNum.indexOf('.')+1));
+			return area.Name()+registryNum;
+		}
+		return "";
+	}
+
+	@Override
+	public void rename(final String newName)
+	{
+		final Area area=this.getArea();
+		if(area instanceof Boardable)
+		{
+			final String registryNum=getElectronicsKey();
+			super.rename(newName);
+			CMLib.tech().unregisterElectronics(null, registryNum);
+			final String newRegistryNum=Double.toString(Math.random());
+			area.addBlurbFlag("REGISTRY Registry#"+newRegistryNum.substring(newRegistryNum.indexOf('.')+1));
 		}
 	}
 
 	@Override
 	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
+		if((msg.targetMinor() == CMMsg.TYP_ACTIVATE)
+		&&(CMath.bset(msg.targetMajor(), CMMsg.MASK_CNTRLMSG))
+		&&(msg.targetMessage()!=null))
+		{
+			final TechCommand command=TechCommand.findCommand(msg.targetMessage());
+			if(command!=null)
+			{
+				final List<MsgListener> listeners = extListeners.get(command);
+				if(listeners != null)
+				{
+					for(final MsgListener listener : listeners)
+					{
+						if(!listener.okMessage(myHost, msg))
+							return false;
+					}
+				}
+			}
+		}
+
 		if(msg.amITarget(this))
 		{
 			switch(msg.targetMinor())
 			{
 			case CMMsg.TYP_DAMAGE:
 			{
-				final double myMass=getMass();
-				final double hardness = RawMaterial.CODES.HARDNESS(material()) * SpaceObject.Distance.Kilometer.dm;
-				msg.setValue((int)Math.round((usesRemaining() * (msg.value() / myMass)) / hardness));
+				double hardness = RawMaterial.CODES.HARDNESS(material());
+				if(hardness < 1.0)
+					hardness = 1.0;
+				// natural hull resistance is the hardness of the material
+				msg.setValue((int)Math.round(msg.value() / hardness));
 				if(!okAreaMessage(msg,false))
 					return false;
 				return true;
@@ -213,6 +275,28 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 	{
 		super.executeMsg(myHost,msg);
 
+		if(CMLib.map().areaLocation(msg.source())!=getArea())
+		{
+			for(final TechComponent sensor : getShipSensors())
+				sensor.executeMsg(myHost, msg);
+		}
+
+		if((msg.targetMinor() == CMMsg.TYP_ACTIVATE)
+		&&(CMath.bset(msg.targetMajor(), CMMsg.MASK_CNTRLMSG))
+		&&(msg.targetMessage()!=null))
+		{
+			final TechCommand command=TechCommand.findCommand(msg.targetMessage());
+			if(command!=null)
+			{
+				final List<MsgListener> listeners = extListeners.get(command);
+				if(listeners != null)
+				{
+					for(final MsgListener listener : listeners)
+						listener.executeMsg(myHost, msg);
+				}
+			}
+		}
+
 		if(msg.amITarget(this))
 		{
 			switch(msg.targetMinor())
@@ -220,19 +304,20 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 			case CMMsg.TYP_ACTIVATE:
 				if((CMath.bset(msg.targetMajor(), CMMsg.MASK_CNTRLMSG))&&(msg.targetMessage()!=null))
 				{
-					final String[] parts=msg.targetMessage().split(" ");
-					final TechCommand command=TechCommand.findCommand(parts);
+					final TechCommand command=TechCommand.findCommand(msg.targetMessage());
 					if(command!=null)
 					{
-						final Object[] parms=command.confirmAndTranslate(parts);
+						final Object[] parms=command.confirmAndTranslate(msg.targetMessage());
 						if(parms!=null)
 						{
 							if(command==Technical.TechCommand.ACCELERATION)
 							{
-								final TechComponent.ShipDir dir=(TechComponent.ShipDir)parms[0];
+								final ShipDirectional.ShipDir dir=(ShipDirectional.ShipDir)parms[0];
 								final double amount=((Double)parms[1]).doubleValue();
 								final boolean isConst = ((Boolean)parms[2]).booleanValue();
 								double finalAcceleration = 0;
+								double effectiveAcceleration = 0;
+								final double prevSpeed = speed();
 								Room dockR = getIsDocked();
 								if(amount != 0)
 								{
@@ -242,36 +327,40 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 										if(dockR==null)
 										{
 											finalAcceleration = -CMath.mul(amount,0.017);
-											facing[0] += finalAcceleration;
+											effectiveAcceleration = finalAcceleration;
+											CMLib.space().changeDirection(facing, finalAcceleration, 0.0);
 											if(CMSecurity.isDebugging(DbgFlag.SPACESHIP))
-												Log.debugOut("SpaceShip "+name()+" turns "+dir.toString()+" "+Math.toDegrees(finalAcceleration)+" to "+facing[0]);
+												Log.debugOut("SpaceShip "+name()+" turns "+dir.toString()+" "+Math.toDegrees(finalAcceleration)+" to "+facing.xyd());
 										}
 										break;
 									case PORT:
 										if(dockR==null)
 										{
 											finalAcceleration = CMath.mul(amount,0.017);
-											facing[0] += finalAcceleration;
+											effectiveAcceleration = finalAcceleration;
+											CMLib.space().changeDirection(facing, finalAcceleration, 0.0);
 											if(CMSecurity.isDebugging(DbgFlag.SPACESHIP))
-												Log.debugOut("SpaceShip "+name()+" turns "+dir.toString()+" "+Math.toDegrees(finalAcceleration)+" to "+facing[0]);
+												Log.debugOut("SpaceShip "+name()+" turns "+dir.toString()+" "+Math.toDegrees(finalAcceleration)+" to "+facing.xyd());
 										}
 										break;
 									case DORSEL:
 										if(dockR==null)
 										{
 											finalAcceleration = -CMath.mul(amount,0.017);
-											facing[1] += finalAcceleration;
+											effectiveAcceleration = finalAcceleration;
+											CMLib.space().changeDirection(facing, 0.0, finalAcceleration);
 											if(CMSecurity.isDebugging(DbgFlag.SPACESHIP))
-												Log.debugOut("SpaceShip "+name()+" turns "+dir.toString()+" "+Math.toDegrees(finalAcceleration)+" to "+facing[1]);
+												Log.debugOut("SpaceShip "+name()+" turns "+dir.toString()+" "+Math.toDegrees(finalAcceleration)+" to "+facing.zd());
 										}
 										break;
 									case VENTRAL:
 										if(dockR==null)
 										{
 											finalAcceleration = CMath.mul(amount,0.017);
-											facing[1] += finalAcceleration;
+											effectiveAcceleration = finalAcceleration;
+											CMLib.space().changeDirection(facing, 0.0, finalAcceleration);
 											if(CMSecurity.isDebugging(DbgFlag.SPACESHIP))
-												Log.debugOut("SpaceShip "+name()+" turns "+dir.toString()+" "+Math.toDegrees(finalAcceleration)+" to "+facing[1]);
+												Log.debugOut("SpaceShip "+name()+" turns "+dir.toString()+" "+Math.toDegrees(finalAcceleration)+" to "+facing.zd());
 										}
 										break;
 									case FORWARD:
@@ -301,21 +390,22 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 										}
 										//force/mass is the Gs felt by the occupants.. not force-mass
 										finalAcceleration = amount*inAirFactor;
-										if((dockR==null) && ((finalAcceleration-this.speedTick) > 0))
+										effectiveAcceleration = finalAcceleration-this.speedTick;
+										if((dockR==null) && (effectiveAcceleration > 0))
 										{
-											final double prevSpeed = speed();
-											final double[] moveDir = (dir == ShipDir.FORWARD) ? facing() : CMLib.map().getOppositeDir(facing());
-											CMLib.map().moveSpaceObject(this,moveDir,finalAcceleration-this.speedTick); // have to do this to know new speed
+											final Dir3D moveDir = (dir == ShipDir.FORWARD) ? facing() : CMLib.space().getOppositeDir(facing());
+											CMLib.space().accelSpaceObject(this,moveDir,effectiveAcceleration); // have to do this to know new speed
 											if(CMSecurity.isDebugging(DbgFlag.SPACESHIP))
-												Log.debugOut("SpaceShip "+name()+" accelerates "+dir.toString()+" " +(finalAcceleration-this.speedTick));
-											this.speedTick += (finalAcceleration-this.speedTick);
+												Log.debugOut("SpaceShip "+name()+" accelerates "+dir.toString()+" " +effectiveAcceleration);
+											this.speedTick += effectiveAcceleration;
 											if((speed() < prevSpeed) && (this.speed() < 0.5)) // enough slowing down!
 												setSpeed(0.0);
 										}
 										break;
 									}
 									}
-									final String code=Technical.TechCommand.ACCELERATED.makeCommand(dir,Double.valueOf(finalAcceleration));
+									final String code=Technical.TechCommand.ACCELERATED.makeCommand(dir,
+											Double.valueOf(finalAcceleration), Double.valueOf(effectiveAcceleration), Double.valueOf(this.speed()-prevSpeed));
 									final MOB mob=CMClass.getFactoryMOB();
 									try
 									{
@@ -326,10 +416,7 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 									{
 										mob.destroy();
 									}
-									facing[0]=Math.abs(facing[0]%(2*Math.PI));
-									facing[1]=Math.abs(facing[1]);
-									if(facing[1] > Math.PI)
-										facing[1] -= Math.PI;
+									CMLib.space().changeDirection(facing, 0.0, 0.0);
 								}
 							}
 						}
@@ -361,16 +448,17 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 					case CMMsg.TYP_SONIC:
 					case CMMsg.TYP_UNDEAD:
 					case CMMsg.TYP_WATER:
+					{
 						if(CMLib.dice().getRandomizer().nextDouble() + CMath.div(baseDamage,100) > this.getFinalManufacturer().getReliabilityPct())
 							hullDamage=1;
 						if(hullDamage < usesRemaining())
 						{
-							final List<Electronics> list = CMLib.tech().getMakeRegisteredElectronics(CMLib.tech().getElectronicsKey(getShipArea()));
+							final List<Electronics> list = CMLib.tech().getMakeRegisteredElectronics(CMLib.tech().getElectronicsKey(getArea()));
 							for(final Iterator<Electronics> i=list.iterator();i.hasNext();)
 							{
 								final Electronics E=i.next();
 								if((E.amDestroyed())
-								||(((E.subjectToWearAndTear())&&(E.usesRemaining()>0)))
+								//||(((E.subjectToWearAndTear())&&(E.usesRemaining()>0)))
 								||(E instanceof ElecPanel)
 								||(E instanceof Software)
 								||((E instanceof TechComponent) && (!((TechComponent)E).isInstalled()))
@@ -382,10 +470,18 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 								final Electronics damagedE = list.get(CMLib.dice().roll(1, list.size(), -1));
 								final Room R=CMLib.map().roomLocation(damagedE);
 								final CMMsg msg2=(CMMsg)msg.copyOf();
-								if((R!=null)&&(R.okMessage(msg.source(), msg2)))
+								msg2.setTarget(damagedE);
+								if((R!=null)
+								&&(R.okMessage(msg.source(), msg2)))
+								{
 									R.send(msg.source(), msg2);
+									//hullDamage=(hullDamage>1)?1:0;
+								}
 							}
 						}
+						break;
+					}
+					default:
 						break;
 					}
 					if(hullDamage >= usesRemaining())
@@ -396,7 +492,7 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 							msg.setOthersMessage(L("You hear a loud deafening crash and feel a massive jolt."));
 						sendAreaMessage(msg,false);
 						if(hullDamage>0)
-							destroyThisShip();
+							destroyThisBoardable();
 					}
 					else
 					{
@@ -466,11 +562,13 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 
 				if((!amDestroyed()) && (msg.tool() instanceof Area))
 				{
-					final List<LocationRoom> landingPoints=CMLib.map().getLandingPoints(this, msg.tool());
+					final List<LocationRoom> landingPoints=CMLib.space().getLandingPoints(this, msg.tool());
 					final LocationRoom LR = landingPoints.size()==0 ? null : landingPoints.get(0);
 					stopThisShip(mob);
 					if(LR!=null)
 					{
+						CMLib.space().sendSpaceEmissionEvent(this,msg.tool(), CMMsg.TYP_COLLISION|CMMsg.MASK_MOVE|CMMsg.MASK_EYES
+															, L("<T-NAME> has landed on <O-NAME>"));
 						if(CMSecurity.isDebugging(DbgFlag.SPACESHIP))
 							Log.debugOut(Name()+" Landed and Stopped, and docking at "+CMLib.map().getExtendedRoomID(LR));
 						//final CMMsg kMsg=CMClass.getMsg(msg.source(),getShipArea(),this,CMMsg.MSG_OK_ACTION,L("The ship comes to a resting stop."));
@@ -478,6 +576,8 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 					}
 					else
 					{
+						CMLib.space().sendSpaceEmissionEvent(this,msg.tool(), CMMsg.TYP_COLLISION|CMMsg.MASK_MOVE|CMMsg.MASK_EYES
+															, L("<T-NAME> has hit <O-NAME>"));
 						if(CMSecurity.isDebugging(DbgFlag.SPACESHIP))
 							Log.debugOut(Name()+" Landed and Stopped, but nowhere to dock. :(");
 						// we landed, but there was nowhere to dock!
@@ -486,12 +586,20 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 				else
 				if(!amDestroyed())
 				{
+					if(!(msg.tool() instanceof Weapon))
+						CMLib.space().sendSpaceEmissionEvent(this,msg.tool(), CMMsg.TYP_COLLISION|CMMsg.MASK_MOVE|CMMsg.MASK_EYES
+															, L("<T-NAME> has hit <O-NAME>"));
 					if(CMSecurity.isDebugging(DbgFlag.SPACESHIP))
 						Log.debugOut(Name()+" Collided with weird thing: "+msg.tool().ID());
 				}
 				else
-				if(CMSecurity.isDebugging(DbgFlag.SPACESHIP))
-					Log.debugOut(Name()+" was destroyed.");
+				{
+					if(!(msg.tool() instanceof Weapon))
+						CMLib.space().sendSpaceEmissionEvent(this,msg.tool(), CMMsg.TYP_COLLISION|CMMsg.MASK_MOVE|CMMsg.MASK_EYES
+															, L("<T-NAME> has hit <O-NAME>, and was destroyed."));
+					if(CMSecurity.isDebugging(DbgFlag.SPACESHIP))
+						Log.debugOut(Name()+" was destroyed.");
+				}
 				sendComputerMessage(mob,msg);
 				break;
 			}
@@ -556,7 +664,7 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 		if(CMSecurity.isDebugging(DbgFlag.SPACESHIP))
 			Log.debugOut("SpaceShip "+name()+" is now STOPPED!");
 		setSpeed(0); // if you collide with something massive, your speed ENDS
-		final List<Electronics> electronics=CMLib.tech().getMakeRegisteredElectronics(CMLib.tech().getElectronicsKey(getShipArea()));
+		final List<Electronics> electronics=CMLib.tech().getMakeRegisteredElectronics(CMLib.tech().getElectronicsKey(getArea()));
 		for(final Electronics E : electronics)
 		{
 			if(E instanceof ShipEngine)
@@ -574,9 +682,15 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 	}
 
 	@Override
-	public BoundedCube getBounds()
+	public BoundedCube getCube()
 	{
-		return new BoundedObject.BoundedCube(coordinates(),radius());
+		return new BoundedCube(coordinates(),radius());
+	}
+
+	@Override
+	public BoundedSphere getSphere()
+	{
+		return new BoundedSphere(coordinates(),radius());
 	}
 
 	@Override
@@ -587,6 +701,17 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 
 	@Override
 	public void setPowerCapacity(final long capacity)
+	{
+	}
+
+	@Override
+	public long powerTarget()
+	{
+		return 0;
+	}
+
+	@Override
+	public void setPowerTarget(final long capacity)
 	{
 	}
 
@@ -614,7 +739,7 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 
 	protected void sendComputerMessage(final MOB mob, final CMMsg msg)
 	{
-		final Area ship=getShipArea();
+		final Area ship=getArea();
 		if(ship!=null)
 		{
 			final List<Electronics> electronics = CMLib.tech().getMakeRegisteredElectronics(CMLib.tech().getElectronicsKey(ship));
@@ -644,22 +769,28 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 	@Override
 	public void setShipFlag(final ShipFlag flag, final boolean setFlag)
 	{
-		if(shipFlags.contains(flag))
+		synchronized(shipFlags)
 		{
-			if(!setFlag)
-				shipFlags.remove(flag);
-		}
-		else
-		{
-			if(setFlag)
-				shipFlags.add(flag);
+			if(shipFlags.contains(flag))
+			{
+				if(!setFlag)
+					shipFlags.remove(flag);
+			}
+			else
+			{
+				if(setFlag)
+					shipFlags.add(flag);
+			}
 		}
 	}
 
 	@Override
 	public boolean getShipFlag(final ShipFlag flag)
 	{
-		return shipFlags.contains(flag);
+		synchronized(shipFlags)
+		{
+			return shipFlags.contains(flag);
+		}
 	}
 
 	@Override
@@ -719,13 +850,13 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 	}
 
 	@Override
-	public long[] coordinates()
+	public Coord3D coordinates()
 	{
 		return coordinates;
 	}
 
 	@Override
-	public double[] direction()
+	public Dir3D direction()
 	{
 		return direction;
 	}
@@ -743,13 +874,13 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 	}
 
 	@Override
-	public double[] facing()
+	public Dir3D facing()
 	{
 		return facing;
 	}
 
 	@Override
-	public void setFacing(final double[] dir)
+	public void setFacing(final Dir3D dir)
 	{
 		if(dir!=null)
 			this.facing=dir;
@@ -768,14 +899,14 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 	}
 
 	@Override
-	public void setCoords(final long[] coords)
+	public void setCoords(final Coord3D coords)
 	{
-		if((coords!=null)&&(coords.length==3))
-			CMLib.map().moveSpaceObject(this,coords);
+		if((coords!=null)&&(coords.length()==3))
+			CMLib.space().moveSpaceObject(this,coords);
 	}
 
 	@Override
-	public void setDirection(final double[] dir)
+	public void setDirection(final Dir3D dir)
 	{
 		if(dir!=null)
 			direction=dir;
@@ -818,6 +949,12 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 	}
 
 	@Override
+	public Coord3D center()
+	{
+		return coordinates();
+	}
+
+	@Override
 	public void setRadius(final long radius)
 	{
 		if (area instanceof SpaceObject)
@@ -838,192 +975,45 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 			((SpaceShip)area).setOMLCoeff(coeff);
 	}
 
-	private final static String[] MYCODES={"HASLOCK","HASLID","CAPACITY","CONTAINTYPES","RESETTIME","RIDEBASIS","MOBSHELD",
-											"POWERCAP","ACTIVATED","POWERREM","MANUFACTURER","AREA","COORDS","RADIUS",
-											"ROLL","DIRECTION","SPEED","FACING","OWNER","PRICE","DEFCLOSED","DEFLOCKED",
-											"EXITNAME","TECHLEVEL",
-											"PUTSTR","MOUNTSTR","DISMOUNTSTR","STATESTR","STATESUBJSTR","RIDERSTR"
-										  };
-
 	@Override
-	public String getStat(final String code)
+	public void registerListener(final TechCommand command, final MsgListener listener)
 	{
-		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
-			return CMLib.coffeeMaker().getGenItemStat(this,code);
-		switch(getCodeNum(code))
+		synchronized(extListeners)
 		{
-		case 0:
-			return "" + hasALock();
-		case 1:
-			return "" + hasADoor();
-		case 2:
-			return "" + capacity();
-		case 3:
-			return "" + containTypes();
-		case 4:
-			return "" + openDelayTicks();
-		case 5:
-			return "" + rideBasis();
-		case 6:
-			return "" + riderCapacity();
-		case 7:
-			return "" + powerCapacity();
-		case 8:
-			return "" + activated();
-		case 9:
-			return "" + powerRemaining();
-		case 10:
-			return getManufacturerName();
-		case 11:
-			return CMLib.coffeeMaker().getAreaObjectXML(getShipArea(), null, null, null, true).toString();
-		case 12:
-			return CMParms.toListString(coordinates());
-		case 13:
-			return "" + radius();
-		case 14:
-			return "" + roll();
-		case 15:
-			return CMParms.toListString(direction());
-		case 16:
-			return "" + speed();
-		case 17:
-			return CMParms.toListString(facing());
-		case 18:
-			return getOwnerName();
-		case 19:
-			return "" + getPrice();
-		case 20:
-			return "" + defaultsClosed();
-		case 21:
-			return "" + defaultsLocked();
-		case 22:
-			return "" + doorName();
-		case 23:
-			return "" + techLevel();
-		case 24:
-			return this.getPutString();
-		case 25:
-			return this.getMountString();
-		case 26:
-			return this.getDismountString();
-		case 27:
-			return this.getStateString();
-		case 28:
-			return this.getStateStringSubject();
-		case 29:
-			return this.getRideString();
-		default:
-			return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
+			List<MsgListener> list = extListeners.get(command);
+			if(list == null)
+			{
+				list = new LinkedList<MsgListener>();
+				extListeners.put(command, list);
+			}
+			if(!list.contains(listener))
+				list.add(listener);
 		}
 	}
 
 	@Override
-	public void setStat(final String code, final String val)
+	public void unregisterListener(final TechCommand command, final MsgListener listener)
 	{
-		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
-			CMLib.coffeeMaker().setGenItemStat(this,code,val);
-		else
-		switch(getCodeNum(code))
+		synchronized(extListeners)
 		{
-		case 0:
-			setDoorsNLocks(hasADoor(), isOpen(), defaultsClosed(), CMath.s_bool(val), false, CMath.s_bool(val) && defaultsLocked());
-			break;
-		case 1:
-			setDoorsNLocks(CMath.s_bool(val), isOpen(), CMath.s_bool(val) && defaultsClosed(), hasALock(), isLocked(), defaultsLocked());
-			break;
-		case 2:
-			setCapacity(CMath.s_parseIntExpression(val));
-			break;
-		case 3:
-			setContainTypes(CMath.s_parseBitLongExpression(Container.CONTAIN_DESCS, val));
-			break;
-		case 4:
-			setOpenDelayTicks(CMath.s_parseIntExpression(val));
-			break;
-		case 5:
-			break;
-		case 6:
-			break;
-		case 7:
-			setPowerCapacity(CMath.s_parseIntExpression(val));
-			break;
-		case 8:
-			activate(CMath.s_bool(val));
-			break;
-		case 9:
-			setPowerRemaining(CMath.s_parseLongExpression(val));
-			break;
-		case 10:
-			setManufacturerName(val);
-			break;
-		case 11:
-			setShipArea(val);
-			break;
-		case 12:
-			setCoords(CMParms.toLongArray(CMParms.parseCommas(val, true)));
-			coordinates[0] = coordinates[0] % SpaceObject.Distance.GalaxyRadius.dm;
-			coordinates[1] = coordinates[1] % SpaceObject.Distance.GalaxyRadius.dm;
-			coordinates[2] = coordinates[2] % SpaceObject.Distance.GalaxyRadius.dm;
-			break;
-		case 13:
-			setRadius(CMath.s_long(val));
-			break;
-		case 14:
-			setRoll(CMath.s_double(val));
-			break;
-		case 15:
-			setDirection(CMParms.toDoubleArray(CMParms.parseCommas(val, true)));
-			break;
-		case 16:
-			setSpeed(CMath.s_double(val));
-			break;
-		case 17:
-			setFacing(CMParms.toDoubleArray(CMParms.parseCommas(val, true)));
-			break;
-		case 18:
-			setOwnerName(val);
-			break;
-		case 19:
-			setPrice(CMath.s_int(val));
-			break;
-		case 20:
-			setDoorsNLocks(hasADoor(), isOpen(), CMath.s_bool(val), hasALock(), isLocked(), defaultsLocked());
-			break;
-		case 21:
-			setDoorsNLocks(hasADoor(), isOpen(), defaultsClosed(), hasALock(), isLocked(), CMath.s_bool(val));
-			break;
-		case 22:
-			doorName = val;
-			break;
-		case 23:
-			setTechLevel(CMath.s_parseIntExpression(val));
-			break;
-		case 24:
-			setPutString(val);
-			break;
-		case 25:
-			setMountString(val);
-			break;
-		case 26:
-			setDismountString(val);
-			break;
-		case 27:
-			setStateString(val);
-			break;
-		case 28:
-			setStateStringSubject(val);
-			break;
-		case 29:
-			setRideString(val);
-			break;
-		default:
-			CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);
-			break;
+			final List<MsgListener> list = extListeners.get(command);
+			if(list == null)
+				return;
+			if(list.remove(listener))
+			{
+				if(list.size()==0)
+					extListeners.remove(command);
+			}
 		}
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private final static String[] MYCODES=
+	{
+		"POWERCAP","ACTIVATED","POWERREM","MANUFACTURER","COORDS","RADIUS",
+		"ROLL","DIRECTION","SPEED","FACING","TECHLEVEL"
+	};
+
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<MYCODES.length;i++)
 		{
@@ -1041,7 +1031,7 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 		if(codes!=null)
 			return codes;
 		final String[] MYCODES=CMProps.getStatCodesList(GenSpaceShip.MYCODES,this);
-		final String[] superCodes=CMParms.toStringArray(GenericBuilder.GenItemCode.values());
+		final String[] superCodes=CMParms.toStringArray(super.getStatCodes());
 		codes=new String[superCodes.length+MYCODES.length];
 		int i=0;
 		for(;i<superCodes.length;i++)
@@ -1052,59 +1042,89 @@ public class GenSpaceShip extends StdBoardable implements Electronics, SpaceShip
 	}
 
 	@Override
+	public String getStat(final String code)
+	{
+		switch(getInternalCodeNum(code))
+		{
+		case 0:
+			return "" + powerCapacity();
+		case 1:
+			return "" + activated();
+		case 2:
+			return "" + powerRemaining();
+		case 3:
+			return getManufacturerName();
+		case 4:
+			return CMParms.toListString(coordinates().toLongs());
+		case 5:
+			return "" + radius();
+		case 6:
+			return "" + roll();
+		case 7:
+			return CMParms.toListString(direction().toDoubles());
+		case 8:
+			return "" + speed();
+		case 9:
+			return CMParms.toListString(facing().toDoubles());
+		case 10:
+			return "" + techLevel();
+		default:
+			return super.getStat(code);
+		}
+	}
+
+	@Override
+	public void setStat(final String code, final String val)
+	{
+		switch(getInternalCodeNum(code))
+		{
+		case 0:
+			setPowerCapacity(CMath.s_parseIntExpression(val));
+			break;
+		case 1:
+			activate(CMath.s_bool(val));
+			break;
+		case 2:
+			setPowerRemaining(CMath.s_parseLongExpression(val));
+			break;
+		case 3:
+			setManufacturerName(val);
+			break;
+		case 4:
+			setCoords(new Coord3D(CMParms.toLongArray(CMParms.parseCommas(val, true))));
+			coordinates.x(coordinates.x().longValue() % SpaceObject.Distance.GalaxyRadius.dm);
+			coordinates.y(coordinates.y().longValue() % SpaceObject.Distance.GalaxyRadius.dm);
+			coordinates.z(coordinates.z().longValue() % SpaceObject.Distance.GalaxyRadius.dm);
+			break;
+		case 5:
+			setRadius(CMath.s_long(val));
+			break;
+		case 6:
+			setRoll(CMath.s_double(val));
+			break;
+		case 7:
+			setDirection(new Dir3D(CMParms.toDoubleArray(CMParms.parseCommas(val, true))));
+			break;
+		case 8:
+			setSpeed(CMath.s_double(val));
+			break;
+		case 9:
+			setFacing(new Dir3D(CMParms.toDoubleArray(CMParms.parseCommas(val, true))));
+			break;
+		case 10:
+			setTechLevel(CMath.s_parseIntExpression(val));
+			break;
+		default:
+			super.setStat(code, val);
+			break;
+		}
+	}
+
+	@Override
 	public boolean sameAs(final Environmental E)
 	{
 		if(!(E instanceof GenSpaceShip))
 			return false;
-		final String[] codes=getStatCodes();
-		for(int i=0;i<codes.length;i++)
-		{
-			if((!E.getStat(codes[i]).equals(getStat(codes[i])))
-			&&(!codes[i].equals("AREA"))
-			&&(!codes[i].equals("ABILITY")))
-				return false;
-		}
-		final Area eA = ((GenSpaceShip)E).getShipArea();
-		final Area A = this.getShipArea();
-		final Enumeration<Room> er = eA.getProperMap();
-		final Enumeration<Room> r = A.getProperMap();
-		for(;r.hasMoreElements();)
-		{
-			final Room R=r.nextElement();
-			if(!er.hasMoreElements())
-				return false;
-			final Room eR = er.nextElement();
-			if(!R.sameAs(eR))
-				return false;
-			final Enumeration<Item> i=R.items();
-			final Enumeration<Item> ei = eR.items();
-			for(;i.hasMoreElements();)
-			{
-				final Item I=i.nextElement();
-				if(!ei.hasMoreElements())
-					return false;
-				final Item eI=ei.nextElement();
-				if(!I.sameAs(eI))
-					return false;
-			}
-			if(ei.hasMoreElements())
-				return false;
-			final Enumeration<MOB> m=R.inhabitants();
-			final Enumeration<MOB> em = eR.inhabitants();
-			for(;m.hasMoreElements();)
-			{
-				final MOB M=m.nextElement();
-				if(!em.hasMoreElements())
-					return false;
-				final MOB eM=em.nextElement();
-				if(!M.sameAs(eM))
-					return false;
-			}
-			if(em.hasMoreElements())
-				return false;
-		}
-		if(er.hasMoreElements())
-			return false;
-		return true;
+		return super.sameAs(E);
 	}
 }

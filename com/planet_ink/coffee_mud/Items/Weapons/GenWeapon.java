@@ -18,7 +18,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ public class GenWeapon extends StdWeapon
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this,false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 	}
 
 	@Override
@@ -89,7 +89,7 @@ public class GenWeapon extends StdWeapon
 	public void setMiscText(final String newText)
 	{
 		miscText="";
-		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this,newText,false);
 		recoverPhyStats();
 	}
 
@@ -116,13 +116,13 @@ public class GenWeapon extends StdWeapon
 		case 1:
 			return "" + W.getRanges()[1];
 		case 2:
-			return "" + W.weaponDamageType();
+			return CMStrings.s_indexStr(Weapon.TYPE_DESCS,W.weaponDamageType(),"");
 		case 3:
-			return "" + W.weaponClassification();
+			return CMStrings.s_indexStr(Weapon.CLASS_DESCS,W.weaponClassification(),"");
 		case 4:
 			return W.ammunitionType();
 		case 5:
-			return "" + W.ammunitionCapacity();
+			return "" + W.rawAmmunitionCapacity();
 		default:
 			return "";
 		}
@@ -173,12 +173,6 @@ public class GenWeapon extends StdWeapon
 			GenWeapon.setGenWeaponStat(this,code,val);
 		else
 			CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);
-	}
-
-	@Override
-	protected int getCodeNum(final String code)
-	{
-		return GenWeapon.getGenWeaponCodeNum(code);
 	}
 
 	@Override

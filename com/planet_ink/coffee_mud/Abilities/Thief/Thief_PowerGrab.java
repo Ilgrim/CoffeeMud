@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -104,6 +104,8 @@ public class Thief_PowerGrab extends ThiefSkill
 		final Item target=super.getTarget(mob, mob.location(), givenTarget, possibleContainer, commands, Wearable.FILTER_UNWORNONLY);
 		if(target==null)
 			return false;
+		if(!super.invoke(mob, commands, givenTarget, auto, asLevel))
+			return false;
 		final boolean success=proficiencyCheck(mob,0,auto);
 		if(!success)
 			beneficialVisualFizzle(mob,null,L("<S-NAME> attempt(s) to power grab something and fail(s)."));
@@ -115,11 +117,17 @@ public class Thief_PowerGrab extends ThiefSkill
 				mob.location().send(mob,msg);
 				final int level=target.basePhyStats().level();
 				final int level2=target.phyStats().level();
-				target.basePhyStats().setLevel(1);
-				target.phyStats().setLevel(1);
-				CMLib.commands().postGet(mob, possibleContainer, target, false);
-				target.basePhyStats().setLevel(level);
-				target.phyStats().setLevel(level2);
+				try
+				{
+					target.basePhyStats().setLevel(1);
+					target.phyStats().setLevel(1);
+					CMLib.commands().postGet(mob, possibleContainer, target, false);
+				}
+				finally
+				{
+					target.basePhyStats().setLevel(level);
+					target.phyStats().setLevel(level2);
+				}
 				target.recoverPhyStats();
 				mob.location().recoverRoomStats();
 			}

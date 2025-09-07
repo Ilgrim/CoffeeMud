@@ -2,15 +2,17 @@
 <META HTTP-EQUIV="Pragma" CONTENT="no-cache">
 @if?!Authenticate@ @AddFile?/grinder/failedlogin.cmvp@ @else@
 <html>
+	<META CHARSET="utf-8"/>
 <head>
 	<link rel="grinder icon" href="/images/grinder.ico" >
+	<link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
 	<title>MOB Skills and Abilities</title>
 	<SCRIPT LANGUAGE=JavaScript>
 	<!--
 	function openUp2(named)
 	{
 		var strFeatures="top=200,left=50,resizeable=no,scrollbars=yes,height=400,width=650,alwaysRaised=yes,dependent=yes";
-		w=window.open("property.cmvp?ABILITY="+named,
+		w=window.open("/property.cmvp?ABILITY="+named,
 		            "Ability",strFeatures, false);
 	}
 	//-->

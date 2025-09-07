@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2007-2020 Bo Zimmerman
+   Copyright 2007-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ public class Bid extends StdCommand
 		throws java.io.IOException
 	{
 		final Vector<String> origCmds=new XVector<String>(commands);
-		final Environmental shopkeeper=CMLib.english().parseShopkeeper(mob,commands,"Bid how much, on what, with whom?");
+		final Environmental shopkeeper=CMLib.english().parseShopkeeper(mob,commands,"with", "Bid how much, on what, with whom?");
 		if(shopkeeper==null)
 			return false;
 		if(commands.size()<2)
@@ -83,7 +83,7 @@ public class Bid extends StdCommand
 		}
 
 		String whatName=CMParms.combine(commands,0);
-		final Vector<Environmental> V=new Vector<Environmental>();
+		final List<Environmental> bidItemsV=new ArrayList<Environmental>();
 		boolean allFlag=commands.get(0).equalsIgnoreCase("all");
 		if(whatName.toUpperCase().startsWith("ALL."))
 		{
@@ -97,31 +97,38 @@ public class Bid extends StdCommand
 		}
 		int addendum=1;
 		boolean doBugFix = true;
+		final ShopKeeper SK=CMLib.coffeeShops().getShopKeeper(shopkeeper);
+		final CoffeeShop shop = SK.getShop(mob);
 		while(doBugFix || ((allFlag)&&(addendum<=maxToDo)))
 		{
 			doBugFix=false;
-			final ShopKeeper SK=CMLib.coffeeShops().getShopKeeper(shopkeeper);
-			final Environmental itemToDo=SK.getShop().getStock(whatName,mob);
+			final Environmental itemToDo=shop.getStock(whatName,mob);
 			if(itemToDo==null)
 				break;
 			if(CMLib.flags().canBeSeenBy(itemToDo,mob))
-				V.add(itemToDo);
-			if(addendum>=CMLib.coffeeShops().getShopKeeper(shopkeeper).getShop().numberInStock(itemToDo))
+				bidItemsV.add(itemToDo);
+			if(addendum>=shop.numberInStock(itemToDo))
 				break;
 			++addendum;
 		}
-		if(V.size()==0)
-			mob.tell(mob,shopkeeper,null,L("<T-NAME> do(es)n't appear to have any '@x1' available for auction.  Try LIST.",whatName));
-		else
-		for(int v=0;v<V.size();v++)
+		if(bidItemsV.size()==0)
 		{
-			final Environmental thisThang=V.get(v);
-			final CMMsg newMsg=CMClass.getMsg(mob,shopkeeper,thisThang,
+			CMLib.commands().postCommandFail(mob,shopkeeper,null,origCmds,
+					L("<T-NAME> do(es)n't appear to have any '@x1' available for auction.  Try LIST.",whatName));
+		}
+		else
+		for(int v=0;v<bidItemsV.size();v++)
+		{
+			final Environmental thisThang=bidItemsV.get(v);
+			final CMMsg msg=CMClass.getMsg(mob,shopkeeper,thisThang,
 					CMMsg.MSG_BID,L("<S-NAME> bid(s) @x1 on <O-NAME> with <T-NAMESELF>.",bidStr),
 					CMMsg.MSG_BID,L("<S-NAME> bid(s) '@x1' on <O-NAME> with <T-NAMESELF>.",bidStr),
 					CMMsg.MSG_BID,L("<S-NAME> place(s) a bid with <T-NAMESELF>."));
-			if(mob.location().okMessage(mob,newMsg))
-				mob.location().send(mob,newMsg);
+			if(mob.location().okMessage(mob,msg))
+				mob.location().send(mob,msg);
+			else
+			if(bidItemsV.size()==1)
+				CMLib.commands().postCommandRejection(msg.source(),msg.target(),msg.tool(),origCmds);
 		}
 		return false;
 	}

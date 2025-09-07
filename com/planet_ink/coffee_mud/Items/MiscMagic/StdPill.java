@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -54,8 +54,17 @@ public class StdPill extends StdFood implements Pill
 		setDescription("Large and round, with strange markings.");
 		secretIdentity="Surely this is a potent pill!";
 		baseGoldValue=200;
+		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_BONUS);
 		recoverPhyStats();
 		material=RawMaterial.RESOURCE_CORN;
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a pill");
 	}
 
 	@Override
@@ -126,7 +135,8 @@ public class StdPill extends StdFood implements Pill
 				theSpells.addElement(A);
 			}
 		}
-		me.recoverPhyStats();
+		if(me instanceof Physical)
+			((Physical)me).recoverPhyStats();
 		return theSpells;
 	}
 

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class Minotaur extends StdMOB
 		super();
 		final Random randomizer = new Random(System.currentTimeMillis());
 
-		username="a minotaur";
+		_name="a minotaur";
 		setDescription("A tall humanoid with the head of a bull, and the body of a very muscular man.  It\\`s covered in red fur.");
 		setDisplayText("A minotaur glares at you.");
 		CMLib.factions().setAlignment(this,Faction.Align.EVIL);
@@ -67,7 +67,7 @@ public class Minotaur extends StdMOB
 
 		basePhyStats().setDamage(12);
 		basePhyStats().setSpeed(2.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(6);
 		basePhyStats().setArmor(70);
 

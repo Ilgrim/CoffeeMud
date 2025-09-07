@@ -7,6 +7,7 @@ import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.CMClass.CMObjectType;
 import com.planet_ink.coffee_mud.core.collections.*;
+import com.planet_ink.coffee_mud.Abilities.Poisons.Poison;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -23,7 +24,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -112,36 +113,36 @@ public class MUDGrinder extends StdWebMacro
 			Item I=null;
 			MOB M=null;
 			final String sync=("SYNC"+((R!=null)?R.roomID():playerCode));
-			synchronized(sync.intern())
+			synchronized(CMClass.getSync(sync))
 			{
 				if(R!=null)
 					R=CMLib.map().getRoom(R);
 
 				if((playerM!=null)&&(R==null))
 				{
-					I=RoomData.getItemFromCode(playerM,itemCode);
+					I=CMLib.webMacroFilter().getItemFromWebCache(playerM,itemCode);
 					M=playerM;
 				}
 				else
 				if((mobCode!=null)&&(mobCode.length()>0))
 				{
 					if(R!=null)
-						M=RoomData.getMOBFromCode(R,mobCode);
+						M=CMLib.webMacroFilter().getMOBFromWebCache(R,mobCode);
 					else
-						M=RoomData.getMOBFromCode(RoomData.getMOBCache(),mobCode);
+						M=CMLib.webMacroFilter().getMOBFromWebCache(mobCode);
 					if(M!=null)
 					{
-						I=RoomData.getItemFromCode(M,itemCode);
+						I=CMLib.webMacroFilter().getItemFromWebCache(M,itemCode);
 						if(I==null)
-							I=RoomData.getItemFromCode((MOB)null,itemCode);
+							I=CMLib.webMacroFilter().getItemFromWebCache((MOB)null,itemCode);
 					}
 				}
 				else
 				if(R!=null)
 				{
-					I=RoomData.getItemFromCode(R,itemCode);
+					I=CMLib.webMacroFilter().getItemFromWebCache(R,itemCode);
 					if(I==null)
-						I=RoomData.getItemFromCode((Room)null,itemCode);
+						I=CMLib.webMacroFilter().getItemFromWebCache((Room)null,itemCode);
 				}
 				if(I==null)
 				{
@@ -154,12 +155,12 @@ public class MUDGrinder extends StdWebMacro
 							I=(Item)I.copyOf();
 					}
 					else
-						I=RoomData.getItemFromAnywhere(RoomData.getItemCache(),itemCode);
+						I=CMLib.webMacroFilter().findItemInWebCache(itemCode);
 				}
 			}
-			if(I instanceof BoardableShip)
+			if(I instanceof Boardable)
 			{
-				return ((BoardableShip)I).getShipArea();
+				return ((Boardable)I).getArea();
 			}
 		}
 		else
@@ -213,7 +214,7 @@ public class MUDGrinder extends StdWebMacro
 	public String runMacro(final HTTPRequest httpReq, final String parm, final HTTPResponse httpResp)
 	{
 		final java.util.Map<String,String> parms=parseParms(parm);
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return CMProps.getVar(CMProps.Str.MUDSTATUS);
 
 		if(parms!=null)
@@ -285,7 +286,7 @@ public class MUDGrinder extends StdWebMacro
 				return "@break@";
 			final Area pickedA=getLoggedArea(httpReq,mob);
 			final boolean noInstances=parms.containsKey("NOINSTANCE");
-			return GrinderAreas.getAreaList(CMLib.map().mundaneAreas(),pickedA,mob,noInstances);
+			return GrinderAreas.getAreaList(CMLib.map().mundaneAreas(),pickedA,mob,noInstances,false);
 		}
 		else
 		if(parms.containsKey("PLANETLIST"))
@@ -295,12 +296,22 @@ public class MUDGrinder extends StdWebMacro
 				return "@break@";
 			final Area pickedA=getLoggedArea(httpReq,mob);
 			final boolean noInstances=parms.containsKey("NOINSTANCE");
-			return GrinderAreas.getAreaList(CMLib.map().spaceAreas(),pickedA,mob,noInstances);
+			return GrinderAreas.getAreaList(CMLib.space().spaceAreas(),pickedA,mob,noInstances,false);
+		}
+		else
+		if(parms.containsKey("TREELIST"))
+		{
+			final MOB mob = Authenticate.getAuthenticatedMob(httpReq);
+			if(mob==null)
+				return "@break@";
+			final Area pickedA=getLoggedArea(httpReq,mob);
+			final boolean noInstances=parms.containsKey("NOINSTANCE");
+			return GrinderAreas.getAreaList(CMLib.map().topAreas(),pickedA,mob,noInstances,true);
 		}
 		else
 		if(parms.containsKey("ISSPACE"))
 		{
-			return ""+CMLib.map().spaceAreas().hasMoreElements();
+			return ""+CMLib.space().spaceAreas().hasMoreElements();
 		}
 		else
 		if(parms.containsKey("DELAREA"))
@@ -357,7 +368,7 @@ public class MUDGrinder extends StdWebMacro
 			for(final Enumeration<String> p=A.getPlayers();p.hasMoreElements();)
 			{
 				final MOB deadMOB=CMLib.players().getLoadPlayer(p.nextElement());
-				CMLib.players().obliteratePlayer(deadMOB,true,false);
+				CMLib.players().obliteratePlayer(deadMOB,true,CMSecurity.isDisabled(CMSecurity.DisFlag.DEATHCRY));
 				Log.sysOut("Grinder",mob.Name()+" destroyed user "+deadMOB.Name()+".");
 				deadMOB.destroy();
 			}
@@ -454,6 +465,49 @@ public class MUDGrinder extends StdWebMacro
 				return err;
 			Log.sysOut("Grinder",mob.Name()+" modified component "+last);
 			return "The component "+last+" has been successfully modified.";
+		}
+		else
+		if(parms.containsKey("DELPLANE"))
+		{
+			final MOB mob = Authenticate.getAuthenticatedMob(httpReq);
+			if(mob==null)
+				return "@break@";
+			final String last=httpReq.getUrlParameter("PLANE");
+			if(last==null)
+				return "@break@";
+			if(last.length()==0)
+				return "@break@";
+			if(!CMSecurity.isAllowedEverywhere(mob,CMSecurity.SecFlag.PLANES))
+				return "@break@";
+			final PlanarAbility planar=(PlanarAbility)CMClass.getAbilityPrototype("StdPlanarAbility");
+			if(planar==null)
+				return "@break@";
+			if(!planar.deletePlane(last))
+				return "The plane "+last+" could not be destroyed.";
+			else
+			{
+				Log.sysOut("Grinder",mob.Name()+" destroyed plane "+last);
+				return "The plane "+last+" has been successfully destroyed.";
+			}
+		}
+		else
+		if(parms.containsKey("EDITPLANE")||parms.containsKey("ADDPLANE"))
+		{
+			final MOB mob = Authenticate.getAuthenticatedMob(httpReq);
+			if(mob==null)
+				return "@break@";
+			final String last=httpReq.getUrlParameter("PLANE");
+			if(last==null)
+				return "@break@";
+			if(last.length()==0)
+				return "@break@";
+			if(!CMSecurity.isAllowedEverywhere(mob,CMSecurity.SecFlag.PLANES))
+				return "@break@";
+			final String err=new GrinderPlanes().runMacro(httpReq,parm);
+			if(err.length()>0)
+				return err;
+			//Log.sysOut("Grinder",mob.Name()+" modified plane "+last);
+			return "The plane "+last+" has been successfully modified.";
 		}
 		else
 		if(parms.containsKey("DELALLQUALIFY"))
@@ -698,7 +752,12 @@ public class MUDGrinder extends StdWebMacro
 			final Area A=getAreaObject(AREA);
 			if(A==null)
 				return "";
-			GrinderAreas.modifyArea(httpReq,parms);
+			final String errors = GrinderAreas.modifyArea(httpReq,parms);
+			if((errors != null)&&(errors.length() > 0))
+			{
+				httpReq.addFakeUrlParameter("ERRMSG",errors);
+				Log.errOut("Grinder","Area edit error: "+errors);
+			}
 			AREA=httpReq.getUrlParameter("AREA");
 			Log.sysOut("Grinder",mob.Name()+" edited area "+A.Name());
 		}
@@ -717,6 +776,32 @@ public class MUDGrinder extends StdWebMacro
 			Log.sysOut("Grinder",mob.Name()+" deleted exit "+dir+" from "+R.roomID());
 			final String errMsg=GrinderExits.delExit(R,dir);
 			httpReq.addFakeUrlParameter("ERRMSG",errMsg);
+		}
+		else
+		if(parms.containsKey("DELCOMMAND"))
+		{
+			final MOB mob = Authenticate.getAuthenticatedMob(httpReq);
+			if(mob==null)
+				return "@break@";
+			Command C=CMClass.getCommand(httpReq.getUrlParameter("COMMAND"));
+			if((C==null)||(!C.isGeneric()))
+				return "@break@";
+			Log.sysOut("Grinder",mob.Name()+" deleted command "+C.ID());
+			final DatabaseEngine.AckRecord rec = CMLib.database().DBDeleteCommand(C.ID());
+			CMClass.delClass(CMObjectType.COMMAND, C);
+			if((rec!=null)&&(rec.typeClass()!=null)&&(rec.typeClass().length()>0))
+			{
+				try
+				{
+					final Class<?> classC = Class.forName(rec.typeClass(), true, CMClass.instance());
+					C = (Command)classC.newInstance();
+					CMClass.addClass(CMObjectType.COMMAND, C);
+				}
+				catch (final Exception e)
+				{
+				}
+			}
+			CMClass.reloadCommandWords();
 		}
 		else
 		if(parms.containsKey("EDITEXIT"))
@@ -1065,7 +1150,10 @@ public class MUDGrinder extends StdWebMacro
 			}
 			String errMsg=GrinderFactions.modifyFaction(httpReq, parms, F);
 			if(errMsg.length()==0)
+			{
+				F.setInternalFlags(CMath.unsetb(F.getInternalFlags(),  Faction.IFLAG_NEVERSAVE));
 				errMsg=CMLib.factions().resaveFaction(F);
+			}
 			httpReq.addFakeUrlParameter("ERRMSG",errMsg);
 			if(errMsg.length()==0)
 				return "Faction "+F.ID()+" created/modified";
@@ -1103,22 +1191,40 @@ public class MUDGrinder extends StdWebMacro
 			final String last=httpReq.getUrlParameter("ABILITY");
 			if(last==null)
 				return " @break@";
-			A=CMClass.getAbility(last);
+			A=CMClass.getAbilityPrototype(last);
 			oldA=A;
 			boolean create=false;
 			if((A!=null)&&(!A.isGeneric()))
 				return " @break@";
 			String type="GenAbility";
-			final int code=CMath.s_int(httpReq.getUrlParameter("CLASSIFICATION_ACODE"));
-			if(code==Ability.ACODE_LANGUAGE)
-				type="GenLanguage";
-			if(code==Ability.ACODE_COMMON_SKILL)
+			final String ttype=httpReq.getUrlParameter("NEWTWEAK");
+			if((ttype!=null)&&(ttype.length()>0))
+				type="GenTweakAbility";
+			else
 			{
-				final String gtype=httpReq.getUrlParameter("NEWGATHERINGSKILL");
+				final int code=CMath.s_int(httpReq.getUrlParameter("CLASSIFICATION_ACODE"));
+				if(code==Ability.ACODE_LANGUAGE)
+					type="GenLanguage";
+				String gtype=httpReq.getUrlParameter("NEWTRAP");
 				if((gtype!=null)&&(gtype.length()>0))
-					type="GenGatheringSkill";
+					type="GenTrap";
 				else
-					type="GenCraftSkill";
+				if(A instanceof Trap)
+					type="GenTrap";
+				final String ptype=httpReq.getUrlParameter("NEWPOISON");
+				if((ptype!=null)&&(ptype.length()>0))
+					type="GenPoison";
+				else
+				if(code==Ability.ACODE_POISON)
+					type="GenPoison";
+				if(code==Ability.ACODE_COMMON_SKILL)
+				{
+					gtype=httpReq.getUrlParameter("NEWGATHERINGSKILL");
+					if((gtype!=null)&&(gtype.length()>0))
+						type="GenGatheringSkill";
+					else
+						type="GenCraftSkill";
+				}
 			}
 			if(A==null)
 			{
@@ -1140,6 +1246,50 @@ public class MUDGrinder extends StdWebMacro
 			CMLib.database().DBCreateAbility(A.ID(),type,A.getStat("ALLXML"));
 			Log.sysOut("Grinder",mob.name()+" created ability "+A.ID()+" ("+type+")");
 			return type+" "+A.ID()+" created.";
+		}
+		else
+		if(parms.containsKey("EDITCOMMAND"))
+		{
+			final MOB mob = Authenticate.getAuthenticatedMob(httpReq);
+			if(mob==null)
+				return "@break@";
+			Command C=null;
+			Command oldC=null;
+			final String last=httpReq.getUrlParameter("COMMAND");
+			if(last==null)
+				return " @break@";
+			C=CMClass.getCommand(last);
+			oldC=C;
+			boolean create=false;
+			if((C!=null)&&(!C.isGeneric()))
+				return " @break@";
+			if(C==null)
+			{
+				create=true;
+				C=(Command)CMClass.getAbility("GenCommand").copyOf();
+				if(C==null)
+					return " @break@";
+				if(C instanceof Modifiable)
+					((Modifiable)C).setStat("CLASS",last);
+			}
+			final String errMsg=GrinderCommands.modifyCommand(httpReq, parms, (oldC==null)?C:oldC, (Modifiable)C);
+			httpReq.addFakeUrlParameter("ERRMSG",errMsg);
+			String type = "";
+			if(oldC != null)
+				type = CMStrings.limit(oldC.getClass().getCanonicalName(),250);
+			if(!create)
+			{
+				final DatabaseEngine.AckRecord rec = CMLib.database().DBDeleteCommand(C.ID());
+				type = (rec == null) ? "" : rec.typeClass();
+				if(C instanceof Modifiable)
+					CMLib.database().DBCreateCommand(C.ID(),type,((Modifiable)C).getStat("ALLXML"));
+				Log.sysOut("Grinder",mob.name()+" modified command "+C.ID()+" ("+type+")");
+				return "Command "+C.ID()+" modified.";
+			}
+			if(C instanceof Modifiable)
+				CMLib.database().DBCreateCommand(C.ID(),type,((Modifiable)C).getStat("ALLXML"));
+			Log.sysOut("Grinder",mob.name()+" created command "+C.ID()+" ("+type+")");
+			return type+" "+C.ID()+" created.";
 		}
 		else
 		if(parms.containsKey("EDITITEM"))
@@ -1283,11 +1433,15 @@ public class MUDGrinder extends StdWebMacro
 			final String copyThisOne=httpReq.getUrlParameter("COPYROOM");
 			final String errMsg=GrinderRooms.createRoom(R,dir,(copyThisOne!=null)&&(copyThisOne.equalsIgnoreCase("ON")));
 			httpReq.addFakeUrlParameter("ERRMSG",errMsg);
-			R=R.rawDoors()[dir];
-			if(R!=null)
+			httpReq.addFakeUrlParameter("ROOM",R.roomID());
+			if(dir<R.rawDoors().length)
 			{
-				httpReq.addFakeUrlParameter("ROOM",R.roomID());
-				Log.sysOut("Grinder",mob.Name()+" added room "+R.roomID());
+				R=R.rawDoors()[dir];
+				if(R!=null)
+				{
+					httpReq.addFakeUrlParameter("ROOM",R.roomID());
+					Log.sysOut("Grinder",mob.Name()+" added room "+R.roomID());
+				}
 			}
 			httpReq.addFakeUrlParameter("LINK","");
 		}

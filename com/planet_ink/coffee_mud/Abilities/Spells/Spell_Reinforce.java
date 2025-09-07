@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -84,6 +84,12 @@ public class Spell_Reinforce extends Spell
 			mob.tell(L("@x1 must be repaired before it can be reinforced.",target.name(mob)));
 			return false;
 		}
+		else
+		if(target instanceof Boardable)
+		{
+			mob.tell(L("@x1 is too big to reinforce with this magic.",target.name(mob)));
+			return false;
+		}
 
 		if(!super.invoke(mob,commands, givenTarget, auto,asLevel))
 			return false;
@@ -92,8 +98,8 @@ public class Spell_Reinforce extends Spell
 		if(success)
 		{
 			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
-									(auto?"<T-NAME> begins to shimmer!"
-										 :"^S<S-NAME> incant(s) at <T-NAMESELF>!^?"));
+									(auto?L("<T-NAME> begins to shimmer!")
+										 :L("^S<S-NAME> incant(s) at <T-NAMESELF>!^?")));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -101,7 +107,7 @@ public class Spell_Reinforce extends Spell
 					mob.tell(L("@x1 cannot be reinforced further.",target.name(mob)));
 				else
 				{
-					mob.location().show(mob,target,CMMsg.MSG_OK_VISUAL,L("<T-NAME> begin(s) to glow and harden!"));
+					mob.location().show(mob,target,CMMsg.MSG_OK_VISUAL,L("<T-NAME> begin(s) to glow with reinforcement!"));
 					target.setUsesRemaining(target.usesRemaining()+50);
 					target.recoverPhyStats();
 					mob.location().recoverRoomStats();

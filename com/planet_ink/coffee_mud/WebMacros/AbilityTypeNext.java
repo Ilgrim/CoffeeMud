@@ -18,7 +18,7 @@ import com.planet_ink.coffee_web.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ public class AbilityTypeNext extends StdWebMacro
 			return "";
 		}
 		String lastID="";
-		for (final String element : Ability.ACODE_DESCS)
+		for (final String element : Ability.ACODE.DESCS)
 		{
 			final String S=element;
 			if((last==null)||((last.length()>0)&&(last.equals(lastID))&&(!S.equals(lastID))))

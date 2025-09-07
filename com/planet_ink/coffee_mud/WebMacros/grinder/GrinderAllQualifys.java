@@ -9,6 +9,7 @@ import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.Clan.MemberRecord;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
@@ -21,7 +22,7 @@ import com.planet_ink.coffee_mud.WebMacros.StdWebMacro;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -77,6 +78,13 @@ public class GrinderAllQualifys
 		s=httpReq.getUrlParameter("AUTOGAIN");
 		if(s!=null)
 			newMap.autoGain(s.equalsIgnoreCase("on"));
+		s=httpReq.getUrlParameter("SECRET");
+		if(s!=null)
+		{
+			final SecretFlag flag = (SecretFlag)CMath.s_valueOf(SecretFlag.class, s);
+			if(flag != null)
+				newMap.secretFlag(flag);
+		}
 		final StringBuilder preReqs=new StringBuilder("");
 		int curChkNum=1;
 		while(httpReq.isUrlParameter("REQABLE"+curChkNum))
@@ -96,8 +104,10 @@ public class GrinderAllQualifys
 			}
 			curChkNum++;
 		}
-		newMap=CMLib.ableMapper().makeAbilityMapping(newMap.abilityID(),newMap.qualLevel(),newMap.abilityID(),newMap.defaultProficiency(),100,"",newMap.autoGain(),false,
-										 			 true,CMParms.parseSpaces(preReqs.toString().trim(), true), newMap.extraMask(),null);
+		newMap=CMLib.ableMapper().makeAbilityMapping(newMap.abilityID(),newMap.qualLevel(),newMap.abilityID(),
+													 newMap.defaultProficiency(),100,"",newMap.autoGain(),
+													 newMap.secretFlag(),true,CMParms.parseSpaces(preReqs.toString().trim(), true),
+													 newMap.extraMask(),null);
 		map.put(last.toUpperCase().trim(),newMap);
 		CMLib.ableMapper().saveAllQualifysFile(allQualMap);
 		return "";

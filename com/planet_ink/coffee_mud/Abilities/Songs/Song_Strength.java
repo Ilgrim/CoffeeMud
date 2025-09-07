@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -72,7 +72,8 @@ public class Song_Strength extends Song
 		if(affected==invoker)
 			affectableStats.setStat(CharStats.STAT_STRENGTH,affectableStats.getStat(CharStats.STAT_STRENGTH)-amount);
 		else
-			affectableStats.setStat(CharStats.STAT_STRENGTH,affectableStats.getStat(CharStats.STAT_STRENGTH)+amount+super.getXLEVELLevel(invoker()));
+			affectableStats.setStat(CharStats.STAT_STRENGTH,affectableStats.getStat(CharStats.STAT_STRENGTH)
+																+amount+super.getXLEVELLevel(invoker()));
 	}
 
 	@Override
@@ -105,7 +106,9 @@ public class Song_Strength extends Song
 			}
 		}
 
-		if(amount>=mob.charStats().getStat(CharStats.STAT_STRENGTH))
+		if((amount>=((mob.charStats().getStat(CharStats.STAT_STRENGTH)/4)
+				+((mob.charStats().getStat(CharStats.STAT_CHARISMA)-10)/3)))
+		||(amount>=(mob.charStats().getStat(CharStats.STAT_STRENGTH))))
 		{
 			mob.tell(L("You can't sing away that much strength."));
 			return false;

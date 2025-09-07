@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -135,9 +135,8 @@ public class Spell_Scribe extends Spell
 			mob.tell(L("You don't know how to scribe '@x1'.",spellName));
 			return false;
 		}
-		if((CMLib.ableMapper().lowestQualifyingLevel(scrollThis.ID())>24)
-		||(((StdAbility)scrollThis).usageCost(null,true)[0]>45)
-		||(CMath.bset(scrollThis.flags(), Ability.FLAG_CLANMAGIC)))
+
+		if(!scrollThis.mayBeEnchanted())
 		{
 			mob.tell(L("That spell is too powerful to scribe."));
 			return false;
@@ -186,7 +185,7 @@ public class Spell_Scribe extends Spell
 		}
 		if(level <= 0)
 		{
-			mob.tell(L("You can only scribe on blank scrolls, or scroll with less than 25 levels of spells on it."));
+			mob.tell(L("You can only scribe on blank scrolls, or a scroll with less than 25 levels of spells on it."));
 			return false;
 		}
 
@@ -201,7 +200,7 @@ public class Spell_Scribe extends Spell
 			return false;
 
 		experienceToLose=getXPCOSTAdjustment(mob,experienceToLose);
-		experienceToLose=-CMLib.leveler().postExperience(mob,null,null,-experienceToLose,false);
+		experienceToLose=-CMLib.leveler().postExperience(mob,"ABILITY:"+ID(),null,null,-experienceToLose, false);
 		mob.tell(L("You lose @x1 experience points for the effort.",""+experienceToLose));
 
 		final boolean success=proficiencyCheck(mob,0,auto);

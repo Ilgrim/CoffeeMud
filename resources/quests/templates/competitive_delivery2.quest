@@ -144,11 +144,16 @@
 #If this is what you want, enter the next quests name here:
 #$NEXT_QUEST=($EXISTING_QUEST_NAME)
 #
+#$CATEGORY=($HIDDEN)=
+#
 #!QUESTMAKER_END_SCRIPT Competitive Delivery #2
 
 set name $QUEST_ID
 set display $QUEST_NAME
 set author $#AUTHOR
+set questtype competitive_delivery2
+set category $CATEGORY
+set instructions Deliver this to $DESTINATION_DESC.  $REASONING
 
 set wait $FREQUENCY
 set interval 1
@@ -190,6 +195,7 @@ QUEST_TIME_PROG * 1
 <FILE><NAME>$QUEST_ID_deliverer.script</NAME>
 <DATA>
 ONCE_PROG 100
+	mpqset * INSTRUCTIONS $i in $a wants you to 'Deliver $[1 *] to $DESTINATION_DESC.  $REASONING'
 	$QUEST_ANNOUNCEMENT_TYPE $QUEST_ANNOUNCEMENT
 ~
 
@@ -208,7 +214,7 @@ GREET_PROG 100
 	endif
 ~
 
-SPEECH_PROG mission problem package quest help delivery deliver 'me to do' 'to do' mission? problem? package? quest? help? delivery? delive?r 'me to do?' 'to do?' 
+SPEECH_PROG mission problem package quest help delivery deliver 'me to do' 'to do' mission? problem? package? quest? help? delivery? delive?r 'me to do?' 'to do?' quests 
 	if ISLIKE($n '$QUEST_CRITERIA') and ISPC($n) and ( EVAL('$MULTIPLE' != 'PREV') or QUESTWINNER($n previous) ) and EVAL('$[1 *]' != '')
 		if EVAL('$MULTIPLE' == 'YES') OR !QUESTWINNER($n *)
 			if has($n '$[1 *]')
@@ -222,22 +228,38 @@ SPEECH_PROG mission problem package quest help delivery deliver 'me to do' 'to d
 	endif
 ~
 
-SPEECH_PROG p i accept
+FUNCTION_PROG CAN_ACCEPT
 	if ISLIKE($n '$QUEST_CRITERIA') and ISPC($n) and ( EVAL('$MULTIPLE' != 'PREV') or QUESTWINNER($n previous) )
-		if  EVAL('$MULTIPLE' == 'YES') OR !QUESTWINNER($n *)
-			if has($i '$[1 *]') and !has($n '$[1 *]')
-#				mpoload '$[1 *]'
-				give "$[1 *]" "$n"
-				sayto "$n" Please deliver this to $DESTINATION_DESC.  $REASONING
-				mpqset * REMAINING $DURATION
-				mpqset * STATISTICS ACCEPTED
-                mpscript $n INDIVIDUAL LOAD=$QUEST_ID_playertrack.script
-			else
-				if has($n '$[1 *]')
-					sayto "$n" Yes, I know.  Now deliver it to $DESTINATION_DESC.
-				endif
+		if EVAL('$MULTIPLE' == 'YES') OR !QUESTWINNER($n *)
+			if !has($n '$[1 *]')
+				RETURN TRUE
 			endif
 		endif
+	endif
+	RETURN CANCEL
+~
+
+FUNCTION_PROG DO_ACCEPT
+	if !has($n '$[1 *]')
+		mpat $n mpforce $n mpoload '$[1 *]'
+		MPQSET * QUESTOBJ $b
+		mpat $n mpechoat $n You receive $b.
+	endif
+	mpscript $n INDIVIDUAL LOAD=$QUEST_ID_playertrack.script
+	mpqset * REMAINING $DURATION
+	mpqset * STATISTICS ACCEPTED
+~
+
+SPEECH_PROG p i accept
+	if CALLFUNC(CAN_ACCEPT) AND has($i '$[1 *]') 
+		give "$[1 *]" "$n"
+		MPQSET * QUESTOBJ $b
+		sayto "$n" Please deliver this to $DESTINATION_DESC.  $REASONING
+		mpqset * REMAINING $DURATION
+		mpqset * STATISTICS ACCEPTED
+		mpscript $n INDIVIDUAL LOAD=$QUEST_ID_playertrack.script
+	else
+		sayto "$n" Yes, I know.  Now deliver it to $DESTINATION_DESC.
 	endif
 ~
 	
@@ -253,7 +275,7 @@ GIVE_PROG all
 <DATA>
 
 PUT_PROG all
-	if EVAL($p == '$[1 *]') AND EVAL($o == '$[2 *]') AND EVAL('$[2 *]' != '')
+	if EVAL($p == '$[1 *]') AND EVAL($o == '$[2 *]') AND EVAL('$[2 *]' != '') AND EVAL('$[2 *]' != '$[1 *]')
 		if ISLIKE($n '$QUEST_CRITERIA') AND EVAL('$[1 *]' != '') and ISPC($n)
 			if  EVAL('$MULTIPLE' == 'YES') OR !QUESTWINNER($n *)
 				if EVAL($p == '$[1 *]')
@@ -266,6 +288,7 @@ PUT_PROG all
 					if EVAL('$QUEST_POINT' == 'YES') AND !QUESTWINNER($n *)
 						mpoloadroom QuestPoint
 						mpforce $n GET "a quest point"
+						mpjunk a quest point
 					endif
 					if EVAL('$GOLD' != '') AND EVAL('$GOLD' > 0)
 						mpoload $GOLD
@@ -293,7 +316,7 @@ PUT_PROG all
 ~
 
 DROP_PROG all
-	if EVAL('$[2 *]' != '') 
+	if EVAL('$[2 *]' != '') AND EVAL('$[2 *]' != '$[1 *]')
 		RETURN
 	ENDIF
 	if ISLIKE($n '$QUEST_CRITERIA') AND EVAL('$[1 *]' != '') and ISPC($n)
@@ -308,6 +331,7 @@ DROP_PROG all
 				if EVAL('$QUEST_POINT' == 'YES') AND !QUESTWINNER($n *)
 					mpoloadroom QuestPoint
 					mpforce $n GET "a quest point"
+					mpjunk a quest point
 				endif
 				if EVAL('$GOLD' != '') AND EVAL('$GOLD' > 0)
 					mpoload $GOLD

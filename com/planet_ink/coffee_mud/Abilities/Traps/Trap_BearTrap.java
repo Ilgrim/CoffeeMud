@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,10 +60,10 @@ public class Trap_BearTrap extends StdTrap
 		return 0;
 	}
 
-	@Override
-	protected int trapLevel()
+	public Trap_BearTrap()
 	{
-		return 16;
+		super();
+		trapLevel = 16;
 	}
 
 	@Override
@@ -171,15 +171,25 @@ public class Trap_BearTrap extends StdTrap
 			||(invoker().getGroupMembers(new HashSet<MOB>()).contains(target))
 			||(target==invoker())
 			||(doesSaveVsTraps(target)))
-				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> avoid(s) a bear trap!"));
-			else
-			if(target.location().show(target,target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> step(s) on a bear trap!")))
 			{
-				super.spring(target);
-				final int damage=CMLib.dice().roll(trapLevel()+abilityCode(),6,1);
-				trapped=target;
-				amountRemaining=250+((trapLevel()+abilityCode())*10);
-				CMLib.combat().postDamage(invoker(),target,this,damage,CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS|CMMsg.TYP_JUSTICE,Weapon.TYPE_PIERCING,L("The bear trap <DAMAGE> <T-NAME>!"));
+				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,
+						getAvoidMsg(L("<S-NAME> avoid(s) a bear trap!")));
+			}
+			else
+			{
+				final String triggerMsg = getTrigMsg(L("<S-NAME> step(s) on a bear trap!"));
+				final String damageMsg = getDamMsg(L("The bear trap <DAMAGE> <T-NAME>!"));
+				if(target.location().show(target,target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,triggerMsg))
+				{
+					super.spring(target);
+					final int damage=CMLib.dice().roll(trapLevel()+abilityCode(),6,1);
+					trapped=target;
+					amountRemaining=250+((trapLevel()+abilityCode())*10);
+					amountRemaining=(int)Math.round(CMath.mul(amountRemaining, target.basePhyStats().speed()));
+					CMLib.combat().postDamage(invoker(),target,this,damage,
+							CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS|CMMsg.TYP_JUSTICE,
+							Weapon.TYPE_PIERCING,damageMsg);
+				}
 			}
 		}
 	}

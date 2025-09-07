@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -139,26 +140,33 @@ public class Monk extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Thief_Hide",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Skill_Climb",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Fighter_ForearmBlock",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Fighter_StaffSweep",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Skill_Parry",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Skill_TwoWeaponFighting",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Skill_Dodge",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Skill_Stoicism",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Fighter_Rescue",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Fighter_ArmorTweaking",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Fighter_Headlock",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Skill_Disarm",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Thief_Sneak",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Fighter_Knee",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Fighter_DeflectProjectile",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Fighter_KnifeHand",false,CMParms.parseSemicolons("Fighter_MonkeyPunch",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Fighter_StaffBlock",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Skill_Trip",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Fighter_AxKick",false,CMParms.parseSemicolons("Fighter_Kick",true));
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Fighter_BackHand",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Fighter_BodyToss",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Fighter_ArmHold",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Fighter_BodyFlip",false);
 
@@ -167,21 +175,26 @@ public class Monk extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Fighter_CatchProjectile",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Fighter_FlyingKick",false,CMParms.parseSemicolons("Fighter_AxKick",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Fighter_StaffSpin",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Fighter_WeaponBreak",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Fighter_Pin",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Fighter_ClinchHold",false);
 
 /**/		CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Skill_Dirt",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Thief_Detection",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Fighter_Sweep",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Fighter_Cartwheel",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Fighter_ElbowLock",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Fighter_SideKick",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Fighter_BodyShield",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Fighter_ElbowJab",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Fighter_CircleParry",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Fighter_KiStrike",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Fighter_WristLock",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Skill_AttackHalf",false);
 
@@ -193,14 +206,20 @@ public class Monk extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Fighter_Gouge",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Fighter_CircleTrip",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Fighter_SweepingTrip",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Thief_Listen",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Fighter_AnkleLock",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Fighter_LightningStrike",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Fighter_ReturnProjectile",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Fighter_FingerLock",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Fighter_AtemiStrike",true);
+
+		CMLib.ableMapper().addCharAbilityMapping(ID(),35,"Fighter_CosmicAdaptation", 0, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
 	}
 
 	@Override
@@ -266,7 +285,7 @@ public class Monk extends StdCharClass
 			}
 			if(!anyWeapons(mob))
 			{
-				affectableStats.setSpeed(affectableStats.speed()+1.0);
+				affectableStats.setSpeed(affectableStats.speed()+CMProps.getSpeedAdjustment());
 				affectableStats.setAttackAdjustment(affectableStats.attackAdjustment()+classLevel);
 			}
 			if(affected.fetchEffect("Falling")!=null)
@@ -312,7 +331,12 @@ public class Monk extends StdCharClass
 				if((A!=null)
 				&&(!CMLib.ableMapper().getAllQualified(ID(),true,A.ID()))
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
-					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+				{
+					giveMobAbility(mob,A,
+								   CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),
+								   CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),
+								   isBorrowedClass);
+				}
 			}
 		}
 	}

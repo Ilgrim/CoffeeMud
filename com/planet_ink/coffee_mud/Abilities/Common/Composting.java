@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ public class Composting extends GatheringSkill
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof Room))
+		if((affected instanceof Room))
 		{
 			final MOB mob=invoker();
 			if(tickUp==6)
@@ -104,7 +104,7 @@ public class Composting extends GatheringSkill
 				||(mob==null)
 				||(mob.location()==null))
 				{
-					commonTell(mob,L("Your @x1 composting has failed.\n\r",foundShortName));
+					commonTelL(mob,"Your @x1 composting has failed.\n\r",foundShortName);
 					unInvoke();
 				}
 			}
@@ -157,7 +157,7 @@ public class Composting extends GatheringSkill
 		if((what.size()<3)
 		||((!CMath.isNumber(what.get(1)))&&(!what.get(1).equalsIgnoreCase("ALL"))))
 		{
-			commonTell(mob,L("You must specify an amount to bundle, followed by what to bundle."));
+			commonTelL(mob,"You must specify an amount to bundle, followed by what to bundle.");
 			return false;
 		}
 		int amount=CMath.s_int(what.get(1));
@@ -165,7 +165,7 @@ public class Composting extends GatheringSkill
 			amount=Integer.MAX_VALUE;
 		if(amount<=0)
 		{
-			commonTell(mob,L("@x1 is not an appropriate amount.",""+amount));
+			commonTelL(mob,"@x1 is not an appropriate amount.",""+amount);
 			return false;
 		}
 		int numHere=0;
@@ -209,7 +209,7 @@ public class Composting extends GatheringSkill
 			amount=numHere;
 		if(numHere<amount)
 		{
-			commonTell(mob,L("You only see @x1 pounds of @x2 on the ground here.",""+numHere,name));
+			commonTelL(mob,"You only see @x1 pounds of @x2 on the ground here.",""+numHere,name);
 			return false;
 		}
 		if(amount == 1)
@@ -258,7 +258,7 @@ public class Composting extends GatheringSkill
 			if(firstWood instanceof RawMaterial)
 			{
 				subType = ((RawMaterial)first).getSubType();
-				data[0][CraftingSkill.FOUND_AMT]=CMLib.materials().findNumberOfResource(mob.location(),(RawMaterial)firstWood);
+				data[0][CraftingSkill.FOUND_AMT]=CMLib.materials().findNumberOfResourceLike(mob.location(),(RawMaterial)firstWood);
 			}
 			else
 				data[0][CraftingSkill.FOUND_AMT]=1;
@@ -274,16 +274,18 @@ public class Composting extends GatheringSkill
 			if(data[0][CraftingSkill.FOUND_AMT]==0)
 			{
 				if(req1Desc!=null)
-					commonTell(mob,L("There is no @x1 here to make anything from!  It might need to be put down first.",req1Desc.toLowerCase()));
+					commonTelL(mob,"There is no @x1 here to make anything from!  It might need to be put down first.",req1Desc.toLowerCase());
 				return null;
 			}
 			req1Required=fixResourceRequirement(data[0][CraftingSkill.FOUND_CODE],req1Required);
 		}
 
+		if((req1Required == Integer.MAX_VALUE) && (data[0][CraftingSkill.FOUND_AMT] > 0))
+			req1Required = data[0][CraftingSkill.FOUND_AMT];
 		if(req1Required>data[0][CraftingSkill.FOUND_AMT])
 		{
-			commonTell(mob,L("You need @x1 pounds of @x2 to do that.  There is not enough here.  Are you sure you set it all on the ground first?",
-					""+req1Required,CMLib.materials().makeResourceSimpleName(first.material(), subType).toLowerCase()));
+			commonTelL(mob,"You need @x1 pounds of @x2 to do that.  There is not enough here.  Are you sure you set it all on the ground first?",
+					""+req1Required,CMLib.materials().makeResourceSimpleName(first.material(), subType).toLowerCase());
 			return null;
 		}
 		data[0][CraftingSkill.FOUND_AMT]=req1Required;
@@ -305,7 +307,7 @@ public class Composting extends GatheringSkill
 				return bundle(mob,commands);
 			return false;
 		}
-		
+
 		if(commands.size()==0)
 		{
 			if(auto)
@@ -315,7 +317,7 @@ public class Composting extends GatheringSkill
 			}
 			else
 			{
-				mob.tell(L("Compost how much of what?"));
+				commonTelL(mob,"Compost how much of what?");
 				return false;
 			}
 		}
@@ -352,14 +354,14 @@ public class Composting extends GatheringSkill
 			}
 			if(mine==null)
 			{
-				commonTell(mob,L("You don't have anything you can compost."));
+				commonTelL(mob,"You don't have anything you can compost.");
 				return false;
 			}
 		}
 		else
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Compost how much of what?"));
+			commonTelL(mob,"Compost how much of what?");
 			return false;
 		}
 		int amount=CMath.s_int(commands.get(0));
@@ -382,12 +384,12 @@ public class Composting extends GatheringSkill
 		});
 		if(mine==null)
 		{
-			commonTell(mob,L("You'll need to have some @x1 on the ground first.",foundShortName));
+			commonTelL(mob,"You'll need to have some @x1 on the ground first.",foundShortName);
 			return false;
 		}
 		if(!isCompostable(mob,mine))
 		{
-			commonTell(mob,L("'@x1' is not suitable for composting.",mine.Name()));
+			commonTelL(mob,"'@x1' is not suitable for composting.",mine.Name());
 			return false;
 		}
 		foundShortName = mine.name();
@@ -399,13 +401,16 @@ public class Composting extends GatheringSkill
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		CMLib.materials().destroyResourcesAmt(mob.location(),amount,data[0][CraftingSkill.FOUND_CODE],((RawMaterial)found).getSubType(), null);
+		if(amount == Integer.MAX_VALUE)
+			amount = data[0][CraftingSkill.FOUND_AMT];
+		CMLib.materials().destroyResourcesAmt(mob.location(),amount,data[0][CraftingSkill.FOUND_CODE],
+				((RawMaterial)found).getSubType(), null);
 		this.compost=null;
 		if(proficiencyCheck(mob,0,auto))
 		{
 			final Item compost = CMClass.getItem("GenItem");
-			compost.setName("a pound of compost");
-			compost.setDisplayText("a pound of compost is lying here");
+			compost.setName(L("a pound of compost"));
+			compost.setDisplayText(L("a pound of compost is lying here"));
 			compost.setSecretIdentity("compost");
 			compost.addNonUninvokableEffect(CMClass.getAbility("Prop_Rotten"));
 			compost.basePhyStats().setWeight(1);
@@ -416,8 +421,8 @@ public class Composting extends GatheringSkill
 			else
 			{
 				this.compost=CMClass.getItem("GenPackagedStack");
-				compost.setName("a pound of compost");
-				compost.setDisplayText("a pound of compost is lying here");
+				compost.setName(L("a pound(s) of compost"));
+				compost.setDisplayText(L("a pound(s) of compost is lying here"));
 				((PackagedItems)this.compost).packageMe(compost,amount);
 			}
 		}
@@ -428,10 +433,13 @@ public class Composting extends GatheringSkill
 		verb=L("composting @x1",foundShortName);
 		displayText=L("You are composting @x1",foundShortName);
 		room=mob.location();
+		final String oldFoundName = (found==null)?"":found.Name();
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);
 			found=(Item)msg.target();
+			if((found!=null)&&(!found.Name().equals(oldFoundName)))
+				foundShortName=CMLib.english().removeArticleLead(found.Name());
 			beneficialAffect(mob,mob,asLevel,duration);
 		}
 		return true;

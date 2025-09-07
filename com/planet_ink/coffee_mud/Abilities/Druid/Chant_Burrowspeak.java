@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,11 +59,12 @@ public class Chant_Burrowspeak extends Chant_SpeakWithAnimals
 	@Override
 	protected boolean canSpeakWithThis(final MOB mob)
 	{
-		if(CMLib.flags().isAnimalIntelligence(mob))
+		if(CMLib.flags().isAnAnimal(mob))
 		{
 			final Race R=mob.charStats().getMyRace();
 			if(R.racialCategory().equals("Rodent")
 			||R.racialCategory().equals("Ophidian")
+			||R.racialCategory().equals("Mustelid")
 			||R.racialCategory().equals("Worm"))
 				return true;
 		}
@@ -73,13 +74,13 @@ public class Chant_Burrowspeak extends Chant_SpeakWithAnimals
 	@Override
 	protected String canSpeakWithWhat()
 	{
-		return "speak with burrowing creatures";
+		return L("speak with burrowing creatures");
 	}
 
 	@Override
 	protected String canSpeakWithWhatNoun()
 	{
-		return "speech of burrowing creatures";
+		return L("speech of burrowing creatures");
 	}
 
 	@Override

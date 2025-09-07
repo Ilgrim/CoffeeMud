@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,6 +53,14 @@ public class GenPackagedVariety extends GenItem implements PackagedItems
 		basePhyStats().setLevel(1);
 		setMaterial(RawMaterial.RESOURCE_WOOD);
 		recoverPhyStats();
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a bunch of things");
 	}
 
 	protected byte[]	readableText=null;
@@ -92,7 +100,7 @@ public class GenPackagedVariety extends GenItem implements PackagedItems
 		itemstr.append("<PAKITEM>");
 		itemstr.append(CMLib.xml().convertXMLtoTag("PINUM",""+number));
 		itemstr.append(CMLib.xml().convertXMLtoTag("PICLASS",CMClass.classID(I)));
-		itemstr.append(CMLib.xml().convertXMLtoTag("PIDATA",CMLib.coffeeMaker().getPropertiesStr(I,true)));
+		itemstr.append(CMLib.xml().convertXMLtoTag("PIDATA",CMLib.coffeeMaker().getEnvironmentalMiscTextXML(I,true)));
 		itemstr.append("</PAKITEM>");
 		setNumberOfItemsInPackage(this.numberOfItemsInPackage() + number);
 		setPackageText(packageText() + itemstr.toString());
@@ -155,7 +163,7 @@ public class GenPackagedVariety extends GenItem implements PackagedItems
 			Log.errOut("Packaged","Error parsing 'PAKITEM' data.");
 			return null;
 		}
-		CMLib.coffeeMaker().setPropertiesStr(newOne,idat,true);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(newOne,idat,true);
 		return (Item)newOne;
 	}
 
@@ -195,7 +203,7 @@ public class GenPackagedVariety extends GenItem implements PackagedItems
 						if((idat!=null)&&(newOne!=null)&&(newOne instanceof Item))
 						{
 							Item I=(Item)newOne;
-							CMLib.coffeeMaker().setPropertiesStr(newOne,idat,true);
+							CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(newOne,idat,true);
 							for(int i=0;i<numOfThese;i++)
 							{
 								if(number<=0)

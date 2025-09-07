@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ public class PollData extends StdWebMacro
 			old=httpReq.getUrlParameter("SUBJECT");
 			if(old!=null)
 				P.setSubject(old);
-			old=httpReq.getUrlParameter("DESCRIPTION");
+			old=CMStrings.fixMudCRLF(httpReq.getUrlParameter("DESCRIPTION"));
 			if(old!=null)
 				P.setDescription(old);
 			old=httpReq.getUrlParameter("QUALZAPPER");
@@ -499,7 +499,7 @@ public class PollData extends StdWebMacro
 					{
 						String mask=httpReq.getUrlParameter("MASK");
 						if((mask==null)&&(last.length()>0))
-							mask=CMLib.titles().getAutoTitleMask(last);
+							mask=CMLib.awards().getAutoTitleMask(last);
 						if(mask!=null)
 							str.append(CMLib.masking().maskDesc(mask)+", ");
 					}

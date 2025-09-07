@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -168,18 +168,19 @@ public class Slime extends StdRace
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public Weapon[] getNaturalWeapons()
 	{
-		if(naturalWeapon==null)
+		if(this.naturalWeaponChoices.length==0)
 		{
-			naturalWeapon=CMClass.getWeapon("StdWeapon");
+			final Weapon naturalWeapon=CMClass.getWeapon("GenWeapon");
 			naturalWeapon.setName(L("a slimy protrusion"));
 			naturalWeapon.setRanges(0,5);
 			naturalWeapon.setMaterial(RawMaterial.RESOURCE_SLIME);
 			naturalWeapon.setUsesRemaining(1000);
 			naturalWeapon.setWeaponDamageType(Weapon.TYPE_MELTING);
+			this.naturalWeaponChoices = new Weapon[] { naturalWeapon };
 		}
-		return naturalWeapon;
+		return super.getNaturalWeapons();
 	}
 
 	@Override
@@ -243,6 +244,25 @@ public class Slime extends StdRace
 					msg.setValue((int)Math.round((msg.value())*.85));
 			}
 		}
+	}
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if(!super.okMessage(myHost, msg))
+			return false;
+		if((msg.target()==myHost)
+		&&(CMath.bset(msg.targetMajor(),CMMsg.MASK_MALICIOUS))
+		&&(myHost instanceof MOB)
+		&&(msg.tool() instanceof Ability)
+		&&((((Ability)msg.tool()).classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_ROPEUSE))
+		{
+			final Room R=CMLib.map().roomLocation(msg.target());
+			R.show(msg.source(),msg.target(),CMMsg.MSG_OK_VISUAL,
+					L("The @x1 attack from <S-NAME> doesn't seem useful against <T-NAME>.",msg.tool().name()));
+			return false;
+		}
+		return true;
 	}
 
 	@Override

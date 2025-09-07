@@ -1,5 +1,6 @@
 package com.planet_ink.coffee_mud.Abilities.Common;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.ItemPossessor.Expire;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -98,55 +99,64 @@ public class Butchering extends GatheringSkill
 	{
 		if(canBeUninvoked())
 		{
-			if(affected instanceof MOB)
+			try
 			{
-				final MOB mob=(MOB)affected;
-				if((body!=null)&&(!aborted))
+				if(affected instanceof MOB)
 				{
-					if(failed)
-						commonTell(mob,L("You messed up your butchering completely."));
-					else
-					if(mob.location()!=null)
+					final MOB mob=(MOB)affected;
+					if((body!=null)&&(!aborted))
 					{
-						final CMMsg msg=CMClass.getMsg(mob,body,this,getCompletedActivityMessageType(),
-								L("<S-NAME> manage(s) to skin and chop up <T-NAME>."));
-						msg.setValue(baseYield()+abilityCode());
-						if(mob.location().okMessage(mob, msg))
+						if(failed)
+							commonTelL(mob,"You messed up your butchering completely.");
+						else
+						if(mob.location()!=null)
 						{
-							mob.location().send(mob, msg);
-							final List<RawMaterial> resources=body.charStats().getMyRace().myResources();
-							final ArrayList<Ability> diseases=new ArrayList<Ability>();
-							for(int i=0;i<body.numEffects();i++)
+							final CMMsg msg=CMClass.getMsg(mob,body,this,getCompletedActivityMessageType(),
+									L("<S-NAME> manage(s) to skin and chop up <T-NAME>."));
+							msg.setValue(baseYield()+abilityCode());
+							if(mob.location().okMessage(mob, msg))
 							{
-								final Ability A=body.fetchEffect(i);
-								if((A!=null)&&(A instanceof DiseaseAffect))
+								mob.location().send(mob, msg);
+								final List<RawMaterial> resources=body.charStats().getMyRace().myResources();
+								final ArrayList<Ability> diseases=new ArrayList<Ability>();
+								for(int i=0;i<body.numEffects();i++)
 								{
-									if((CMath.bset(((DiseaseAffect)A).spreadBitmap(),DiseaseAffect.SPREAD_CONSUMPTION))
-									||(CMath.bset(((DiseaseAffect)A).spreadBitmap(),DiseaseAffect.SPREAD_CONTACT)))
-										diseases.add(A);
-								}
-							}
-							for(int y=0;y<msg.value();y++)
-							{
-								for(int i=0;i<resources.size();i++)
-								{
-									final Item newFound=(Item)((Item)resources.get(i)).copyOf();
-									if((newFound instanceof Food)||(newFound instanceof Drink))
+									final Ability A=body.fetchEffect(i);
+									if((A instanceof DiseaseAffect))
 									{
-										for(int d=0;d<diseases.size();d++)
-											newFound.addNonUninvokableEffect((Ability)diseases.get(d).copyOf());
+										if((CMath.bset(((DiseaseAffect)A).spreadBitmap(),DiseaseAffect.SPREAD_CONSUMPTION))
+										||(CMath.bset(((DiseaseAffect)A).spreadBitmap(),DiseaseAffect.SPREAD_CONTACT)))
+											diseases.add(A);
 									}
-									newFound.recoverPhyStats();
-									if(!dropAWinner(mob,newFound))
+								}
+								mob.location().addItem(body,Expire.Monster_EQ); // just here for a moment.
+								for(int y=0;y<msg.value();y++)
+								{
+									for(int i=0;i<resources.size();i++)
 									{
-										y=9999;
-										break;
+										final Item newFound=(Item)((Item)resources.get(i)).copyOf();
+										if((newFound instanceof Food)||(newFound instanceof Drink))
+										{
+											for(int d=0;d<diseases.size();d++)
+												newFound.addNonUninvokableEffect((Ability)diseases.get(d).copyOf());
+										}
+										newFound.recoverPhyStats();
+										if(!dropAWinner(mob,newFound))
+										{
+											y=9999;
+											break;
+										}
 									}
 								}
 							}
 						}
 					}
 				}
+			}
+			finally
+			{
+				if(body!=null)
+					body.destroy();
 			}
 		}
 		super.unInvoke();
@@ -198,13 +208,13 @@ public class Butchering extends GatheringSkill
 		   ||((DeadBody)I).isPlayerCorpse()
 		   ||(((DeadBody)I).charStats().getMyRace()==null))
 		{
-			commonTell(mob,L("You can't butcher @x1.",I.name(mob)));
+			commonTelL(mob,"You can't butcher @x1.",I.name(mob));
 			return false;
 		}
 		final List<RawMaterial> resources=((DeadBody)I).charStats().getMyRace().myResources();
 		if((resources==null)||(resources.size()==0))
 		{
-			commonTell(mob,L("There doesn't appear to be any good parts on @x1.",I.name(mob)));
+			commonTelL(mob,"There doesn't appear to be any good parts on @x1.",I.name(mob));
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
@@ -220,7 +230,8 @@ public class Butchering extends GatheringSkill
 			final int duration=getDuration(mob,I.phyStats().weight());
 			beneficialAffect(mob,mob,asLevel,duration);
 			body.emptyPlease(false);
-			body.destroy();
+			if(body.owner() !=null)
+				body.owner().delItem(body);
 		}
 		return true;
 	}

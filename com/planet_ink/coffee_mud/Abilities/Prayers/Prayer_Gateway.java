@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ public class Prayer_Gateway extends Prayer
 		newRoom=null;
 		try
 		{
-			final List<Room> rooms=CMLib.map().findRooms(CMLib.map().rooms(), mob, areaName,true,10);
+			final List<Room> rooms=CMLib.hunt().findRooms(CMLib.map().rooms(), mob, areaName,true,10);
 			if(rooms.size()>0)
 				newRoom=rooms.get(CMLib.dice().roll(1,rooms.size(),-1));
 		}

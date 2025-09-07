@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -173,7 +174,7 @@ public class Gaian extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Ranger_Hide",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Druid_KnowPlants",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Chant_Goodberry",false);
-		if(CMLib.factions().isAlignmentLoaded(Faction.Align.LAWFUL)||CMLib.factions().isAlignmentLoaded(Faction.Align.CHAOTIC))
+		if(CMLib.factions().isAlignmentLoaded(Faction.Align.MODERATE)||CMLib.factions().isAlignmentLoaded(Faction.Align.NEUTRAL))
 			CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Chant_PlantSelf",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Chant_GrowClub",false);
@@ -210,6 +211,7 @@ public class Gaian extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Chant_GrowItem",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Chant_Blight",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"ImprovedHerbalism",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Chant_PlantSnare",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Chant_PlantConstriction",false);
@@ -243,7 +245,13 @@ public class Gaian extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),26,"MasterFloristry",0,false);
 
+		CMLib.ableMapper().addCharAbilityMapping(ID(),28,"Chant_PlanarAdaptation", 0, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
+
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Chant_GrowOak",true);
+
+		CMLib.ableMapper().addCharAbilityMapping(ID(),35,"Chant_PlanarLink", 0, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
 	}
 
 	@Override
@@ -331,6 +339,7 @@ public class Gaian extends StdCharClass
 					{
 					case Climate.WEATHER_BLIZZARD:
 					case Climate.WEATHER_CLOUDY:
+					case Climate.WEATHER_FOG:
 					case Climate.WEATHER_DUSTSTORM:
 					case Climate.WEATHER_HAIL:
 					case Climate.WEATHER_RAIN:
@@ -387,7 +396,7 @@ public class Gaian extends StdCharClass
 			if((CMLib.flags().isHidden(mob))
 			&&(classLevel>=30)
 			&&((room.domainType()&Room.INDOORS)==0)
-			&&(room.domainType()!=Room.DOMAIN_OUTDOORS_CITY))
+			&&(!CMLib.flags().isACityRoom(room)))
 				affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_NOT_SEEN);
 
 			if(classLevel>=5)
@@ -401,6 +410,7 @@ public class Gaian extends StdCharClass
 					{
 					case Climate.WEATHER_BLIZZARD:
 					case Climate.WEATHER_CLOUDY:
+					case Climate.WEATHER_FOG:
 					case Climate.WEATHER_DUSTSTORM:
 					case Climate.WEATHER_HAIL:
 					case Climate.WEATHER_RAIN:
@@ -427,6 +437,7 @@ public class Gaian extends StdCharClass
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}
@@ -447,7 +458,12 @@ public class Gaian extends StdCharClass
 				if((A!=null)
 				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
-					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+				{
+					giveMobAbility(mob,A,
+								   CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),
+								   CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),
+								   isBorrowedClass);
+				}
 			}
 		}
 	}

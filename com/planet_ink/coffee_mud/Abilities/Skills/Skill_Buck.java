@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class Skill_Buck extends StdSkill
+public class Skill_Buck extends StdSkill implements Behavior
 {
 	@Override
 	public String ID()
@@ -99,6 +99,140 @@ public class Skill_Buck extends StdSkill
 	}
 
 	@Override
+	public void startBehavior(final PhysicalAgent forMe)
+	{
+		setAffectedOne(forMe);
+	}
+
+	@Override
+	public void endBehavior(final PhysicalAgent forMe)
+	{
+	}
+
+	@Override
+	public void registerDefaultQuest(final Object questName)
+	{
+	}
+
+	@Override
+	public String getParms()
+	{
+		return text();
+	}
+
+	@Override
+	public void setParms(final String parameters)
+	{
+		setMiscText(parameters);
+	}
+
+	@Override
+	public String parmsFormat()
+	{
+		return CMParms.FORMAT_UNDEFINED;
+	}
+
+	@Override
+	public boolean canImprove(final PhysicalAgent E)
+	{
+		return this.canAffect(E);
+	}
+
+	@Override
+	public boolean canImprove(final int can_code)
+	{
+		return this.canAffect(can_code);
+	}
+
+	@Override
+	public boolean grantsAggressivenessTo(final MOB M)
+	{
+		return false;
+	}
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
+	{
+		super.executeMsg(myHost, msg);
+		if((msg.targetMinor()==CMMsg.TYP_BUY)
+		&&(msg.tool()==affected)
+		&&(affected instanceof MOB))
+		{
+			((MOB)affected).delBehavior(this);
+			((MOB)affected).basePhyStats().addAmbiance("@NOAUTOBUCK");
+			((MOB)affected).recoverPhyStats();
+		}
+	}
+
+	@Override
+	public boolean autoInvocation(final MOB mob, final boolean force)
+	{
+		if(!mob.isPlayer())
+		{
+			final PhyStats stats = mob.phyStats();
+			if(stats.isAmbiance("@TAMED"))
+			{
+				if(!stats.isAmbiance("@NOAUTOBUCK"))
+				{
+					mob.basePhyStats().addAmbiance("@NOAUTOBUCK");
+					stats.addAmbiance("@NOAUTOBUCK");
+				}
+			}
+			else
+			if(!stats.isAmbiance("@NOAUTOBUCK"))
+			{
+				final Behavior B = mob.fetchBehavior(ID());
+				if(B == null)
+				{
+					final Skill_Buck sB =(Skill_Buck)this.copyOf();
+					sB.setSavable(false);
+					mob.addBehavior(sB);
+				}
+			}
+		}
+		return false;
+	}
+
+	@Override
+	public boolean tick(final Tickable ticking, final int tickID)
+	{
+		if(affected instanceof Rideable)
+		{
+			final Rideable rideR = (Rideable)affected;
+			if((rideR instanceof MOB)
+			&&(rideR.numRiders()>0))
+			{
+				final MOB mob=(MOB)rideR;
+				if((!mob.isPlayer())
+				&&(mob.isMonster())
+				&&(mob.getStartRoom()!=null))
+				{
+					final Room startR = mob.getStartRoom();
+					final PrivateProperty prop = CMLib.law().getPropertyRecord(startR);
+					final Set<MOB> grp = mob.getGroupMembers(new HashSet<MOB>());
+					boolean proceed = true;
+					for(int f=0;f<rideR.numRiders();f++)
+					{
+						final Rider R = rideR.fetchRider(f);
+						if((R instanceof MOB)
+						&&(grp.contains(R)
+							||(((MOB)R).getStartRoom()==mob.getStartRoom())
+							||((prop!=null)&&(CMLib.law().doesHavePriviledgesHere(mob, startR)))))
+							proceed=false;
+					}
+					if(proceed)
+					{
+						final Ability A = mob.fetchAbility(ID());
+						if(A!=null)
+							A.invoke(mob, null, false, 0);
+					}
+				}
+			}
+		}
+		return true; // skip ALL the things
+	}
+
+	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		if((!(mob instanceof Rideable))
@@ -107,7 +241,6 @@ public class Skill_Buck extends StdSkill
 			mob.tell(L("There is no one on you to buck!"));
 			return false;
 		}
-
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
@@ -124,10 +257,8 @@ public class Skill_Buck extends StdSkill
 		final int adj = ((mob.charStats().getStat(CharStats.STAT_STRENGTH)*2) - (avgDex*3)) + (2*getXLEVELLevel(mob));
 		final boolean success=proficiencyCheck(mob,adj,auto);
 
-		String str=null;
 		if(success)
 		{
-			str=auto?L("<T-NAME> is bucked!"):L("<S-NAME> buck(s) <T-NAME> off <S-NAMESELF>!");
 			final Room roomR=CMLib.map().roomLocation(mob);
 			final List<Rider> targets=new ArrayList<Rider>(R.numRiders());
 			for(int r=0;r<R.numRiders();r++)
@@ -136,28 +267,39 @@ public class Skill_Buck extends StdSkill
 			{
 				if(target instanceof MOB)
 				{
-					final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MASK_MOVE|CMMsg.MASK_SOUND|CMMsg.TYP_JUSTICE|(auto?CMMsg.MASK_ALWAYS:0),null);
+					final MOB tmob = (MOB)target;
+					final CMMsg msg=CMClass.getMsg(mob,tmob,this,CMMsg.MASK_MOVE|CMMsg.MASK_SOUND|CMMsg.TYP_JUSTICE|(auto?CMMsg.MASK_ALWAYS:0),null);
 					if(roomR.okMessage(mob,msg))
 					{
 						roomR.send(mob,msg);
 						if(msg.value() <=0)
 						{
-							roomR.show(mob, target, CMMsg.MSG_OK_ACTION, str);
-							target.setRiding(null);
+							roomR.show(tmob, R, CMMsg.MASK_ALWAYS|CMMsg.MSG_DISMOUNT,
+									auto?L("<S-NAME> is bucked!"):L("<T-NAME> buck(s) <S-NAME> off <T-NAMESELF>!"));
+							if(tmob.riding() == null)
+							{
+								final Ability trippedA = CMClass.getAbility("Skill_Trip");
+								if(trippedA != null)
+								{
+									trippedA.startTickDown(mob, tmob, 2);
+									tmob.recoverPhyStats();
+									tmob.tell(L("You hit the ground!"));
+								}
+							}
 						}
 					}
 				}
 				else
 				{
-					roomR.show(mob, target, CMMsg.MSG_OK_ACTION, str);
+					roomR.show(mob, target, CMMsg.MSG_OK_ACTION,
+							auto?L("<T-NAME> is bucked!"):L("<S-NAME> buck(s) <T-NAME> off <S-NAMESELF>!"));
 					target.setRiding(null);
 				}
 			}
 		}
 		else
-			return beneficialVisualFizzle(mob,null,L("<S-NAME> attempt(s) to buck off <S-HIS-HER> riders, but fails."));
+			return beneficialVisualFizzle(mob,null,L("<S-NAME> attempt(s) to buck off <S-HIS-HER> riders, but fail(s)."));
 
 		return success;
 	}
-
 }

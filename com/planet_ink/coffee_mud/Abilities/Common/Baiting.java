@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -118,7 +118,7 @@ public class Baiting extends GatheringSkill
 		&&(fishRoom!=null))
 		{
 			if(foundCode<0)
-				commonTell((MOB)aff,L("Your @x1 baiting has failed.\n\r",foundShortName));
+				commonTelL((MOB)aff,"Your @x1 baiting has failed.\n\r",foundShortName);
 			else
 			if((foundCode>0)&&(!isaborted))
 			{
@@ -174,7 +174,7 @@ public class Baiting extends GatheringSkill
 			final StringBuilder str=new StringBuilder("Types of fishes:\n\r");
 			for(final int fishCode : RawMaterial.CODES.FISHES())
 				str.append(RawMaterial.CODES.NAME(fishCode)).append("\n\r");
-			mob.tell(str.toString());
+			commonTell(mob,str.toString());
 			return false;
 		}
 
@@ -185,13 +185,14 @@ public class Baiting extends GatheringSkill
 			if(CMLib.flags().isWateryRoom(R))
 				fishRoom=R;
 			else
-			if((R.getArea() instanceof BoardableShip)
+			if((R.getArea() instanceof Boardable)
+			&&(((Boardable)R.getArea()).getBoardableItem() instanceof NavigableItem)
 			&&((R.domainType()&Room.INDOORS)==0))
-				fishRoom=CMLib.map().roomLocation(((BoardableShip)R.getArea()).getShipItem());
+				fishRoom=CMLib.map().roomLocation(((Boardable)R.getArea()).getBoardableItem());
 
 			if((fishRoom==null)||(!CMLib.flags().isWateryRoom(fishRoom)))
 			{
-				this.commonTell(mob, L("You need to be on the water, or in a boat to use this skill."));
+				this.commonTelL(mob,"You need to be on the water, or in a boat to use this skill.");
 				return false;
 			}
 		}
@@ -199,7 +200,7 @@ public class Baiting extends GatheringSkill
 			fishRoom=R;
 		if(fishRoom.fetchEffect(ID())!=null)
 		{
-			commonTell(mob,L("It looks like bait has already been dropped here."));
+			commonTelL(mob,"It looks like bait has already been dropped here.");
 			return false;
 		}
 
@@ -217,7 +218,7 @@ public class Baiting extends GatheringSkill
 		}
 		if(mob.isMonster()
 		&&(!auto)
-		&&(!CMLib.flags().isAnimalIntelligence(mob))
+		&&(!CMLib.flags().isAnAnimal(mob))
 		&&(commands.size()==0))
 		{
 			commands.add(RawMaterial.CODES.NAME(CMLib.dice().pick(RawMaterial.CODES.FISHES())));
@@ -227,7 +228,7 @@ public class Baiting extends GatheringSkill
 		else
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Bait for what kind of fish?"));
+			commonTelL(mob,"Bait for what kind of fish?");
 			return false;
 		}
 		int code=-1;
@@ -260,25 +261,25 @@ public class Baiting extends GatheringSkill
 		}
 		if(code<0)
 		{
-			commonTell(mob,L("You've never heard of a fish called '@x1'.",CMParms.combine(commands,0)));
+			commonTelL(mob,"You've never heard of a fish called '@x1'.",CMParms.combine(commands,0));
 			return false;
 		}
 
 		if(mine==null)
 		{
-			commonTell(mob,L("You'll need to have some @x1 on the ground first if you want to use it as bait.",foundShortName));
+			commonTelL(mob,"You'll need to have some @x1 first if you want to use it as bait.",foundShortName);
 			return false;
 		}
 		final String mineName=mine.name();
-		mine=(Item)CMLib.materials().unbundle(mine,-1,null);
+		mine=CMLib.materials().unbundle(mine,-1,null);
 		if(mine==null)
 		{
-			commonTell(mob,L("'@x1' is not suitable for use as bait.",mineName));
+			commonTelL(mob,"'@x1' is not suitable for use as bait.",mineName);
 			return false;
 		}
 		if(!(isPotentialCrop(fishRoom,code)))
 		{
-			commonTell(mob,L("'@x1' does not seem to be of any use as bait here.",mineName));
+			commonTelL(mob,"'@x1' does not seem to be of any use as bait here.",mineName);
 			return false;
 		}
 

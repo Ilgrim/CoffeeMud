@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -40,9 +40,11 @@ public class SocialData extends StdWebMacro
 	{
 		return "SocialData";
 	}
-	static String[] BTYPES={"NONE","ALL","SELF","TARGETMOB","TARGETITEM","TARGETINV","TARGETEQUIP"};
-	static String[] BEXTNS={""," ALL"," SELF"," <T-NAME>"," <I-NAME>"," <V-NAME>"," <E-NAME>"};
-	static String[] BFIELDS={"YOM","YONM","YOM","YTONMA","YONM","YONM","YONM"};
+	static final String[] BTYPES={"NONE","ALL","SELF","TARGETMOB","TARGETITEM","TARGETINV","TARGETEQUIP"};
+	static final String[] BEXTNS={""," ALL"," SELF"," <T-NAME>"," <I-NAME>"," <V-NAME>"," <E-NAME>"};
+	static final String[] BFIELDS={"YOMZ","YONMZ","YOMZ","YTONMAZ","YONMZ","YONMZ","YONMZ"};
+	static final List<String> TYPES=Arrays.asList(BTYPES);
+	static final List<String> EXTNS=Arrays.asList(BEXTNS);
 
 	static String[] CODESTR={"WORDS","MOVEMENT","SOUND","VISUAL","HANDS","QUIETMOVE"};
 	static int[] CODES={CMMsg.MSG_SPEAK,CMMsg.MSG_NOISYMOVEMENT,CMMsg.MSG_NOISE,CMMsg.MSG_OK_VISUAL,CMMsg.MSG_HANDS,CMMsg.MSG_SUBTLEMOVEMENT};
@@ -51,6 +53,8 @@ public class SocialData extends StdWebMacro
 	public String runMacro(final HTTPRequest httpReq, final String parm, final HTTPResponse httpResp)
 	{
 		final java.util.Map<String,String> parms=parseParms(parm);
+		final boolean isCompSocial = CMath.s_bool(httpReq.getUrlParameter("COMPONENT"))
+									|| CMath.s_bool(httpReq.getUrlParameter("COMPONENTS"));
 		String last=httpReq.getUrlParameter("SOCIAL");
 		if(parms.containsKey("ISVFS"))
 			return ""+(new CMFile("::/resources/socials.txt",null,CMFile.FLAG_LOGERRORS).exists());
@@ -171,11 +175,18 @@ public class SocialData extends StdWebMacro
 			final MOB M = Authenticate.getAuthenticatedMob(httpReq);
 			if(M==null)
 				return "[authentication error]";
+			if((isCompSocial)
+			&&(!((CMSecurity.isAllowed(M,M.location(),CMSecurity.SecFlag.CMDABILITIES))
+				||(CMSecurity.isAllowed(M,M.location(),CMSecurity.SecFlag.CMDSOCIALS)))))
+				return "[authentication error]";
+			else
 			if(!CMSecurity.isAllowed(M,M.location(),CMSecurity.SecFlag.CMDSOCIALS))
 				return "[authentication error]";
 
 			boolean create=false;
 			List<Social> SV=CMLib.socials().getSocialsSet(last);
+			if((SV == null)&&(isCompSocial))
+				SV = CMLib.ableComponents().getSocialsSet(last);
 			List<Social> OSV=null;
 			if(SV==null)
 				create=true;
@@ -194,12 +205,8 @@ public class SocialData extends StdWebMacro
 				last=old;
 			}
 
-			final List<String> TYPES=new ArrayList<String>();
-			final List<String> EXTNS=new ArrayList<String>();
-			for (final String element : BTYPES)
-				TYPES.add(element);
-			for (final String element : BEXTNS)
-				EXTNS.add(element);
+			final List<String> xExtensions = new XVector<String>(EXTNS);
+			final List<String> xTypes = new XVector<String>(TYPES);
 			old=httpReq.getUrlParameter("NUMXTRAS");
 			if(old!=null)
 			{
@@ -212,8 +219,8 @@ public class SocialData extends StdWebMacro
 					&&(httpReq.isUrlParameter("IS"+old.toUpperCase().trim()))
 					&&(httpReq.getUrlParameter("IS"+old.toUpperCase().trim()).equalsIgnoreCase("on")))
 					{
-						TYPES.add(old.toUpperCase().trim());
-						EXTNS.add(" "+old.toUpperCase().trim());
+						xTypes.add(old.toUpperCase().trim());
+						xExtensions.add(" "+old.toUpperCase().trim());
 					}
 				}
 			}
@@ -230,16 +237,16 @@ public class SocialData extends StdWebMacro
 					&&(httpReq.isUrlParameter("ISTARGETMOB_"+old.toUpperCase().trim()))
 					&&(httpReq.getUrlParameter("ISTARGETMOB_"+old.toUpperCase().trim()).equalsIgnoreCase("on")))
 					{
-						TYPES.add("TARGETMOB_"+old.toUpperCase().trim());
-						EXTNS.add(" <T-NAME> "+old.toUpperCase().trim());
+						xTypes.add("TARGETMOB_"+old.toUpperCase().trim());
+						xExtensions.add(" <T-NAME> "+old.toUpperCase().trim());
 					}
 				}
 			}
 
-			for(int t=0;t<TYPES.size();t++)
+			for(int t=0;t<xTypes.size();t++)
 			{
-				final String TYPE=TYPES.get(t);
-				final String EXTN=EXTNS.get(t);
+				final String TYPE=xTypes.get(t);
+				final String EXTN=xExtensions.get(t);
 
 				old=httpReq.getUrlParameter("IS"+TYPE);
 				if((old==null)||(!old.equalsIgnoreCase("on")))
@@ -247,9 +254,10 @@ public class SocialData extends StdWebMacro
 
 				final Social S=CMLib.socials().makeDefaultSocial(last,EXTN);
 				final String field=(t<BTYPES.length)?BFIELDS[t]:BFIELDS[0];
+				final String subnam="SDAT_"+TYPE+"_";
 				for(int f=0;f<field.length();f++)
 				{
-					final String fnam="SDAT_"+TYPE+"_"+field.charAt(f);
+					final String fnam=subnam+field.charAt(f);
 					old=httpReq.getUrlParameter(fnam);
 					if(old!=null)
 					{
@@ -266,6 +274,9 @@ public class SocialData extends StdWebMacro
 							break;
 						case 'M':
 							S.setSoundFile(old);
+							break;
+						case 'Z':
+							S.setCriteriaZappermask(old);
 							break;
 						case 'T':
 							S.setTargetMessage(old);
@@ -290,24 +301,62 @@ public class SocialData extends StdWebMacro
 							break;
 						case 'T':
 							break;
+						case 'Z':
+							break;
 						}
+					}
+				}
+				S.getFlags().clear();
+				if(httpReq.isUrlParameter(subnam+"F"))
+				{
+					int num=0;
+					String numStr="";
+					String flagS=httpReq.getUrlParameter(subnam+"F"+numStr);
+					while(flagS!=null)
+					{
+						final Social.SocialFlag F=(Social.SocialFlag)CMath.s_valueOf(Social.SocialFlag.class, flagS);
+						if(F!=null)
+							S.getFlags().add(F);
+						num++;
+						numStr=""+num;
+						flagS=httpReq.getUrlParameter(subnam+"F"+numStr);
 					}
 				}
 				SV.add(S);
 			}
 			if(OSV!=null)
 			{
-				for(final Social S : OSV)
-					CMLib.socials().remove(S.Name());
+				if(isCompSocial)
+				{
+					for(final Social S : OSV)
+						CMLib.ableComponents().alterAbilityComponentFile(CMStrings.trimCRLF(S.getEncodedLine()),true);
+				}
+				else
+				{
+					for(final Social S : OSV)
+						CMLib.socials().delSocial(S.Name());
+				}
 			}
 
-			for(final Social S : SV)
-				CMLib.socials().addSocial(S);
+			if(isCompSocial)
+			{
+				for(final Social S : SV)
+					CMLib.ableComponents().alterAbilityComponentFile(CMStrings.trimCRLF(S.getEncodedLine()),false);
+			}
+			else
+			{
+				for(final Social S : SV)
+					CMLib.socials().addSocial(S);
+			}
 
-			CMLib.socials().save(M);
+			if(!isCompSocial)
+				CMLib.socials().save(M);
 			if(create)
 			{
-				Log.sysOut(M.name()+" created social "+last);
+				if(!isCompSocial)
+					Log.sysOut(M.name()+" created social "+last);
+				else
+					Log.sysOut(M.name()+" created component social "+last);
 				return "Social "+last+" created";
 			}
 			Log.sysOut(M.name()+" updated social "+last);
@@ -324,13 +373,24 @@ public class SocialData extends StdWebMacro
 			if(last==null)
 				return " @break@";
 			List<Social> SV=CMLib.socials().getSocialsSet(last);
+			if((SV == null)&&(isCompSocial))
+				SV = CMLib.ableComponents().getSocialsSet(last);
 			if(SV==null)
 				return "Unknown social!";
 			SV=new XVector<Social>(SV);
-			for(int s=0;s<SV.size();s++)
-				CMLib.socials().remove(SV.get(s).Name());
-			CMLib.socials().save(M);
-			Log.sysOut(M.name()+" deleted social "+last);
+			if(isCompSocial)
+			{
+				for(int s=0;s<SV.size();s++)
+					CMLib.ableComponents().alterAbilityComponentFile(SV.get(s).Name(),true);
+				Log.sysOut(M.name()+" deleted componentn social "+last);
+			}
+			else
+			{
+				for(int s=0;s<SV.size();s++)
+					CMLib.socials().delSocial(SV.get(s).Name());
+				CMLib.socials().save(M);
+				Log.sysOut(M.name()+" deleted social "+last);
+			}
 			return "Social deleted.";
 		}
 		else
@@ -353,6 +413,8 @@ public class SocialData extends StdWebMacro
 				}
 				if(SV==null)
 					SV=CMLib.socials().getSocialsSet(last);
+				if((SV == null)&&(isCompSocial))
+					SV=CMLib.ableComponents().getSocialsSet(last);
 				if(parms.containsKey("ISNEWSOCIAL"))
 					return ""+(CMLib.socials().getSocialsSet(last)==null);
 				if(SV!=null)
@@ -509,10 +571,11 @@ public class SocialData extends StdWebMacro
 							if(!old.equalsIgnoreCase("on"))
 								continue;
 						}
+						final String subnam="SDAT_"+TYPE+"_";
 						final String field=(t<BTYPES.length)?BFIELDS[t]:BFIELDS[0];
 						for(int f=0;f<field.length();f++)
 						{
-							final String fnam="SDAT_"+TYPE+"_"+field.charAt(f);
+							final String fnam=subnam+field.charAt(f);
 							if(parms.containsKey(fnam))
 							{
 								old=httpReq.getUrlParameter(fnam);
@@ -534,6 +597,9 @@ public class SocialData extends StdWebMacro
 									case 'M':
 										old = S.getSoundFile();
 										break;
+									case 'Z':
+										old = S.getCriteriaZappermask();
+										break;
 									case 'A':
 										old = S.argumentName();
 										break;
@@ -542,7 +608,7 @@ public class SocialData extends StdWebMacro
 										break;
 									}
 								}
-								str.append(old+", ");
+								str.append(super.htmlOutgoingFilter(old)+", ");
 							}
 							if(parms.containsKey(fnam+"C"))
 							{
@@ -567,6 +633,8 @@ public class SocialData extends StdWebMacro
 										break;
 									case 'T':
 										break;
+									case 'Z':
+										break;
 									}
 								}
 								if(old!=null)
@@ -579,6 +647,37 @@ public class SocialData extends StdWebMacro
 										str.append(">"+CODESTR[c]);
 									}
 								}
+							}
+						}
+						if(parms.containsKey(subnam+"F"))
+						{
+							if(S==null)
+								S=CMLib.socials().makeDefaultSocial(last,EXTN);
+							if(S==null)
+								return "";
+							int num=0;
+							String numStr="";
+							old=httpReq.getUrlParameter(subnam+"F"+numStr);
+							final Set<String> flags=new TreeSet<String>();
+							if(old==null)
+							{
+								for(final Social.SocialFlag f1 : S.getFlags())
+									flags.add(f1.name());
+							}
+							else
+							while(old!=null)
+							{
+								flags.add(old);
+								num++;
+								numStr=""+num;
+								old=httpReq.getUrlParameter(subnam+"F"+numStr);
+							}
+							for(final Social.SocialFlag f1 : Social.SocialFlag.values())
+							{
+								str.append("<OPTION VALUE="+f1.name());
+								if(flags.contains(f1.name()))
+									str.append(" SELECTED");
+								str.append(">"+f1.name());
 							}
 						}
 					}

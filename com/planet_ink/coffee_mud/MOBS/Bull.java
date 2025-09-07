@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Bull extends StdMOB
 	public Bull()
 	{
 		super();
-		username="a bull";
+		_name="a bull";
 		setDescription("A large lumbering beast that looks too slow to get out of your way.");
 		setDisplayText("An old bull doesn`t look happy to see you.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -52,7 +52,7 @@ public class Bull extends StdMOB
 
 		basePhyStats().setDamage(10);
 		basePhyStats().setSpeed(2.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(7);
 		basePhyStats().setArmor(90);
 		baseCharStats().setStat(CharStats.STAT_GENDER, 'M');

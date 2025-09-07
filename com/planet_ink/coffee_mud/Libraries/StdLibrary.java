@@ -3,11 +3,12 @@ package com.planet_ink.coffee_mud.Libraries;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.core.CMClass;
 import com.planet_ink.coffee_mud.core.CMLib;
+import com.planet_ink.coffee_mud.core.CMStrings;
 import com.planet_ink.coffee_mud.core.Log;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -41,12 +42,21 @@ public class StdLibrary implements CMLibrary, Tickable
 	protected TickClient	serviceClient	= null;
 	protected boolean		isDebugging		= false;
 
+	protected static class CallerFinder extends SecurityManager
+	{
+		public Class<?> getCaller()
+		{
+			return super.getClassContext()[2];
+		}
+	}
+	protected static final CallerFinder FINDER = new CallerFinder();
+
 	@Override
 	public CMObject newInstance()
 	{
 		try
 		{
-			return this.getClass().newInstance();
+			return this.getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -77,7 +87,25 @@ public class StdLibrary implements CMLibrary, Tickable
 	@Override
 	public String L(final String str, final String... xs)
 	{
-		return CMLib.lang().fullSessionTranslation(str, xs);
+		return CMLib.lang().fullSessionTranslation(FINDER.getCaller(), str, xs);
+	}
+
+	public String[] I(final String[] str)
+	{
+		for(int i=0;i<str.length;i++)
+			str[i]=CMLib.lang().commandWordTranslation(str[i]);
+		return str;
+	}
+
+	public String I(final String str)
+	{
+		return CMLib.lang().commandWordTranslation(str);
+	}
+
+	@Override
+	public String L(final Class<?> clazz, final String str, final String ... xs)
+	{
+		return CMLib.lang().fullSessionTranslation(clazz, str, xs);
 	}
 
 	@Override
@@ -88,6 +116,7 @@ public class StdLibrary implements CMLibrary, Tickable
 	@Override
 	public boolean activate()
 	{
+		name=ID()+Thread.currentThread().getThreadGroup().getName().charAt(0);
 		return true;
 	}
 

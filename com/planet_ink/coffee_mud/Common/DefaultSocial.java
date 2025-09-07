@@ -9,19 +9,22 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.Session.InputCallback;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary;
 import com.planet_ink.coffee_mud.Libraries.interfaces.CatalogLibrary;
+import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary.CompiledZMask;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
+import java.io.IOException;
 import java.util.*;
 
 // requires nothing to load
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -38,20 +41,23 @@ import java.util.*;
 
 public class DefaultSocial implements Social
 {
-	protected String	socialFullID;
-	protected String	socialFullTail;
-	protected String	socialBaseName;
-	protected String	socialTarget;
-	protected boolean	isTargetable;
-	protected String	socialArg;
-	protected String	sourceMsg;
-	protected String	othersSeeMsg;
-	protected String	targetSeesMsg;
-	protected String	failedTargetMsg;
-	protected String	soundFile		= "";
-	protected int		sourceCode		= CMMsg.MSG_OK_ACTION;
-	protected int		othersCode		= CMMsg.MSG_OK_ACTION;
-	protected int		targetCode		= CMMsg.MSG_OK_ACTION;
+	protected String		 socialFullID;
+	protected String		 socialFullTail;
+	protected String		 socialBaseName;
+	protected String		 socialTarget;
+	protected boolean		 isTargetable;
+	protected String		 socialArg;
+	protected String		 sourceMsg;
+	protected String		 othersSeeMsg;
+	protected String		 targetSeesMsg;
+	protected String		 failedTargetMsg;
+	protected String		 soundFile	= "";
+	protected String		 zapperMask	= "";
+	protected CompiledZMask	 zMask		= null;
+	protected int			 sourceCode	= CMMsg.MSG_OK_ACTION;
+	protected int			 othersCode	= CMMsg.MSG_OK_ACTION;
+	protected int			 targetCode	= CMMsg.MSG_OK_ACTION;
+	protected Set<SocialFlag>flags		= new SHashSet<SocialFlag>();
 
 	@Override
 	public String ID()
@@ -104,7 +110,22 @@ public class DefaultSocial implements Social
 	@Override
 	public String L(final String str, final String... xs)
 	{
-		return CMLib.lang().fullSessionTranslation(str, xs);
+		return CMLib.lang().fullSessionTranslation(getClass(), str, xs);
+	}
+
+	@Override
+	public String getTargetDesc()
+	{
+		final String targ = this.socialTarget.toUpperCase().trim();
+		if(targ.equals("<T-NAME>"))
+			return ("MOB Target "+this.socialArg).toString();
+		if(targ.equals("<I-NAME>"))
+			return ("Room Item Target "+this.socialArg).toString();
+		if(targ.equals("<V-NAME>"))
+			return ("Inventory Target "+this.socialArg).toString();
+		if(targ.equals("<E-NAME>"))
+			return ("Equipment Target "+this.socialArg).toString();
+		return this.socialFullTail;
 	}
 
 	@Override
@@ -296,13 +317,44 @@ public class DefaultSocial implements Social
 	}
 
 	@Override
+	public boolean meetsCriteriaToUse(final MOB mob)
+	{
+		return (this.zMask == null) || (mob==null) || CMLib.masking().maskCheck(zMask, mob, false);
+	}
+
+	@Override
+	public void setCriteriaZappermask(final String mask)
+	{
+		this.zMask=null;
+		this.zapperMask = "";
+		if((mask!=null)
+		&&(mask.trim().length()>0))
+		{
+			this.zapperMask=mask.trim();
+			zMask = CMLib.masking().maskCompile(this.zapperMask);
+		}
+	}
+
+	@Override
+	public String getCriteriaZappermask()
+	{
+		return this.zapperMask != null ? this.zapperMask : "";
+	}
+
+	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical target, final boolean auto)
 	{
 		if(mob == null)
 			return false;
-		final Room R = mob.location();
-		if(R== null)
-			return false;
+
+		boolean confirmed=false;
+		if(getFlags().contains(SocialFlag.CONFIRM)
+		&&(commands.size()>0)
+		&&(commands.get(commands.size()-1).equalsIgnoreCase("CONFIRMED")))
+		{
+			commands.remove(commands.size()-1);
+			confirmed=true;
+		}
 
 		String targetStr = "";
 		String restArg = "";
@@ -315,20 +367,107 @@ public class DefaultSocial implements Social
 				restArg=commands.get(2);
 		}
 
-		Physical targetE = target;
-		if (targetE == null)
+		Physical targetP = target;
+		if (targetP == null)
 		{
-			targetE = R.fetchFromMOBRoomFavorsMOBs(mob, null, targetStr, Wearable.FILTER_ANY);
-			if ((targetE != null) && (!CMLib.flags().canBeSeenBy(targetE, mob)))
-				targetE = null;
-			else
-			if ((targetE != null) && (!targetable(targetE)))
+			final Room R = mob.location();
+			if(R== null)
+				return false;
+			int ctr = 1;
+			targetP = R.fetchFromMOBRoomFavorsMOBs(mob, null, targetStr, Wearable.FILTER_ANY);
+			while ((targetP != null)
+			&& (!CMLib.flags().canBeSeenBy(targetP, mob))
+			&&(targetStr.indexOf('.')<0))
+				targetP = R.fetchFromMOBRoomFavorsMOBs(mob, null, targetStr+"."+(++ctr), Wearable.FILTER_ANY);
+			if ((targetP instanceof Exit)
+			&& (!this.isTargetable)
+			&& (this.socialTarget != null)
+			&& (CMLib.directions().getGoodDirectionCode(this.socialTarget)>=0)
+			&& (R.getExitInDir(CMLib.directions().getGoodDirectionCode(this.socialTarget))==targetP))
+				targetP = null;
+			if ((targetP != null) && (!targetable(targetP)))
 			{
-				final Social S = CMLib.socials().fetchSocial(baseName(), targetE, restArg, true);
-				if (S != null)
-					return S.invoke(mob, commands, targetE, auto);
+				final Social S = CMLib.socials().fetchSocial(baseName(), targetP, restArg, true);
+				if((S != null)
+				&& (S.meetsCriteriaToUse(mob)))
+				{
+					if(confirmed)
+						commands.add("CONFIRMED");
+					return S.invoke(mob, commands, targetP, auto);
+				}
 			}
 		}
+
+		if(getFlags().contains(SocialFlag.CONFIRM)
+		&&(!confirmed)
+		&&(!mob.isMonster()))
+		{
+			final Session sess=mob.session();
+			sess.prompt(new InputCallback(InputCallback.Type.CONFIRM,"Y",0)
+			{
+				@Override
+				public void showPrompt()
+				{
+					sess.promptPrint(L("\n\rAre you sure (Y/n)? "));
+				}
+
+				@Override
+				public void timedOut()
+				{
+				}
+
+				@Override
+				public void callBack()
+				{
+					if (this.input.equals("Y"))
+					{
+						if(confirmed)
+							commands.add("CONFIRMED");
+						invoke(mob, commands, target, auto);
+					}
+				}
+			});
+			return true;
+		}
+		if(getFlags().contains(SocialFlag.TARG_CONFIRM)
+		&&(targetP instanceof MOB)
+		&&(!((MOB)targetP).isMonster()))
+		{
+			final Session sess=((MOB)targetP).session();
+			final Physical fP=targetP;
+			sess.prompt(new InputCallback(InputCallback.Type.CONFIRM,"Y",0)
+			{
+				final Physical tarP=fP;
+				@Override
+				public void showPrompt()
+				{
+					sess.promptPrint(L("\n\r@x1 want(s) to @x2 you.  Is this OK (Y/n)? ",mob.name(),baseName().toLowerCase()));
+				}
+
+				@Override
+				public void timedOut()
+				{
+				}
+
+				@Override
+				public void callBack()
+				{
+					if (this.input.equals("Y"))
+						invokeIntern(mob, commands, tarP, auto);
+					else
+						mob.tell(L("@x1 forbid(s) you to @x2.",tarP.name(),baseName().toLowerCase()));
+				}
+			});
+			return true;
+		}
+		return invokeIntern(mob, commands, targetP, auto);
+	}
+
+	protected boolean invokeIntern(final MOB mob, final List<String> commands, final Physical targetP, final boolean auto)
+	{
+		final Room R = mob.location();
+		if(R== null)
+			return false;
 
 		final String mspFile = ((soundFile != null) && (soundFile.length() > 0)) ? CMLib.protocol().msp(soundFile, 10) : "";
 
@@ -348,8 +487,8 @@ public class DefaultSocial implements Social
 		if ((failMsg != null) && (failMsg.trim().length() == 0))
 			failMsg = null;
 
-		if (((targetE == null) && (targetable(null)))
-		|| ((targetE != null) && (!targetable(targetE))))
+		if (((targetP == null) && (targetable(null)))
+		|| ((targetP != null) && (!targetable(targetP))))
 		{
 			final CMMsg msg = CMClass.getMsg(mob, null, this,
 					(auto ? CMMsg.MASK_ALWAYS : 0) | getSourceCode(), failMsg,
@@ -366,7 +505,7 @@ public class DefaultSocial implements Social
 			}
 		}
 		else
-		if (targetE == null)
+		if (targetP == null)
 		{
 			final CMMsg msg = CMClass.getMsg(mob, null, this,
 					(auto ? CMMsg.MASK_ALWAYS : 0) | getSourceCode(), (srcMsg == null) ? null : srcMsg + mspFile,
@@ -384,7 +523,7 @@ public class DefaultSocial implements Social
 		}
 		else
 		{
-			final CMMsg msg = CMClass.getMsg(mob, targetE, this,
+			final CMMsg msg = CMClass.getMsg(mob, targetP, this,
 					(auto ? CMMsg.MASK_ALWAYS : 0) | getSourceCode(), (srcMsg == null) ? null : srcMsg + mspFile,
 					getTargetCode(), (tgtMsg == null) ? null : tgtMsg + mspFile,
 					getOthersCode(), (othMsg == null) ? null : othMsg + mspFile);
@@ -396,20 +535,20 @@ public class DefaultSocial implements Social
 					CMLib.coffeeTables().bump(this,CoffeeTableRow.STAT_SOCUSE);
 					CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.SOCIALUSE, 1, this);
 				}
-				if (targetE instanceof MOB)
+				if (targetP instanceof MOB)
 				{
-					final MOB tmob = (MOB) targetE;
+					final MOB tmob = (MOB) targetP;
 					if(mob.isPlayer())
 					{
 						if(tmob.isPlayer())
 						{
 							if((CMProps.getIntVar(CMProps.Int.RP_SOCIAL_PC)!=0)&&(awardRPXP(mob)))
-								CMLib.leveler().postRPExperience(mob, tmob, "", CMProps.getIntVar(CMProps.Int.RP_SOCIAL_PC), false);
+								CMLib.leveler().postRPExperience(mob, "SOCIAL:"+socialFullID, tmob, "", CMProps.getIntVar(CMProps.Int.RP_SOCIAL_PC), false);
 						}
 						else
 						{
 							if((CMProps.getIntVar(CMProps.Int.RP_SOCIAL_NPC)!=0)&&(awardRPXP(mob)))
-								CMLib.leveler().postRPExperience(mob, tmob, "", CMProps.getIntVar(CMProps.Int.RP_SOCIAL_NPC), false);
+								CMLib.leveler().postRPExperience(mob, "SOCIAL:"+socialFullID, tmob, "", CMProps.getIntVar(CMProps.Int.RP_SOCIAL_NPC), false);
 						}
 					}
 
@@ -417,20 +556,20 @@ public class DefaultSocial implements Social
 					&& (mob.charStats().getStat(CharStats.STAT_CHARISMA) >= 16)
 					&& (mob.charStats().getMyRace().ID().equals(tmob.charStats().getMyRace().ID()))
 					&& (CMLib.dice().rollPercentage() == 1)
-					&& (mob.charStats().getStat(CharStats.STAT_GENDER) != ('N'))
-					&& (tmob.charStats().getStat(CharStats.STAT_GENDER) != ('N'))
+					&& (mob.charStats().reproductiveCode() != ('N'))
+					&& (tmob.charStats().reproductiveCode() != ('N'))
 					&& (mob.charStats().getStat(CharStats.STAT_GENDER) != tmob.charStats().getStat(CharStats.STAT_GENDER))
 					&& (!CMSecurity.isDisabled(CMSecurity.DisFlag.AUTODISEASE)))
 					{
 						final Ability A = CMClass.getAbility("Disease_Smiles");
-						if ((A != null) && (targetE.fetchEffect(A.ID()) == null)&&(!CMSecurity.isAbilityDisabled(A.ID())))
+						if ((A != null) && (targetP.fetchEffect(A.ID()) == null)&&(!CMSecurity.isAbilityDisabled(A.ID())))
 							A.invoke(tmob, tmob, true, 0);
 					}
 				}
 				else
 				{
 					if((CMProps.getIntVar(CMProps.Int.RP_SOCIAL_OTH)!=0)&&(awardRPXP(mob)))
-						CMLib.leveler().postRPExperience(mob, null, "", CMProps.getIntVar(CMProps.Int.RP_SOCIAL_OTH), false);
+						CMLib.leveler().postRPExperience(mob, "SOCIAL:"+socialFullID, null, "", CMProps.getIntVar(CMProps.Int.RP_SOCIAL_OTH), false);
 				}
 			}
 		}
@@ -447,7 +586,7 @@ public class DefaultSocial implements Social
 	}
 
 	@Override
-	public CMMsg makeMessage(final MOB mob, final String str, final String end, final int srcMask, final int fullCode, final List<String> commands, final String I3channelName, final boolean makeTarget)
+	public CMMsg makeMessage(final MOB mob, final String str, final String end, final int srcMask, final int fullCode, final List<String> commands, final String imudChanName, final boolean makeTarget)
 	{
 		String targetStr = "";
 		if ((commands.size() > 1)
@@ -477,9 +616,9 @@ public class DefaultSocial implements Social
 			}
 			if (((target == null) && (makeTarget))
 			|| ((targetMud.length() > 0)
-				&& (I3channelName != null)
-				&& (CMLib.intermud().i3online())
-				&& (CMLib.intermud().isI3channel(I3channelName))))
+				&& (imudChanName != null)
+				&& (CMLib.intermud().isAnyNonCM1Online())
+				&& (CMLib.intermud().isAnyImudChannel(imudChanName))))
 			{
 				target = CMClass.getFactoryMOB();
 				target.setName(targetStr);
@@ -504,52 +643,54 @@ public class DefaultSocial implements Social
 		int otherCode = fullCode;
 		int srcCode = srcMask | getSourceCode();
 
-		String You_see = getSourceMessage();
-		if ((You_see != null)
-		&& (You_see.trim().length() == 0))
+		String youSee = getSourceMessage();
+		if ((youSee != null)
+		&& (youSee.trim().length() == 0))
 		{
-			You_see = null;
+			youSee = null;
 			srcCode = CMMsg.NO_EFFECT;
 		}
 		else
-			You_see = str + You_see + end + mspFile;
+			youSee = str + youSee + end + mspFile;
 
-		String Third_party_sees = getOthersMessage();
-		if ((Third_party_sees != null)
-		&& (Third_party_sees.trim().length() == 0))
+		String thirdPartySees = getOthersMessage();
+		if ((thirdPartySees != null)
+		&& (thirdPartySees.trim().length() == 0))
 		{
-			Third_party_sees = null;
+			thirdPartySees = null;
 			otherCode = CMMsg.NO_EFFECT;
 		}
 		else
-			Third_party_sees = str + Third_party_sees + end + mspFile;
-
-		String Target_sees = getTargetMessage();
-		if ((Target_sees != null)
-		&& (Target_sees.trim().length() == 0))
-		{
-			Target_sees = null;
-			targetCode = CMMsg.NO_EFFECT;
-		}
-		else
-			Target_sees = str + Target_sees + end + mspFile;
-
-		String See_when_no_target = getFailedTargetMessage();
-		if ((See_when_no_target != null)
-		&& (See_when_no_target.trim().length() == 0))
-			See_when_no_target = null;
-		else
-			See_when_no_target = str + See_when_no_target + end;
+			thirdPartySees = str + thirdPartySees + end + mspFile;
 
 		CMMsg msg = null;
 		if (((target == null) && (targetable(null)))
 		|| ((target != null) && (!targetable(target))))
-			msg = CMClass.getMsg(mob, null, this, srcCode, See_when_no_target, CMMsg.NO_EFFECT, null, CMMsg.NO_EFFECT, null);
+		{
+			String seeWhenNoTarget = getFailedTargetMessage();
+			if ((seeWhenNoTarget == null)
+			|| (seeWhenNoTarget.trim().length() == 0))
+				seeWhenNoTarget = null;
+			else
+				seeWhenNoTarget = str + seeWhenNoTarget + end;
+			msg = CMClass.getMsg(mob, null, this, srcCode, seeWhenNoTarget, CMMsg.NO_EFFECT, null, CMMsg.NO_EFFECT, null);
+		}
 		else
 		if (target == null)
-			msg = CMClass.getMsg(mob, null, this, srcCode, You_see, CMMsg.NO_EFFECT, null, otherCode, Third_party_sees);
+			msg = CMClass.getMsg(mob, null, this, srcCode, youSee, CMMsg.NO_EFFECT, null, otherCode, thirdPartySees);
 		else
-			msg = CMClass.getMsg(mob, target, this, srcCode, You_see, targetCode, Target_sees, otherCode, Third_party_sees);
+		{
+			String targetSees = getTargetMessage();
+			if ((targetSees != null)
+			&& (targetSees.trim().length() == 0))
+			{
+				targetSees = null;
+				targetCode = CMMsg.NO_EFFECT;
+			}
+			else
+				targetSees = str + targetSees + end + mspFile;
+			msg = CMClass.getMsg(mob, target, this, srcCode, youSee, targetCode, targetSees, otherCode, thirdPartySees);
+		}
 		return msg;
 	}
 
@@ -573,6 +714,80 @@ public class DefaultSocial implements Social
 	@Override
 	public void setDisplayText(final String str)
 	{
+	}
+
+	@Override
+	public String getEncodedLine()
+	{
+		final StringBuilder buf = new StringBuilder("");
+		switch(getSourceCode())
+		{
+		case CMMsg.MSG_SPEAK:
+			buf.append('w');
+			break;
+		case CMMsg.MSG_HANDS:
+			buf.append('m');
+			break;
+		case CMMsg.MSG_NOISE:
+			buf.append('s');
+			break;
+		case CMMsg.MSG_NOISYMOVEMENT:
+			buf.append('o');
+			break;
+		case CMMsg.MSG_QUIETMOVEMENT:
+		case CMMsg.MSG_SUBTLEMOVEMENT:
+			buf.append('q');
+			break;
+		default:
+			buf.append(' ');
+			break;
+		}
+		switch(getTargetCode())
+		{
+		case CMMsg.MSG_HANDS:
+			buf.append('t');
+			break;
+		case CMMsg.MSG_NOISE:
+			buf.append('s');
+			break;
+		case CMMsg.MSG_SPEAK:
+			buf.append('w');
+			break;
+		case CMMsg.MSG_NOISYMOVEMENT:
+			buf.append('v');
+			break;
+		case CMMsg.MSG_QUIETMOVEMENT:
+		case CMMsg.MSG_SUBTLEMOVEMENT:
+			buf.append('q');
+			break;
+		case CMMsg.MSG_OK_VISUAL:
+			buf.append('o');
+			break;
+		default:
+			buf.append(' ');
+			break;
+		}
+		final String[] stuff=new String[] {
+			name(),
+			getSourceMessage(),
+			getOthersMessage(),
+			getTargetMessage(),
+			getFailedTargetMessage(),
+			getSoundFile(),
+			getCriteriaZappermask(),
+			CMParms.toListString(getFlags())
+		};
+		buf.append('\t');
+		for (final String element : stuff)
+		{
+			if(element==null)
+				buf.append("\t");
+			else
+				buf.append(element+"\t");
+		}
+		buf.setCharAt(buf.length()-1,'\r');
+		buf.append('\n');
+		return buf.toString();
 	}
 
 	@Override
@@ -702,6 +917,16 @@ public class DefaultSocial implements Social
 		if (((soundFile == null) != (((Social) E).getSoundFile() == null))
 		|| ((soundFile != null) && (!soundFile.equals(((Social) E).getSoundFile()))))
 			return false;
+		if (flags.size() != ((Social)E).getFlags().size())
+			return false;
+		if(flags.size()>0)
+		{
+			if(!flags.containsAll(((Social)E).getFlags()))
+				return false;
+			if(!((Social)E).getFlags().containsAll(flags))
+				return false;
+		}
+
 		return true;
 	}
 
@@ -827,5 +1052,11 @@ public class DefaultSocial implements Social
 		if (mob != null)
 			return mob.isInCombat() ? combatActionsCost(mob, cmds) : actionsCost(mob, cmds);
 		return actionsCost(mob, cmds);
+	}
+
+	@Override
+	public Set<SocialFlag> getFlags()
+	{
+		return flags;
 	}
 }

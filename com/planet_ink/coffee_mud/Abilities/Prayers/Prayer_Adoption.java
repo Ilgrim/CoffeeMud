@@ -8,6 +8,7 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.Session.InputCallback;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
@@ -19,7 +20,7 @@ import java.io.IOException;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,7 +53,7 @@ public class Prayer_Adoption extends Prayer
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_HOLY | Ability.FLAG_UNHOLY;
+		return Ability.FLAG_NEUTRAL;
 	}
 
 	@Override
@@ -78,17 +79,34 @@ public class Prayer_Adoption extends Prayer
 			mob.tell(L("Who is adopting whom?"));
 			return false;
 		}
+		final List<String> origCommands = new XVector<String>(commands);
+		String confirmChildSessID = null;
+		String confirmParentSessID = null;
+		for(int i=commands.size()-1;i>=0;i--)
+		{
+			if(commands.get(i).startsWith("CHILD_CONFIRM_"))
+			{
+				confirmChildSessID = commands.get(i).substring(14);
+				commands.remove(i);
+			}
+			else
+			if(commands.get(i).startsWith("PARENT_CONFIRM_"))
+			{
+				confirmParentSessID = commands.get(i).substring(15);
+				commands.remove(i);
+			}
+		}
 		final String name2=commands.get(commands.size()-1);
 		final String name1=CMParms.combine(commands,0,commands.size()-1);
 		final MOB parent=R.fetchInhabitant(name1);
-		if((parent==null)||(!CMLib.flags().canBeSeenBy(mob,parent)))
+		if((parent==null)||(!CMLib.flags().canBeSeenBy(parent,mob)))
 		{
 			mob.tell(L("You don't see @x1 here!",name1));
 			return false;
 		}
 		final MOB child=R.fetchInhabitant(name2);
 
-		if((child==null)||(!CMLib.flags().canBeSeenBy(mob,child)))
+		if((child == null)||(!CMLib.flags().canBeSeenBy(child,mob)))
 		{
 			mob.tell(L("You don't see @x1 here!",name2));
 			return false;
@@ -97,18 +115,29 @@ public class Prayer_Adoption extends Prayer
 		{
 			mob.tell(L("@x1 cannot be adopted by @x2!",child.Name(),parent.Name()));
 		}
-		if((child.isMonster())||(child.playerStats()==null))
+		if((child.isMonster())
+		||(child.playerStats()==null)
+		||(child.session()==null))
 		{
 			mob.tell(L("@x1 must be a player to be adopted.",child.name()));
 			return false;
 		}
-		if((parent.isMonster())||(parent.playerStats()==null))
+		if((parent.isMonster())
+		||(parent.playerStats()==null)
+		||(parent.session()==null))
 		{
 			mob.tell(L("@x1 must be a player to adopt someone.",parent.name()));
 			return false;
 		}
 
-		final Tattoo tattChk=child.findTattoo("PARENT:");
+		if((child.session().isWaitingForInput())
+		||(parent.session().isWaitingForInput()))
+		{
+			mob.tell(L("You'll need to try later."));
+			return false;
+		}
+
+		final Tattoo tattChk=child.findTattoo("PARENT:*");
 		if(tattChk!=null)
 		{
 			mob.tell(L("@x1 already has parents.",child.name()));
@@ -118,49 +147,171 @@ public class Prayer_Adoption extends Prayer
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		boolean success=proficiencyCheck(mob,0,auto);
+		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			try
+			final Prayer_Adoption preMe=this;
+			final MOB readyParent=parent;
+			final MOB readyChild=child;
+			final InputCallback[] parentConfirm=new InputCallback[1];
+			final InputCallback[] childConfirm=new InputCallback[1];
+			childConfirm[0] = new InputCallback(InputCallback.Type.CONFIRM,"N",0)
 			{
-				if(!child.session().confirm(L("@x1 wants to adopt you.  Is this OK (y/N)?",parent.name()), "N", 5000))
-					success=false;
-				if(!parent.session().confirm(L("@x1 wants you to adopt @x2.  Is this OK (y/N)?",child.name(),child.charStats().himher()), "N", 5000))
-					success=false;
+				final Prayer_Adoption meA=preMe;
+				final MOB parent=readyParent;
+				final MOB child=readyChild;
+				final MOB M=mob;
+				final List<String> cmds=origCommands;
+				final Physical givenTargetM=givenTarget;
+				final boolean givenAuto=auto;
+				final int givenLevel=asLevel;
+
+				@Override
+				public void showPrompt()
+				{
+					final Session S=child.session();
+					S.promptPrint(L("@x1 wants to adopt you.  Is this OK (y/N)?",parent.name()));
+				}
+
+				@Override
+				public void timedOut()
+				{
+				}
+
+				@Override
+				public void callBack()
+				{
+					final Session S=child.session();
+					if(this.input.equals("Y"))
+					{
+						cmds.add("CHILD_CONFIRM_"+S);
+						String confirmParentSessID = null;
+						for(int i=cmds.size()-1;i>=0;i--)
+						{
+							if(cmds.get(i).startsWith("PARENT_CONFIRM_"))
+							{
+								confirmParentSessID = cmds.get(i).substring(15);
+								cmds.remove(i);
+							}
+						}
+						if((parent!=M)
+						&&(parent.session()!=null)
+						&&(!parent.session().isStopped())
+						&&((confirmParentSessID==null)||(!(""+parent.session()).equals(confirmParentSessID)))
+						&&(!parent.session().isWaitingForInput()))
+							parent.session().prompt(parentConfirm[0]);
+						else
+						{
+							CMLib.threads().executeRunnable(new Runnable() {
+
+								@Override
+								public void run()
+								{
+									meA.invoke(M, cmds, givenTargetM, givenAuto, givenLevel);
+								}
+							});
+						}
+					}
+					S.setPromptFlag(true);
+				}
+			};
+			parentConfirm[0] = new InputCallback(InputCallback.Type.CONFIRM,"N",0)
+			{
+				final Prayer_Adoption meA=preMe;
+				final MOB parent=readyParent;
+				final MOB child=readyChild;
+				final MOB M=mob;
+				final List<String> cmds=origCommands;
+				final Physical givenTargetM=givenTarget;
+				final boolean givenAuto=auto;
+				final int givenLevel=asLevel;
+
+				@Override
+				public void showPrompt()
+				{
+					final Session S=parent.session();
+					S.promptPrint(L("@x1 wants you to adopt @x2.  Is this OK (y/N)?",child.name(),child.charStats().himher()));
+				}
+
+				@Override
+				public void timedOut()
+				{
+				}
+
+				@Override
+				public void callBack()
+				{
+					final Session S=parent.session();
+					if(this.input.equals("Y"))
+					{
+						cmds.add("PARENT_CONFIRM_"+S);
+						String confirmChildSessID = null;
+						for(int i=cmds.size()-1;i>=0;i--)
+						{
+							if(cmds.get(i).startsWith("CHILD_CONFIRM_"))
+								confirmChildSessID = cmds.get(i).substring(14);
+						}
+						if((child!=M)
+						&&(child.session()!=null)
+						&&(!child.session().isStopped())
+						&&((confirmChildSessID==null)||(!(""+child.session()).equals(confirmChildSessID)))
+						&&(!child.session().isWaitingForInput()))
+							child.session().prompt(childConfirm[0]);
+						else
+						{
+							CMLib.threads().executeRunnable(new Runnable() {
+
+								@Override
+								public void run()
+								{
+									meA.invoke(M, cmds, givenTargetM, givenAuto, givenLevel);
+								}
+							});
+						}
+					}
+					S.setPromptFlag(true);
+				}
+			};
+			if((child!=mob)
+			&&(child.session()!=null)
+			&&(!child.session().isStopped())
+			&&((confirmChildSessID==null)||(!(""+child.session()).equals(confirmChildSessID)))
+			&&(!child.session().isWaitingForInput()))
+			{
+				child.session().prompt(childConfirm[0]);
+				mob.tell(L("\n\rYour prayer seeks consent before invoking..."));
+				return false;
 			}
-			catch (final IOException e)
+			else
+			if((parent!=mob)
+			&&(parent.session()!=null)
+			&&(!parent.session().isStopped())
+			&&((confirmParentSessID==null)||(!(""+parent.session()).equals(confirmParentSessID)))
+			&&(!parent.session().isWaitingForInput()))
 			{
-				success=false;
+				mob.tell(L("\n\rYour prayer seeks consent before invoking..."));
+				parent.session().prompt(parentConfirm[0]);
+				return false;
 			}
 		}
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,null,this,verbalCastCode(mob,null,auto),auto?"":L("^S<S-NAME> @x1 to bless the adoption of @x3 by @x2.^?",prayForWord(mob),parent.name(),child.name()));
+			final CMMsg msg=CMClass.getMsg(mob,null,this,verbalCastCode(mob,null,auto),
+					auto?"":L("^S<S-NAME> @x1 to bless the adoption of @x3 by @x2.^?",prayForWord(mob),parent.name(),child.name()));
 			if(R.okMessage(mob,msg))
 			{
 				R.send(mob,msg);
-				String sondat;
-				switch(child.charStats().getStat(CharStats.STAT_GENDER))
-				{
-				case 'M':
-					sondat="son";
-					break;
-				case 'F':
-					sondat="daughter";
-					break;
-				default:
-					sondat="child";
-					break;
-				}
-				String descAddOn = "@x1 is the adopted "+sondat+" of @x2";
+				final String sondat=child.charStats().sondaughter();
 				child.addTattoo("PARENT:"+parent.Name());
+				String descAddOn;
 				if(parent.isMarriedToLiege() && (parent.getLiegeID().length()>0))
 				{
 					child.addTattoo("PARENT:"+parent.getLiegeID());
-					descAddOn +=" and @x3";
+					descAddOn =L("@x1 is the adopted @x4 of @x2 and @x3.",child.Name(),parent.Name(),parent.getLiegeID(),sondat);
 				}
-				descAddOn += ".";
-				child.setDescription(child.description()+"  "+L(descAddOn,child.Name(),parent.Name(),parent.getLiegeID()));
+				else
+					descAddOn = L("@x1 is the adopted @x3 of @x2.",child.Name(),parent.Name(),sondat);
+				child.setDescription(child.description()+"  "+descAddOn);
 			 }
 		}
 		else

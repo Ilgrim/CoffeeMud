@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Set;
 
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -91,8 +91,8 @@ public class Prayer_MassGrave extends Prayer
 		return CAN_ROOMS;
 	}
 
-	public Room previousLocation=null;
-	public Room shelter=null;
+	protected Room previousLocation=null;
+	protected Room shelter=null;
 
 	public Room getPreviousLocation(final MOB mob)
 	{
@@ -100,10 +100,56 @@ public class Prayer_MassGrave extends Prayer
 		{
 			if(text().length()>0)
 				previousLocation=CMLib.map().getRoom(text());
+			if((previousLocation==null)||(previousLocation.amDestroyed()))
+			{
+				if(affected instanceof MOB)
+					previousLocation = ((MOB)affected).location();
+				else
+				if(mob != null)
+					previousLocation = mob.location();
+			}
 			while((previousLocation==null)||(previousLocation.amDestroyed())||(!CMLib.flags().canAccess(mob, previousLocation)))
 				previousLocation=CMLib.map().getRandomRoom();
 		}
 		return previousLocation;
+	}
+
+	protected Room getShelter(final MOB mob)
+	{
+		if(this.shelter != null)
+			return this.shelter;
+		final Room R=getPreviousLocation(mob);
+		this.shelter = buildShelter(R.getArea());
+		return this.shelter;
+	}
+
+	protected final Room buildShelter(final Area area)
+	{
+		final Room newRoom=CMClass.getLocale("CaveRoom");
+		newRoom.setDisplayText(L("An underground grave"));
+		newRoom.setDescription(L("You are in a dark dirty place!"));
+		newRoom.setSavable(false);
+		newRoom.setRoomID("");
+		newRoom.setArea(area);
+		newRoom.setAtmosphere(RawMaterial.RESOURCE_NOTHING);
+		Ability A=CMClass.getAbility("Prop_PeaceMaker");
+		if(A!=null)
+			newRoom.addEffect(A);
+		A=CMClass.getAbility("Prop_NoRecall");
+		if(A!=null)
+			newRoom.addEffect(A);
+		A=CMClass.getAbility("Prop_NoSummon");
+		if(A!=null)
+			newRoom.addEffect(A);
+		A=CMClass.getAbility("Prop_NoTeleport");
+		if(A!=null)
+			newRoom.addEffect(A);
+		A=CMClass.getAbility("Prop_NoTeleportOut");
+		if(A!=null)
+			newRoom.addEffect(A);
+		newRoom.setArea(area);
+		newRoom.setAtmosphere(RawMaterial.RESOURCE_DIRT);
+		return newRoom;
 	}
 
 	@Override
@@ -115,7 +161,7 @@ public class Prayer_MassGrave extends Prayer
 
 		if(canBeUninvoked())
 		{
-			Room shelter=this.shelter;
+			Room shelter=getShelter(M);
 			if(shelter==null)
 				shelter=M.location();
 			if(shelter != null)
@@ -167,16 +213,21 @@ public class Prayer_MassGrave extends Prayer
 	@Override
 	public boolean okMessage(final Environmental host, final CMMsg msg)
 	{
-		if(((msg.sourceMinor()==CMMsg.TYP_QUIT)
-			||(msg.sourceMinor()==CMMsg.TYP_SHUTDOWN)
-			||((msg.targetMinor()==CMMsg.TYP_EXPIRE)&&(msg.target()==shelter))
-			||(msg.sourceMinor()==CMMsg.TYP_DEATH)
-			||(msg.sourceMinor()==CMMsg.TYP_ROOMRESET))
-		&&(shelter!=null)
-		&&(shelter.isInhabitant(msg.source())))
+		if((msg.sourceMinor()==CMMsg.TYP_QUIT)
+		||(msg.sourceMinor()==CMMsg.TYP_SHUTDOWN)
+		||((msg.targetMinor()==CMMsg.TYP_EXPIRE)&&(msg.target()==shelter))
+		||(msg.sourceMinor()==CMMsg.TYP_DEATH)
+		||(msg.sourceMinor()==CMMsg.TYP_ROOMRESET))
 		{
-			getPreviousLocation(msg.source()).bringMobHere(msg.source(),false);
-			unInvoke();
+			Room shelter=getShelter(msg.source());
+			if(shelter==null)
+				shelter=msg.source().location();
+			if((shelter!=null)
+			&&(shelter.isInhabitant(msg.source())))
+			{
+				getPreviousLocation(msg.source()).bringMobHere(msg.source(),false);
+				unInvoke();
+			}
 		}
 		return super.okMessage(host,msg);
 	}
@@ -213,7 +264,8 @@ public class Prayer_MassGrave extends Prayer
 		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),auto?"":L("^S<S-NAME> @x1 for an immediate burial.^?",prayWord(mob)));
+			final CMMsg msg=CMClass.getMsg(mob,null,this,somaticCastCode(mob,null,auto),
+					auto?"":L("^S<S-NAME> @x1 for an immediate burial.^?",prayWord(mob)));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -223,38 +275,14 @@ public class Prayer_MassGrave extends Prayer
 
 				final Room thisRoom=mob.location();
 				previousLocation=thisRoom;
-				final Room newRoom=CMClass.getLocale("CaveRoom");
-				shelter = newRoom;
-				newRoom.setDisplayText(L("An underground grave"));
-				newRoom.setDescription(L("You are in a dark dirty place!"));
-				newRoom.setSavable(false);
-				newRoom.setRoomID("");
-				newRoom.setArea(mob.location().getArea());
-				newRoom.setAtmosphere(RawMaterial.RESOURCE_NOTHING);
-				Ability A=CMClass.getAbility("Prop_PeaceMaker");
-				if(A!=null)
-					newRoom.addEffect(A);
-				A=CMClass.getAbility("Prop_NoRecall");
-				if(A!=null)
-					newRoom.addEffect(A);
-				A=CMClass.getAbility("Prop_NoSummon");
-				if(A!=null)
-					newRoom.addEffect(A);
-				A=CMClass.getAbility("Prop_NoTeleport");
-				if(A!=null)
-					newRoom.addEffect(A);
-				A=CMClass.getAbility("Prop_NoTeleportOut");
-				if(A!=null)
-					newRoom.addEffect(A);
-				shelter.setArea(mob.location().getArea());
-				shelter.setAtmosphere(RawMaterial.RESOURCE_DIRT);
+				shelter = buildShelter(thisRoom.getArea());
 				miscText=CMLib.map().getExtendedRoomID(mob.location());
 				for (final Object element : h)
 				{
 					final MOB follower=(MOB)element;
-					final CMMsg enterMsg=CMClass.getMsg(follower,newRoom,null,CMMsg.MSG_ENTER,null,CMMsg.MSG_ENTER,null,CMMsg.MSG_ENTER,L("<S-NAME> <S-IS-ARE> buried here."));
-					final CMMsg leaveMsg=CMClass.getMsg(follower,thisRoom,this,somanticCastCode(mob,newRoom,auto),L("<S-NAME> <S-IS-ARE> buried underground."));
-					if(thisRoom.okMessage(follower,leaveMsg)&&newRoom.okMessage(follower,enterMsg))
+					final CMMsg enterMsg=CMClass.getMsg(follower,shelter,null,CMMsg.MSG_ENTER,null,CMMsg.MSG_ENTER,null,CMMsg.MSG_ENTER,L("<S-NAME> <S-IS-ARE> buried here."));
+					final CMMsg leaveMsg=CMClass.getMsg(follower,thisRoom,this,somaticCastCode(mob,shelter,auto),L("<S-NAME> <S-IS-ARE> buried underground."));
+					if(thisRoom.okMessage(follower,leaveMsg)&&shelter.okMessage(follower,enterMsg))
 					{
 						if(follower.isInCombat())
 						{
@@ -274,7 +302,7 @@ public class Prayer_MassGrave extends Prayer
 			}
 		}
 		else
-			beneficialVisualFizzle(mob,null,L("<S-NAME> wave(s) <S-HIS-HER> arms and and speak(s), but nothing happens."));
+			beneficialVisualFizzle(mob,null,L("<S-NAME> wave(s) <S-HIS-HER> arms and speak(s), but nothing happens."));
 
 		return success;
 	}

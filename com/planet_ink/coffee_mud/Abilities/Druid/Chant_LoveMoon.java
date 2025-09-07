@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -122,7 +122,8 @@ public class Chant_LoveMoon extends Chant
 					&&(M!=mob)
 					&&(CMLib.flags().canBeSeenBy(M,mob))
 					&&(M.charStats().getStat(CharStats.STAT_GENDER)!=mob.charStats().getStat(CharStats.STAT_GENDER))
-					&&(M.charStats().getStat(CharStats.STAT_GENDER)!='N')
+					&&(M.charStats().reproductiveCode()!='N')
+					&&(mob.charStats().reproductiveCode()!='N')
 					&&(M.charStats().getSave(CharStats.STAT_CHARISMA)>14))
 						choices.add(M);
 				}

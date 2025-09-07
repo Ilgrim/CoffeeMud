@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -206,7 +206,7 @@ public class Prayer_HolyDay extends Prayer
 				for(final Enumeration<Room> e=target.getMetroMap();e.hasMoreElements();)
 				{
 					final Room R=e.nextElement();
-					godName=mob.getWorshipCharID();
+					godName=mob.charStats().getWorshipCharID();
 					if((godName.length()==0)||(CMLib.map().getDeity(godName)==null))
 						godName="the gods";
 					R.showHappens(CMMsg.MSG_OK_VISUAL,L("A holy day of @x1 has begun!",godName));

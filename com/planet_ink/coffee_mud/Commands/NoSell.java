@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -135,7 +135,10 @@ public class NoSell extends StdCommand
 						I.addNonUninvokableEffect(propA);
 						propA.setMiscText("MESSAGE=\"@x1 is unsellable.\" DROPOFF=true AMBIANCE=\"(Unsellable)\"");
 						I.recoverPhyStats();
-						mob.tell(L("@x1 is now marked unsellable.",I.name(mob)));
+						if(!I.isGeneric())
+							mob.tell(L("@x1 is now marked *TEMPORARILY* unsellable.",I.name(mob)));
+						else
+							mob.tell(L("@x1 is now marked unsellable.",I.name(mob)));
 					}
 				}
 			}

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -81,14 +81,14 @@ public class Spirit extends Undead
 	private static Vector<RawMaterial>	resources	= new Vector<RawMaterial>();
 
 	@Override
-	protected Weapon funHumanoidWeapon()
+	public Weapon[] getNaturalWeapons()
 	{
-		if(naturalWeaponChoices==null)
+		if(naturalWeaponChoices.length==0)
 		{
 			final Vector<Weapon> naturalWeaponChoices=new Vector<Weapon>();
 			for(int i=1;i<11;i++)
 			{
-				naturalWeapon=CMClass.getWeapon("StdWeapon");
+				final Weapon naturalWeapon=CMClass.getWeapon("GenWeapon");
 				switch(i)
 				{
 					case 1:
@@ -130,14 +130,16 @@ public class Spirit extends Undead
 				naturalWeapon.setUsesRemaining(1000);
 				naturalWeaponChoices.add(naturalWeapon);
 			}
-			this.naturalWeaponChoices = naturalWeaponChoices;
+			this.naturalWeaponChoices = naturalWeaponChoices.toArray(new Weapon[naturalWeaponChoices.size()]);
 		}
-		return naturalWeaponChoices.get(CMLib.dice().roll(1,naturalWeaponChoices.size(),-1));
+		return super.getNaturalWeapons();
 	}
 
 	@Override
 	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
+		if(!super.okMessage(myHost, msg))
+			return false;
 		if(((msg.targetMinor()==CMMsg.TYP_UNDEAD)
 			||(msg.sourceMinor()==CMMsg.TYP_UNDEAD))
 		&&((!(myHost instanceof MOB))
@@ -146,17 +148,31 @@ public class Spirit extends Undead
 			||(msg.targetMinor()==CMMsg.TYP_DAMAGE)
 			||(msg.targetMinor()==CMMsg.TYP_LEGALWARRANT)))
 		{
-			String immunityName="certain";
-			if(msg.tool()!=null)
-				immunityName=msg.tool().name();
 			if(!msg.sourceMajor(CMMsg.MASK_CNTRLMSG) && !msg.targetMajor(CMMsg.MASK_CNTRLMSG))
 			{
+				if((msg.tool()==msg.source())&&(msg.sourceMinor()==CMMsg.TYP_GAS))
+					return false;
+				String immunityName="certain";
+				if(msg.tool()!=null)
+					immunityName=msg.tool().name();
 				final Room R=CMLib.map().roomLocation(msg.target());
 				if(msg.target()!=msg.source())
 					R.show(msg.source(),msg.target(),CMMsg.MSG_OK_VISUAL,L("<T-NAME> seem(s) immune to @x1 attacks from <S-NAME>.",immunityName));
 				else
 					R.show(msg.source(),msg.target(),CMMsg.MSG_OK_VISUAL,L("<T-NAME> seem(s) immune to @x1.",immunityName));
 			}
+			return false;
+		}
+		else
+		if((msg.target()==myHost)
+		&&(CMath.bset(msg.targetMajor(),CMMsg.MASK_MALICIOUS))
+		&&(myHost instanceof MOB)
+		&&(msg.tool() instanceof Ability)
+		&&((((Ability)msg.tool()).classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_ROPEUSE))
+		{
+			final Room R=CMLib.map().roomLocation(msg.target());
+			R.show(msg.source(),msg.target(),CMMsg.MSG_OK_VISUAL,
+					L("The @x1 attack from <S-NAME> doesn't seem useful against <T-NAME>.",msg.tool().name()));
 			return false;
 		}
 		return true;
@@ -169,33 +185,40 @@ public class Spirit extends Undead
 	private final String[]	racialAbilityParms			= { "", "" };
 
 	@Override
-	public String[] racialAbilityNames()
+	protected String[] racialAbilityNames()
 	{
 		return racialAbilityNames;
 	}
 
 	@Override
-	public int[] racialAbilityLevels()
+	protected int[] racialAbilityLevels()
 	{
 		return racialAbilityLevels;
 	}
 
 	@Override
-	public int[] racialAbilityProficiencies()
+	protected int[] racialAbilityProficiencies()
 	{
 		return racialAbilityProficiencies;
 	}
 
 	@Override
-	public boolean[] racialAbilityQuals()
+	protected boolean[] racialAbilityQuals()
 	{
 		return racialAbilityQuals;
 	}
 
 	@Override
-	public String[] racialAbilityParms()
+	protected String[] racialAbilityParms()
 	{
 		return racialAbilityParms;
+	}
+
+	@Override
+	public void affectPhyStats(final Physical affected, final PhyStats affectedStats)
+	{
+		super.affectPhyStats(affected,affectedStats);
+		affectedStats.setHeight(-1);
 	}
 
 	@Override
@@ -206,9 +229,10 @@ public class Spirit extends Undead
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
-		return funHumanoidWeapon();
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.setStat(CharStats.STAT_SAVE_UNDEAD,affectableStats.getStat(CharStats.STAT_SAVE_UNDEAD)-100);
 	}
 
 	@Override

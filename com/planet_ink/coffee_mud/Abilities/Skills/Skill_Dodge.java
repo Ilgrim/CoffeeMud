@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -67,6 +67,12 @@ public class Skill_Dodge extends StdSkill
 	}
 
 	@Override
+	public int maxRange()
+	{
+		return adjustedMaxInvokerRange(10);
+	}
+
+	@Override
 	public int abstractQuality()
 	{
 		return Ability.QUALITY_BENEFICIAL_SELF;
@@ -112,21 +118,29 @@ public class Skill_Dodge extends StdSkill
 		&&(msg.targetMinor()==CMMsg.TYP_WEAPONATTACK)
 		&&(CMLib.flags().isAliveAwakeMobile(mob,true))
 		&&(msg.source().rangeToTarget()==0)
+		&&(CMLib.flags().canBeSeenBy(mob, msg.source()))
 		&&((msg.tool()==null)
 			||((msg.tool() instanceof Weapon)
 			  &&(((Weapon)msg.tool()).weaponClassification()!=Weapon.CLASS_RANGED)
 			  &&(((Weapon)msg.tool()).weaponClassification()!=Weapon.CLASS_THROWN))))
 		{
-			final CMMsg msg2=CMClass.getMsg(mob,msg.source(),this,CMMsg.MSG_QUIETMOVEMENT,L("<S-NAME> dodge(s) the attack by <T-NAME>!"));
 			if((proficiencyCheck(null,mob.charStats().getStat(CharStats.STAT_DEXTERITY)-93+(getXLEVELLevel(mob)),false))
 			&&(msg.source().getVictim()==mob)
-			&&(!doneThisRound)
-			&&(mob.location().okMessage(mob,msg2)))
+			&&(!doneThisRound))
 			{
-				doneThisRound=true;
-				mob.location().send(mob,msg2);
-				helpProficiency(mob, 0);
-				return false;
+				final String wmsg;
+				if(msg.tool() instanceof Weapon)
+					wmsg=L("<S-NAME> dodge(s) <T-YOUPOSS> @x1!",((Weapon)msg.tool()).name(mob));
+				else
+					wmsg=L("<S-NAME> dodge(s) the attack by <T-NAME>!");
+				final CMMsg msg2=CMClass.getMsg(mob,msg.source(),this,CMMsg.MSG_QUIETMOVEMENT,wmsg);
+				if(mob.location().okMessage(mob,msg2))
+				{
+					doneThisRound=true;
+					mob.location().send(mob,msg2);
+					helpProficiency(mob, 0);
+					return false;
+				}
 			}
 		}
 		return true;

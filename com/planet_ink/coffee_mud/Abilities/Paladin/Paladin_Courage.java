@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -61,6 +61,12 @@ public class Paladin_Courage extends PaladinSkill
 	}
 
 	@Override
+	public long flags()
+	{
+		return Ability.FLAG_HOLY|Ability.FLAG_LAW;
+	}
+
+	@Override
 	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(!super.okMessage(myHost,msg))
@@ -77,23 +83,17 @@ public class Paladin_Courage extends PaladinSkill
 		&&(((MOB)msg.target()).location()==invoker.location()))
 		{
 			if((msg.tool() instanceof Ability)
+			&&(CMath.bset(((Ability)msg.tool()).flags(), Ability.FLAG_FEARING))
 			&&((invoker.fetchAbility(ID())==null)||proficiencyCheck(null,0,false))
 			&&(msg.sourceMinor()!=CMMsg.TYP_TEACH))
 			{
 				if((!appropriateToMyFactions(invoker))
 				||(!appropriateToMyFactions((MOB)msg.target())))
 					return true;
-
-				final String str1=msg.tool().ID().toUpperCase();
-				if((str1.indexOf("SPOOK")>=0)
-				||(str1.indexOf("NIGHTMARE")>=0)
-				||(str1.indexOf("FEAR")>=0))
-				{
-					final MOB mob=(MOB)msg.target();
-					mob.location().showSource(mob,null,CMMsg.MSG_OK_VISUAL,L("Your courage protects you from the @x1 attack.",msg.tool().name()));
-					mob.location().showOthers(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME>'s courage protects <S-HIM-HER> from the @x1 attack.",msg.tool().name()));
-					return false;
-				}
+				final MOB mob=(MOB)msg.target();
+				mob.location().showSource(mob,null,CMMsg.MSG_OK_VISUAL,L("Your courage protects you from the @x1 attack.",msg.tool().name()));
+				mob.location().showOthers(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME>'s courage protects <S-HIM-HER> from the @x1 attack.",msg.tool().name()));
+				return false;
 			}
 		}
 		return true;

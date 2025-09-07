@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -158,6 +158,13 @@ public class Fighter_CircleTrip extends FighterSkill
 				return Ability.QUALITY_INDIFFERENT;
 			if(target.fetchEffect(ID())!=null)
 				return Ability.QUALITY_INDIFFERENT;
+			if(target instanceof MOB)
+			{
+				final Rideable targetR = ((MOB)target).riding();
+				if((targetR != null)
+				&&(mob.riding() != targetR))
+					return Ability.QUALITY_INDIFFERENT;
+			}
 		}
 		return super.castingQuality(mob,target);
 	}
@@ -186,7 +193,7 @@ public class Fighter_CircleTrip extends FighterSkill
 			return false;
 
 		final Set<MOB> h=properTargets(mob,givenTarget,auto);
-		if(h==null)
+		if((h==null)||(h.size()==0))
 		{
 			mob.tell(L("There doesn't appear to be anyone here worth tripping."));
 			return false;
@@ -207,8 +214,9 @@ public class Fighter_CircleTrip extends FighterSkill
 					mob.tell(L("@x1 is already on the floor!",target.name(mob)));
 					return false;
 				}
-
-				if(target.riding()!=null)
+				final Rideable targetR = target.riding();
+				if((targetR != null)
+				&&(mob.riding() != targetR))
 				{
 					mob.tell(L("You can't trip someone @x1 @x2!",target.riding().stateString(target),target.riding().name()));
 					return false;
@@ -235,6 +243,11 @@ public class Fighter_CircleTrip extends FighterSkill
 					if(mob.location().okMessage(mob,msg))
 					{
 						mob.location().send(mob,msg);
+						if(msg.value()>0)
+						{
+							target.location().show(mob, target,CMMsg.MSG_OK_ACTION,L("<T-NAME> dodge(s) <S-YOUPOSS> circle trip."));
+							continue;
+						}
 						maliciousAffect(mob,target,asLevel,2,-1);
 						target.location().show(target,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> hit(s) the floor!"));
 					}

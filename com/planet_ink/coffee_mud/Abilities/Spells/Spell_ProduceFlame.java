@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -113,14 +113,15 @@ public class Spell_ProduceFlame extends Spell
 		&&(msg.target() instanceof MOB)
 		&&((!(msg.tool() instanceof Weapon))||(((Weapon)msg.tool()).weaponClassification()==Weapon.CLASS_NATURAL)))
 		{
-			final CMMsg msg2=CMClass.getMsg(mob,msg.target(),this,somanticCastCode(mob,(MOB)msg.target(),true),null);
+			final CMMsg msg2=CMClass.getMsg(mob,msg.target(),this,somaticCastCode(mob,(MOB)msg.target(),true),null);
 			if(mob.location().okMessage(mob,msg2))
 			{
 				mob.location().send(mob,msg2);
 				if(msg2.value()<=0)
 				{
-					final int damage = CMLib.dice().roll(1,adjustedLevel(invoker(),0),1);
-					CMLib.combat().postDamage(mob,(MOB)msg.target(),this,damage,CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS|CMMsg.TYP_FIRE,Weapon.TYPE_BURNING,L("The flames around <S-YOUPOSS> hands <DAMAGE> <T-NAME>!"));
+					final int damage = CMLib.dice().roll(1,adjustedLevel((MOB)affected,0),1);
+					CMLib.combat().postDamage(mob,(MOB)msg.target(),this,damage,CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS|CMMsg.TYP_FIRE,
+							Weapon.TYPE_BURNING,L("The flames around <S-YOUPOSS> hands <DAMAGE> <T-NAME>!"));
 				}
 			}
 		}
@@ -135,7 +136,7 @@ public class Spell_ProduceFlame extends Spell
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> already <S-HAS-HAVE> flaming hands."));
+			failureTell(mob,target,auto,L("<S-NAME> already <S-HAS-HAVE> flaming hands."));
 			return false;
 		}
 
@@ -147,7 +148,7 @@ public class Spell_ProduceFlame extends Spell
 		final Room room=mob.location();
 		if((success)&&(room!=null))
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),auto?L("^S<S-NAME> attain(s) flaming hands!"):L("^S<S-NAME> evoke(s) gold and blue flames around <S-HIS-HER> hands!^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),auto?L("^S<S-NAME> attain(s) flaming hands!"):L("^S<S-NAME> evoke(s) gold and blue flames around <S-HIS-HER> hands!^?"));
 			if(room.okMessage(mob,msg))
 			{
 				room.send(mob,msg);

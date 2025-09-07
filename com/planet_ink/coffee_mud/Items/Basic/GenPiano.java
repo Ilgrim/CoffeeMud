@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -54,9 +54,17 @@ public class GenPiano extends GenRideable implements MusicalInstrument
 		basePhyStats().setLevel(1);
 		recoverPhyStats();
 		basePhyStats().setWeight(2000);
-		rideBasis = Rideable.RIDEABLE_SIT;
+		rideBasis = Rideable.Basis.FURNITURE_SIT;
 		riderCapacity = 2;
 		setMaterial(RawMaterial.RESOURCE_OAK);
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a piano");
 	}
 
 	@Override
@@ -193,13 +201,13 @@ public class GenPiano extends GenRideable implements MusicalInstrument
 	@Override
 	public String getStat(final String code)
 	{
-		if(super.getCodeNum(code)>=0)
-			return super.getStat(code);
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return this.getInstrumentTypeName();
 		default:
+			if(super.isStat(code))
+				return super.getStat(code);
 			return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
 		}
 	}
@@ -207,10 +215,7 @@ public class GenPiano extends GenRideable implements MusicalInstrument
 	@Override
 	public void setStat(final String code, final String val)
 	{
-		if(super.getCodeNum(code)>=0)
-			super.setStat(code, val);
-		else
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 		{
@@ -218,20 +223,22 @@ public class GenPiano extends GenRideable implements MusicalInstrument
 			break;
 		}
 		default:
-			CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);
+			if(super.isStat(code))
+				super.setStat(code, val);
+			else
+				CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);
 			break;
 		}
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<MYCODES.length;i++)
 		{
 			if(code.equalsIgnoreCase(MYCODES[i]))
 				return i;
 		}
-		return super.getCodeNum(code);
+		return -1;
 	}
 
 	private static String[]	codes	= null;

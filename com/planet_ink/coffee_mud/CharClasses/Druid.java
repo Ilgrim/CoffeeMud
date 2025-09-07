@@ -12,6 +12,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -19,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -163,16 +164,19 @@ public class Druid extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Chant_SummonFood",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Chant_Moonbeam",false);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Chant_RestoreMana",0,"",false,true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Chant_RestoreMana",0,"",false,SecretFlag.SECRET);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Chant_SenseLife",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Chant_KnowAnimal",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Chant_Tangle",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Chant_SummonFire",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Chant_LocateAnimals",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Chant_EnhancePotion",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Chant_FortifyFood",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Chant_Farsight",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Chant_FeelElectricity",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Chant_InspectShard",0,false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Chant_CalmAnimal",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Chant_Sunray",false);
@@ -211,6 +215,7 @@ public class Druid extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Chant_HoldAnimal",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Chant_PlantBed",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Chant_LightningWard",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),13,"Chant_StabilizeForm",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Chant_ColdWard",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Chant_Bury",false);
@@ -235,6 +240,7 @@ public class Druid extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Chant_GasWard",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Chant_Hibernation",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Chant_Reabsorb",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Skill_ScrollFamiliarity",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Chant_SummonAnimal",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Chant_Nectar",false);
@@ -251,6 +257,7 @@ public class Druid extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Chant_PlantSnare",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Chant_SensePregnancy",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Chant_SenseFluids",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"ImprovedHerbalism",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Chant_Treemorph",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Chant_SummonWind",false);
@@ -274,6 +281,9 @@ public class Druid extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Chant_SpeedTime",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Chant_SummonSapling",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Chant_Feralness",false);
+
+		CMLib.ableMapper().addCharAbilityMapping(ID(),28,"Chant_PlanarAdaptation", 0, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Chant_Reincarnation",true);
 
@@ -303,7 +313,12 @@ public class Druid extends StdCharClass
 				if((A!=null)
 				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
-					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+				{
+					giveMobAbility(mob,A,
+								   CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),
+								   CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),
+								   isBorrowedClass);
+				}
 			}
 			return;
 		}
@@ -317,7 +332,7 @@ public class Druid extends StdCharClass
 			final Ability A=a.nextElement();
 			if((CMLib.ableMapper().getQualifyingLevel(ID(),true,A.ID())==level)
 			&&((CMLib.ableMapper().getQualifyingLevel(ID(),true,A.ID())<=25)
-			&&(!CMLib.ableMapper().getSecretSkill(ID(),true,A.ID()))
+			&&(CMLib.ableMapper().getSecretSkill(ID(),true,A.ID())==SecretFlag.PUBLIC)
 			&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID()))
 			&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)))
 			{
@@ -462,11 +477,11 @@ public class Druid extends StdCharClass
 		&&(msg.source().isMonster())
 		&&(msg.source().basePhyStats().level() < msg.value()))
 		{
-			final MOB druidM=msg.source().amUltimatelyFollowing();
-			if((druidM!=null)
+			final MOB druidM=msg.source().getGroupLeader();
+			if((druidM != msg.source())
 			&&(!druidM.isMonster())
 			&&(druidM.charStats().getCurrentClass().ID().equals(C.ID()))
-			&&(CMLib.flags().isAnimalIntelligence(msg.source())
+			&&(CMLib.flags().isAnAnimal(msg.source())
 			  ||msg.source().charStats().getMyRace().racialCategory().equalsIgnoreCase("Vegetation")
 			  ||msg.source().charStats().getMyRace().racialCategory().equalsIgnoreCase("Stone Golem"))
 			&&(Math.abs(druidM.phyStats().level()-msg.source().phyStats().level())<=10))
@@ -475,7 +490,7 @@ public class Druid extends StdCharClass
 				if(xp>0)
 				{
 					druidM.tell(CMLib.lang().L("Your stewardship has benefitted @x1.",msg.source().name(druidM)));
-					CMLib.leveler().postExperience(druidM,null,null,xp,false);
+					CMLib.leveler().postExperience(druidM,"CLASS:"+C.ID(),null,null,xp, false);
 				}
 			}
 		}
@@ -493,7 +508,7 @@ public class Druid extends StdCharClass
 		&&(msg.source().getStartRoom()!=null)
 		&&(CMLib.law().isACity(msg.source().getStartRoom().getArea()))
 		&&(((MOB)host).charStats().getCurrentClass().ID().equals(C.ID()))
-		&&(CMLib.flags().isAnimalIntelligence(msg.source())
+		&&(CMLib.flags().isAnAnimal(msg.source())
 		  ||msg.source().charStats().getMyRace().racialCategory().equalsIgnoreCase("Vegetation")
 		  ||msg.source().charStats().getMyRace().racialCategory().equalsIgnoreCase("Stone Golem"))
 		&&(CMLib.flags().flaggedAffects(msg.source(),Ability.FLAG_SUMMONING).size()==0)
@@ -556,7 +571,7 @@ public class Druid extends StdCharClass
 				A.startTickDown((MOB)host, msg.source(), 20);
 				stuff[1]=Integer.valueOf(((Integer)stuff[1]).intValue()+1);
 				((MOB)host).tell(CMLib.lang().L("You have freed @x1 from @x2.",msg.source().name((MOB)host),(msg.source().getStartRoom().getArea().name())));
-				CMLib.leveler().postExperience((MOB)host,null,null,((Integer)stuff[1]).intValue(),false);
+				CMLib.leveler().postExperience((MOB)host,"CLASS:"+C.ID(),null,null,((Integer)stuff[1]).intValue(), false);
 				final boolean isPeace=((!msg.source().isInCombat()) && (!((MOB)host).isInCombat()));
 				for(final Ability A2 : CMLib.flags().flaggedAffects(msg.source(), Ability.FLAG_CHARMING))
 				{
@@ -593,7 +608,7 @@ public class Druid extends StdCharClass
 		if((mob!=null)
 		&&(mob!=killed)
 		&&(!mob.amDead())
-		&&((!mob.isMonster())||(!CMLib.flags().isAnimalIntelligence(mob)))
+		&&((!mob.isMonster())||(!CMLib.flags().isAnAnimal(mob)))
 		&&((mob.getVictim()==killed)
 		 ||(followers.contains(mob))
 		 ||(mob==killer)))
@@ -611,6 +626,7 @@ public class Druid extends StdCharClass
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

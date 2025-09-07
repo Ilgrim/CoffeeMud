@@ -10,6 +10,7 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.ScriptingEngine.MPContext;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
@@ -20,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,31 +49,19 @@ public interface ScriptingEngine extends CMCommon, Tickable, MsgListener
 {
 	/**
 	 * Executes a script in response to an event
-	 * The scripts are formatted as a 2 dimensional DVector
-	 * with the first row being the trigger information.  Each
+	 * The scripts are formatted as a SubScript class.  Each
 	 * row consists of the String command, and a parsed String[]
 	 * array as dimension 2.
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.ScriptingEngine.ScriptableResponse
-	 * @param scripted the object that is scripted
-	 * @param source the source of the event
-	 * @param target the target of the event
-	 * @param monster a mob representation of the scripted object
-	 * @param primaryItem an item involved in the event
-	 * @param secondaryItem a second item involved in the event
-	 * @param script 2 dimensional DVector, the script to execute
-	 * @param msg a string message associated with the event
-	 * @param tmp miscellaneous local variables
+	 *
+	 * The script to execute must be pushed onto the context
+	 * before calling this.
+	 *
+	 * @see ScriptingEngine.MPContext
+	 *
+	 * @param ctx the script event context scope
 	 * @return N/A
 	 */
-	public String execute(PhysicalAgent scripted,
-						  MOB source,
-						  Environmental target,
-						  MOB monster,
-						  Item primaryItem,
-						  Item secondaryItem,
-						  DVector script,
-						  String msg,
-						  Object[] tmp);
+	public String execute(final MPContext ctx);
 
 	/**
 	 * Uses this scripting engines variable parsing system to replace
@@ -80,31 +69,22 @@ public interface ScriptingEngine extends CMCommon, Tickable, MsgListener
 	 * This is a powerful mechanism for getting at the script functions
 	 * in order to access stat data about specific objects, do math, etc.
 	 *
-	 * @param source the source of the event
-	 * @param target the target of the event
-	 * @param scripted the object that is scripted
-	 * @param monster a mob representation of the scripted object
-	 * @param primaryItem an item involved in the event
-	 * @param secondaryItem a second item involved in the event
-	 * @param msg a string message associated with the event
-	 * @param tmp miscellaneous local variables
+	 * @see ScriptingEngine.MPContext
+	 *
+	 * @param ctx the script event context scope
 	 * @param varifyable the string to parse
+	 *
 	 * @return N/A
 	 */
-	public String varify(MOB source,
-						 Environmental target,
-						 PhysicalAgent scripted,
-						 MOB monster,
-						 Item primaryItem,
-						 Item secondaryItem,
-						 String msg,
-						 Object[] tmp,
-						 String varifyable);
+	public String varify(MPContext ctx, String varifyable);
+
 	/**
 	 * Forces any queued event responses to be immediately
 	 * executed.
+	 * @see ScriptingEngine#SPECIAL_NUM_OBJECTS
+	 * @param objects null, or a twelve (12) object array for local variables
 	 */
-	public void dequeResponses();
+	public void dequeResponses(Object[] objects);
 
 	/**
 	 * Creates a mob from the Tickable object sent, possibly saving it
@@ -129,63 +109,71 @@ public interface ScriptingEngine extends CMCommon, Tickable, MsgListener
 	 * to resolve IF, WHILE, and similar expressions that utilize the MOBPROG
 	 * functions.  The expressions are passed in as a String array stored
 	 * in a single string array entry (for replacement) in element 0.
-	 * @param scripted the object that is scripted
-	 * @param source the source of the event
-	 * @param target the target of the event
-	 * @param monster a mob representation of the scripted object
-	 * @param primaryItem an item involved in the event
-	 * @param secondaryItem a second item involved in the event
-	 * @param msg a string message associated with the event
-	 * @param tmp miscellaneous local variables
+	 *
+	 * @see ScriptingEngine.MPContext
+	 *
+	 * @param ctx the script event context scope
 	 * @param eval the pre-parsed expression
 	 * @param startEval while line to start evaluating on.
 	 * @return true if the expression is true, false otherwise.
 	 */
-	public boolean eval(PhysicalAgent scripted,
-						MOB source,
-						Environmental target,
-						MOB monster,
-						Item primaryItem,
-						Item secondaryItem,
-						String msg,
-						Object[] tmp,
-						String[][] eval,
-						int startEval);
+	public boolean eval(MPContext ctx, String[][] eval, int startEval);
 
 	/**
 	 * Evaluates one of the boolean functions as a string
 	 * variable expression, which gives different and
 	 * informative results.  See the Green Table in the
 	 * Scripting Guide.
-	 * @param scripted the object that is scripted
-	 * @param source the source of the event
-	 * @param target the target of the event
-	 * @param monster a mob representation of the scripted object
-	 * @param primaryItem an item involved in the event
-	 * @param secondaryItem a second item involved in the event
-	 * @param msg a string message associated with the event
-	 * @param tmp miscellaneous local variables
+	 *
+	 * @see ScriptingEngine.MPContext
+	 *
+	 * @param ctx the script event context scope
 	 * @param evaluable the function expression
 	 * @return the results of the function expression
 	 */
-	public String functify(PhysicalAgent scripted,
-							MOB source,
-							Environmental target,
-							MOB monster,
-							Item primaryItem,
-							Item secondaryItem,
-							String msg,
-							Object[] tmp,
-							String evaluable);
+	public String functify(MPContext ctx, String evaluable);
+
+	/**
+	 * Called a func with the given name, sending the given parms, and returning its
+	 * return value, if any, or null.  Does the same thing as MPCAlLFUNC
+	 *
+	 * @see ScriptingEngine.MPContext
+	 *
+	 * @param named the name of the FUNCTION_PROG to call
+	 * @param parms parameters to send as $g
+	 * @param ctx the script event context scope
+	 *
+	 * @return the return code, or null if function isn't found
+	 */
+	public String callFunc(final String named, final String parms, MPContext ctx);
+
+
+	/**
+	 * Returns whether the script has a function with the given name.
+	 * @param named the FUNCTION_PROG to look for
+	 * @return true if it is found, false otherwise
+	 */
+	public boolean isFunc(final String named);
+
 	/**
 	 * Calling this method forces this script to look for a trigger
-	 * dealing with the end of a quest (QUEST_TIME_PROG * -1).
+	 * dealing with the end of a quest (QUEST_TIME_PROG * -2).
 	 * @param hostObj the scripted object
 	 * @param mob a mob representation of the host object
 	 * @param quest the name of the quest being ended
 	 * @return true if a quest ending trigger was found and run
 	 */
 	public boolean endQuest(PhysicalAgent hostObj, MOB mob, String quest);
+
+	/**
+	 * Calling this method forces this script to look for a trigger
+	 * dealing with the end of a quest step (QUEST_TIME_PROG * -1).
+	 * @param hostObj the scripted object
+	 * @param mob a mob representation of the host object
+	 * @param quest the name of the quest being ended
+	 * @return true if a quest stepping trigger was found and run
+	 */
+	public boolean stepQuest(PhysicalAgent hostObj, MOB mob, String quest);
 
 	/**
 	 * Returns the script or load command(s).
@@ -221,16 +209,16 @@ public interface ScriptingEngine extends CMCommon, Tickable, MsgListener
 
 	/**
 	 * If this script is associated with a particular quest, this
-	 * method is called to register that quest name.
+	 * method is called to register that quest name or object.
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.ScriptingEngine#defaultQuestName()
 	 * @param questName the quest associated with this script
 	 */
-	public void registerDefaultQuest(String questName);
+	public void registerDefaultQuest(Object questName);
 
 	/**
 	 * If this script is associated with a particular quest, this
 	 * method is called to return that quest name.
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.ScriptingEngine#registerDefaultQuest(String)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.ScriptingEngine#registerDefaultQuest(Object)
 	 * @return the quest associated with this script, if any
 	 */
 	public String defaultQuestName();
@@ -339,72 +327,85 @@ public interface ScriptingEngine extends CMCommon, Tickable, MsgListener
 	public void setVar(String context, String variable, String value);
 
 	/**
-	 * An object that holds the information about an event until it is
-	 * time to execute its associated script.
-	 * @author Bo Zimmerman
+	 * If the script contains any javascript, calling this method will
+	 * pre-approve the scripts so that they bypass any approval
+	 * requirements.
 	 */
-	public static class ScriptableResponse
+	public void preApproveScripts();
+
+	/**
+	 * Wrapper class for a standard parsed line of script,
+	 * which includes the full line of text, the parsed line,
+	 * and an optional helper object of any sort
+	 *
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public static class ScriptLn extends Triad<String,String[],Object>
 	{
-		private int tickDelay=0;
-		/** (host) the object being scripted */
-		public PhysicalAgent h=null;
-		/** (source) the source of the event */
-		public MOB s=null;
-		/** (target) the target of the event */
-		public Environmental t=null;
-		/** (host mob) a mob representation of the host (h)*/
-		public MOB m=null;
-		/** (primary item) an item associated with this event */
-		public Item pi=null;
-		/** (second item) a second item associated with this event */
-		public Item si=null;
-		/** (script) the actual script to execute for this event */
-		public DVector scr;
-		/** a string associated with this event */
-		public String message=null;
+		private static final long serialVersionUID = -3327511702060317043L;
 
-		/**
-		 * Create an event response object
-		 * @param host the object being scripted
-		 * @param source the source of the event
-		 * @param target the target of the event
-		 * @param monster a mob representation of the host
-		 * @param primaryItem an item associated with this event
-		 * @param secondaryItem a second item associated with this event
-		 * @param script the actual script to execute for this event
-		 * @param ticks how many ticks to wait before executing the script
-		 * @param msg a string associated with this event
-		 */
-		public ScriptableResponse(final PhysicalAgent host,
-								  final MOB source,
-								  final Environmental target,
-								  final MOB monster,
-								  final Item primaryItem,
-								  final Item secondaryItem,
-								  final DVector script,
-								  final int ticks,
-								  final String msg)
+		public ScriptLn(final String frst, final String[] scnd, final Object thrd)
 		{
-			h=host;
-			s=source;
-			t=target;
-			m=monster;
-			pi=primaryItem;
-			si=secondaryItem;
-			scr=script;
-			tickDelay=ticks;
-			message=msg;
+			super(frst.trim(), scnd, thrd);
 		}
 
+	}
+
+	/**
+	 * Wrapper class for a subscript, which consists of a trigger
+	 * and its requisite code.
+	 *
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public static abstract class SubScript extends ArrayList<ScriptLn>
+	{
+		private static final long serialVersionUID = 6156845948200028480L;
+
 		/**
-		 * Decrements the internal tick counter and returns true if
-		 * the tick counter has dropped to or below 0
-		 * @return true if its time to execute
+		 * Returns the trigger code for this entire script
+		 *
+		 * @return the trigger code
 		 */
-		public boolean checkTimeToExecute()
-		{
-			return ((--tickDelay) <= 0);
-		}
+		public abstract int getTriggerCode();
+
+		/**
+		 * Returns the trigger args for this entire script
+		 *
+		 * @return the trigger args
+		 */
+		public abstract String[] getTriggerArgs();
+
+		/**
+		 * Returns the trigger line for this entire script
+		 * The trigger word itself should be normalized
+		 * to uppercase.
+		 *
+		 * @return the trigger line
+		 */
+		public abstract String getTriggerLine();
+
+		/**
+		 * The cleaned bits of the trigger, uppercased.
+		 * @return the cleaned bits of the trigger, uppercased.
+		 */
+		public abstract String[] getTriggerBits();
+
+		/**
+		 * Sets a special flags on this script, to let the
+		 * executor know how to handle it.
+		 * @param flag the flag to set
+		 */
+		public abstract void setFlag(String flag);
+
+		/**
+		 * Checks a special flags on this script, to let the
+		 * executor know how to handle it.
+		 * @param flag the flag to look for
+		 * @return true if the flag was set.
+		 */
+		public abstract boolean isFlagSet(String flag);
 	}
 
 	/** The number of local variables associated with an execution of a script */
@@ -470,7 +471,13 @@ public interface ScriptingEngine extends CMCommon, Tickable, MsgListener
 		"CAST_PROG", //49
 		"CASTING_PROG", //50
 		"CMDFAIL_PROG", //51
-
+		"GROUP_GREET_PROG", //52
+		"DROPPING_PROG", // 53
+		"GETTING_PROG", // 54
+		"RIDE_PROG", // 55
+		"RIDING_PROG", // 56
+		"WEARING_PROG", // 57
+		XMLLibrary.FILE_XML_BOUNDARY.toUpperCase().substring(0,XMLLibrary.FILE_XML_BOUNDARY.indexOf(' ')), // 58
 	};
 
 	/** String list of all valid mobprog functions for logical expressions or string functions */
@@ -591,6 +598,8 @@ public interface ScriptingEngine extends CMCommon, Tickable, MsgListener
 		"CANHEAR", // 113
 		"QUESTAREA", // 114
 		"EXPERTISE", // 115
+		"ROOMPC", // 116
+		"AREAPC" //117
 	};
 
 	/** String list of all valid mobprog commands */
@@ -692,51 +701,88 @@ public interface ScriptingEngine extends CMCommon, Tickable, MsgListener
 		"ENDSWITCH", //94 JUST for catching errors...
 		"NEXT", //95 JUST for catching errors...
 		"CASE", //96 JUST for catching errors...
-		"DEFAULT" //97 JUST for catching errors...
+		"DEFAULT", //97 JUST for catching errors...
+		"MPHIT", //98
+		"MPACHIEVE", //99
+		"MPACCUSE", //100
+		"MPLLM" // 101
 	};
 
-	/** a list of the different parts of a time clock */
-	public final static String[] DATETIME_ARGS={"HOUR","TIME","DAY","DATE","MONTH","YEAR"};
-
-	/** List of evaluation signs ==, !=, &gt;, etc.*/
-	public final static String[] SIGNS={"==",">=",">","<","<=","=>","=<","!="};
-
-	/** Index and equate for == */
-	public final static int SIGN_EQUL=0;
-	/** Index and equate for &gt;= */
-	public final static int SIGN_GTEQ=1;
-	/** Index and equate for &gt; */
-	public final static int SIGN_GRAT=2;
-	/** Index and equate for &lt; */
-	public final static int SIGN_LEST=3;
-	/** Index and equate for &lt;= */
-	public final static int SIGN_LTEQ=4;
-	/** Index and equate for =&gt; */
-	public final static int SIGN_EQGT=5;
-	/** Index and equate for =&lt; */
-	public final static int SIGN_EQLT=6;
-	/** Index and equate for != */
-	public final static int SIGN_NTEQ=7;
-
-	/** a list of logical connectors (and, or, etc)*/
-	public final static String[] CONNECTORS={"AND","OR","NOT","ANDNOT","ORNOT"};
-	/** index and equate for logical connector AND*/
-	public final static int CONNECTOR_AND=0;
-	/** index and equate for logical connector OR */
-	public final static int CONNECTOR_OR=1;
-	/** index and equate for logical connector NOT */
-	public final static int CONNECTOR_NOT=2;
-	/** index and equate for logical connector ANDNOT */
-	public final static int CONNECTOR_ANDNOT=3;
-	/** index and equate for logical connector ORNOT */
-	public final static int CONNECTOR_ORNOT=4;
-	/** A table to describe what happens when connectors are found sequentially (and and not or not and and, etc) */
-	public final static int[][] CONNECTOR_MAP=
+	/**
+	 * Class to hold the complete script event
+	 * context, with all its event scope variables.
+	 *
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public static class MPContext implements Cloneable
 	{
-		{CONNECTOR_AND,CONNECTOR_OR,CONNECTOR_ANDNOT,CONNECTOR_AND,CONNECTOR_ORNOT}, //and
-		{CONNECTOR_OR,CONNECTOR_OR,CONNECTOR_ORNOT,CONNECTOR_ORNOT,CONNECTOR_ORNOT}, //or
-		{CONNECTOR_ANDNOT,CONNECTOR_ORNOT,CONNECTOR_AND,CONNECTOR_AND,CONNECTOR_OR}, //not
-		{CONNECTOR_ANDNOT,CONNECTOR_ORNOT,CONNECTOR_AND,CONNECTOR_AND,CONNECTOR_ORNOT}, //andnot
-		{CONNECTOR_ORNOT,CONNECTOR_ORNOT,CONNECTOR_OR,CONNECTOR_ORNOT,CONNECTOR_ORNOT}, //ornot
-	};
+		public PhysicalAgent scripted;
+		public MOB monster;
+		public MOB source;
+		public Environmental target;
+		public Item primaryItem;
+		public Item secondaryItem;
+		public String msg;
+		public Object[] tmp;
+		public SubScript script = null;
+		public int line = 1;
+		public MPContext parent = null;
+
+		/**
+		 *  MPContext constructor
+		 * @param scripted the object that is scripted
+		 * @param monster a mob representation of the scripted object
+		 * @param source the source of the event
+		 * @param target the target of the event
+		 * @param primaryItem an item involved in the event
+		 * @param secondaryItem a second item involved in the event
+		 * @param msg a string message associated with the event
+		 * @param tmp null, or initialized local variables
+		 */
+		public MPContext(final PhysicalAgent scripted, final MOB monster, final MOB source,
+				final Environmental target, final Item primaryItem, final Item secondaryItem,
+				final String msg, final Object[] tmp)
+		{
+			this.scripted=scripted;
+			this.monster=monster;
+			this.source=source;
+			this.target=target;
+			this.primaryItem=primaryItem;
+			this.secondaryItem=secondaryItem;
+			this.msg=msg;
+			if((tmp == null)||(tmp.length!=ScriptingEngine.SPECIAL_NUM_OBJECTS))
+			{
+				this.tmp = new Object[ScriptingEngine.SPECIAL_NUM_OBJECTS];
+				if(tmp != null)
+				{
+					for(int i=0;i<tmp.length && i<ScriptingEngine.SPECIAL_NUM_OBJECTS;i++)
+						this.tmp[i] = tmp[i];
+				}
+			}
+			else
+				this.tmp = tmp;
+		}
+
+		public MPContext push(final SubScript script)
+		{
+			if(this.script==null)
+			{
+				this.script = script;
+				return this;
+			}
+			MPContext copy = this;
+			try { copy = (MPContext)super.clone(); } catch (final CloneNotSupportedException e) {}
+			copy.script = script;
+			copy.line = 1;
+			return copy;
+		}
+
+		public MPContext pop()
+		{
+			if(parent == null)
+				return this;
+			return parent;
+		}
+	}
 }

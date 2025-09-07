@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -107,7 +107,7 @@ public class ROMGangMember extends StdBehavior
 		/* say something, then raise hell */
 		if(messages.length>0)
 		{
-			R.show(observer,null,CMMsg.MSG_SPEAK,"^T<S-NAME> say(s) '"+messages[CMLib.dice().roll(1,messages.length,-1)]+"'.^?");
+			R.show(observer,null,CMMsg.MSG_SPEAK,L("^T<S-NAME> say(s) '@x1'.^?",messages[CMLib.dice().roll(1,messages.length,-1)]));
 		}
 		else
 		{

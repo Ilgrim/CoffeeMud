@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -67,6 +67,12 @@ public class Spell_DiviningEye extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	public int classificationCode()
 	{
 		return Ability.ACODE_SPELL|Ability.DOMAIN_DIVINATION;
@@ -77,14 +83,14 @@ public class Spell_DiviningEye extends Spell
 	{
 		if(commands.size()==0)
 		{
-			mob.tell(L("You must specify a divining spell and any parameters for it."));
+			commonTelL(mob,"You must specify a divining spell and any parameters for it.");
 			return false;
 		}
 
 		final Ability pryingEyeA=mob.fetchEffect("Spell_PryingEye");
 		if(pryingEyeA==null)
 		{
-			mob.tell(L("This spell requires an active prying eye."));
+			commonTelL(mob,"This spell requires an active prying eye.");
 			return false;
 		}
 
@@ -93,13 +99,13 @@ public class Spell_DiviningEye extends Spell
 		final Ability A=CMLib.english().getSkillToInvoke(mob, commands);
 		if(A==null)
 		{
-			mob.tell(L("'@x1' does not refer to any diviner spell you know.",commandStr));
+			commonTelL(mob,"'@x1' does not refer to any diviner spell you know.",commandStr);
 			return false;
 		}
 		if(((A.classificationCode() & Ability.ALL_ACODES)!=Ability.ACODE_SPELL)
 		||((A.classificationCode() & Ability.ALL_DOMAINS)!=Ability.DOMAIN_DIVINATION))
 		{
-			mob.tell(L("'@x1' is not a diviner spell you know.",A.name()));
+			commonTelL(mob,"'@x1' is not a diviner spell you know.",A.name());
 			return false;
 		}
 
@@ -110,7 +116,7 @@ public class Spell_DiviningEye extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),auto?"":L("^S<S-NAME> invoke(s) a remote divination!^?"));
+			final CMMsg msg=CMClass.getMsg(mob,null,this,somaticCastCode(mob,null,auto),auto?"":L("^S<S-NAME> invoke(s) a remote divination!^?"));
 			final Room room=mob.location();
 			if(room.okMessage(mob,msg))
 			{

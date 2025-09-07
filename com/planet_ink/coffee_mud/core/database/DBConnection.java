@@ -21,7 +21,7 @@ import java.util.*;
 import java.sql.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -77,6 +77,9 @@ public class DBConnection
 	/** for remembering whether this is a fakeDB connection */
 	private Boolean				isFakeDB			= null;
 
+	/** Track the thread that owns the connection */
+	private volatile Thread		lastThread			= null;
+
 	public static enum FetchType
 	{
 		EMPTY,
@@ -90,11 +93,12 @@ public class DBConnection
 	 *
 	 * Usage: DBConnection("","","");
 	 * @param parent 	the parent connections object
-	 * @param dbClass    JDBC Class
-	 * @param dbService    ODBC SERVICE
+	 * @param dbClass	JDBC Class
+	 * @param dbService	ODBC SERVICE
 	 * @param dbUser	ODBC LOGIN USERNAME
 	 * @param dbPass	ODBC LOGIN PASSWORD
 	 * @param dbParms	JDBC extra arguments
+	 * @param useTransactions true to group statements into a transaction
 	 * @param dbReuse   Whether the connection can be reused.
 	 * @throws SQLException a sql error
 	 */
@@ -134,6 +138,8 @@ public class DBConnection
 		myConnection=DriverManager.getConnection(dbService,p);
 		if(useTransactions)
 			myConnection.setAutoCommit(false);
+		else
+			myConnection.setAutoCommit(true);
 		if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
 			Log.debugOut("New connection made to :"+dbService+" using "+dbClass);
 		sqlserver=false;
@@ -150,7 +156,7 @@ public class DBConnection
 		{
 			if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
 			{
-				Log.errOut("DBConnection",e);
+				Log.errOut("DBConnection",e,"catalog");
 			}
 		}
 		return "";
@@ -184,7 +190,7 @@ public class DBConnection
 		catch (final SQLException e)
 		{
 			if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
-				Log.errOut("DBConnection",e);
+				Log.errOut("DBConnection",e,"sclose");
 		}
 		try
 		{
@@ -194,7 +200,7 @@ public class DBConnection
 		catch (final SQLException e)
 		{
 			if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
-				Log.errOut("DBConnection",e);
+				Log.errOut("DBConnection",e,"pclose");
 		}
 		try
 		{
@@ -204,7 +210,7 @@ public class DBConnection
 		catch (final SQLException e)
 		{
 			if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
-				Log.errOut("DBConnection",e);
+				Log.errOut("DBConnection",e,"cclose");
 		}
 		myConnection=null;
 		myStatement=null;
@@ -216,13 +222,14 @@ public class DBConnection
 	 * set up this connection for use
 	 *
 	 * Usage: use("begin transaction")
-	 * @param openerSQL    Any SQL string you'd like to send
-	 * @return boolean    The connection being used
+	 * @param openerSQL	Any SQL string you'd like to send
+	 * @return boolean	The connection being used
 	 */
 	public synchronized boolean use(final String openerSQL)
 	{
 		if((!inUse)&&(ready())&&(!isProbablyDead()))
 		{
+			this.lastThread = Thread.currentThread();
 			lastError=null;
 			try
 			{
@@ -233,7 +240,7 @@ public class DBConnection
 			catch(final SQLException e)
 			{
 				if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
-					Log.errOut("DBConnection",e);
+					Log.errOut("DBConnection",e,"use1");
 				myConnection=null;
 				failuresInARow++;
 				sqlserver=false;
@@ -254,7 +261,7 @@ public class DBConnection
 			{
 				if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
 				{
-					Log.errOut("DBConnection","Error use: "+openerSQL);
+					Log.errOut("Error use: "+openerSQL);
 					Log.errOut("DBConnection",e);
 				}
 				return false;
@@ -272,12 +279,13 @@ public class DBConnection
 	 * set up this connection for use
 	 *
 	 * Usage: useEmpty()
-	 * @return boolean    The connection being used
+	 * @return boolean	The connection being used
 	 */
 	public synchronized boolean useEmpty()
 	{
 		if((!inUse)&&(ready())&&(!isProbablyDead()))
 		{
+			this.lastThread = Thread.currentThread();
 			lastError=null;
 			myPreparedStatement=null;
 			sqlserver=true;
@@ -294,29 +302,28 @@ public class DBConnection
 	 * set up this connection for use as a prepared statement
 	 *
 	 * Usage: usePrepared("SQL String")
-	 * @param SQL    Any SQL string you'd like to use
-	 * @return boolean    The connection being used
+	 * @param sql	Any SQL string you'd like to use
+	 * @return boolean	The connection being used
 	 */
-	public synchronized boolean usePrepared(final String SQL)
+	public synchronized boolean usePrepared(final String sql)
 	{
 		if((!inUse)&&(ready()))
 		{
-
+			this.lastThread = Thread.currentThread();
 			lastError=null;
-
 			try
 			{
 				myStatement=null;
 				sqlserver=true;
-				lastSQL=SQL;
-				myPreparedStatement=myConnection.prepareStatement(SQL);
+				lastSQL=sql;
+				myPreparedStatement=myConnection.prepareStatement(fixIdentifiers(sql));
 				sqlserver=false;
 			}
 			catch(final SQLException e)
 			{
 				if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
 				{
-					Log.errOut("DBConnection","Error prepare: "+SQL);
+					Log.errOut("Error prepare: "+sql);
 					Log.errOut("DBConnection",e);
 				}
 				sqlserver=false;
@@ -339,10 +346,10 @@ public class DBConnection
 	 * Requires an already in use connection.
 	 *
 	 * Usage: rePrepare("SQL String")
-	 * @param SQL    Any SQL string you'd like to use
-	 * @return boolean    The connection being used
+	 * @param sql	Any SQL string you'd like to use
+	 * @return boolean	The connection being used
 	 */
-	public synchronized boolean rePrepare(final String SQL)
+	public synchronized boolean rePrepare(final String sql)
 	{
 		if(inUse)
 		{
@@ -352,22 +359,22 @@ public class DBConnection
 			{
 				myStatement=null;
 				sqlserver=true;
-				lastSQL=SQL;
-				myPreparedStatement=myConnection.prepareStatement(SQL);
+				lastSQL=sql;
+				myPreparedStatement=myConnection.prepareStatement(fixIdentifiers(sql));
 				sqlserver=false;
 			}
 			catch(final SQLException e)
 			{
 				if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
 				{
-					Log.errOut("DBConnection","Error reprepare: "+SQL);
+					Log.errOut("Error reprepare: "+sql);
 					Log.errOut("DBConnection",e);
 				}
 				else
 				if((""+e).equals("null"))
-					Log.errOut("DBConnection","Re-prepare error: null");
+					Log.errOut("Re-prepare error: null");
 				else
-					Log.errOut("DBConnection","Re-prepare error: "+e.getMessage());
+					Log.errOut("Re-prepare error: "+e.getMessage());
 				sqlserver=false;
 				myConnection=null;
 				failuresInARow++;
@@ -421,7 +428,7 @@ public class DBConnection
 		{
 			if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
 			{
-				Log.errOut("DBConnection",e);
+				Log.errOut("DBConnection",e,"closestat");
 			}
 			// not a real error?
 		}
@@ -438,6 +445,7 @@ public class DBConnection
 		closeStatements(Closer);
 		if(!isReusable)
 			close();
+		this.lastThread = null;
 		inUse=false;
 	}
 
@@ -455,7 +463,7 @@ public class DBConnection
 	 * execute a query, returning the resultset
 	 *
 	 * Usage: R=query("SELECT STATEMENT");
-	 * @param queryString    SQL query-style string
+	 * @param queryString	SQL query-style string
 	 * @return ResultSet	The results of the query
 	 * @throws SQLException a sql error
 	 */
@@ -470,8 +478,11 @@ public class DBConnection
 			{
 				sqlserver=true;
 				lastQueryTime=System.currentTimeMillis();
+				if(myPreparedStatement!=null)
+					R=myPreparedStatement.executeQuery();
+				else
 				if(myStatement!=null)
-					R=myStatement.executeQuery(queryString);
+					R=myStatement.executeQuery(fixIdentifiers(queryString));
 				else
 					lastError="DBConnection Statement not open.";
 				sqlserver=false;
@@ -480,14 +491,14 @@ public class DBConnection
 			{
 				if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
 				{
-					Log.errOut("DBConnection","Error query: "+queryString);
-					Log.errOut("DBConnection",""+sqle);
+					Log.errOut("Error query: "+queryString);
+					Log.errOut(""+sqle);
 				}
 				else
 				if((""+sqle).equals("null"))
-					Log.errOut("DBConnection","Query error: null");
+					Log.errOut("Query error: null");
 				else
-					Log.errOut("DBConnection","Query error: "+sqle.getMessage());
+					Log.errOut("Query error: "+sqle.getMessage()+": "+queryString);
 				sqlserver=false;
 				failuresInARow++;
 				lastError=""+sqle;
@@ -532,14 +543,26 @@ public class DBConnection
 				getPreparedStatement().setString(t+1, vals[t]);
 		}
 	}
+	
+	public String getSchema()
+	{
+		try
+		{
+			return (myConnection == null)?null:myConnection.getSchema();
+		}
+		catch (SQLException e)
+		{
+			return null;
+		}
+	}
 
 	/**
 	 * execute an sql update, returning the status
 	 *
 	 * Usage: update("UPDATE STATEMENT");
-	 * @param updateString    SQL update-style string
-	 * @param retryNum    a retry number
-	 * @return int    The status of the update
+	 * @param updateString	SQL update-style string
+	 * @param retryNum	a retry number
+	 * @return int	The status of the update
 	 * @throws SQLException a sql error
 	 */
 	public int update(final String updateString, final int retryNum)
@@ -554,7 +577,7 @@ public class DBConnection
 				sqlserver=true;
 				lastQueryTime=System.currentTimeMillis();
 				if(myStatement!=null)
-					responseCode=myStatement.executeUpdate(updateString);
+					responseCode=myStatement.executeUpdate(fixIdentifiers(updateString));
 				else
 				if(myPreparedStatement!=null)
 					responseCode=myPreparedStatement.executeUpdate();
@@ -574,11 +597,11 @@ public class DBConnection
 				lastError=""+sqle;
 				if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
 				{
-					Log.errOut("DBConnection","Error update: "+updateString);
+					Log.errOut("Error update: "+updateString);
 					Log.errOut("DBConnection",sqle);
 				}
 				else
-					Log.errOut("DBConnection",updateString+": "+sqle);
+					Log.errOut(updateString+": "+sqle);
 				if((myParent!=null) && (myStatement != null))
 					myParent.enQueueError(updateString,""+sqle,""+(retryNum+1));
 				if(isProbablyDead())
@@ -598,11 +621,23 @@ public class DBConnection
 		return responseCode;
 	}
 
+	public DatabaseMetaData getMetaData()
+	{
+		try
+		{
+			return myConnection.getMetaData();
+		}
+		catch (final SQLException e)
+		{
+			return null;
+		}
+	}
+
 	/**
 	 * returns whether this connection is ready for use
 	 *
 	 * Usage: ready();
-	 * @return boolean    Whether this connection is ready
+	 * @return boolean	Whether this connection is ready
 	 */
 	public boolean ready()
 	{
@@ -613,7 +648,7 @@ public class DBConnection
 	 * returns whether this connection is in use
 	 *
 	 * Usage: inUse();
-	 * @return boolean    Whether this connection is in use
+	 * @return boolean	Whether this connection is in use
 	 */
 	public boolean inUse()
 	{
@@ -657,10 +692,58 @@ public class DBConnection
 	}
 
 	/**
+	 * If the connection is in use, returns the status of the thread
+	 * that has claimed it.
+	 *
+	 * @return true if the thread is alive, false if no claimed thread, or its not alive
+	 */
+	public boolean isThreadAlive()
+	{
+		final Thread t = this.lastThread;
+		if(t == null)
+			return false;
+		final java.lang.StackTraceElement[] s=t.getStackTrace();
+		boolean isAlive=t.isAlive();
+		if(isAlive)
+		{
+			for (final StackTraceElement element : s)
+			{
+				if(element.getMethodName().equalsIgnoreCase("sleep")
+				&&(element.getClassName().equalsIgnoreCase("java.lang.Thread")))
+					isAlive=false;
+				else
+				if(element.getMethodName().equalsIgnoreCase("park")
+				&&(element.getClassName().equalsIgnoreCase("sun.misc.Unsafe")))
+					isAlive=false;
+				else
+				if(element.getMethodName().equalsIgnoreCase("wait")
+				&&(element.getClassName().equalsIgnoreCase("java.lang.Object")))
+					isAlive=false;
+				break;
+			}
+		}
+		return isAlive;
+	}
+
+	/**
+	 * Returns an empty stack trace, or a full one if the connection has
+	 * an owner thread and its not dead.
+	 *
+	 * @return a stack trace, always
+	 */
+	public java.lang.StackTraceElement[] getStackTrace()
+	{
+		final Thread t = this.lastThread;
+		if(!isThreadAlive())
+			return new java.lang.StackTraceElement[0];
+		return t.getStackTrace();
+	}
+
+	/**
 	 * returns whether this connection is *probably* dead
 	 *
 	 * Usage: isProbablyDead();
-	 * @return boolean    Whether this connection is probably dead
+	 * @return boolean	Whether this connection is probably dead
 	 */
 	public boolean isProbablyDead()
 	{
@@ -680,7 +763,7 @@ public class DBConnection
 	 * returns whether this connection is *probably* locked up
 	 *
 	 * Usage: isProbablyLockedUp();
-	 * @return boolean    Whether this connection is locked up
+	 * @return boolean	Whether this connection is locked up
 	 */
 	public boolean isProbablyLockedUp()
 	{
@@ -694,7 +777,7 @@ public class DBConnection
 	 * returns an error if there was one
 	 *
 	 * Usage: getLastError();
-	 * @return String    The last error SQL string, if any
+	 * @return String	The last error SQL string, if any
 	 */
 	public String getLastError()
 	{
@@ -712,5 +795,17 @@ public class DBConnection
 	public PreparedStatement getPreparedStatement()
 	{
 		return myPreparedStatement;
+	}
+	
+	/**
+	 * Calls the DBConnections fixIdentifiers for postgres
+	 * @param sql the sql to leave alone
+	 * @return the left alone sql
+	 */
+	public String fixIdentifiers(final String sql)
+	{
+		if(myParent == null)
+			return sql;
+		return myParent.fixIdentifiers(sql);
 	}
 }

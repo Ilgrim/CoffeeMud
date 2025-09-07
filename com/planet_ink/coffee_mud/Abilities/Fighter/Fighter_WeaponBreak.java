@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -153,9 +153,10 @@ public class Fighter_WeaponBreak extends FighterSkill
 		final boolean hit=(auto)||CMLib.combat().rollToHit(mob,victim);
 		final boolean success=proficiencyCheck(mob,chance,auto)&&(hit);
 		if((success)
-		   &&(hisWeapon!=null)
-		   &&(hisWeapon.phyStats().ability()==0)
-		   &&(!CMLib.flags().isABonusItems(hisWeapon))
+		&&(hisWeapon!=null)
+		&&(hisWeapon.phyStats().ability()==0)
+		&&(!CMLib.flags().isABonusItems(hisWeapon))
+		&&(CMLib.utensils().canBePlayerDestroyed(mob,hisWeapon,true, false))
 		&&((hisWeapon.rawProperLocationBitmap()==Wearable.WORN_WIELD)
 		   ||(hisWeapon.rawProperLocationBitmap()==Wearable.WORN_WIELD+Wearable.WORN_HELD)))
 		{

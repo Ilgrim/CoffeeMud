@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ public class Chant_CalmAnimal extends Chant
 		final MOB target=this.getTarget(mob,commands,givenTarget);
 		if(target==null)
 			return false;
-		if(!CMLib.flags().isAnimalIntelligence(target))
+		if(!CMLib.flags().isAnAnimal(target))
 		{
 			mob.tell(L("@x1 is not an animal!",target.name(mob)));
 			return false;

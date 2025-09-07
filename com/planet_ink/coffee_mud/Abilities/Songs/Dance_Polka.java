@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -82,7 +82,8 @@ public class Dance_Polka extends Dance
 		if(affected==invoker)
 			return;
 
-		affectableStats.setStat(CharStats.STAT_DEXTERITY,affectableStats.getStat(CharStats.STAT_DEXTERITY)-3-getXLEVELLevel(invoker()));
+		final int amt = (int)Math.round(2.0 + super.statBonusPct());
+		affectableStats.setStat(CharStats.STAT_DEXTERITY,affectableStats.getStat(CharStats.STAT_DEXTERITY)-amt-getXLEVELLevel(invoker()));
 	}
 
 	public void show(final MOB mob, final int code, final String text)

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class LongestRoad extends Road
 	public LongestRoad()
 	{
 		super();
-		basePhyStats.setWeight(20);
+		setMovementCost(20);
 		recoverPhyStats();
 	}
 }

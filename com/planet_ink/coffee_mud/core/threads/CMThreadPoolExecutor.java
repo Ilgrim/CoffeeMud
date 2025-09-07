@@ -5,6 +5,7 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -20,7 +21,7 @@ import com.planet_ink.coffee_mud.core.collections.STreeSet;
 import com.planet_ink.coffee_mud.core.collections.UniqueEntryBlockingQueue;
 import com.planet_ink.coffee_mud.core.interfaces.TickableGroup;
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -36,13 +37,14 @@ import com.planet_ink.coffee_mud.core.interfaces.TickableGroup;
 */
 public class CMThreadPoolExecutor extends ThreadPoolExecutor
 {
-	protected Map<Runnable,Thread>	active = new HashMap<Runnable,Thread>();
-	protected long  				timeoutMillis;
+	protected Map<Runnable, Thread>	active			= new ConcurrentHashMap<Runnable, Thread>();
+	protected long					timeoutMillis;
 	protected CMThreadFactory		threadFactory;
-	protected int   				queueSize = 0;
-	protected String				poolName = "Pool";
-	protected volatile long 		lastRejectTime = 0;
-	protected volatile int  		rejectCount = 0;
+	protected int					queueSize		= 0;
+	protected String				poolName		= "Pool";
+	protected volatile long			lastRejectTime	= 0;
+	protected volatile int			rejectCount		= 0;
+	protected Set<Runnable>			pendingTasks	= ConcurrentHashMap.newKeySet();
 
 	protected static class CMArrayBlockingQueue<E> extends ArrayBlockingQueue<E>{
 		private static final long serialVersionUID = -4557809818979881831L;
@@ -93,24 +95,19 @@ public class CMThreadPoolExecutor extends ThreadPoolExecutor
 	@Override
 	protected void beforeExecute(final Thread t, final Runnable r)
 	{
-		synchronized(active)
-		{
-			if(t instanceof CMFactoryThread)
-				((CMFactoryThread)t).setRunnable(r);
-			active.put(r,t);
-		}
+		if(t instanceof CMFactoryThread)
+			((CMFactoryThread)t).setRunnable(r);
+		pendingTasks.remove(r);
+		active.put(r,t);
 	}
 
 	@Override
 	protected void afterExecute(final Runnable r, final Throwable t)
 	{
-		synchronized(active)
-		{
-			final Thread th=active.get(r);
-			if(th instanceof CMFactoryThread)
-				((CMFactoryThread)th).setRunnable(null);
-			active.remove(r);
-		}
+		final Thread th=active.get(r);
+		if(th instanceof CMFactoryThread)
+			((CMFactoryThread)th).setRunnable(null);
+		active.remove(r);
 	}
 
 	@Override
@@ -126,17 +123,18 @@ public class CMThreadPoolExecutor extends ThreadPoolExecutor
 
 	public boolean isActiveOrQueued(final Runnable r)
 	{
-		return active.containsKey(r) || getQueue().contains(r);
+		return active.containsKey(r) || pendingTasks.contains(r);
 	}
 
 	@Override
 	public void execute(final Runnable r)
 	{
+		if(r == null)
+			return;
 		try
 		{
-			if(this.getQueue().contains(r))
-				return;
-			super.execute(r);
+			if(pendingTasks.add(r))
+				super.execute(r);
 			if((rejectCount>0)&&(System.currentTimeMillis()-lastRejectTime)>5000)
 			{
 				Log.warnOut(rejectCount+" Pool_"+poolName,"Threads rejected.");
@@ -145,6 +143,7 @@ public class CMThreadPoolExecutor extends ThreadPoolExecutor
 		}
 		catch(final RejectedExecutionException e)
 		{
+			pendingTasks.remove(r);
 			if(r instanceof CMRunnable)
 			{
 				final Collection<CMRunnable> runsKilled = getTimeoutOutRuns(1);
@@ -177,50 +176,47 @@ public class CMThreadPoolExecutor extends ThreadPoolExecutor
 		}
 	}
 
-	public Collection<CMRunnable> getTimeoutOutRuns(final int maxToKill)
+	public synchronized Collection<CMRunnable> getTimeoutOutRuns(final int maxToKill)
 	{
 		final LinkedList<CMRunnable> timedOut=new LinkedList<CMRunnable>();
 		if(timeoutMillis<=0)
 			return timedOut;
 		final LinkedList<Thread> killedOut=new LinkedList<Thread>();
-		synchronized(active)
+		try
 		{
-			try
+			for (final Runnable runnable : active.keySet())
 			{
-				for (final Runnable runnable : active.keySet())
+				if(runnable instanceof CMRunnable)
 				{
-					if(runnable instanceof CMRunnable)
+					final CMRunnable cmRunnable=(CMRunnable)runnable;
+					final Thread thread=active.get(runnable);
+					if(cmRunnable.activeTimeMillis() > timeoutMillis)
 					{
-						final CMRunnable cmRunnable=(CMRunnable)runnable;
-						final Thread thread=active.get(runnable);
-						if(cmRunnable.activeTimeMillis() > timeoutMillis)
+						if(timedOut.size() >= maxToKill)
 						{
-							if(timedOut.size() >= maxToKill)
+							CMRunnable leastWorstOffender=null;
+							for(final CMRunnable r : timedOut)
 							{
-								CMRunnable leastWorstOffender=null;
-								for(final CMRunnable r : timedOut)
-								{
-									if((leastWorstOffender != null)
-									&&(r.activeTimeMillis() < leastWorstOffender.activeTimeMillis()))
-										leastWorstOffender=r;
-								}
-								if(leastWorstOffender!=null)
-								{
-									if(cmRunnable.activeTimeMillis() < leastWorstOffender.activeTimeMillis())
-										continue;
-									else
-										timedOut.remove(leastWorstOffender);
-								}
+								if((leastWorstOffender != null)
+								&&(r.activeTimeMillis() < leastWorstOffender.activeTimeMillis()))
+									leastWorstOffender=r;
 							}
-							timedOut.add(cmRunnable);
-							killedOut.add(thread);
+							if(leastWorstOffender!=null)
+							{
+								if(cmRunnable.activeTimeMillis() < leastWorstOffender.activeTimeMillis())
+									continue;
+								else
+									timedOut.remove(leastWorstOffender);
+							}
 						}
+						timedOut.add(cmRunnable);
+						killedOut.add(thread);
 					}
 				}
 			}
-			catch(final Exception e)
-			{
-			}
+		}
+		catch(final Exception e)
+		{
 		}
 		try
 		{

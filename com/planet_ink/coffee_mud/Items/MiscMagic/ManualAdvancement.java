@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -54,8 +54,17 @@ public class ManualAdvancement extends StdItem implements MiscMagic,ArchonOnly
 		this.setUsesRemaining(5);
 		baseGoldValue=10000;
 		material=RawMaterial.RESOURCE_PAPER;
+		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_BONUS);
 		recoverPhyStats();
 	}
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a book");
+	}
+
 
 	@Override
 	public void executeMsg(final Environmental myHost, final CMMsg msg)
@@ -88,7 +97,7 @@ public class ManualAdvancement extends StdItem implements MiscMagic,ArchonOnly
 							if(mob.getExpNeededLevel()==Integer.MAX_VALUE)
 								CMLib.leveler().level(mob);
 							else
-								CMLib.leveler().postExperience(mob,null,null,mob.getExpNeededLevel()+1,false);
+								CMLib.leveler().postExperience(mob,"MISC:"+ID(),null,null,mob.getExpNeededLevel()+1, false);
 						}
 					}
 					else

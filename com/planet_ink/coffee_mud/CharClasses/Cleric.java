@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -158,6 +159,7 @@ public class Cleric extends StdCharClass
 			CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Prayer_SenseGood",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Prayer_SenseLife",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Prayer_DeathGuard",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Prayer_UndeathGuard",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Prayer_Sacrifice",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Prayer_Desecrate",false);
@@ -264,6 +266,7 @@ public class Cleric extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Prayer_Drain",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Prayer_ProtectElements",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Prayer_DreamFeast",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Skill_ScrollFamiliarity",true);
 
 		if(CMLib.factions().isAlignmentLoaded(Faction.Align.EVIL))
 			CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Prayer_Godstrike",false);
@@ -330,7 +333,12 @@ public class Cleric extends StdCharClass
 				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_PRAYER)
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID()))
 				&&(!CMLib.ableMapper().getAllQualified(ID(),true,A.ID())))
-					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+				{
+					giveMobAbility(mob,A,
+								   CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),
+								   CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),
+								   isBorrowedClass);
+				}
 			}
 			return;
 		}
@@ -338,12 +346,13 @@ public class Cleric extends StdCharClass
 		if(!ID().equals("Cleric"))
 			return;
 
+		final int classLevel = mob.baseCharStats().getClassLevel(this);
 		for(int a=0;a<mob.numAbilities();a++)
 		{
 			final Ability A=mob.fetchAbility(a);
 			if((CMLib.ableMapper().getQualifyingLevel(ID(),true,A.ID())>0)
 			&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_PRAYER)
-			&&(CMLib.ableMapper().getQualifyingLevel(ID(),true,A.ID())==mob.baseCharStats().getClassLevel(this))
+			&&(CMLib.ableMapper().getQualifyingLevel(ID(),true,A.ID())==classLevel)
 			&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
 				return;
 		}
@@ -354,14 +363,25 @@ public class Cleric extends StdCharClass
 			if((CMLib.ableMapper().getQualifyingLevel(ID(),true,A.ID())>0)
 			&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_PRAYER)
 			&&(A.appropriateToMyFactions(mob))
-			&&(!CMLib.ableMapper().getSecretSkill(ID(),true,A.ID()))
-			&&(CMLib.ableMapper().getQualifyingLevel(ID(),true,A.ID())==mob.baseCharStats().getClassLevel(this))
+			&&(CMLib.ableMapper().getSecretSkill(ID(),true,A.ID())==SecretFlag.PUBLIC)
+			&&(CMLib.ableMapper().getQualifyingLevel(ID(),true,A.ID())==classLevel)
 			&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
 			{
-				giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+				//final AbilityMapper.AbilityMapping able = CMLib.ableMapper().getQualifyingMapping(ID(), true, A.ID());
+				giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),
+							   CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),
+							   isBorrowedClass);
 				break; // one is enough
 			}
 		}
+	}
+
+	@Override
+	public void affectCharStats(final MOB affected, final CharStats affectableStats)
+	{
+		super.affectCharStats(affected, affectableStats);
+		if(affected.charStats().getCurrentClass()==this) // once per class/subclass please.
+			affectableStats.setStat(CharStats.STAT_FAITH, affectableStats.getStat(CharStats.STAT_FAITH)+150);
 	}
 
 	@Override
@@ -486,10 +506,10 @@ public class Cleric extends StdCharClass
 				myChar.tell(L("The goodness of @x1 disrupts your prayer.",A.name()));
 			else
 			if(CMLib.flags().isGood(myChar))
-				myChar.tell(L("The anti-good nature of @x1 disrupts your thought.",A.name()));
+				myChar.tell(L("The non-good nature of @x1 disrupts your thought.",A.name()));
 			else
 			if(CMLib.flags().isEvil(myChar))
-				myChar.tell(L("The anti-evil nature of @x1 disrupts your thought.",A.name()));
+				myChar.tell(L("The non-evil nature of @x1 disrupts your thought.",A.name()));
 			return false;
 		}
 		return true;
@@ -513,6 +533,7 @@ public class Cleric extends StdCharClass
 				return new Vector<Item>();
 			outfitChoices.add(w);
 		}
+		cleanOutfit(outfitChoices);
 		return outfitChoices;
 	}
 }

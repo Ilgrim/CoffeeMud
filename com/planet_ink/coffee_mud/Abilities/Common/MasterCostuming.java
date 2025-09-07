@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Tim Kassebaum
+   Copyright 2004-2025 Tim Kassebaum
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ public class MasterCostuming extends Costuming
 	}
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return "mastercostume.txt";
 	}
@@ -73,7 +73,7 @@ public class MasterCostuming extends Costuming
 
 	@Override
 	protected boolean autoGenInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto,
-								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<Item> crafted)
+								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<CraftedItem> crafted)
 	{
 		if(super.checkStop(mob, commands))
 			return true;
@@ -84,8 +84,8 @@ public class MasterCostuming extends Costuming
 		randomRecipeFix(mob,addRecipes(mob,loadRecipes()),commands,autoGenerate);
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Make what? Enter \"mcostume list\" for a list, \"mcostume info <item>\", \"mcostume scan\", \"mcostume refit\","
-						+ " \"mcostume learn <item>\", \"mcostume mend <item>\", or \"mcostume stop\" to cancel."));
+			commonTelL(mob,"Make what? Enter \"mcostume list\" for a list, \"mcostume info <item>\", \"mcostume scan\", \"mcostume refit\","
+						+ " \"mcostume learn <item>\", \"mcostume mend <item>\", or \"mcostume stop\" to cancel.");
 			return false;
 		}
 		return super.autoGenInvoke(mob,commands,givenTarget,auto,asLevel,autoGenerate,forceLevels,crafted);

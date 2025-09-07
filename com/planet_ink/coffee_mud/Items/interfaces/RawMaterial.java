@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeSet;
 import java.util.Vector;
 
@@ -30,7 +31,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -558,7 +559,7 @@ public interface RawMaterial extends Item
 	public final static int	RESOURCE_CHLORINE		= MATERIAL_GAS | 186;
 	public final static int	RESOURCE_ALUMINUM		= MATERIAL_METAL | 187;
 	public final static int	RESOURCE_TITANIUM		= MATERIAL_METAL | 188;
-	public final static int	RESOURCE_FIBREGLASS		= MATERIAL_CLOTH | 189;
+	public final static int	RESOURCE_FIBREGLASS		= MATERIAL_SYNTHETIC | 189;
 	public final static int	RESOURCE_ULTRANIUM		= MATERIAL_METAL | 190;
 	public final static int	RESOURCE_DURANIUM		= MATERIAL_METAL | 191;
 	public final static int	RESOURCE_URANIUM		= MATERIAL_ROCK  | 192;
@@ -576,6 +577,9 @@ public interface RawMaterial extends Item
 	public final static int	RESOURCE_SPICE			= MATERIAL_VEGETATION | 204;
 	public final static int	RESOURCE_DIRT			= MATERIAL_ROCK | 205;
 	public final static int	RESOURCE_FUNGUS			= MATERIAL_VEGETATION | 206;
+	public final static int	RESOURCE_PALLADIUM		= MATERIAL_METAL | 207;
+	public final static int	RESOURCE_NICKEL			= MATERIAL_METAL | 208;
+	public final static int RESOURCE_VEGETABLE		= MATERIAL_VEGETATION | 209;
 
 	public final static int	RESOURCE_MASK			= 255;
 
@@ -587,9 +591,15 @@ public interface RawMaterial extends Item
 	 */
 	public static enum ResourceFlag
 	{
-		BERRY,
-		FISH,
-		WOODY
+		BERRY("BERRIES"),
+		FISH("FISHES"),
+		WOODY("WOOD")
+		;
+		public String[] altNames;
+		private ResourceFlag(final String alt)
+		{
+			altNames = new String[] {alt};
+		}
 	}
 
 	/**
@@ -597,6 +607,10 @@ public interface RawMaterial extends Item
 	 * resources.
 	 * Data about each resource includes:
 	 * code, value, frequency, hardness, bouyancy, smell, effects, ResourceFlag flags
+	 *
+	 * value is in base gold value/pound
+	 * bouyancy is equal to 1000 times the density of the material in g/cm3
+	 * hardness is based off of the Mohs Scale of Hardness
 	 * @author Bo Zimmerman
 	 */
 	public static enum DefResource
@@ -635,16 +649,16 @@ public interface RawMaterial extends Item
 		SAND(RESOURCE_SAND, 1, 50, 1, 1600, "", "", null),
 		JADE(RESOURCE_JADE, 50, 2, 5, 3800, "", "", null),
 		IRON(RESOURCE_IRON, 20, 10, 6, 7900, "", "", null),
-		LEAD(RESOURCE_LEAD, 10, 10, 4, 11300, "", "", null),
+		LEAD(RESOURCE_LEAD, 10, 10, 3, 11300, "", "", null),
 		BRONZE(RESOURCE_BRONZE, 10, 10, 5, 8100, "", "", null),
-		SILVER(RESOURCE_SILVER, 30, 2, 5, 10500, "", "", null),
-		GOLD(RESOURCE_GOLD, 150, 1, 5, 19320, "", "", null),
+		SILVER(RESOURCE_SILVER, 30, 2, 4, 10500, "", "", null),
+		GOLD(RESOURCE_GOLD, 150, 1, 4, 19320, "", "", null),
 		WHITE_GOLD(RESOURCE_WHITE_GOLD, 150, 1, 5, 1450, "", "", null),
-		PLATINUM(RESOURCE_PLATINUM, 750, 1, 6, 21450, "", "", null),
-		ALUMINUM(RESOURCE_ALUMINUM, 15000, 0, 2, 7300, "", "", null),
-		ZINC(RESOURCE_ZINC, 10, 5, 5, 7100, "", "", null),
+		PLATINUM(RESOURCE_PLATINUM, 175, 1, 6, 21450, "", "", null),
+		ALUMINUM(RESOURCE_ALUMINUM, 205, 0, 4, 7300, "", "", null),
+		ZINC(RESOURCE_ZINC, 10, 5, 4, 7100, "", "", null),
 		COPPER(RESOURCE_COPPER, 10, 10, 5, 8900, "", "", null),
-		TIN(RESOURCE_TIN, 10, 10, 4, 7300, "", "", null),
+		TIN(RESOURCE_TIN, 10, 10, 3, 7300, "", "", null),
 		MITHRIL(RESOURCE_MITHRIL, 100, 1, 9, 3990, "", "", null),
 		ADAMANTITE(RESOURCE_ADAMANTITE, 175, 1, 10, 4500, "", "", null),
 		STEEL(RESOURCE_STEEL, 75, 0, 8, 7840, "", "", null),
@@ -785,17 +799,17 @@ public interface RawMaterial extends Item
 		SLIME(RESOURCE_SLIME, 5, 10, 1, 750, "horridly acidic", "Prop_UseSpellCast2(Spell_AcidSpray)", null),
 		AIR(RESOURCE_AIR, 0, 100, 0, 0, "", "", null),
 		OXYGEN(RESOURCE_OXYGEN, 10, 100, 0, 0, "", "", null),
-		HYDROGEN(RESOURCE_HYDROGEN,       20, 100,  0, 0, "", "", null),
-		FLOURINE(RESOURCE_FLOURINE,       60, 40,   0, 0, "strong pungent", "", null),
-		NITROGEN(RESOURCE_NITROGEN,       10, 100,  0, 0, "", "", null),
-		CHLORINE(RESOURCE_CHLORINE,       10, 100,  0, 0, "strong acidic", "", null),
+		HYDROGEN(RESOURCE_HYDROGEN, 	  20, 100,  0, 0, "", "", null),
+		FLOURINE(RESOURCE_FLOURINE, 	  60, 40,   0, 0, "strong pungent", "", null),
+		NITROGEN(RESOURCE_NITROGEN, 	  10, 100,  0, 0, "", "", null),
+		CHLORINE(RESOURCE_CHLORINE, 	  10, 100,  0, 0, "strong acidic", "", null),
 		TITANIUM(RESOURCE_TITANIUM		, 75,   0,  8, 784, "", "", null),
 		FIBREGLASS(RESOURCE_FIBREGLASS	, 10,   0,  3, 0, "", "", null),
 		ULTRANIUM(RESOURCE_ULTRANIUM	, 175,  0, 11, 900, "", "", null),
 		DURANIUM(RESOURCE_DURANIUM		, 159,  0, 10, 300, "", "", null),
 		URANIUM(RESOURCE_URANIUM		, 100,  1,  0, 2000, "", "Disease_RadiationSickness", null),
 		ANTIMATTER(RESOURCE_ANTIMATTER	, 500,  0,  0, 0, "", "", null),
-		DIAMELS(RESOURCE_DIAMELS		, 5,    20, 9, 3510, "", "", null),
+		DIAMELS(RESOURCE_DIAMELS		, 5,	20, 9, 3510, "", "", null),
 		PETROLEUM(RESOURCE_PETROLEUM	, 50,   5,  1, 880, "strong oily", "", null),
 		GASOLINE(RESOURCE_GASOLINE		, 80,   0,  0, 880, "strong unique", "", null),
 		DIESEL(RESOURCE_DIESEL			, 70,   0,  0, 880, "strong unique", "", null),
@@ -807,10 +821,13 @@ public interface RawMaterial extends Item
 		SALT(RESOURCE_SALT				, 10,   20, 5, 750, "", "", null),
 		SPICE(RESOURCE_SPICE			, 100,  5,  1, 750, "very spicy", "", null),
 		DIRT(RESOURCE_DIRT				, 1,   50,  1, 1600, "rich earthy", "", null),
-		FUNGUS(RESOURCE_FUNGUS			, 1,    3,  1,  750, "", "", null),
+		FUNGUS(RESOURCE_FUNGUS			, 1,	3,  1,  750, "", "", null),
+		PALLADIUM(RESOURCE_PALLADIUM	, 25,   1,  7,12020, "", "", null),
+		NICKEL(RESOURCE_NICKEL			, 10,   2,  5, 8900, "", "", null),
+		VEGETABLE(RESOURCE_VEGETABLE	, 1, 5, 1, 540, "very healthy", "", null),
 
 		;//code, 						  v, freq, h, b, smell, effects, ResourceFlag flags
-		public final int			code, value, frequency, hardness, bouancy;
+		public final int			code, value, frequency, hardness, buoyancy;
 		public final String			smell, effect, desc;
 		public final ResourceFlag	flag;
 
@@ -831,7 +848,7 @@ public interface RawMaterial extends Item
 			value = val;
 			frequency = freq;
 			hardness = hard;
-			bouancy = bou;
+			buoyancy = bou;
 			smell = sniff;
 			effect = eff;
 			flag = flg;
@@ -877,7 +894,7 @@ public interface RawMaterial extends Item
 				for (final DefResource d : defaults)
 				{
 					final int material = d.code & MATERIAL_MASK;
-					add(material, d.desc, d.smell, d.value, d.frequency, d.hardness, d.bouancy, d.flag == ResourceFlag.FISH, d.flag == ResourceFlag.BERRY, d.flag == ResourceFlag.WOODY, d.effect);
+					add(material, d.desc, d.smell, d.value, d.frequency, d.hardness, d.buoyancy, d.flag == ResourceFlag.FISH, d.flag == ResourceFlag.BERRY, d.flag == ResourceFlag.WOODY, d.effect);
 				}
 				for (int i = 0; i < addExtra.length + repExtra.length; i++)
 				{
@@ -912,7 +929,7 @@ public interface RawMaterial extends Item
 					final int value = CMath.s_int(V.get(2));
 					final int frequ = CMath.s_int(V.get(3));
 					final int hardness = CMath.s_int(V.get(4));
-					final int bouancy = CMath.s_int(V.get(5));
+					final int buoyancy = CMath.s_int(V.get(5));
 					final boolean fish = V.get(6).equalsIgnoreCase("fish");
 					final boolean berry = V.get(6).equalsIgnoreCase("berry");
 					final boolean woody = V.get(6).equalsIgnoreCase("woody");
@@ -924,21 +941,21 @@ public interface RawMaterial extends Item
 						continue;
 					}
 					if (type.equalsIgnoreCase("ADD"))
-						add(material.mask(), stat, smell, value, frequ, hardness, bouancy, fish, berry, woody, abilityID);
+						add(material.mask(), stat, smell, value, frequ, hardness, buoyancy, fish, berry, woody, abilityID);
 					else
 					if (type.equalsIgnoreCase("REPLACE") && (oldResourceCode >= 0))
-						replace(oldResourceCode, material.mask(), stat, smell, value, frequ, hardness, bouancy, fish, berry, woody, abilityID);
+						replace(oldResourceCode, material.mask(), stat, smell, value, frequ, hardness, buoyancy, fish, berry, woody, abilityID);
 				}
 				final String[] sortedNames = descs.clone();
 				Arrays.sort(sortedNames);
 				final Hashtable<String, Integer> previousIndexes = new Hashtable<String, Integer>();
 				for (int ndex = 0; ndex < descs.length; ndex++)
 					previousIndexes.put(descs[ndex], Integer.valueOf(ndex));
-				allCodesSortedByName = new int[allCodes.length];
+				allCodesByName = new int[allCodes.length];
 				for (int ndex = 0; ndex < sortedNames.length; ndex++)
 				{
 					final int previousIndex = previousIndexes.get(sortedNames[ndex]).intValue();
-					allCodesSortedByName[ndex] = allCodes[previousIndex];
+					allCodesByName[ndex] = allCodes[previousIndex];
 				}
 			}
 		}
@@ -983,19 +1000,20 @@ public interface RawMaterial extends Item
 			instance();
 		}
 
-		private static CODES[]				insts					= new CODES[256];
+		private static CODES[] insts = new CODES[256];
 
-		private int[]						allCodes				= new int[0];
-		private int[]						allCodesSortedByName	= new int[0];
-		private int[]						berries					= new int[0];
-		private int[]						woodies					= new int[0];
-		private int[]						fishes					= new int[0];
-		private int[][]						data					= new int[0][0];
-		private String[]					smells					= new String[0];
-		private String[]					descs					= new String[0];
-		private String[]					effects					= new String[0];
-		private Ability[][]					effectAs				= new Ability[0][];
-		private PairList<Integer, Double>[]	buckets					= null;
+		private int[]		allCodes		= new int[0];
+		private int[]		allCodesByName	= new int[0];
+		private int[]		berries			= new int[0];
+		private int[]		woodies			= new int[0];
+		private int[]		fishes			= new int[0];
+		private int[][]		data			= new int[0][0];
+		private String[]	smells			= new String[0];
+		private String[]	descs			= new String[0];
+		private String[]	effects			= new String[0];
+		private Ability[][]	effectAs		= new Ability[0][];
+
+		private PairList<Integer, Double>[]	buckets	= null;
 
 		/**
 		 * Returns an array of the numeric codes for the berry resources
@@ -1058,6 +1076,26 @@ public interface RawMaterial extends Item
 		}
 
 		/**
+		 * Returns an array of the numeric codes for the flagged resources
+		 *
+		 * @param flag the flag to use
+		 * @return an array of the numeric codes for the flagged resources
+		 */
+		public static int[] flaggedResources(final RawMaterial.ResourceFlag flag)
+		{
+			switch(flag)
+			{
+			case BERRY:
+				return BERRIES();
+			case FISH:
+				return FISHES();
+			case WOODY:
+				return WOODIES();
+			}
+			return new int[0];
+		}
+
+		/**
 		 * Returns total number of codes 0 - this-1
 		 *
 		 * @return total number of codes 0 - this-1
@@ -1084,7 +1122,7 @@ public interface RawMaterial extends Item
 		 */
 		public static int[] ALL_SBN()
 		{
-			return c().allCodesSortedByName;
+			return c().allCodesByName;
 		}
 
 		/**
@@ -1233,6 +1271,20 @@ public interface RawMaterial extends Item
 			final int mat_code = (code & MATERIAL_MASK) >> 8;
 			if((mat_code >=0) && (mat_code <= RawMaterial.Material.values().length))
 				return RawMaterial.Material.values()[mat_code].toString();
+			return "";
+		}
+
+		/**
+		 * Returns the short descriptive noun of the material in the code
+		 *
+		 * @param code the code to get material from
+		 * @return the noun of the material in the code
+		 */
+		public static String MAT_DESC(final int code)
+		{
+			final int mat_code = (code & MATERIAL_MASK) >> 8;
+			if((mat_code >=0) && (mat_code <= RawMaterial.Material.values().length))
+				return RawMaterial.Material.values()[mat_code].noun();
 			return "";
 		}
 
@@ -1417,23 +1469,23 @@ public interface RawMaterial extends Item
 		}
 
 		/**
-		 * Returns the bouancy of the resource, from 0-20000
+		 * Returns the buoyancy of the resource, from 0-20000
 		 *
 		 * @param code the resource code
-		 * @return the bouancy of the resource
+		 * @return the buoyancy of the resource
 		 */
-		public static int BOUANCY(final int code)
+		public static int BOUYANCY(final int code)
 		{
 			return c().data[code & RESOURCE_MASK][4];
 		}
 
 		/**
-		 * Returns the bouancy of the resource, from 0-20000
+		 * Returns the buoyancy of the resource, from 0-20000
 		 *
 		 * @param code the resource code
-		 * @return the bouancy of the resource
+		 * @return the buoyancy of the resource
 		 */
-		public int bouancy(final int code)
+		public int buoyancy(final int code)
 		{
 			return data[code & RESOURCE_MASK][4];
 		}
@@ -1449,6 +1501,7 @@ public interface RawMaterial extends Item
 		{
 			if (mat <= RESOURCE_MASK)
 				mat = mat << 8;
+			mat = mat & MATERIAL_MASK;
 			final List<Integer> rscs = new Vector<Integer>();
 			for (final int rsc : c().allCodes)
 			{
@@ -1528,7 +1581,7 @@ public interface RawMaterial extends Item
 		 * @return the value-sorted list of resources and values
 		 */
 		@SuppressWarnings("unchecked")
-		public PairList<Integer, Double> getValueSortedBucket(int material)
+		public PairList<Integer, Double> getValueSortedResources(int material)
 		{
 			material = (material & RawMaterial.MATERIAL_MASK) >> 8;
 			final int numMaterials = Material.values().length;
@@ -1582,13 +1635,13 @@ public interface RawMaterial extends Item
 		 * @param value the value of the resource in base currency
 		 * @param frequ the frequency of the resource 0-10
 		 * @param hardness the hardness of the resource 0-10
-		 * @param bouancy the bouancy of the resource 0-10000
+		 * @param buoyancy the buoyancy of the resource 0-10000
 		 * @param fish true if its a fishy-type
 		 * @param berry true if its a berry type
 		 * @param woody true if its a wood-choppy type
 		 * @param abilityID effects list
 		 */
-		public synchronized void add(final int material, final String name, final String smell, final int value, final int frequ, final int hardness, final int bouancy, final boolean fish, final boolean berry, final boolean woody, final String abilityID)
+		public synchronized void add(final int material, final String name, final String smell, final int value, final int frequ, final int hardness, final int buoyancy, final boolean fish, final boolean berry, final boolean woody, final String abilityID)
 		{
 			final int newResourceCode = allCodes.length | material;
 			allCodes = Arrays.copyOf(allCodes, allCodes.length + 1);
@@ -1620,8 +1673,8 @@ public interface RawMaterial extends Item
 			effectAs[effectAs.length - 1] = null;
 
 			data = Arrays.copyOf(data, data.length + 1);
-			// full code, base value, frequency, hardness (1-10), bouancy
-			final int[] newRow = { newResourceCode, value, frequ, hardness, bouancy };
+			// full code, base value, frequency, hardness (1-10), buoyancy
+			final int[] newRow = { newResourceCode, value, frequ, hardness, buoyancy };
 			data[data.length - 1] = newRow;
 		}
 
@@ -1634,13 +1687,13 @@ public interface RawMaterial extends Item
 		 * @param value the value of the resource in base currency
 		 * @param frequ the frequency of the resource 0-10
 		 * @param hardness the hardness of the resource 0-10
-		 * @param bouancy the bouancy of the resource 0-10000
+		 * @param buoyancy the buoyancy of the resource 0-10000
 		 * @param fish true if its a fishy-type
 		 * @param berry true if its a berry type
 		 * @param woody true if its a wood-choppy type
 		 * @param abilityID effects list
 		 */
-		public synchronized void replace(final int resourceCode, final int material, final String name, final String smell, final int value, final int frequ, final int hardness, final int bouancy, final boolean fish, final boolean berry, final boolean woody, final String abilityID)
+		public synchronized void replace(final int resourceCode, final int material, final String name, final String smell, final int value, final int frequ, final int hardness, final int buoyancy, final boolean fish, final boolean berry, final boolean woody, final String abilityID)
 		{
 			final int resourceIndex = resourceCode & RESOURCE_MASK;
 			if ((berry) && (!CMParms.contains(berries, resourceCode)))
@@ -1698,7 +1751,7 @@ public interface RawMaterial extends Item
 			effects[resourceIndex] = abilityID;
 			effectAs[resourceIndex] = null;
 			descs[resourceIndex] = name;
-			final int[] newRow = { resourceCode, value, frequ, hardness, bouancy };
+			final int[] newRow = { resourceCode, value, frequ, hardness, buoyancy };
 			data[resourceIndex] = newRow;
 		}
 	}

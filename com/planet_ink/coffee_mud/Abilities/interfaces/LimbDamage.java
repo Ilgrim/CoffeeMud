@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ public interface LimbDamage extends Ability
 	 * @return the set of the name of the remaining pieces.
 	 */
 	public List<String> unaffectedLimbSet();
+
 	/**
 	 * Performs the very dirty business of mangling the item of the given
 	 * name on the given target.  An existing instanceof of the LimbDamage
@@ -55,15 +56,26 @@ public interface LimbDamage extends Ability
 	 * It will generate messages if necessary, toss the piece on the ground
 	 * if that is appropriate, and do all thats needed.
 	 * @param limbName the name of the limb to mangle, fully qualified.
+	 * @param intentional true if intentional, false if incidental
 	 * @return the item object representing the newly damaged part, if applicable.
 	 */
-	public Item damageLimb(String limbName);
+	public Item damageLimb(String limbName, boolean intentional);
+
+	/**
+	 * Returns whether the limb of the given name has been damaged.
+	 *
+	 * @param limbName the name of the limb to check, full or partial
+	 * @return true if a limb of the given name is hurt by this
+	 */
+	public boolean isDamaged(final String limbName);
+
 	/**
 	 * The opposite of the unaffectedLimbSet method, this method returns
 	 * the list of the names of those parts which have been damaged.
 	 * @return the list of the names of the parts that are damaged!
 	 */
 	public List<String> affectedLimbNameSet();
+
 	/**
 	 * Restores a missing or damaged part, denoted by the given string, and managed by the
 	 * given LimbDamage property

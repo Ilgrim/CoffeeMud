@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ public class Chant_SweetScent extends Chant
 	{
 		if(!super.tick(ticking,tickID))
 			return false;
-		if((affected!=null)&&(affected instanceof Item)&&((tickDown--)<=0))
+		if((affected instanceof Item)&&((tickDown--)<=0))
 		{
 			tickDown = 2;
 			final Item I=(Item)affected;
@@ -91,8 +91,8 @@ public class Chant_SweetScent extends Chant
 				{
 					final MOB M=room.fetchInhabitant(i);
 					if((M!=null)
-					&&(CMLib.flags().isAnimalIntelligence(M))
-					&&(CMLib.flags().canSmell(M)))
+					&&(CMLib.flags().isAnAnimal(M))
+					&&(CMLib.flags().canSmell(M,I)))
 						M.tell(M,I,null,L("<T-NAME> smell(s) absolutely intoxicating!"));
 				}
 				for(int r=0;r<rooms.size();r++)
@@ -104,10 +104,10 @@ public class Chant_SweetScent extends Chant
 						{
 							final MOB M=R.fetchInhabitant(i);
 							if((M!=null)
-							&&(CMLib.flags().isAnimalIntelligence(M))
+							&&(CMLib.flags().isAnAnimal(M))
 							&&(!M.isInCombat())
 							&&((!M.isMonster())||(CMLib.flags().isMobile(M)))
-							&&(CMLib.flags().canSmell(M)))
+							&&(CMLib.flags().canSmell(M,I)))
 							{
 								final int dir=CMLib.tracking().radiatesFromDir(R,rooms);
 								if(dir>=0)

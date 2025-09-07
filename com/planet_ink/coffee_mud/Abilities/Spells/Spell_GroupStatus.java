@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,6 +70,12 @@ public class Spell_GroupStatus extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	public int classificationCode()
 	{
 		return Ability.ACODE_SPELL|Ability.DOMAIN_DIVINATION;
@@ -93,7 +99,7 @@ public class Spell_GroupStatus extends Spell
 				if(groupMembers==null)
 				{
 					groupMembers=new SLinkedList<Pair<MOB,Ability>>();
-					final Set<MOB> grp=mob.getGroupMembers(new TreeSet<MOB>());
+					final Set<MOB> grp=mob.getGroupMembers(new XTreeSet<MOB>());
 					for(final MOB M : grp)
 					{
 						final Pair<MOB,Ability> P=new Pair<MOB,Ability>(M,null);
@@ -144,7 +150,7 @@ public class Spell_GroupStatus extends Spell
 					&&(!affects.contains(A.ID())))
 					{
 						affects.add(A.ID());
-						invoker().tell(L("@x1 is now affected by @x2.",mob.Name(),A.name()));
+						commonTelL(invoker(),"@x1 is now affected by @x2.",mob.Name(),A.name());
 					}
 				}
 			}
@@ -162,7 +168,7 @@ public class Spell_GroupStatus extends Spell
 		{
 			if(!reporteds.contains("DEATH"))
 			{
-				invoker().tell(L("@x1 is dying.",affected.Name()));
+				commonTelL(invoker(),"@x1 is dying.",affected.Name());
 				reporteds.add("DEATH");
 			}
 		}
@@ -200,7 +206,7 @@ public class Spell_GroupStatus extends Spell
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already knowledgable about <S-HIS-HER> group."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already knowledgable about <S-HIS-HER> group."));
 			return false;
 		}
 
@@ -212,7 +218,7 @@ public class Spell_GroupStatus extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> point(s) at <S-HIS-HER> group members and knowingly cast(s) a spell.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> point(s) at <S-HIS-HER> group members and knowingly cast(s) a spell.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

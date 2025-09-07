@@ -19,7 +19,7 @@ import java.io.IOException;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ public class Prayer_SenseFaithful extends Prayer
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_HOLY;
+		return Ability.FLAG_HOLY | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -82,7 +82,7 @@ public class Prayer_SenseFaithful extends Prayer
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		if((mob.getWorshipCharID()==null)||(mob.getWorshipCharID().length()==0))
+		if((mob.charStats().getWorshipCharID()==null)||(mob.charStats().getWorshipCharID().length()==0))
 		{
 			mob.tell(L("You don't worship a deity, so this magic means nothing."));
 			return false;
@@ -98,7 +98,7 @@ public class Prayer_SenseFaithful extends Prayer
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				final String deityName=mob.getWorshipCharID();
+				final String deityName=mob.charStats().getWorshipCharID();
 				final Command C=CMClass.getCommand("Who");
 				if(C!=null)
 				{
@@ -112,10 +112,10 @@ public class Prayer_SenseFaithful extends Prayer
 									@Override
 									public boolean passesFilter(final MOB obj)
 									{
-										return (obj!=null) && (obj.getWorshipCharID().equals(deityName));
+										return (obj!=null) && (obj.charStats().deityName().equals(deityName));
 									}
 
-								}
+								}, "Faithful"
 							).toString());
 						}
 					}

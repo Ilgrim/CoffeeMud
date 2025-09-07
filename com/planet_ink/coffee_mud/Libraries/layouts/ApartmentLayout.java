@@ -12,7 +12,7 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.Layo
 import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.LayoutTypes;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ public class ApartmentLayout extends AbstractLayout
 	@Override
 	public java.util.List<LayoutNode> generate(final int num, final int dir)
 	{
-		final Vector<LayoutNode> set = new Vector<LayoutNode>();
+		final java.util.List<LayoutNode> set = new Vector<LayoutNode>();
 		int hallwayLength=num/3;
 		int numHallways=1;
 		while(hallwayLength > 7)

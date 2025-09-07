@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,6 +60,15 @@ public class StdClanFlag extends StdItem implements ClanItem
 		setClanItemType(ClanItem.ClanItemType.FLAG);
 		material = RawMaterial.RESOURCE_COTTON;
 		recoverPhyStats();
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())
+		&&((this.clanID().length()==0)||(name().toLowerCase().indexOf(this.clanID().toLowerCase())<0)))
+			return CMStrings.removeColors(name());
+		return L("a flag");
 	}
 
 	@Override
@@ -208,7 +217,7 @@ public class StdClanFlag extends StdItem implements ClanItem
 					final Room R = CMLib.map().roomLocation(this);
 					if (CMLib.clans().findRivalrousClan(msg.source()) == null)
 					{
-						msg.source().tell(L("You must belong to an elligible clan to take a clan item."));
+						msg.source().tell(L("You must belong to an eligible clan to take a clan item."));
 						return false;
 					}
 					else
@@ -319,7 +328,7 @@ public class StdClanFlag extends StdItem implements ClanItem
 					if (!rulingClan.equals(clanID()))
 					{
 						int relation = Clan.REL_WAR;
-						final Clan C = CMLib.clans().getClan(clanID());
+						final Clan C = CMLib.clans().getClanAnyHost(clanID());
 						if (C == null)
 						{
 							msg.source().tell(L("This ancient relic from a lost clan fades out of existence."));
@@ -327,7 +336,7 @@ public class StdClanFlag extends StdItem implements ClanItem
 							return false;
 						}
 						relation = C.getClanRelations(rulingClan);
-						if (relation != Clan.REL_WAR)
+						if(relation != Clan.REL_WAR)
 						{
 							msg.source().tell(L("You must be at war with this clan to put down your flag on their area."));
 							return false;

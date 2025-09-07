@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ public class Nanny extends StdBehavior
 
 	protected List<DropOff>	dropOffs	= null;
 	protected List<Payment>	payments	= new SVector<Payment>();
-	protected DVector		sayLaters	= new DVector(2);
+	protected PairVector<MOB,String>	sayLaters	= new PairVector<MOB,String>();
 	// dynamic list of who belongs to what, before they leave
 	// and get added to official drop-offs.
 	protected List<DropOff> associations= new SVector<DropOff>();
@@ -228,7 +228,7 @@ public class Nanny extends StdBehavior
 		for(int v=0;v<V.size();v++)
 		{
 			final PhysicalAgent E=V.get(v);
-			if(CMLib.flags().isBaby(E)||CMLib.flags().isChild(E))
+			if(CMLib.flags().isBaby(E)||CMLib.flags().isAgedChild(E))
 				babies++;
 			else
 			if(isMount(E))
@@ -346,7 +346,7 @@ public class Nanny extends StdBehavior
 			{
 				final Coins C=(Coins)msg.tool();
 				final String myCurrency=CMLib.beanCounter().getCurrency(host);
-				if(!C.getCurrency().equalsIgnoreCase(myCurrency))
+				if(!CMLib.beanCounter().isCurrencyMatch(C.getCurrency(),myCurrency))
 				{
 					if(host instanceof MOB)
 						CMLib.commands().postSay((MOB)host,msg.source(),L("I'm don't accept @x1.  I can only accept @x2.",CMLib.beanCounter().getDenominationName(C.getCurrency(),C.getDenomination()),CMLib.beanCounter().getDenominationName(myCurrency)));
@@ -454,9 +454,9 @@ public class Nanny extends StdBehavior
 	{
 		if((E instanceof MOB)
 		&&(E instanceof Rideable)
-		&&((((Rideable)E).rideBasis()==Rideable.RIDEABLE_LAND)
-				||(((Rideable)E).rideBasis()==Rideable.RIDEABLE_AIR)
-				||(((Rideable)E).rideBasis()==Rideable.RIDEABLE_WATER)))
+		&&((((Rideable)E).rideBasis()==Rideable.Basis.LAND_BASED)
+				||(((Rideable)E).rideBasis()==Rideable.Basis.AIR_FLYING)
+				||(((Rideable)E).rideBasis()==Rideable.Basis.WATER_BASED)))
 			return true;
 		return false;
 	}
@@ -469,40 +469,32 @@ public class Nanny extends StdBehavior
 			return false;
 		if((watchesBabies)&&(CMLib.flags().isBaby(E)))
 			return true;
-		if((watchesChildren)&&(CMLib.flags().isChild(E))&&(!CMLib.flags().isBaby(E)))
+		if((watchesChildren)&&(CMLib.flags().isAgedChild(E))&&(!CMLib.flags().isBaby(E)))
 			return true;
 		if((watchesMounts)&&(isMount(E)))
 			return true;
-		if((watchesMOBFollowers)&&(E instanceof MOB)&&(!isMount(E))&&(!CMLib.flags().isChild(E))&&(!CMLib.flags().isBaby(E)))
+		if((watchesMOBFollowers)&&(E instanceof MOB)&&(!isMount(E))&&(!CMLib.flags().isAgedChild(E))&&(!CMLib.flags().isBaby(E)))
 			return true;
 		if((this.watchesWagons)
 		&&(E instanceof Rideable)
-		&&(((Rideable)E).rideBasis()==Rideable.RIDEABLE_WAGON))
+		&&(((Rideable)E).rideBasis()==Rideable.Basis.WAGON))
 			return true;
 		if((this.watchesCars)
 		&&(E instanceof Item)
 		&&(E instanceof Rideable)
-		&&(((Rideable)E).rideBasis()==Rideable.RIDEABLE_LAND))
+		&&(((Rideable)E).rideBasis()==Rideable.Basis.LAND_BASED))
 			return true;
 		if((this.watchesBoats)
 		&&(E instanceof Item)
 		&&(E instanceof Rideable)
-		&&(((Rideable)E).rideBasis()==Rideable.RIDEABLE_WATER))
+		&&(((Rideable)E).rideBasis()==Rideable.Basis.WATER_BASED))
 			return true;
 		if((this.watchesAirCars)
 		&&(E instanceof Item)
 		&&(E instanceof Rideable)
-		&&(((Rideable)E).rideBasis()==Rideable.RIDEABLE_AIR))
+		&&(((Rideable)E).rideBasis()==Rideable.Basis.AIR_FLYING))
 			return true;
 		return false;
-	}
-
-	public MOB ultimateFollowing(final Environmental E)
-	{
-		MOB ultimateFollowing=null;
-		if(E instanceof MOB)
-			ultimateFollowing=((MOB)E).amUltimatelyFollowing();
-		return ultimateFollowing;
 	}
 
 	public MOB getMommyOf(final Physical P)
@@ -511,14 +503,12 @@ public class Nanny extends StdBehavior
 		&&(((Item)P).owner() instanceof MOB)
 		&&(!((MOB)((Item)P).owner()).isMonster()))
 			return (MOB)((Item)P).owner();
+
 		if((P instanceof MOB)
 		&&(((MOB)P).amFollowing()!=null)
-		&&(!((MOB)P).amFollowing().isMonster()))
+		&&(((MOB)P).amFollowing().isPlayer()||(!((MOB)P).amFollowing().isMonster())))
 			return ((MOB)P).amFollowing();
-		if((P instanceof MOB)
-		&&(ultimateFollowing(P)!=null)
-		&&(!ultimateFollowing(P).isMonster()))
-			return ultimateFollowing(P);
+
 		if(P instanceof Rideable)
 		{
 			final Rideable R=(Rideable)P;
@@ -645,10 +635,12 @@ public class Nanny extends StdBehavior
 					list.append(", ");
 			}
 			if(list.length()>0)
+			{
 				sayLaters.addElement(msg.source(),"Welcome to my "+place+", "+msg.source().name()+"! You are welcome to leave " +
 							list.toString()+" here under my care and protection.  Be aware that I charge "
 							+CMLib.beanCounter().abbreviatedPrice(currency,hourlyRate)+" per hour, each.  " +
 							"No payment is due until you return to fetch your "+getPronoun(myAssocs)+".");
+			}
 
 			final double owed=getAllOwedBy(msg.source());
 			final double paid=getPaidBy(msg.source());
@@ -679,7 +671,8 @@ public class Nanny extends StdBehavior
 				if((change>0.0)&&(C!=null))
 				{
 					// this message will actually end up triggering the hand-over.
-					final CMMsg newMsg=CMClass.getMsg((MOB)host,source,C,CMMsg.MSG_SPEAK,L("^T<S-NAME> say(s) 'Heres your change.' to <T-NAMESELF>.^?"));
+					final CMMsg newMsg=CMClass.getMsg((MOB)host,source,C,CMMsg.MSG_SPEAK,
+							L("^T<S-NAME> say(s) 'Heres your change.' to <T-NAMESELF>.^?"));
 					C.setOwner((MOB)host);
 					final long num=C.getNumberOfCoins();
 					final String curr=C.getCurrency();
@@ -859,7 +852,7 @@ public class Nanny extends StdBehavior
 	{
 		if(!super.tick(ticking,tickID))
 			return false;
-		if((!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if((!CMProps.isState(CMProps.HostState.RUNNING))
 		||((!(ticking instanceof Environmental))))
 			return true;
 		if(dropOffs==null)
@@ -915,9 +908,9 @@ public class Nanny extends StdBehavior
 		for(int s=sayLaters.size()-1;s>=0;s--)
 		{
 			if(ticking instanceof MOB)
-				CMLib.commands().postSay((MOB)ticking,(MOB)sayLaters.elementAt(s,1),(String)sayLaters.elementAt(s,2));
+				CMLib.commands().postSay((MOB)ticking,sayLaters.get(s).first,sayLaters.get(s).second);
 			else
-				((MOB)sayLaters.elementAt(s,1)).tell((String)sayLaters.elementAt(s,2));
+				sayLaters.get(s).first.tell(sayLaters.get(s).second);
 			sayLaters.removeElementAt(s);
 		}
 
@@ -1049,7 +1042,7 @@ public class Nanny extends StdBehavior
 
 			}
 			else
-			if(CMLib.flags().isChild(PA))
+			if(CMLib.flags().isAgedChild(PA))
 			{
 				if(CMLib.dice().rollPercentage()>20)
 					R.show(mob, PA, CMMsg.MSG_NOISYMOVEMENT,L("<S-NAME> play(s) with <T-NAME>."));

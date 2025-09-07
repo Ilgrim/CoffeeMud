@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -113,9 +113,9 @@ public class Skill_CombatRepairs extends StdSkill
 	{
 		if(!super.tick(ticking, tickID))
 			return false;
-		if(affected instanceof SailingShip)
+		if(affected instanceof SiegableItem)
 		{
-			final SailingShip I=(SailingShip)affected;
+			final SiegableItem I=(SiegableItem)affected;
 			if(I.subjectToWearAndTear())
 			{
 				final PhysicalAgent currentVictim = I.getCombatant();
@@ -126,15 +126,18 @@ public class Skill_CombatRepairs extends StdSkill
 					else
 					{
 						I.setUsesRemaining(I.usesRemaining()-5);
-						final Area A=I.getShipArea();
-						if(A!=null)
+						if(I instanceof Boardable)
 						{
-							for(final Enumeration<Room> r=A.getProperMap();r.hasMoreElements();)
+							final Area A=((Boardable)I).getArea();
+							if(A!=null)
 							{
-								final Room R=r.nextElement();
-								if((R!=null)&&(R.numInhabitants()>0))
+								for(final Enumeration<Room> r=A.getProperMap();r.hasMoreElements();)
 								{
-									R.showHappens(CMMsg.MSG_OK_ACTION, L("The temporary combat repairs are slowly unraveling."));
+									final Room R=r.nextElement();
+									if((R!=null)&&(R.numInhabitants()>0))
+									{
+										R.showHappens(CMMsg.MSG_OK_ACTION, L("The temporary combat repairs are slowly unraveling."));
+									}
 								}
 							}
 						}
@@ -161,34 +164,35 @@ public class Skill_CombatRepairs extends StdSkill
 		if(R==null)
 			return false;
 
-		final SailingShip ship;
-		if((R.getArea() instanceof BoardableShip)
-		&&(((BoardableShip)R.getArea()).getShipItem() instanceof SailingShip))
+		final SiegableItem ship;
+		if((R.getArea() instanceof Boardable)
+		&&(((Boardable)R.getArea()).getBoardableItem() instanceof SiegableItem))
+		//&&(((NavigableItem)(((BoardableItem)R.getArea()).getBoardableItem())).navBasis() == Rideable.Basis.WATER_BASED))
 		{
-			ship=(SailingShip)((BoardableShip)R.getArea()).getShipItem();
+			ship=(NavigableItem)((Boardable)R.getArea()).getBoardableItem();
 		}
 		else
 		{
-			mob.tell(L("You must be on a ship to do combat repairs!"));
+			mob.tell(L("You can't do combat repairs here!"));
 			return false;
 		}
 
 		if(ship.fetchEffect(ID())!=null)
 		{
-			mob.tell(L("Your ship has already undergone temporary combat repairs!"));
+			mob.tell(L("Temporary combat repairs are already underway!"));
 			return false;
 		}
 
 		final Room shipR=CMLib.map().roomLocation(ship);
-		if((shipR==null)||(!CMLib.flags().isWaterySurfaceRoom(shipR))||(!ship.subjectToWearAndTear()))
+		if((shipR==null)||(!ship.subjectToWearAndTear()))
 		{
-			mob.tell(L("You must be on a sailing ship to do combat repairs!"));
+			mob.tell(L("You can't do combat repairs here!"));
 			return false;
 		}
 
 		if((!ship.isInCombat())||(ship.usesRemaining()<=0))
 		{
-			mob.tell(L("Your ship must be in combat to do combat repairs!"));
+			mob.tell(L("You must be in siege combat to do combat repairs!"));
 			return false;
 		}
 
@@ -198,7 +202,7 @@ public class Skill_CombatRepairs extends StdSkill
 		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,ship,this,CMMsg.MASK_MALICIOUS|CMMsg.MSG_NOISYMOVEMENT,auto?L("<T-NAME> is suddenly patched up!"):L("<S-NAME> make(s) quick combat repairs to <T-NAME>!"));
+			final CMMsg msg=CMClass.getMsg(mob,ship,this,CMMsg.MASK_MALICIOUS|CMMsg.MSG_NOISYMOVEMENT,auto?L("<T-NAME> is suddenly patched up!"):L("<S-NAME> make(s) quick siege combat repairs to <T-NAME>!"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -216,7 +220,7 @@ public class Skill_CombatRepairs extends StdSkill
 			}
 		}
 		else
-			return beneficialVisualFizzle(mob,null,L("<S-NAME> attempt(s) to do quick ship repairs, but mess(es) it up."));
+			return beneficialVisualFizzle(mob,null,L("<S-NAME> attempt(s) to do quick siege combat repairs, but mess(es) it up."));
 		return success;
 	}
 }

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -58,6 +58,42 @@ public class Shadow extends Spirit
 	protected boolean destroyBodyAfterUse()
 	{
 		return true;
+	}
+
+	private final String[]	racialAbilityNames			= { };
+	private final int[]		racialAbilityLevels			= { };
+	private final int[]		racialAbilityProficiencies	= { };
+	private final boolean[]	racialAbilityQuals			= { };
+	private final String[]	racialAbilityParms			= { };
+
+	@Override
+	protected String[] racialAbilityNames()
+	{
+		return racialAbilityNames;
+	}
+
+	@Override
+	protected int[] racialAbilityLevels()
+	{
+		return racialAbilityLevels;
+	}
+
+	@Override
+	protected int[] racialAbilityProficiencies()
+	{
+		return racialAbilityProficiencies;
+	}
+
+	@Override
+	protected boolean[] racialAbilityQuals()
+	{
+		return racialAbilityQuals;
+	}
+
+	@Override
+	protected String[] racialAbilityParms()
+	{
+		return racialAbilityParms;
 	}
 
 	private static Vector<RawMaterial>	resources	= new Vector<RawMaterial>();

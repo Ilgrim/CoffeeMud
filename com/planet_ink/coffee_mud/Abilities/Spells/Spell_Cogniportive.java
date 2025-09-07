@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -82,13 +82,13 @@ public class Spell_Cogniportive extends Spell
 	public String establishHome(final MOB mob, final Item me, final boolean beLoose)
 	{
 		if(me instanceof LandTitle)
-			return ((LandTitle)me).getAllTitledRooms().get(0).roomID();
+			return CMLib.map().getExtendedRoomID(((LandTitle)me).getATitledRoom());
 		// check mobs worn items first!
 		final String srchStr="$"+me.Name()+"$";
 		List<Item> mobInventory=new Vector<Item>(1);
 		try
 		{
-			mobInventory=CMLib.map().findInventory(CMLib.map().rooms(),null, srchStr, 10);
+			mobInventory=CMLib.hunt().findInventory(CMLib.map().rooms(),null, srchStr, 10);
 			for(final Item I : mobInventory)
 			{
 				final Environmental owner=I.owner();
@@ -106,7 +106,7 @@ public class Spell_Cogniportive extends Spell
 		}
 		try
 		{
-			final List<Environmental> all=CMLib.map().findShopStockers(CMLib.map().rooms(), mob, srchStr, 10);
+			final List<Environmental> all=CMLib.hunt().findShopStockers(CMLib.map().rooms(), mob, srchStr, 10);
 			for(final Environmental O : all)
 			{
 				if(O instanceof ShopKeeper)
@@ -146,7 +146,7 @@ public class Spell_Cogniportive extends Spell
 		try
 		{
 			// check room stuff last
-			final List<Item> targets=CMLib.map().findRoomItems(CMLib.map().rooms(), mob, me.Name(), false,10);
+			final List<Item> targets=CMLib.hunt().findRoomItems(CMLib.map().rooms(), mob, me.Name(), false,10);
 			for(final Item I : targets)
 			{
 				final Room R=CMLib.map().roomLocation(I);
@@ -273,6 +273,12 @@ public class Spell_Cogniportive extends Spell
 			return false;
 		}
 
+		if(target instanceof Wand)
+		{
+			mob.tell(L("You can't cast this spell a wand!"));
+			return false;
+		}
+
 		Ability A=target.fetchEffect(ID());
 		if(A!=null)
 		{
@@ -287,7 +293,7 @@ public class Spell_Cogniportive extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAMESELF>, incanting.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAMESELF>, incanting.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

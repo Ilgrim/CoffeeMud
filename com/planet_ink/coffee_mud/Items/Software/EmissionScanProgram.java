@@ -26,7 +26,7 @@ import java.net.Socket;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -64,18 +64,6 @@ public class EmissionScanProgram extends GenSoftware
 		recoverPhyStats();
 	}
 
-	@Override
-	public String getParentMenu()
-	{
-		return "";
-	}
-
-	@Override
-	public String getInternalName()
-	{
-		return "";
-	}
-
 	public boolean isEmitting(final Item I)
 	{
 		return ((I instanceof Electronics)&&(((Electronics)I).activated()));
@@ -86,7 +74,7 @@ public class EmissionScanProgram extends GenSoftware
 		return CMClass.getMsg(CMLib.map().getFactoryMOB(R), null, this, CMMsg.MASK_CNTRLMSG|CMMsg.MSG_SNIFF, null); // cntrlmsg is important
 	}
 
-	public void getDirDesc(final String dirBuilder, final StringBuilder str, final boolean useShipDirs)
+	public void getDirDesc(final String dirBuilder, final StringBuilder str, final Directions.DirType dirType)
 	{
 		int numDone=0;
 		int numTotal=0;
@@ -127,12 +115,12 @@ public class EmissionScanProgram extends GenSoftware
 			}
 			final int dir=dirBuilder.charAt(d)-'a';
 			if(numDone==0)
-				str.append(" ").append(locDesc).append(useShipDirs?CMLib.directions().getShipDirectionName(dir):CMLib.directions().getDirectionName(dir));
+				str.append(" ").append(locDesc).append(CMLib.directions().getDirectionName(dir, dirType));
 			else
 			if(numDone<numTotal-1)
-				str.append(", ").append(locDesc).append(useShipDirs?CMLib.directions().getShipDirectionName(dir):CMLib.directions().getDirectionName(dir));
+				str.append(", ").append(locDesc).append(CMLib.directions().getDirectionName(dir, dirType));
 			else
-				str.append(", and then ").append(locDesc).append(useShipDirs?CMLib.directions().getShipInDirectionName(dir):CMLib.directions().getInDirectionName(dir));
+				str.append(", and then ").append(locDesc).append(CMLib.directions().getInDirectionName(dir, dirType));
 			numDone++;
 		}
 	}
@@ -143,7 +131,7 @@ public class EmissionScanProgram extends GenSoftware
 			return 0;
 		roomsDone.add(R);
 		int numFound=0;
-		final boolean useShipDirs=(R instanceof BoardableShip)||(R.getArea() instanceof BoardableShip);
+		final Directions.DirType dirType=CMLib.flags().getDirType(R);
 		for(int m=0;m<R.numInhabitants();m++)
 		{
 			final MOB M=R.fetchInhabitant(m);
@@ -166,7 +154,7 @@ public class EmissionScanProgram extends GenSoftware
 						}
 						else
 							str.append("Something");
-						getDirDesc(dirBuilder, str, useShipDirs);
+						getDirDesc(dirBuilder, str, dirType);
 						str.append(".\n\r");
 						break;
 					}
@@ -200,14 +188,14 @@ public class EmissionScanProgram extends GenSoftware
 					}
 					else
 						str.append("Something");
-					getDirDesc(dirBuilder, str, useShipDirs);
+					getDirDesc(dirBuilder, str, dirType);
 					str.append(".\n\r");
 				}
 			}
 			if((I instanceof SpaceShip)&&(depthLeft>0))
 			{
 				Room shipR=null;
-				for(final Enumeration<Room> r=((SpaceShip)I).getShipArea().getProperMap(); r.hasMoreElements(); )
+				for(final Enumeration<Room> r=((SpaceShip)I).getArea().getProperMap(); r.hasMoreElements(); )
 				{
 					final Room R2=r.nextElement();
 					for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
@@ -290,31 +278,31 @@ public class EmissionScanProgram extends GenSoftware
 	}
 
 	@Override
-	public boolean checkActivate(final MOB mob, final String message)
+	protected boolean checkActivate(final MOB mob, final String message)
 	{
 		return super.checkActivate(mob, message);
 	}
 
 	@Override
-	public boolean checkDeactivate(final MOB mob, final String message)
+	protected boolean checkDeactivate(final MOB mob, final String message)
 	{
 		return super.checkDeactivate(mob, message);
 	}
 
 	@Override
-	public boolean checkTyping(final MOB mob, final String message)
+	protected boolean checkTyping(final MOB mob, final String message)
 	{
 		return super.checkTyping(mob, message);
 	}
 
 	@Override
-	public boolean checkPowerCurrent(final int value)
+	protected boolean checkPowerCurrent(final int value)
 	{
 		return super.checkPowerCurrent(value);
 	}
 
 	@Override
-	public void onActivate(final MOB mob, final String message)
+	protected void onActivate(final MOB mob, final String message)
 	{
 		super.onActivate(mob, message);
 		this.activated=true;
@@ -326,7 +314,7 @@ public class EmissionScanProgram extends GenSoftware
 	}
 
 	@Override
-	public void onDeactivate(final MOB mob, final String message)
+	protected void onDeactivate(final MOB mob, final String message)
 	{
 		super.onDeactivate(mob, message);
 		if(activated)
@@ -335,7 +323,7 @@ public class EmissionScanProgram extends GenSoftware
 	}
 
 	@Override
-	public void onTyping(final MOB mob, final String message)
+	protected void onTyping(final MOB mob, final String message)
 	{
 		super.onTyping(mob, message);
 		final String scan=getScanMsg(mob);
@@ -344,7 +332,7 @@ public class EmissionScanProgram extends GenSoftware
 	}
 
 	@Override
-	public void onPowerCurrent(final int value)
+	protected void onPowerCurrent(final int value)
 	{
 		super.onPowerCurrent(value);
 		if((value != 0)&&(activated)&&(--activatedTickdown>=0)) // means there was power to give, 2 means is active menu, which doesn't apply

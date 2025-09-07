@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -83,11 +83,14 @@ public class Prayer_MassHarm extends Prayer
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
-			return false;
-
 		final Set<MOB> h=properTargets(mob,givenTarget,auto);
-		if(h==null)
+		if((h==null)||(h.size()==0))
+		{
+			mob.tell(L("You seem to have no targets."));
+			return false;
+		}
+
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
 		final boolean success=proficiencyCheck(mob,0,auto);
@@ -101,7 +104,9 @@ public class Prayer_MassHarm extends Prayer
 				{
 					final int malicious = CMLib.flags().isUndead(target) ? 0 : CMMsg.MASK_MALICIOUS;
 					final Room R=target.location();
-					final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto)|malicious,auto?L("<T-NAME> become(s) surrounded by a dark cloud."):L("^S<S-NAME> sweep(s) <S-HIS-HER> hands over <T-NAMESELF>, @x1.^?",prayingWord(mob)));
+					final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto)|malicious,
+							auto?L("<T-NAME> become(s) surrounded by a dark cloud."):
+								L("^S<S-NAME> sweep(s) <S-HIS-HER> hands over <T-NAMESELF>, @x1.^?",prayingWord(mob)));
 					final CMMsg msg2=CMClass.getMsg(mob,target,this,CMMsg.MSK_CAST_VERBAL|malicious|CMMsg.TYP_UNDEAD|(auto?CMMsg.MASK_ALWAYS:0),null);
 					if((R.okMessage(mob,msg))&&((R.okMessage(mob,msg2))))
 					{

@@ -20,7 +20,7 @@ import java.io.IOException;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -166,7 +166,7 @@ public class Milkable extends StdAbility implements Drink
 				&&(CMLib.law().doesHavePriviledgesHere(milkingMOB, ((MOB)affected).getStartRoom())))
 			||((((MOB)affected).isMonster())
 				&&(milkingMOB!=null)
-				&&(((MOB)affected).amUltimatelyFollowing()==milkingMOB)))
+				&&(((MOB)affected).getGroupLeader()==milkingMOB)))
 					return true;
 		}
 		return false;
@@ -394,13 +394,13 @@ public class Milkable extends StdAbility implements Drink
 	}
 
 	@Override
-	public boolean containsDrink()
+	public boolean containsLiquid()
 	{
 		return this.liquidRemaining() > 0;
 	}
 
 	@Override
-	public int amountTakenToFillMe(final Drink theSource)
+	public int amountTakenToFillMe(final LiquidHolder theSource)
 	{
 		return 0;
 	}

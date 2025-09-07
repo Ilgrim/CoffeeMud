@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2020 Lee Fox
+   Copyright 2000-2025 Lee Fox
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -47,6 +47,12 @@ public class Undercommon extends StdLanguage
 	public String name()
 	{
 		return localizedName;
+	}
+
+	@Override
+	public String getTranslationVerb()
+	{
+		return "utter(s)";
 	}
 
 	public static List<String[]> wordLists=null;
@@ -79,7 +85,7 @@ public class Undercommon extends StdLanguage
 	}
 
 	@Override
-	public boolean translatesLanguage(final String language)
+	public boolean translatesLanguage(final String language, final String words)
 	{
 		return ID().equalsIgnoreCase(language)
 				|| "Dwarven".equalsIgnoreCase(language)
@@ -93,7 +99,7 @@ public class Undercommon extends StdLanguage
 	{
 		if(ID().equalsIgnoreCase(language))
 			return proficiency();
-		if(translatesLanguage(language))
+		if(translatesLanguage(language, null))
 			return proficiency() / 5;
 		return 0;
 	}

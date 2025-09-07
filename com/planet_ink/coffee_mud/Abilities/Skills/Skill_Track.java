@@ -11,14 +11,19 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary;
+import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary.RFilter;
+import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary.TrackingFlag;
+import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary.TrackingFlags;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
+import java.lang.ref.Reference;
+import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,6 +49,10 @@ public class Skill_Track extends StdSkill
 	private int					tickStatus		= 0;
 	protected List<Room>		theTrail		= null;
 	public int					nextDirection	= -2;
+	protected boolean			andBefriend		= false;
+	protected List<String>		persistantV		= null;
+	protected Reference<MOB>	targetMob		= null;
+	protected boolean			noUnlock		= false;
 
 	private final static String	localizedName	= CMLib.lang().L("Tracking");
 
@@ -53,12 +62,12 @@ public class Skill_Track extends StdSkill
 		return localizedName;
 	}
 
-	protected String	displayText	= L("(Tracking)");
+	private static final String DEFAULT_DISPLAY_TEXT=CMLib.lang().L("(Tracking)");
 
 	@Override
 	public String displayText()
 	{
-		return displayText;
+		return DEFAULT_DISPLAY_TEXT;
 	}
 
 	@Override
@@ -141,6 +150,31 @@ public class Skill_Track extends StdSkill
 		super.unInvoke();
 	}
 
+
+	public synchronized boolean bePersistant(final MOB mob)
+	{
+		final List<String> persistantV = this.persistantV;
+		if(persistantV != null)
+		{
+			final MOB target=(this.targetMob!=null)?this.targetMob.get():null;
+			CMLib.threads().scheduleRunnable(new Runnable()
+			{
+				final MOB targetM=target;
+				@Override
+				public void run()
+				{
+					if(!CMLib.flags().isTracking(mob))
+					{
+						final Ability A=new Skill_Track();
+						A.invoke(mob, persistantV, targetM, true, 0);
+					}
+				}
+			}, 30000);
+			return true;
+		}
+		return false;
+	}
+
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
@@ -158,11 +192,23 @@ public class Skill_Track extends StdSkill
 
 			final MOB mob=(MOB)affected;
 
+			if(checkIfMobFound(mob))
+				return false;
+
 			if(nextDirection==999)
 			{
 				mob.tell(L("The trail seems to pause here."));
 				nextDirection=-2;
 				unInvoke();
+				// ok, you made it, but if you were looking
+				// for a specific person, and didn't find them,
+				// then look some more and be persistant.
+				if((this.targetMob!=null)
+				&&(this.targetMob.get()!=null))
+				{
+					if(bePersistant(mob))
+						return false;
+				}
 			}
 			else
 			if(nextDirection==-1)
@@ -170,14 +216,16 @@ public class Skill_Track extends StdSkill
 				mob.tell(L("The trail dries up here."));
 				nextDirection=-999;
 				unInvoke();
+				if(bePersistant(mob))
+					return false;
 			}
 			else
 			if(nextDirection>=0)
 			{
 				mob.tell(L("The trail seems to continue @x1.",CMLib.directions().getDirectionName(nextDirection)));
-				if((mob.isMonster())&&(mob.location()!=null))
+				final Room oldRoom=mob.location();
+				if((mob.isMonster())&&(oldRoom!=null))
 				{
-					final Room oldRoom=mob.location();
 					final Room nextRoom=oldRoom.getRoomInDir(nextDirection);
 					final Exit nextExit=oldRoom.getExitInDir(nextDirection);
 					final int opDirection=oldRoom.getReverseDir(nextDirection);
@@ -188,6 +236,18 @@ public class Skill_Track extends StdSkill
 						// handle doors!
 						if(nextExit.hasADoor()&&(!nextExit.isOpen()))
 						{
+							if(noUnlock)
+							{
+								final CMMsg msg=CMClass.getMsg(mob,nextExit,null,CMMsg.MSG_OPEN,
+										L("<S-NAME> @x1 <T-NAMESELF>.",((nextExit.openWord().indexOf('(')>0)?nextExit.openWord():(nextExit.openWord()+"(s)"))));
+								if(oldRoom.okMessage(mob,msg))
+								{
+									reclose=true;
+									relock=false;
+									CMLib.utensils().roomAffectFully(msg,oldRoom,nextDirection);
+								}
+							}
+							else
 							if((nextExit.hasALock())&&(nextExit.isLocked()))
 							{
 								CMMsg msg=CMClass.getMsg(mob,nextExit,null,CMMsg.MSG_OK_VISUAL,CMMsg.MSG_OK_VISUAL,CMMsg.MSG_OK_VISUAL,null);
@@ -273,6 +333,29 @@ public class Skill_Track extends StdSkill
 		return true;
 	}
 
+	protected boolean checkIfMobFound(final MOB searcherM)
+	{
+		if(this.targetMob!=null)
+		{
+			final MOB M=this.targetMob.get();
+			if(M!=null)
+			{
+				if((M.location()==searcherM.location())
+				&&(CMLib.flags().isInTheGame(searcherM, true))
+				&&(CMLib.flags().isInTheGame(M, true)))
+				{
+					searcherM.tell(L("The trail seems to pause here."));
+					nextDirection=-2;
+					unInvoke();
+					if(andBefriend)
+						CMLib.commands().postFollow(searcherM, M , false);
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	@Override
 	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
@@ -285,33 +368,116 @@ public class Skill_Track extends StdSkill
 		if((msg.amISource(mob))
 		&&(msg.amITarget(mob.location()))
 		&&(msg.targetMinor()==CMMsg.TYP_LOOK))
+		{
 			nextDirection=CMLib.tracking().trackNextDirectionFromHere(theTrail,mob.location(),false);
+			checkIfMobFound(mob);
+		}
+	}
+
+	private static class FilterMOBName implements RFilter
+	{
+		final String mobName;
+		final MOB viewerM;
+		public FilterMOBName(final MOB viewerM, final String mobName)
+		{
+			this.viewerM=viewerM;
+			this.mobName=mobName;
+		}
+		@Override
+		public boolean isFilteredOut(final Room hostR, Room R, final Exit E, final int dir)
+		{
+			R=CMLib.map().getRoom(R);
+			if(R!=null)
+			{
+				final MOB M=R.fetchInhabitant(mobName);
+				if((M!=null)
+				&&((viewerM==null)||(CMLib.flags().canAccess(viewerM, R)))
+				&&((viewerM==null)||(CMLib.flags().isSeeable(M))))
+					return false;
+			}
+			return true;
+		}
+	}
+
+	private static class FilterMOB implements RFilter
+	{
+		final MOB M;
+		public FilterMOB(final MOB M)
+		{
+			this.M = M;
+		}
+		@Override
+		public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+		{
+			if((R==M.location())||(hostR==M.location()))
+				return false;
+			return true;
+		}
 	}
 
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, Physical givenTarget, final boolean auto, final int asLevel)
 	{
+		final List<String> origArgs = (commands != null)?new XVector<String>(commands):new Vector<String>(1);
 		tickStatus=Tickable.STATUS_MISC6;
-		if((!CMLib.flags().isAliveAwakeMobile(mob,false))||(mob.location()==null)||(!CMLib.flags().isInTheGame(mob,true)))
+		if((!CMLib.flags().isAliveAwakeMobile(mob,false))
+		||(mob.location()==null)
+		||(!CMLib.flags().isInTheGame(mob,true)))
 		{
 			tickStatus=Tickable.STATUS_NOT;
 			return false;
 		}
 		tickStatus=Tickable.STATUS_MISC6+1;
-		final Room thisRoom=mob.location();
+		final Room startRoom=mob.location();
 
-		final List<Ability> V=CMLib.flags().flaggedAffects(mob,Ability.FLAG_TRACKING);
-		for(final Ability A : V)
-			A.unInvoke();
-		if(V.size()>0)
+		boolean befriend=false;
+		boolean persist = false;
+		if(commands != null)
 		{
-			mob.tell(L("You stop tracking."));
-			if((commands.size()==0)||(CMParms.combine(commands,0).equalsIgnoreCase("stop")))
+			if(commands.size()>2)
 			{
-				tickStatus=Tickable.STATUS_NOT;
-				return true;
+				if(commands.get(0).equalsIgnoreCase("and")
+				&&(commands.get(1).equalsIgnoreCase("follow")||commands.get(1).equalsIgnoreCase("befriend")))
+				{
+					commands.remove(0);
+					commands.remove(0);
+					befriend=true;
+				}
+			}
+			if(commands.size()>2)
+			{
+				if(commands.get(0).equalsIgnoreCase("and")
+				&&(commands.get(1).equalsIgnoreCase("persist")))
+				{
+					commands.remove(0);
+					commands.remove(0);
+					persist=true;
+				}
+			}
+
+			final List<Ability> V=CMLib.flags().flaggedAffects(mob,Ability.FLAG_TRACKING);
+			for(final Ability A : V)
+			{
+				if((A.ID().equals(ID()))
+				&&(A.text().length()>0)
+				&&(A.text().equals(CMParms.combine(commands,0))))
+				{
+					mob.tell(L("You are already tracking that!"));
+					return true;
+				}
+				A.unInvoke();
+			}
+			if(V.size()>0)
+			{
+				mob.tell(L("You stop tracking."));
+				if((commands.size()==0)||(CMParms.combine(commands,0).equalsIgnoreCase("stop")))
+				{
+					tickStatus=Tickable.STATUS_NOT;
+					return true;
+				}
 			}
 		}
+
 
 		tickStatus=Tickable.STATUS_MISC6+2;
 		theTrail=null;
@@ -324,31 +490,74 @@ public class Skill_Track extends StdSkill
 		}
 
 		tickStatus=Tickable.STATUS_MISC6+3;
+		boolean noUnlock = false;
 		int radius=50 + (10*(super.getXMAXRANGELevel(mob)+super.getXLEVELLevel(mob)));
-		boolean allowAir=true;
-		boolean allowWater=true;
-		if((commands.size()>1)
-		&&((commands.get(commands.size()-1)).toUpperCase().startsWith("RADIUS="))
-		&&(CMath.isInteger((commands.get(commands.size()-1)).substring(7))))
+		final TrackingLibrary.TrackingFlags flags=CMLib.tracking().newFlags();
+		flags.plus(TrackingLibrary.TrackingFlag.PASSABLE);
+		if(commands != null)
 		{
-			radius=CMath.s_int((commands.get(commands.size()-1)).substring(7));
-			commands.remove(commands.size()-1);
-		}
-		if((commands.size()>1)&&((commands.get(commands.size()-1)).equalsIgnoreCase("LANDONLY")))
-		{
-			allowAir=false;
-			allowWater=false;
-			commands.remove(commands.size()-1);
-		}
-		if((commands.size()>1)&&((commands.get(commands.size()-1)).equalsIgnoreCase("NOAIR")))
-		{
-			allowAir=false;
-			commands.remove(commands.size()-1);
-		}
-		if((commands.size()>1)&&((commands.get(commands.size()-1)).equalsIgnoreCase("NOWATER")))
-		{
-			allowWater=false;
-			commands.remove(commands.size()-1);
+			while(commands.size()>1)
+			{
+				if(((commands.get(commands.size()-1)).toUpperCase().startsWith("RADIUS="))
+				&&(CMath.isInteger((commands.get(commands.size()-1)).substring(7))))
+				{
+					radius=CMath.s_int((commands.get(commands.size()-1)).substring(7));
+					commands.remove(commands.size()-1);
+				}
+				else
+				if((commands.get(commands.size()-1)).equalsIgnoreCase("LANDONLY"))
+				{
+					flags.plus(TrackingLibrary.TrackingFlag.NOAIR);
+					flags.plus(TrackingLibrary.TrackingFlag.NOWATER);
+					flags.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS);
+					commands.remove(commands.size()-1);
+				}
+				else
+				if((commands.get(commands.size()-1)).equalsIgnoreCase("NOUNLOCK"))
+				{
+					noUnlock=true;
+					commands.remove(commands.size()-1);
+				}
+				else
+				if((commands.get(commands.size()-1)).equalsIgnoreCase("NPC"))
+				{
+					if(!mob.isPlayer())
+					{
+						if(!CMLib.flags().canSwim(mob))
+							flags.plus(TrackingLibrary.TrackingFlag.NOWATER);
+						if(!CMLib.flags().isFlying(mob))
+							flags.plus(TrackingLibrary.TrackingFlag.NOAIR);
+						flags.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS);
+					}
+					commands.remove(commands.size()-1);
+				}
+				else
+				if((commands.get(commands.size()-1)).equalsIgnoreCase("NOAIR"))
+				{
+					flags.plus(TrackingLibrary.TrackingFlag.NOAIR);
+					if(flags.contains(TrackingFlag.NOWATER))
+						flags.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS);
+					commands.remove(commands.size()-1);
+				}
+				else
+				if((commands.get(commands.size()-1)).equalsIgnoreCase("NOWATER"))
+				{
+					flags.plus(TrackingLibrary.TrackingFlag.NOWATER);
+					if(flags.contains(TrackingFlag.NOAIR))
+						flags.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS);
+					commands.remove(commands.size()-1);
+				}
+				else
+				if((commands.get(commands.size()-1)).startsWith("FLAG="))
+				{
+					final TrackingFlag flag = (TrackingFlag)CMath.s_valueOf(TrackingFlag.class, (commands.get(commands.size()-1)).substring(5).trim());
+					if(flag != null)
+						flags.plus(flag);
+					commands.remove(commands.size()-1);
+				}
+				else
+					break;
+			}
 		}
 
 		final String mobName=CMParms.combine(commands,0);
@@ -367,56 +576,50 @@ public class Skill_Track extends StdSkill
 			givenTarget=CMLib.map().getArea(mobName);
 
 		tickStatus=Tickable.STATUS_MISC6+4;
-		if((givenTarget==null)
-		&&(thisRoom.fetchInhabitant(mobName)!=null))
+		if(((givenTarget instanceof MOB)&&(((MOB)givenTarget).location()==mob.location()))
+		||(startRoom.fetchInhabitant(mobName)!=null))
 		{
+			final MOB M = startRoom.fetchInhabitant(mobName);
 			mob.tell(L("Try 'look'."));
+			if(befriend)
+				CMLib.commands().postFollow(mob, M, false);
 			tickStatus=Tickable.STATUS_NOT;
 			return false;
 		}
 
-		final ArrayList<Room> rooms=new ArrayList<Room>();
+		final ArrayList<Room> targetRoomsV=new ArrayList<Room>();
 		if(givenTarget instanceof Area)
-			rooms.add(((Area)givenTarget).getRandomMetroRoom());
+			targetRoomsV.add(((Area)givenTarget).getRandomMetroRoom());
 		else
 		if(givenTarget instanceof Room)
-			rooms.add((Room)givenTarget);
+			targetRoomsV.add((Room)givenTarget);
 		else
 		if((givenTarget instanceof MOB)&&(((MOB)givenTarget).location()!=null))
-			rooms.add(((MOB)givenTarget).location());
+			targetRoomsV.add(((MOB)givenTarget).location());
 		else
 		if(mobName.length()>0)
 		{
 			final Room R=CMLib.map().getRoom(mobName);
 			if(R!=null)
-				rooms.add(R);
+				targetRoomsV.add(R);
 		}
 
-		final TrackingLibrary.TrackingFlags flags=CMLib.tracking().newFlags();
-		if(!(allowAir||allowWater))
-			flags.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS);
-		if(!allowAir)
-			flags.plus(TrackingLibrary.TrackingFlag.NOAIR);
-		if(!allowWater)
-			flags.plus(TrackingLibrary.TrackingFlag.NOWATER);
 		tickStatus=Tickable.STATUS_MISC6+5;
-		if(rooms.size()<=0)
+		if(targetRoomsV.size()<=0)
 		{
 			try
 			{
-				final List<Room> checkSet=CMLib.tracking().getRadiantRooms(thisRoom,flags,radius);
-				for (final Room room : checkSet)
-				{
-					final Room R=CMLib.map().getRoom(room);
-					if(R!=null)
-					{
-						final MOB M=R.fetchInhabitant(mobName);
-						if((M!=null)
-						&&(CMLib.flags().canAccess(mob, R))
-						&&(CMLib.flags().isSeeable(M)))
-							rooms.add(R);
-					}
-				}
+				final List<Room> trashRooms = new ArrayList<Room>();
+				final MOB M1=CMLib.players().findPlayerOnline(mobName, true);
+				final RFilter targetFilter;
+				if((M1!=null)
+				&&(CMLib.flags().canAccess(mob, M1.location()))
+				&&(CMLib.flags().isSeeable(M1)))
+					targetFilter = new FilterMOB(M1);
+				else
+					targetFilter = new FilterMOBName(mob,mobName);
+				if(CMLib.tracking().getRadiantRoomsToTarget(startRoom, trashRooms, flags, targetFilter, radius))
+					targetRoomsV.add(trashRooms.get(trashRooms.size()-1));
 			}
 			catch (final NoSuchElementException nse)
 			{
@@ -426,37 +629,64 @@ public class Skill_Track extends StdSkill
 
 		tickStatus=Tickable.STATUS_MISC6+7;
 		final boolean success=proficiencyCheck(mob,0,auto);
-		if(rooms.size()>0)
+		if(targetRoomsV.size()>0)
 		{
+			if((targetRoomsV.size()==1)
+			&&(mob.location()==targetRoomsV.get(0)))
+			{
+				mob.tell(L("Try 'look'."));
+				if(befriend)
+				{
+					if(givenTarget instanceof MOB)
+						CMLib.commands().postFollow(mob, (MOB)givenTarget, false);
+					else
+					if(mob.location().fetchInhabitant(mobName)!=null)
+					{
+						final MOB M = mob.location().fetchInhabitant(mobName);
+						CMLib.commands().postFollow(mob, M, false);
+					}
+				}
+				tickStatus=Tickable.STATUS_NOT;
+				return false;
+			}
 			theTrail=null;
 			tickStatus=Tickable.STATUS_MISC6+8;
-			if((cacheCode==1)&&(rooms.size()==1))
-				theTrail=cachedPaths.get(CMLib.map().getExtendedRoomID(thisRoom)+"->"+CMLib.map().getExtendedRoomID(rooms.get(0)));
+			if((cacheCode==1)&&(targetRoomsV.size()==1))
+				theTrail=cachedPaths.get(CMLib.map().getExtendedRoomID(startRoom)+"->"+CMLib.map().getExtendedRoomID(targetRoomsV.get(0)));
 			tickStatus=Tickable.STATUS_MISC6+9;
 			if(theTrail==null)
-				theTrail=CMLib.tracking().findTrailToAnyRoom(thisRoom,rooms,flags,radius);
+				theTrail=CMLib.tracking().findTrailToAnyRoom(startRoom,targetRoomsV,flags,radius);
 			tickStatus=Tickable.STATUS_MISC6+10;
-			if((cacheCode==1)&&(rooms.size()==1)&&(theTrail!=null))
-				cachedPaths.put(CMLib.map().getExtendedRoomID(thisRoom)+"->"+CMLib.map().getExtendedRoomID(rooms.get(0)),theTrail);
+			if((cacheCode==1)&&(targetRoomsV.size()==1)&&(theTrail!=null))
+				cachedPaths.put(CMLib.map().getExtendedRoomID(startRoom)+"->"+CMLib.map().getExtendedRoomID(targetRoomsV.get(0)),theTrail);
 		}
 
 		tickStatus=Tickable.STATUS_MISC6+11;
 		if((success)&&(theTrail!=null))
 		{
-			theTrail.add(thisRoom);
+			theTrail.add(startRoom);
 
 			final CMMsg msg=CMClass.getMsg(mob,null,this,CMMsg.MSG_QUIETMOVEMENT,mob.isMonster()?null:L("<S-NAME> begin(s) to track."));
-			if(thisRoom.okMessage(mob,msg))
+			if(startRoom.okMessage(mob,msg))
 			{
 				tickStatus=Tickable.STATUS_MISC6+12;
-				thisRoom.send(mob,msg);
+				startRoom.send(mob,msg);
 				invoker=mob;
 				final Skill_Track newOne=(Skill_Track)copyOf();
 				if(mob.fetchEffect(newOne.ID())==null)
 					mob.addEffect(newOne);
 				mob.recoverPhyStats();
 				tickStatus=Tickable.STATUS_MISC6+13;
-				newOne.nextDirection=CMLib.tracking().trackNextDirectionFromHere(theTrail,thisRoom,false);
+				newOne.noUnlock = noUnlock;
+				newOne.nextDirection=CMLib.tracking().trackNextDirectionFromHere(theTrail,startRoom,false);
+				newOne.andBefriend=befriend;
+				if(persist)
+				{
+					newOne.persistantV=new XVector<String>();
+					newOne.persistantV.addAll(origArgs);
+				}
+				if(givenTarget instanceof MOB)
+					newOne.targetMob = new WeakReference<MOB>((MOB)givenTarget);
 			}
 			tickStatus=Tickable.STATUS_MISC6+14;
 		}

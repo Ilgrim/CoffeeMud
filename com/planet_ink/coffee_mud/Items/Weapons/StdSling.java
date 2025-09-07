@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -54,12 +54,19 @@ public class StdSling extends StdWeapon
 		setAmmoRemaining(10);
 		baseGoldValue=150;
 		recoverPhyStats();
-		minRange=1;
-		maxRange=2;
+		setRanges(1, 2);
 		weaponDamageType=Weapon.TYPE_BASHING;
 		material=RawMaterial.RESOURCE_LEATHER;
 		weaponClassification=Weapon.CLASS_RANGED;
 		setRawLogicalAnd(false);
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a sling");
 	}
 
 }

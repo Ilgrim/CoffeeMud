@@ -22,7 +22,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,6 +45,133 @@ public class CoffeeTime extends StdLibrary implements TimeManager
 	}
 
 	protected TimeClock	globalClock	= null;
+
+	public static enum TimeDelta
+	{
+		MINUTE("MINUTES","MINS","MIN","M"),
+		SECOND("SECONDS","SECS","SEC","S"),
+		HOUR("HOURS","HRS","HR","H"),
+		DAY("DAYS","D"),
+		WEEK("WEEKS","W","WKS","WK"),
+		MONTH("MONTHS"),
+		YEAR("YEARS"),
+		TICK("TICKS","T"),
+		MUDHOUR("MUDHOURS","MHRS","MHR","MH"),
+		MUDDAY("MUDDAYS","MD"),
+		MUDWEEK("MUDWEEKS","MW","MWK","MWKS"),
+		MUDMONTH("MUDMONTHS","MM"),
+		MUDYEAR("MUDYEARS","MY","MYRS","MYR"),
+		MINUTELY(),
+		SECONDLY(),
+		HOURLY(),
+		DAYLY(),
+		WEEKLY(),
+		MONTHLY(),
+		YEARLY()
+		;
+		private final static Map<String,TimeDelta> all = new Hashtable<String,TimeDelta>();
+		private final String[] alts;
+		private TimeDelta(final String... alts)
+		{
+			this.alts = alts;
+		}
+		public static TimeDelta get(final String str)
+		{
+			if(str == null)
+				return null;
+			if(all.size()==0)
+			{
+				for(final TimeDelta td : values())
+				{
+					all.put(td.name().toUpperCase().trim(), td);
+					for(final String alt : td.alts)
+						all.put(alt.toUpperCase().trim(), td);
+				}
+			}
+			return all.get(str.toUpperCase().trim());
+		}
+
+		public long delta(TimeClock clock)
+		{
+			if(clock == null)
+				clock = CMLib.time().globalClock();
+			final Calendar C = Calendar.getInstance();
+			switch(this)
+			{
+			case DAY:
+				return TimeManager.MILI_DAY;
+			case DAYLY:
+				C.add(Calendar.DATE, 1);
+				C.set(Calendar.HOUR_OF_DAY, 0);
+				C.set(Calendar.MINUTE,0);
+				C.set(Calendar.SECOND,0);
+				C.set(Calendar.MILLISECOND,0);
+				break;
+			case HOUR:
+				return TimeManager.MILI_HOUR;
+			case HOURLY:
+				C.add(Calendar.HOUR, 1);
+				C.set(Calendar.MINUTE,0);
+				C.set(Calendar.SECOND,0);
+				C.set(Calendar.MILLISECOND,0);
+				break;
+			case MINUTE:
+				return TimeManager.MILI_MINUTE;
+			case MINUTELY:
+				C.add(Calendar.MINUTE, 1);
+				C.set(Calendar.SECOND,0);
+				C.set(Calendar.MILLISECOND,0);
+				break;
+			case MONTH:
+				return TimeManager.MILI_DAY * 30;
+			case MONTHLY:
+				C.add(Calendar.MONTH, 1);
+				C.set(Calendar.DAY_OF_MONTH, 1);
+				C.set(Calendar.HOUR_OF_DAY, 0);
+				C.set(Calendar.MINUTE,0);
+				C.set(Calendar.SECOND,0);
+				C.set(Calendar.MILLISECOND,0);
+				Log.sysOut(CMLib.time().date2String(C.getTimeInMillis()));
+				break;
+			case MUDDAY:
+				return CMProps.getMillisPerMudHour()*clock.getHoursInDay();
+			case MUDHOUR:
+				return CMProps.getMillisPerMudHour();
+			case MUDMONTH:
+				return CMProps.getMillisPerMudHour()*clock.getHoursInDay()*clock.getDaysInMonth();
+			case MUDWEEK:
+				return CMProps.getMillisPerMudHour()*clock.getHoursInDay()*clock.getDaysInWeek();
+			case MUDYEAR:
+				return CMProps.getMillisPerMudHour()*clock.getHoursInDay()
+						*clock.getDaysInMonth()*clock.getMonthsInYear();
+			case SECOND:
+				return TimeManager.MILI_SECOND;
+			case SECONDLY:
+				C.add(Calendar.SECOND, 1);
+				C.set(Calendar.MILLISECOND,0);
+				break;
+			case TICK:
+				return CMProps.getTickMillis();
+			case WEEK:
+				return TimeManager.MILI_DAY * 7;
+			case WEEKLY:
+				C.add(Calendar.WEEK_OF_YEAR, 1);
+				break;
+			case YEAR:
+				return TimeManager.MILI_DAY * 365;
+			case YEARLY:
+				C.add(Calendar.YEAR, 1);
+				C.set(Calendar.MONTH, 0);
+				C.set(Calendar.DAY_OF_MONTH, 1);
+				C.set(Calendar.HOUR_OF_DAY, 0);
+				C.set(Calendar.MINUTE,0);
+				C.set(Calendar.SECOND,0);
+				C.set(Calendar.MILLISECOND,0);
+				break;
+			}
+			return C.getTimeInMillis() - System.currentTimeMillis();
+		}
+	}
 
 	@Override
 	public String month2MM(final String monthName)
@@ -89,7 +216,7 @@ public class CoffeeTime extends StdLibrary implements TimeManager
 	@Override
 	public Calendar string2Date(String dateTimeStr)
 	{
-		Calendar D=Calendar.getInstance();
+		final Calendar D=Calendar.getInstance();
 
 		if(dateTimeStr==null)
 			return D;
@@ -161,9 +288,10 @@ public class CoffeeTime extends StdLibrary implements TimeManager
 
 			try
 			{
-				final DateFormat fmt=DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT);
-				fmt.parse(dateTimeStr);
-				D=fmt.getCalendar();
+				final SimpleDateFormat fmt = new SimpleDateFormat("M/d/yyyy h:mm a", Locale.US);
+				fmt.setLenient(false);
+				final Date parsedDate = fmt.parse(dateTimeStr);
+				D.setTime(parsedDate);
 				D.set(Calendar.SECOND,0);
 				D.set(Calendar.MILLISECOND,0);
 			}
@@ -172,6 +300,89 @@ public class CoffeeTime extends StdLibrary implements TimeManager
 			}
 		}
 		confirmDateAMPM(dateTimeStr,D);
+		return D;
+	}
+
+
+	@Override
+	public Calendar string2TimeFuture(String timeStr)
+	{
+		if(timeStr==null)
+			return null;
+		if(timeStr.trim().length()==0)
+			return null;
+		timeStr=timeStr.toUpperCase();
+		int hrNum=0;
+		int hrDex=0;
+		while((hrDex<timeStr.length())&&(Character.isDigit(timeStr.charAt(hrDex))))
+			hrDex++;
+		if(hrDex==0)
+			return null;
+		hrNum=CMath.s_int(timeStr.substring(0,hrDex));
+		// If it has no time, give it one!
+		final Calendar todayD=Calendar.getInstance();
+		if(timeStr.indexOf(':')<0)
+		{
+			if(hrDex==timeStr.length())
+				timeStr += ":00";
+			else
+			if(timeStr.charAt(hrDex)==' ')
+				timeStr=timeStr.substring(0,hrDex)+":00"+timeStr.substring(hrDex);
+			else
+				timeStr=timeStr.substring(0,hrDex)+":00 "+timeStr.substring(hrDex);
+		}
+		if((timeStr.indexOf("AM")<0)
+		&&(timeStr.indexOf("PM")<0))
+		{
+			int incomDex=timeStr.indexOf('A');
+			if(incomDex<0)
+				incomDex=timeStr.indexOf('P');
+			if(incomDex>0)
+				timeStr=timeStr.substring(0,incomDex+1)+"M"+timeStr.substring(incomDex+1);
+			else
+			if(hrNum==12)
+			{
+				if(todayD.get(Calendar.HOUR)!=0)
+					timeStr += todayD.get(Calendar.AM_PM)==Calendar.AM?" PM":" AM";
+				else
+					timeStr += todayD.get(Calendar.AM_PM)==Calendar.AM?" AM":" PM";
+			}
+			else
+			if(hrNum >= todayD.get(Calendar.HOUR)+1)
+				timeStr += todayD.get(Calendar.AM_PM)==Calendar.AM?" AM":" PM";
+			else
+				timeStr += todayD.get(Calendar.AM_PM)==Calendar.AM?" PM":" AM";
+		}
+		int apDex = timeStr.indexOf("AM");
+		if(apDex < 0)
+			apDex = timeStr.indexOf("PM");
+		if(apDex <= 0)
+			return null;
+		if(timeStr.charAt(apDex-1)!= ' ')
+			timeStr=timeStr.substring(0,apDex)+" "+timeStr.substring(apDex);
+
+
+		Calendar D=null;
+		try
+		{
+			final SimpleDateFormat fmt = new SimpleDateFormat("h:mm a", Locale.US);
+			fmt.setLenient(false);
+			final Date parsedDate = fmt.parse(timeStr);
+			D=Calendar.getInstance();
+			D.setTime(parsedDate);
+			D.set(Calendar.SECOND,0);
+			D.set(Calendar.MILLISECOND,0);
+			D.set(Calendar.YEAR, todayD.get(Calendar.YEAR));
+			D.set(Calendar.MONTH, todayD.get(Calendar.MONTH));
+			D.set(Calendar.DAY_OF_MONTH, todayD.get(Calendar.DAY_OF_MONTH));
+			if(todayD.compareTo(D) > 0)
+				D.add(Calendar.DATE, 1);
+		}
+		catch(final ParseException e)
+		{
+			return null;
+		}
+		confirmDateAMPM(timeStr,D);
 		return D;
 	}
 
@@ -207,7 +418,8 @@ public class CoffeeTime extends StdLibrary implements TimeManager
 				dateTimeStr=dateTimeStr+" 5:00 PM";
 			try
 			{
-				final DateFormat fmt=DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT);
+				final SimpleDateFormat fmt = new SimpleDateFormat("M/d/yyyy h:mm a", Locale.US);
+				fmt.setLenient(false);
 				fmt.parse(dateTimeStr);
 			}
 			catch(final ParseException e)
@@ -250,30 +462,30 @@ public class CoffeeTime extends StdLibrary implements TimeManager
 	@Override
 	public String convertHour(String hours24)
 	{
-		int IntHour =  CMath.s_int(hours24);
-		if (IntHour > 12)
+		int hour =  CMath.s_int(hours24);
+		if (hour > 12)
 		{
-			IntHour = IntHour-12;
+			hour = hour-12;
 		}
 		else
-		if (IntHour == 0)
-			IntHour = 12;
+		if (hour == 0)
+			hour = 12;
 
-		hours24 = Integer.toString(IntHour);
+		hours24 = Integer.toString(hour);
 		return hours24;
 	}
 
 	@Override
 	public String getAMPM(final String TheHour)
 	{
-		String Stamp;
+		String stamp;
 
-		final int IntHour =  CMath.s_int(TheHour);
-		if (IntHour >= 12)
-			Stamp = "PM";
+		final int hour =  CMath.s_int(TheHour);
+		if (hour >= 12)
+			stamp = "PM";
 		else
-			Stamp = "AM";
-		return Stamp;
+			stamp = "AM";
+		return stamp;
 	}
 
 	@Override
@@ -377,10 +589,10 @@ public class CoffeeTime extends StdLibrary implements TimeManager
 	public String date2DayOfMonthString(final long time)
 	{
 		final Calendar C=makeCalendar(time);
-		String Day=Integer.toString(C.get(Calendar.DAY_OF_MONTH)).trim();
-		if (Day.length()==1)
-			Day = "0" + Day;
-		return Day;
+		String day=Integer.toString(C.get(Calendar.DAY_OF_MONTH)).trim();
+		if (day.length()==1)
+			day = "0" + day;
+		return day;
 	}
 
 	@Override
@@ -396,10 +608,10 @@ public class CoffeeTime extends StdLibrary implements TimeManager
 	public String date2YYYYString(final long time)
 	{
 		final Calendar C=makeCalendar(time);
-		String Year=Integer.toString(C.get(Calendar.YEAR)).trim();
-		if (Year.length()==2)
-			Year = "20" + Year;
-		return Year;
+		String year=Integer.toString(C.get(Calendar.YEAR)).trim();
+		if (year.length()==2)
+			year = "20" + year;
+		return year;
 	}
 
 	@Override
@@ -416,45 +628,45 @@ public class CoffeeTime extends StdLibrary implements TimeManager
 
 	public String date2HRString(final Calendar C)
 	{
-		int IntHour = C.get(Calendar.HOUR);
-		if (IntHour==0)
-			IntHour=12;
+		int hour = C.get(Calendar.HOUR);
+		if (hour==0)
+			hour=12;
 
-		String StrHour=Integer.toString(IntHour);
-		if (StrHour.length()==1)
-			StrHour = "0" + StrHour;
-		return StrHour;
+		String hourStr=Integer.toString(hour);
+		if (hourStr.length()==1)
+			hourStr = "0" + hourStr;
+		return hourStr;
 	}
 
 	public String date2MINString(final Calendar C)
 	{
-		int IntMin = C.get(Calendar.MINUTE);
-		final int remainder = IntMin % 5;
+		int min = C.get(Calendar.MINUTE);
+		final int remainder = min % 5;
 		if (remainder != 0)
 		{
 			if (remainder >= 3)
 			{
-				IntMin = IntMin + (5 - remainder);
-				if (IntMin == 60)
-					IntMin = 55;
+				min = min + (5 - remainder);
+				if (min == 60)
+					min = 55;
 			}
 			else
-				IntMin = IntMin - remainder;
+				min = min - remainder;
 		}
-		String StrMin=Integer.toString(IntMin);
-		if (StrMin.length()==1)
-			StrMin = "0" + StrMin;
-		return StrMin;
+		String minStr=Integer.toString(min);
+		if (minStr.length()==1)
+			minStr = "0" + minStr;
+		return minStr;
 	}
 
 	@Override
 	public String date2ZoneString(final long time)
 	{
 		final Calendar C=makeCalendar(time);
-		TimeZone CurrentZone;
-		CurrentZone = C.getTimeZone();
-		String theID = CurrentZone.getID();
-		theID = getTheIntZoneID(CurrentZone.getRawOffset());
+		TimeZone curZone;
+		curZone = C.getTimeZone();
+		String theID = curZone.getID();
+		theID = getTheIntZoneID(curZone.getRawOffset());
 
 		return  theID;
 	}
@@ -504,28 +716,28 @@ public class CoffeeTime extends StdLibrary implements TimeManager
 	@Override
 	public String date2String(final Calendar C)
 	{
-		String MINUTE=Integer.toString(C.get(Calendar.MINUTE)).trim();
-		if(MINUTE.length()==1)
-			MINUTE="0"+MINUTE;
-		String AMPM="AM";
+		String minute=Integer.toString(C.get(Calendar.MINUTE)).trim();
+		if(minute.length()==1)
+			minute="0"+minute;
+		String ampm="AM";
 		if(C.get(Calendar.AM_PM)==Calendar.PM)
-			AMPM="PM";
-		int Hour=C.get(Calendar.HOUR);
-		if(Hour==0)
-			Hour=12;
-		String Year=Integer.toString(C.get(Calendar.YEAR));
-		if(Year.length()<4)
+			ampm="PM";
+		int hour=C.get(Calendar.HOUR);
+		if(hour==0)
+			hour=12;
+		String year=Integer.toString(C.get(Calendar.YEAR));
+		if(year.length()<4)
 		{
-			if(Year.length()<2)
-				Year=("0"+Year);
-			if(Year.length()<2)
-				Year=("0"+Year);
-			final int Yr=CMath.s_int(Year);
+			if(year.length()<2)
+				year=("0"+year);
+			if(year.length()<2)
+				year=("0"+year);
+			final int Yr=CMath.s_int(year);
 			if(Yr<50)
-				Year="20"+Year;
-			else Year="19"+Year;
+				year="20"+year;
+			else year="19"+year;
 		}
-		return (C.get(Calendar.MONTH)+1)+"/"+C.get(Calendar.DATE)+"/"+Year+" "+Hour+":"+MINUTE+" "+AMPM;
+		return (C.get(Calendar.MONTH)+1)+"/"+C.get(Calendar.DATE)+"/"+year+" "+hour+":"+minute+" "+ampm;
 	}
 
 	@Override
@@ -533,6 +745,37 @@ public class CoffeeTime extends StdLibrary implements TimeManager
 	{
 		final Calendar C=makeCalendar(time);
 		return date2String(C);
+	}
+
+	@Override
+	public String date2String24(final Calendar C)
+	{
+		String minute=Integer.toString(C.get(Calendar.MINUTE)).trim();
+		if(minute.length()==1)
+			minute="0"+minute;
+		int hour=C.get(Calendar.HOUR);
+		if(C.get(Calendar.AM_PM)==Calendar.PM)
+			hour += 12;
+		String year=Integer.toString(C.get(Calendar.YEAR));
+		if(year.length()<4)
+		{
+			if(year.length()<2)
+				year=("0"+year);
+			if(year.length()<2)
+				year=("0"+year);
+			final int Yr=CMath.s_int(year);
+			if(Yr<50)
+				year="20"+year;
+			else year="19"+year;
+		}
+		return year+"/"+(C.get(Calendar.MONTH)+1)+"/"+C.get(Calendar.DATE)+" "+hour+":"+minute;
+	}
+
+	@Override
+	public String date2String24(final long time)
+	{
+		final Calendar C=makeCalendar(time);
+		return date2String24(C);
 	}
 
 	@Override
@@ -646,31 +889,113 @@ public class CoffeeTime extends StdLibrary implements TimeManager
 	}
 
 	@Override
+	public String date2EllapsedMudTime(TimeClock C, long time, final TimeDelta minUnit, final boolean shortest)
+	{
+		if(C == null)
+			C=globalClock();
+		final long millisPerHr =CMProps.getMillisPerMudHour();
+		final long millisPerDay = millisPerHr * C.getHoursInDay();
+		final long millisPerWeek = millisPerDay * (C.getDaysInWeek()<=2?2:C.getDaysInWeek());
+		final long millisPerMonth = millisPerDay * C.getDaysInMonth();
+		final long millisPerYear = millisPerDay * C.getDaysInYear();
+		final StringBuilder str=new StringBuilder("");
+		if(time > millisPerYear)
+		{
+			final int num=(int)Math.round(CMath.floor(CMath.div(time,millisPerYear)));
+			time = time - (num *millisPerYear);
+			str.append(num+(shortest?"y":(" "+((num!=1?L("years"):L("year"))))));
+		}
+		if((minUnit == TimeDelta.YEAR)||(time <= 0))
+			return str.toString().trim();
+		if(time > millisPerMonth)
+		{
+			if(str.length()>0)
+				str.append(shortest?" ":", ");
+			final int num=(int)Math.round(CMath.floor(CMath.div(time,millisPerMonth)));
+			time = time - (num *millisPerMonth);
+			str.append(num+(shortest?"M":(" "+((num!=1?L("months"):L("month"))))));
+		}
+		if((minUnit == TimeDelta.MONTH)||(time <= 0))
+			return str.toString().trim();
+		if(time > millisPerWeek)
+		{
+			if(str.length()>0)
+				str.append(shortest?" ":", ");
+			final int num=(int)Math.round(CMath.floor(CMath.div(time,millisPerWeek)));
+			time = time - (num *millisPerWeek);
+			str.append(num+(shortest?"w":(" "+((num!=1?L("weeks"):L("week"))))));
+		}
+		if((minUnit == TimeDelta.WEEK)||(time <= 0))
+			return str.toString().trim();
+		if(time > millisPerDay)
+		{
+			if(str.length()>0)
+				str.append(shortest?" ":", ");
+			final int num=(int)Math.round(CMath.floor(CMath.div(time,millisPerDay)));
+			time = time - (num *millisPerDay);
+			str.append(num+(shortest?"d":(" "+((num!=1?L("days"):L("day"))))));
+		}
+		if((minUnit == TimeDelta.DAY)||(time <= 0))
+			return str.toString().trim();
+		if(time > millisPerHr)
+		{
+			if(str.length()>0)
+				str.append(shortest?" ":", ");
+			final int num=(int)Math.round(CMath.floor(CMath.div(time,millisPerHr)));
+			time = time - (num *millisPerHr);
+			return str.append(num+(shortest?"h":(" "+((num!=1?L("hours"):L("hour")))))).toString().trim();
+		}
+		return L("less than an hour");
+	}
+
+	@Override
+	public String date2SmartEllapsedMudTime(TimeClock C, final long millis, final boolean shortest)
+	{
+		if(C == null)
+			C = globalClock();
+		final long millisPerHr =CMProps.getMillisPerMudHour();
+		final long millisPerDay = millisPerHr * C.getHoursInDay();
+		final long millisPerWeek = millisPerDay * (C.getDaysInWeek()<=2?2:C.getDaysInWeek());
+		final long millisPerMonth = millisPerDay * C.getDaysInMonth();
+		final long millisPerYear = millisPerDay * C.getDaysInYear();
+
+		if(millis > millisPerYear*2)
+			return date2EllapsedMudTime(C, millis,TimeDelta.YEAR,shortest);
+		if(millis > millisPerMonth*2)
+			return date2EllapsedMudTime(C, millis,TimeDelta.MONTH,shortest);
+		if(millis > millisPerWeek*2)
+			return date2EllapsedMudTime(C, millis,TimeDelta.WEEK,shortest);
+		if(millis > millisPerDay*2)
+			return date2EllapsedMudTime(C, millis,TimeDelta.DAY,shortest);
+		return date2EllapsedMudTime(C, millis,TimeDelta.HOUR,shortest);
+	}
+
+	@Override
 	public String date2SecondsString(final long time)
 	{
 		final Calendar C=makeCalendar(time);
-		final String StrDate=date2String(C);
-		if(StrDate.length()<3)
-			return StrDate;
-		return (StrDate.substring(0,StrDate.length()-3)+":"+C.get(Calendar.SECOND)+" "+StrDate.substring(StrDate.length()-2));
+		final String dateStr=date2String(C);
+		if(dateStr.length()<3)
+			return dateStr;
+		return (dateStr.substring(0,dateStr.length()-3)+":"+C.get(Calendar.SECOND)+" "+dateStr.substring(dateStr.length()-2));
 	}
 
 	@Override
 	public String date2DateString(final long time)
 	{
-		String T=date2String(time);
-		if(T.indexOf(' ')>0)
-			T=T.substring(0,T.indexOf(' '));
-		return T.trim();
+		String dateStr=date2String(time);
+		if(dateStr.indexOf(' ')>0)
+			dateStr=dateStr.substring(0,dateStr.indexOf(' '));
+		return dateStr.trim();
 	}
 
 	@Override
 	public String date2Date2String(final long time)
 	{
-		String T=date2DateString(time);
-		final int x=T.lastIndexOf('/');
-		T=T.substring(0,x+1)+T.substring(x+3);
-		return T.trim();
+		String dateStr=date2DateString(time);
+		final int x=dateStr.lastIndexOf('/');
+		dateStr=dateStr.substring(0,x+1)+dateStr.substring(x+3);
+		return dateStr.trim();
 	}
 
 	@Override
@@ -679,8 +1004,8 @@ public class CoffeeTime extends StdLibrary implements TimeManager
 		final Calendar senddate=makeCalendar(time);
 		String formatted = "hold";
 
-		final String Day[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
-		final String Month[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul","Aug", "Sep", "Oct", "Nov", "Dec"};
+		final String daysOfWeek[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+		final String monthsOfyear[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul","Aug", "Sep", "Oct", "Nov", "Dec"};
 		final int dow=senddate.get(Calendar.DAY_OF_WEEK)-1;
 		final int date=senddate.get(Calendar.DAY_OF_MONTH);
 		final int m=senddate.get(Calendar.MONTH);
@@ -691,9 +1016,9 @@ public class CoffeeTime extends StdLibrary implements TimeManager
 		int zof=senddate.get(Calendar.ZONE_OFFSET);
 		int dof=senddate.get(Calendar.DST_OFFSET);
 
-		formatted = Day[dow] + ", ";
+		formatted = daysOfWeek[dow] + ", ";
 		formatted = formatted + String.valueOf(date) + " ";
-		formatted = formatted + Month[m] + " ";
+		formatted = formatted + monthsOfyear[m] + " ";
 		formatted = formatted + String.valueOf(y) + " ";
 		if (h < 10) formatted = formatted + "0";
 		formatted = formatted + String.valueOf(h) + ":";
@@ -727,99 +1052,115 @@ public class CoffeeTime extends StdLibrary implements TimeManager
 		{
 			globalClock=(TimeClock)CMClass.getCommon("DefaultTimeClock");
 			if(globalClock!=null)
+			{
 				globalClock.setLoadName("GLOBAL");
+				globalClock.tick(null, TICKID_AREA);
+			}
 		}
 		return globalClock;
 	}
 
-	private double getTickExpressionMultiPlier(String lastWord)
-	{
-		lastWord=lastWord.toUpperCase().trim();
-		if(lastWord.startsWith("MINUTE")||lastWord.equals("MINS")||lastWord.equals("MIN"))
-			return CMath.div(TimeManager.MILI_MINUTE,CMProps.getTickMillisD());
-		else
-		if(lastWord.startsWith("SECOND")||lastWord.equals("SECS")||lastWord.equals("SEC"))
-			return CMath.div(TimeManager.MILI_SECOND,CMProps.getTickMillisD());
-		else
-		if(lastWord.startsWith("HOUR"))
-			return CMath.div(TimeManager.MILI_HOUR,CMProps.getTickMillisD());
-		else
-		if(lastWord.startsWith("DAY")||lastWord.equals("DAYS"))
-			return CMath.div(TimeManager.MILI_DAY,CMProps.getTickMillisD());
-		else
-		if(lastWord.startsWith("TICK"))
-			return 1.0;
-		else
-		if(lastWord.startsWith("MUDHOUR"))
-			return CMath.div(CMProps.getMillisPerMudHour(),CMProps.getTickMillisD());
-		else
-		if(lastWord.startsWith("MUDDAY"))
-			return CMath.div(CMProps.getMillisPerMudHour()
-					*globalClock().getHoursInDay()
-					,CMProps.getTickMillisD());
-		else
-		if(lastWord.startsWith("MUDWEEK"))
-			return CMath.div(CMProps.getMillisPerMudHour()
-					*globalClock().getHoursInDay()
-					*globalClock().getDaysInWeek()
-					,CMProps.getTickMillisD());
-		else
-		if(lastWord.startsWith("MUDMONTH"))
-			return CMath.div(CMProps.getMillisPerMudHour()
-					*globalClock().getHoursInDay()
-					*globalClock().getDaysInMonth()
-					,CMProps.getTickMillisD());
-		else
-		if(lastWord.startsWith("MUDYEAR"))
-			return CMath.div(CMProps.getMillisPerMudHour()
-					*globalClock().getHoursInDay()
-					*globalClock().getDaysInMonth()
-					*globalClock().getMonthsInYear()
-					,CMProps.getTickMillisD());
-		return 0.0;
-	}
-
 	@Override
-	public boolean isTickExpression(String val)
+	public boolean isTickExpression(final String val)
 	{
-		val=val.trim();
-		if(CMath.isMathExpression(val))
+		try
+		{
+			parseTickExpression(CMLib.time().globalClock(), val);
 			return true;
-		final int x=val.lastIndexOf(' ');
-		if(x<0)
-			return CMath.isMathExpression(val);
-		final double multiPlier=getTickExpressionMultiPlier(val.substring(x+1));
-		if(multiPlier==0.0)
-			return CMath.isMathExpression(val);
-		return CMath.isMathExpression(val.substring(0,x).trim());
+		}
+		catch(final CMException e)
+		{
+			return false;
+		}
 	}
 
 	@Override
-	public int parseTickExpression(String val)
+	public int parseTickExpression(final TimeClock clock, String val) throws CMException
 	{
 		val=val.trim();
 		if(CMath.isMathExpression(val))
 			return CMath.s_parseIntExpression(val);
-		final int x=val.lastIndexOf(' ');
-		if(x<0)
-			return CMath.s_parseIntExpression(val);
-		final double multiPlier=getTickExpressionMultiPlier(val.substring(x+1));
-		if(multiPlier==0.0)
-			return CMath.s_parseIntExpression(val);
-		return (int)Math.round(CMath.mul(multiPlier,CMath.s_parseIntExpression(val.substring(0,x).trim())));
+		final double[] vars = new double[10];
+		int curr = 0;
+		int lastDigit=0;
+		for(int i=0;i<val.length();i++)
+		{
+			final char c = val.charAt(i);
+			final int s=i;
+			if(Character.isDigit(c))
+			{
+				while((i<val.length()) && (Character.isDigit(val.charAt(i))))
+					i++;
+				lastDigit = CMath.s_int(val.substring(s,i));
+				i--;
+			}
+			else
+			if(Character.isLetter(c))
+			{
+				while((i<val.length()) && (Character.isLetter(val.charAt(i))))
+					i++;
+				final String word = val.substring(s,i).toUpperCase();
+				final TimeDelta delta = TimeDelta.get(word);
+				if(delta == null)
+					throw new CMException("Unknown word '"+word+"'");
+				if(lastDigit>0)
+				{
+					val=val.substring(0,s)+("* @x"+(1+curr))+val.substring(i);
+					i=s+4;
+				}
+				else
+				{
+					val=val.substring(0,s)+("@x"+(1+curr))+val.substring(i);
+					i=s+3;
+				}
+				vars[curr++] = delta.delta(clock);
+				lastDigit=-1;
+			}
+			else
+			if(!Character.isWhitespace(c))
+				lastDigit=-1;
+		}
+		if(CMath.isMathExpression(val, vars))
+			return (int)Math.round(CMath.s_parseMathExpression(val, vars) / CMProps.getTickMillisD());
+		throw new CMException("Unknown expression '"+val+"'");
 	}
 
 	@Override
 	public TimeClock localClock(final Physical P)
 	{
 		if(P instanceof Area)
-			return ((Area)P).getTimeObj();
+		{
+			final TimeClock C = ((Area)P).getTimeObj();
+			return (C == null)?globalClock():C;
+		}
 		if(P instanceof Room)
 			return localClock(((Room)P).getArea());
 		if(P instanceof Item)
 			return localClock(((Item)P).owner());
 		if(P instanceof MOB)
 			return localClock(((MOB)P).location());
+		return globalClock();
+	}
+
+	@Override
+	public TimeClock homeClock(final Physical P)
+	{
+		if(P instanceof Area)
+		{
+			final TimeClock C = ((Area)P).getTimeObj();
+			return (C == null)?globalClock():C;
+		}
+		if(P instanceof Room)
+			return homeClock(((Room)P).getArea());
+		if(P instanceof Item)
+			return homeClock(((Item)P).owner());
+		if(P instanceof MOB)
+		{
+			if(((MOB)P).getStartRoom() == null)
+				return homeClock(((MOB)P).location());
+			else
+				return homeClock(((MOB)P).getStartRoom());
+		}
 		return globalClock();
 	}
 }

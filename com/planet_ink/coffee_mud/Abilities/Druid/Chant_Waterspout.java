@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -139,7 +139,10 @@ public class Chant_Waterspout extends Chant
 		if(success)
 		{
 
-			CMMsg msg = CMClass.getMsg(mob,null,this,verbalCastCode(mob,null,auto), L((auto?"^JA":"^S<S-NAME> chant(s) to the waters and a")+" waterspout touches down!^?")+CMLib.protocol().msp("tornado.wav",40));
+			CMMsg msg = CMClass.getMsg(mob,null,this,verbalCastCode(mob,null,auto),
+					(auto?L("^JA waterspout touches down!^?"):
+					L("^S<S-NAME> chant(s) to the waters and a waterspout touches down!^?"))
+					+CMLib.protocol().msp("tornado.wav",40));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

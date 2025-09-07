@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -135,7 +135,7 @@ public class Spell_ShapeObject extends Spell
 		if(success)
 		{
 			invoker=mob;
-			final CMMsg msg=CMClass.getMsg(mob,targetI,this,somanticCastCode(mob,targetI,auto),L("^S<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAME> shaping it like @x1.^?",likeWhat));
+			final CMMsg msg=CMClass.getMsg(mob,targetI,this,somaticCastCode(mob,targetI,auto),L("^S<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAME> shaping it like @x1.^?",likeWhat));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

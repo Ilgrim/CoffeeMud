@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-	Copyright (c) 2005-2020 Bo Zimmerman
+	Copyright (c) 2005-2025 Bo Zimmerman
 	All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
@@ -94,6 +94,14 @@ public class StdHandOfCards extends StdContainer implements MiscMagic, HandOfCar
 		if((owner instanceof MOB)||(owner instanceof Room))
 			return super.getContents();
 		return new ReadOnlyList<Item>(backupContents);
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a hand of cards");
 	}
 
 	// shuffleDeck()

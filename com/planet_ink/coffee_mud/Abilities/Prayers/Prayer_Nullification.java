@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -89,6 +89,7 @@ public class Prayer_Nullification extends Prayer
 				{
 					final Ability A=a.nextElement();
 					if((A!=null)&&(A.canBeUninvoked())&&(!A.isAutoInvoked())
+					&&((A.classificationCode()&Ability.ALL_DOMAINS)!=Ability.DOMAIN_CURSING)
 					&&(((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SPELL)
 					   ||((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_PRAYER)
 					   ||((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)
@@ -125,7 +126,9 @@ public class Prayer_Nullification extends Prayer
 			final MOB target=R.fetchInhabitant(i);
 			if((target!=null)&&(success))
 			{
-				final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("<T-NAME> become(s) nullified."):L("^S<S-NAME> sweep(s) <S-HIS-HER> hands over <T-NAMESELF>.^?"));
+				final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+						auto?L("<T-NAME> become(s) nullified."):
+							L("^S<S-NAME> sweep(s) <S-HIS-HER> hands over <T-NAMESELF>.^?"));
 				if(R.okMessage(mob,msg))
 				{
 					R.send(mob,msg);
@@ -135,6 +138,7 @@ public class Prayer_Nullification extends Prayer
 					{
 						final Ability A=target.fetchEffect(a);
 						if((A!=null)&&(A.canBeUninvoked())&&(!A.isAutoInvoked())
+						&&((A.classificationCode()&Ability.ALL_DOMAINS)!=Ability.DOMAIN_CURSING)
 						&&(((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SPELL)
 						   ||((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_PRAYER)
 						   ||((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)

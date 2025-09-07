@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -95,6 +95,28 @@ public class Prayer_Purify extends Prayer
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
+		if((commands.size()==0)
+		||(commands.get(0).equalsIgnoreCase("here"))
+		||(commands.get(0).equalsIgnoreCase("room"))
+		||(commands.get(0).equalsIgnoreCase("shrine")))
+		{
+			final Room R=mob.location();
+			Ability A;
+			if((R!=null)
+			&&((A=R.fetchEffect("Skill_BefoulShrine"))!=null))
+			{
+				final CMMsg msg=CMClass.getMsg(mob,R,this,verbalCastCode(mob,R,auto),
+						auto?"":L("^S<S-NAME> purify this place@x1.^?",inTheNameOf(mob)),
+						auto?"":L("^S<S-NAME> purifies this place@x1.^?",inTheNameOf(mob)),
+						auto?"":L("^S<S-NAME> purifies this place@x1.^?",inTheNameOf(mob)));
+				if(mob.location().okMessage(mob,msg))
+				{
+					mob.location().send(mob,msg);
+					A.unInvoke();
+				}
+				return true;
+			}
+		}
 		final Item target=getTarget(mob,mob.location(),givenTarget,commands,Wearable.FILTER_UNWORNONLY);
 		if(target==null)
 			return false;

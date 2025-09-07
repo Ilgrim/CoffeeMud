@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /*
-	Copyright 2016-2020 Bo Zimmerman
+	Copyright 2016-2025 Bo Zimmerman
 
 	Licensed under the Apache License, Version 2.0 (the "License");
 	you may not use this file except in compliance with the License.
@@ -69,6 +69,7 @@ public class WeakArrayList<T> extends AbstractList<T>
 		list.add(index, new WeakReference<T>(element));
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public synchronized Iterator<T> iterator()
 	{
@@ -105,10 +106,11 @@ public class WeakArrayList<T> extends AbstractList<T>
 		this.lastCleaning.set(System.currentTimeMillis());
 	}
 
-	private final Filterer<T> WeakFilterer = new Filterer<T>()
+	@SuppressWarnings("rawtypes")
+	private final static Filterer WeakFilterer = new Filterer()
 	{
 		@Override
-		public boolean passesFilter(final T obj)
+		public boolean passesFilter(final Object obj)
 		{
 			return (obj != null);
 		}

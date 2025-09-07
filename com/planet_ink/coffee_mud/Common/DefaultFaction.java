@@ -13,9 +13,14 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.Faction.FData;
 import com.planet_ink.coffee_mud.Common.interfaces.Faction.FRange;
+import com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent.MiscTrigger;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.ChannelsLibrary;
+import com.planet_ink.coffee_mud.Libraries.interfaces.EnglishParsing;
+import com.planet_ink.coffee_mud.Libraries.interfaces.FactionManager.FAbilityMaskType;
 import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary;
+import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary.CompiledZMask;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -27,7 +32,7 @@ import java.util.regex.Pattern;
 //import java.lang.reflect.*;
 /**
  * Portions Copyright (c) 2003 Jeremy Vyska
- * Portions Copyright (c) 2004-2020 Bo Zimmerman
+ * Portions Copyright (c) 2004-2025 Bo Zimmerman
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -53,7 +58,7 @@ public class DefaultFaction implements Faction, MsgListener
 	{
 		try
 		{
-			return getClass().newInstance();
+			return getClass().getDeclaredConstructor().newInstance();
 		}
 		catch (final Exception e)
 		{
@@ -85,7 +90,7 @@ public class DefaultFaction implements Faction, MsgListener
 		return CMClass.classID(this).compareToIgnoreCase(CMClass.classID(o));
 	}
 
-	protected String	 ID					= "";
+	protected String	 _factionID			= "";
 	protected String	 name				= "";
 	protected String	 upName				= "";
 	protected String	 choiceIntro		= "";
@@ -104,10 +109,11 @@ public class DefaultFaction implements Faction, MsgListener
 	protected boolean    showInSpecialReport= false;
 	protected boolean    showInEditor		= false;
 	protected boolean    showInFacCommand	= true;
+	protected boolean    isInherited		= true;
 	protected boolean    destroyed			= false;
 
-	protected CList<String>   					defaults		 = new SVector<String>();
-	protected CList<String>   					autoDefaults	 = new SVector<String>();
+	protected CList<Pair<Integer,String>>		defaults		 = new SVector<Pair<Integer,String>>();
+	protected CList<Pair<Integer,String>>		autoDefaults	 = new SVector<Pair<Integer,String>>();
 	protected CMap<String,FRange> 				ranges			 = new SHashtable<String,FRange>();
 	protected Map<Integer,FRange> 				rangeRangeMap	 = new PrioritizingLimitedMap<Integer,FRange>(10,60000,600000,100);
 	protected CMap<String,String[]>   			affBehavs		 = new SHashtable<String,String[]>();
@@ -115,12 +121,13 @@ public class DefaultFaction implements Faction, MsgListener
 	protected CMap<String,FactionChangeEvent[]>	changes			 = new SHashtable<String,FactionChangeEvent[]>();
 	protected CMap<String,FactionChangeEvent[]>	abilChangeCache	 = new SHashtable<String,FactionChangeEvent[]>();
 	protected CMap<String,FactionChangeEvent[]>	socChangeCache	 = new SHashtable<String,FactionChangeEvent[]>();
+	protected CMap<Integer,FactionChangeEvent[]>msgChangeCache	 = new SHashtable<Integer,FactionChangeEvent[]>();
 	protected CList<Faction.FZapFactor>			factors			 = new SVector<Faction.FZapFactor>();
 	protected CMap<String,Double> 				relations		 = new SHashtable<String,Double>();
 	protected CList<Faction.FAbilityUsage>		abilityUsages	 = new SVector<Faction.FAbilityUsage>();
 	protected Map<String,Faction.FAbilityUsage> abilityUseCache	 = new STreeMap<String,Faction.FAbilityUsage>();
 	protected Set<String> 						abilityUseMisses = new STreeSet<String>();
-	protected CList<String>   					choices			 = new SVector<String>();
+	protected CList<Pair<Integer,String>>		choices			 = new SVector<Pair<Integer,String>>();
 	protected CList<Faction.FReactionItem>		reactions		 = new SVector<Faction.FReactionItem>();
 	protected CMap<String,CList<FReactionItem>>	reactionHash	 = new SHashtable<String,CList<Faction.FReactionItem>>();
 
@@ -144,7 +151,7 @@ public class DefaultFaction implements Faction, MsgListener
 	@Override
 	public String factionID()
 	{
-		return ID;
+		return _factionID;
 	}
 
 	@Override
@@ -169,6 +176,12 @@ public class DefaultFaction implements Faction, MsgListener
 	public String choiceIntro()
 	{
 		return choiceIntro;
+	}
+
+	@Override
+	public boolean isInheritable()
+	{
+		return this.isInherited;
 	}
 
 	@Override
@@ -254,13 +267,13 @@ public class DefaultFaction implements Faction, MsgListener
 	}
 
 	@Override
-	public Enumeration<String> defaults()
+	public Enumeration<Pair<Integer,String>> defaults()
 	{
 		return defaults.elements();
 	}
 
 	@Override
-	public Enumeration<String> autoDefaults()
+	public Enumeration<Pair<Integer,String>> autoDefaults()
 	{
 		return autoDefaults.elements();
 	}
@@ -296,7 +309,7 @@ public class DefaultFaction implements Faction, MsgListener
 	}
 
 	@Override
-	public Enumeration<String> choices()
+	public Enumeration<Pair<Integer,String>> choices()
 	{
 		return choices.elements();
 	}
@@ -322,7 +335,7 @@ public class DefaultFaction implements Faction, MsgListener
 	@Override
 	public void setFactionID(final String newStr)
 	{
-		ID = newStr;
+		_factionID = newStr;
 	}
 
 	@Override
@@ -356,6 +369,12 @@ public class DefaultFaction implements Faction, MsgListener
 	}
 
 	@Override
+	public void setInherited(final boolean truefalse)
+	{
+		this.isInherited=truefalse;
+	}
+
+	@Override
 	public void setShowInSpecialReported(final boolean truefalse)
 	{
 		showInSpecialReport = truefalse;
@@ -373,22 +392,47 @@ public class DefaultFaction implements Faction, MsgListener
 		showInFacCommand = truefalse;
 	}
 
+	protected CList<Pair<Integer,String>> parseChoifaults(final List<String> V)
+	{
+		final SVector<Pair<Integer,String>> fV = new SVector<Pair<Integer,String>>();
+		for(final String v : V)
+		{
+			String numStr = "";
+			final List<String> pV = CMParms.parse(v);
+			for(final String p : pV)
+			{
+				if(CMath.isInteger(p))
+				{
+					numStr=p;
+					break;
+				}
+			}
+			if(numStr.length()==0)
+				continue;
+			final int x=v.indexOf(numStr);
+			final String mask = v.substring(0,x)+v.substring(x+numStr.length());
+			final Pair<Integer,String> P = new Pair<Integer,String>(Integer.valueOf(CMath.s_int(numStr)),mask.trim());
+			fV.add(P);
+		}
+		return fV;
+	}
+
 	@Override
 	public void setChoices(final List<String> v)
 	{
-		choices = new SVector<String>(v);
+		choices = parseChoifaults(v);
 	}
 
 	@Override
 	public void setAutoDefaults(final List<String> v)
 	{
-		autoDefaults = new SVector<String>(v);
+		autoDefaults = parseChoifaults(v);
 	}
 
 	@Override
 	public void setDefaults(final List<String> v)
 	{
-		defaults = new SVector<String>(v);
+		defaults = parseChoifaults(v);
 	}
 
 	@Override
@@ -468,7 +512,7 @@ public class DefaultFaction implements Faction, MsgListener
 	@Override
 	public void initializeFaction(final String aname)
 	{
-		ID=aname;
+		_factionID=aname;
 		name=aname;
 		upName=aname.toUpperCase();
 		minimum=0;
@@ -479,7 +523,7 @@ public class DefaultFaction implements Faction, MsgListener
 		difference=CMath.abs(maximum-minimum);
 		experienceFlag="EXTREME";
 		addRange("0;100;Sample Range;SAMPLE;");
-		defaults.add("0");
+		defaults.add(new Pair<Integer,String>(Integer.valueOf(0),""));
 	}
 
 	@Override
@@ -487,33 +531,53 @@ public class DefaultFaction implements Faction, MsgListener
 	{
 		final boolean debug = false;
 
-		ID = fID;
-		final CMProps alignProp = new CMProps(new ByteArrayInputStream(CMStrings.strToBytes(file.toString())));
-		if(alignProp.isEmpty())
+		_factionID = fID;
+		final CMProps facProps = new CMProps();
+		for(final String line : Resources.getFileLineVector(file))
+		{
+			final String s=line.trim();
+			if(s.startsWith("#")||(s.length()==0))
+				continue;
+			final int x=s.indexOf('=');
+			if(x<0)
+			{
+				Log.errOut("Unknown line '"+s+"' in faction "+fID);
+				continue;
+			}
+			final String key=s.substring(0,x);
+			final String val=s.substring(x+1);
+			facProps.put(key, val);
+		}
+		if(facProps.isEmpty())
 			return;
-		name=alignProp.getStr("NAME");
+		name=facProps.getStr("NAME");
 		upName=name.toUpperCase();
-		choiceIntro=alignProp.getStr("CHOICEINTRO");
-		minimum=alignProp.getInt("MINIMUM");
-		maximum=alignProp.getInt("MAXIMUM");
+		choiceIntro=facProps.getStr("CHOICEINTRO");
+		minimum=facProps.getInt("MINIMUM");
+		maximum=facProps.getInt("MAXIMUM");
 		if(maximum<minimum)
 		{
 			minimum=maximum;
-			maximum=alignProp.getInt("MINIMUM");
+			maximum=facProps.getInt("MINIMUM");
 		}
 		recalc();
-		experienceFlag=alignProp.getStr("EXPERIENCE").toUpperCase().trim();
+		experienceFlag=facProps.getStr("EXPERIENCE").toUpperCase().trim();
 		if(experienceFlag.length()==0)
 			experienceFlag="NONE";
-		rateModifier=alignProp.getDouble("RATEMODIFIER");
-		showInScore=alignProp.getBoolean("SCOREDISPLAY");
-		showInFacCommand=alignProp.getBoolean("SHOWINFACTIONSCMD");
-		showInSpecialReport=alignProp.getBoolean("SPECIALREPORTED");
-		showInEditor=alignProp.getBoolean("EDITALONE");
-		defaults=new SVector<String>(CMParms.parseSemicolons(alignProp.getStr("DEFAULT"),true));
-		autoDefaults =new SVector<String>(CMParms.parseSemicolons(alignProp.getStr("AUTODEFAULTS"),true));
-		choices =new SVector<String>(CMParms.parseSemicolons(alignProp.getStr("AUTOCHOICES"),true));
-		useLightReactions=alignProp.getBoolean("USELIGHTREACTIONS");
+		rateModifier=facProps.getDouble("RATEMODIFIER");
+		showInScore=facProps.getBoolean("SCOREDISPLAY");
+		showInFacCommand=facProps.getBoolean("SHOWINFACTIONSCMD");
+		showInSpecialReport=facProps.getBoolean("SPECIALREPORTED");
+		showInEditor=facProps.getBoolean("EDITALONE");
+		final String s=facProps.getStr("INHERITED");
+		if(s.trim().length()==0)
+			isInherited=true;
+		else
+			isInherited=facProps.getBoolean("INHERITED");
+		defaults=parseChoifaults(CMParms.parseSemicolons(facProps.getStr("DEFAULT"),true));
+		autoDefaults =parseChoifaults(CMParms.parseSemicolons(facProps.getStr("AUTODEFAULTS"),true));
+		choices =parseChoifaults(CMParms.parseSemicolons(facProps.getStr("AUTOCHOICES"),true));
+		useLightReactions=facProps.getBoolean("USELIGHTREACTIONS");
 		ranges=new SHashtable<String,FRange>();
 		changes=new SHashtable<String,FactionChangeEvent[]>();
 		factors=new SVector<FZapFactor>();
@@ -523,20 +587,20 @@ public class DefaultFaction implements Faction, MsgListener
 		abilityUseMisses=new STreeSet<String>();
 		reactions=new SVector<FReactionItem>();
 		reactionHash=new SHashtable<String,CList<FReactionItem>>();
-		for(final Enumeration<Object> e=alignProp.keys();e.hasMoreElements();)
+		for(final Enumeration<Object> e=facProps.keys();e.hasMoreElements();)
 		{
 			if(debug)
 				Log.sysOut("FACTIONS","Starting Key Loop");
 			final String key = (String) e.nextElement();
 			if(debug)
 				Log.sysOut("FACTIONS","  Key Found     :"+key);
-			final String words = (String) alignProp.get(key);
+			final String words = (String) facProps.get(key);
 			if(debug)
 				Log.sysOut("FACTIONS","  Words Found   :"+words);
 			if(key.startsWith("RANGE"))
 				addRange(words);
 			if(key.startsWith("CHANGE"))
-				createChangeEvent(words);
+				createChangeEvent(key, words);
 			if(key.startsWith("AFFBEHAV"))
 			{
 				final Object[] O=CMParms.parseSafeSemicolonList(words,false).toArray();
@@ -609,44 +673,44 @@ public class DefaultFaction implements Faction, MsgListener
 	@Override
 	public String getTagValue(final String tag)
 	{
-		final int tagRef=CMLib.factions().isFactionTag(tag);
-		if(tagRef<0)
+		final FacTag tagRef=CMLib.factions().getFactionTag(tag);
+		if(tagRef==null)
 			return "";
 		int numCall=-1;
-		if((tagRef<TAG_NAMES.length)&&(TAG_NAMES[tagRef].endsWith("*")))
-		{
-			if(CMath.isInteger(tag.substring(TAG_NAMES[tagRef].length()-1)))
-				numCall=CMath.s_int(tag.substring(TAG_NAMES[tagRef].length()-1));
-		}
+		if((tagRef.maskPrefix!=null)
+		&&(CMath.isInteger(tag.substring(tagRef.maskPrefix.length()))))
+			numCall=CMath.s_int(tag.substring(tagRef.maskPrefix.length()));
 		switch(tagRef)
 		{
-		case TAG_NAME:
+		case NAME:
 			return name;
-		case TAG_MINIMUM:
+		case MINIMUM:
 			return "" + minimum;
-		case TAG_MAXIMUM:
+		case MAXIMUM:
 			return "" + maximum;
-		case TAG_SCOREDISPLAY:
+		case SCOREDISPLAY:
 			return Boolean.toString(showInScore).toUpperCase();
-		case TAG_SHOWINFACTIONSCMD:
+		case SHOWINFACTIONSCMD:
 			return Boolean.toString(showInFacCommand).toUpperCase();
-		case TAG_SPECIALREPORTED:
+		case SPECIALREPORTED:
 			return Boolean.toString(showInSpecialReport).toUpperCase();
-		case TAG_EDITALONE:
+		case EDITALONE:
 			return Boolean.toString(showInEditor).toUpperCase();
-		case TAG_DEFAULT:
-			return CMParms.toSemicolonListString(defaults);
-		case TAG_AUTODEFAULTS:
-			return CMParms.toSemicolonListString(autoDefaults);
-		case TAG_CHOICEINTRO:
+		case DEFAULT:
+			return CMParms.toSemicolonPairListString(defaults.elements(),true);
+		case AUTODEFAULTS:
+			return CMParms.toSemicolonPairListString(autoDefaults.elements(),true);
+		case CHOICEINTRO:
 			return choiceIntro;
-		case TAG_AUTOCHOICES:
-			return CMParms.toSemicolonListString(choices);
-		case TAG_RATEMODIFIER:
+		case AUTOCHOICES:
+			return CMParms.toSemicolonPairListString(choices.elements(),true);
+		case RATEMODIFIER:
 			return "" + rateModifier;
-		case TAG_EXPERIENCE:
+		case EXPERIENCE:
 			return "" + experienceFlag;
-		case TAG_RANGE_:
+		case INHERITABLE:
+			return Boolean.toString(isInherited).toUpperCase();
+		case RANGE_:
 		{
 			if((numCall<0)||(numCall>=ranges.size()))
 				return ""+ranges.size();
@@ -660,7 +724,7 @@ public class DefaultFaction implements Faction, MsgListener
 			}
 			return "";
 		}
-		case TAG_CHANGE_:
+		case CHANGE_:
 		{
 			int sz=0;
 			for(final Enumeration<Faction.FactionChangeEvent[]> es=changes.elements();es.hasMoreElements();)
@@ -680,19 +744,19 @@ public class DefaultFaction implements Faction, MsgListener
 			}
 			return "";
 		}
-		case TAG_ABILITY_:
+		case ABILITY_:
 		{
 			if((numCall<0)||(numCall>=abilityUsages.size()))
 				return ""+abilityUsages.size();
 			return abilityUsages.get(numCall).toString();
 		}
-		case TAG_FACTOR_:
+		case FACTOR_:
 		{
 			if((numCall<0)||(numCall>=factors.size()))
 				return ""+factors.size();
 			return factors.get(numCall).toString();
 		}
-		case TAG_RELATION_:
+		case RELATION_:
 		{
 			if((numCall<0)||(numCall>=relations.size()))
 				return ""+relations.size();
@@ -707,7 +771,7 @@ public class DefaultFaction implements Faction, MsgListener
 			}
 			return "";
 		}
-		case TAG_AFFBEHAV_:
+		case AFFBEHAV_:
 		{
 			if((numCall<0)||(numCall>=affBehavs.size()))
 				return ""+affBehavs.size();
@@ -722,14 +786,14 @@ public class DefaultFaction implements Faction, MsgListener
 			}
 			return "";
 		}
-		case TAG_REACTION_:
+		case REACTION_:
 		{
 			if((numCall<0)||(numCall>=reactions.size()))
 				return ""+reactions.size();
 			final Faction.FReactionItem item = reactions.get(numCall);
 			return item.toString();
 		}
-		case TAG_USELIGHTREACTIONS:
+		case USELIGHTREACTIONS:
 			return "" + useLightReactions;
 		}
 		return "";
@@ -738,22 +802,21 @@ public class DefaultFaction implements Faction, MsgListener
 	@Override
 	public String getINIDef(final String tag, final String delimeter)
 	{
-		final int tagRef=CMLib.factions().isFactionTag(tag);
-		if(tagRef<0)
+		final FacTag tagRef=CMLib.factions().getFactionTag(tag);
+		if(tagRef==null)
 			return "";
-		final String rawTagName=TAG_NAMES[tagRef];
-		if(TAG_NAMES[tagRef].endsWith("*"))
+		if(tagRef.maskPrefix!=null)
 		{
-			final int number=CMath.s_int(getTagValue(rawTagName));
+			final int number=CMath.s_int(getTagValue(tagRef.name()));
 			final StringBuffer str=new StringBuffer("");
 			for(int i=0;i<number;i++)
 			{
-				final String value=getTagValue(rawTagName.substring(0,rawTagName.length()-1)+i);
-				str.append(rawTagName.substring(0,rawTagName.length()-1)+(i+1)+"="+value+delimeter);
+				final String value=getTagValue(tagRef.maskPrefix+i);
+				str.append(tagRef.maskPrefix+(i+1)+"="+value+delimeter);
 			}
 			return str.toString();
 		}
-		return rawTagName+"="+getTagValue(tag)+delimeter;
+		return tagRef.name()+"="+getTagValue(tag)+delimeter;
 	}
 
 	@Override
@@ -870,25 +933,59 @@ public class DefaultFaction implements Faction, MsgListener
 	@Override
 	public List<Integer> findChoices(final MOB mob)
 	{
-		final Vector<Integer> mine=new Vector<Integer>();
-		String s;
-		for(final Enumeration<String> e=choices.elements();e.hasMoreElements();)
+		final List<Integer> mine=new Vector<Integer>();
+		Pair<Integer,String> s;
+		for(final Enumeration<Pair<Integer,String>> e=choices.elements();e.hasMoreElements();)
 		{
 			s=e.nextElement();
-			if(CMath.isInteger(s))
-				mine.addElement(Integer.valueOf(CMath.s_int(s)));
-			else
-			if(CMLib.masking().maskCheck(s, mob,false))
-			{
-				final Vector<String> V=CMParms.parse(s);
-				for(int j=0;j<V.size();j++)
-				{
-					if(CMath.isInteger(V.elementAt(j)))
-						mine.addElement(Integer.valueOf(CMath.s_int(V.elementAt(j))));
-				}
-			}
+			if(CMLib.masking().maskCheck(s.second, mob,false))
+				mine.add(s.first);
 		}
 		return mine;
+	}
+
+	protected Map<String,Integer> getCMMsgTypeMap()
+	{
+		@SuppressWarnings("unchecked")
+		Map<String,Integer> msgTypeCache=(Map<String,Integer>)Resources.getResource("SYSTEM_FACTION_GLOBAL_CMMSG_CODES");
+		if(msgTypeCache==null)
+		{
+			msgTypeCache=new HashMap<String,Integer>();
+			for(int typ = 0; typ < CMMsg.TYPE_DESCS.length; typ++)
+				msgTypeCache.put("MSG_"+CMMsg.TYPE_DESCS[typ],Integer.valueOf(typ));
+			Resources.submitResource("SYSTEM_FACTION_GLOBAL_CMMSG_CODES", msgTypeCache);
+		}
+		return msgTypeCache;
+	}
+
+	@Override
+	public FactionChangeEvent[] findMsgChangeEvents(final CMMsg msg)
+	{
+		if(msgChangeCache.size()==0)
+		{
+			final Map<String,Integer> msgTypeCache=getCMMsgTypeMap();
+			final Map<Integer,List<FactionChangeEvent>> msgClassMap=new HashMap<Integer,List<FactionChangeEvent>>();
+			for (final Enumeration<FactionChangeEvent[]> e=changes.elements();e.hasMoreElements();)
+			{
+				final FactionChangeEvent[] Cs=e.nextElement();
+				for(final FactionChangeEvent C : Cs)
+				{
+					if(msgTypeCache.containsKey(C.eventID()))
+					{
+						final Integer code=msgTypeCache.get(C.eventID());
+						if(!msgClassMap.containsKey(code))
+							msgClassMap.put(code, new ArrayList<FactionChangeEvent>());
+						msgClassMap.get(code).add(C);
+					}
+				}
+			}
+			for(final Integer code : msgClassMap.keySet())
+			{
+				final List<FactionChangeEvent> list=msgClassMap.get(code);
+				msgChangeCache.put(code, list.toArray(new FactionChangeEvent[list.size()]));
+			}
+		}
+		return msgChangeCache.get(Integer.valueOf(msg.sourceMinor()));
 	}
 
 	@Override
@@ -901,7 +998,7 @@ public class DefaultFaction implements Faction, MsgListener
 			if(CMClass.numPrototypes(CMObjectType.ABILITY)==0)
 				return null;
 			final Map<Integer,List<FactionChangeEvent>> abilityClassMap=new HashMap<Integer,List<FactionChangeEvent>>();
-			for(int classificationCode = 0;classificationCode < Ability.ACODE_DESCS.length;classificationCode++)
+			for(int classificationCode = 0;classificationCode < Ability.ACODE.DESCS.size();classificationCode++)
 			{
 				for (final Enumeration<FactionChangeEvent[]> e=changes.elements();e.hasMoreElements();)
 				{
@@ -918,7 +1015,7 @@ public class DefaultFaction implements Faction, MsgListener
 				}
 			}
 			final Map<Integer,List<FactionChangeEvent>> abilityDomainMap=new HashMap<Integer,List<FactionChangeEvent>>();
-			for(int domainCode = 0;domainCode < Ability.DOMAIN_DESCS.length;domainCode++)
+			for(int domainCode = 0;domainCode < Ability.DOMAIN.DESCS.size();domainCode++)
 			{
 				final int domainID = domainCode << 5;
 				for (final Enumeration<FactionChangeEvent[]> e=changes.elements();e.hasMoreElements();)
@@ -991,9 +1088,11 @@ public class DefaultFaction implements Faction, MsgListener
 			return null;
 		if(socChangeCache.size()==0)
 		{
-			if(CMLib.socials().numSocialSets()==0)
+
+			final Enumeration<Social> s=CMLib.socials().getAllSocials();
+			if(s == null)
 				return null;
-			for(final Enumeration<Social> s=CMLib.socials().getAllSocials();s.hasMoreElements();)
+			for(;s.hasMoreElements();)
 			{
 				final Social S = s.nextElement();
 				if(changes.containsKey(S.name()))
@@ -1066,22 +1165,12 @@ public class DefaultFaction implements Faction, MsgListener
 	@Override
 	public int findDefault(final MOB mob)
 	{
-		String s;
-		for(final Enumeration<String> e=defaults.elements();e.hasMoreElements();)
+		Pair<Integer,String> s;
+		for(final Enumeration<Pair<Integer,String>> e=defaults.elements();e.hasMoreElements();)
 		{
 			s=e.nextElement();
-			if(CMath.isNumber(s))
-				return CMath.s_int(s);
-			else
-			if(CMLib.masking().maskCheck(s, mob,false))
-			{
-				final Vector<String> V=CMParms.parse(s);
-				for(int j=0;j<V.size();j++)
-				{
-					if(CMath.isNumber(V.elementAt(j)))
-						return CMath.s_int(V.elementAt(j));
-				}
-			}
+			if(CMLib.masking().maskCheck(s.second, mob,false))
+				return s.first.intValue();
 		}
 		return 0;
 	}
@@ -1089,22 +1178,14 @@ public class DefaultFaction implements Faction, MsgListener
 	@Override
 	public int findAutoDefault(final MOB mob)
 	{
-		String s;
-		for(final Enumeration<String> e=autoDefaults.elements();e.hasMoreElements();)
+		Pair<Integer,String> p;
+		for(final Enumeration<Pair<Integer,String>> e=autoDefaults.elements();e.hasMoreElements();)
 		{
-			s=e.nextElement();
-			if(CMath.isNumber(s))
-				return CMath.s_int(s);
-			else
-			if(CMLib.masking().maskCheck(s, mob,false))
-			{
-				final Vector<String> V=CMParms.parse(s);
-				for(int j=0;j<V.size();j++)
-				{
-					if(CMath.isNumber(V.elementAt(j)))
-						return CMath.s_int(V.elementAt(j));
-				}
-			}
+			p=e.nextElement();
+			if(p.second.length()==0)
+				return p.first.intValue();
+			if(CMLib.masking().maskCheck(p.second, mob,false))
+				return p.first.intValue();
 		}
 		return Integer.MAX_VALUE;
 	}
@@ -1112,7 +1193,7 @@ public class DefaultFaction implements Faction, MsgListener
 	@Override
 	public boolean hasFaction(final MOB mob)
 	{
-		return (mob.fetchFaction(ID)!=Integer.MAX_VALUE);
+		return (mob.fetchFaction(_factionID)!=Integer.MAX_VALUE);
 	}
 
 	protected FAbilityUsage getAbilityUsage(final Ability A)
@@ -1132,8 +1213,8 @@ public class DefaultFaction implements Faction, MsgListener
 
 			if(usage.possibleAbilityID()
 			||(((usage.type()<0)||((A.classificationCode()&Ability.ALL_ACODES)==usage.type()))
-				&&((usage.flag()<0)||(CMath.bset(A.flags(),usage.flag())))
-				&&((usage.notflag()<0)||(!CMath.bset(A.flags(),usage.notflag())))
+				&&((usage.flagsBitmap()<0)||(CMath.bset(A.flags(),usage.flagsBitmap())))
+				&&((usage.notFlagsBitmap()<0)||(!CMath.bset(A.flags(),usage.notFlagsBitmap())))
 				&&((usage.domain()<0)||((A.classificationCode()&Ability.ALL_DOMAINS)==usage.domain()))))
 			{
 				abilityUseCache.put(A.ID(), usage);
@@ -1156,10 +1237,19 @@ public class DefaultFaction implements Faction, MsgListener
 		final FAbilityUsage usage = this.getAbilityUsage(A);
 		if(usage == null)
 			return true;
-		final int faction=mob.fetchFaction(ID);
-		if((faction < usage.low()) || (faction > usage.high()))
+		final int faction=mob.fetchFaction(_factionID);
+		if(usage.notRange())
+		{
+			if((faction < usage.low()) || (faction > usage.high()))
+				return true;
 			return false;
-		return true;
+		}
+		else
+		{
+			if((faction < usage.low()) || (faction > usage.high()))
+				return false;
+			return true;
+		}
 	}
 
 	@Override
@@ -1173,29 +1263,175 @@ public class DefaultFaction implements Faction, MsgListener
 		return 1.0;
 	}
 
+	private boolean checkApplyEventWait(final FactionChangeEvent event, final MOB mob)
+	{
+		final Faction.FData data = mob.fetchFactionData(factionID());
+		if(data != null)
+		{
+			if(System.currentTimeMillis() < data.getNextChangeTimers(event))
+				return false;
+			final long newTime=event.getWaitBetweenMs();
+			if(newTime > 0)
+				data.setNextChangeTimers(event, System.currentTimeMillis()+newTime);
+		}
+		return true;
+	}
+
 	@Override
 	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		FactionChangeEvent[] events;
 		switch(msg.sourceMinor())
 		{
+		case CMMsg.TYP_ENTER:
+		{
+			if((msg.source() == myHost)
+			&&(msg.source().isPlayer())
+			&&(msg.target() instanceof Room))
+			{
+				events=getChangeEvents(MiscTrigger.AREAEXPLORE.toString());
+				if(events != null)
+				{
+					final Room R=(Room)msg.target();
+					if(!msg.source().playerStats().hasVisited(R))
+					{
+						final Area A=R.getArea();
+						for (final FactionChangeEvent event : events)
+						{
+							if(event.applies(msg.source(),msg.source()))
+							{
+								final int pct = CMath.s_int(event.getTriggerParm("PCT"));
+								if(pct==0)
+								{
+									if(msg.source().playerStats().totalVisitedRooms(msg.source(), A)>0)
+										continue;
+								}
+								else
+								{
+									if(msg.source().playerStats().percentVisited(msg.source(),A) < pct)
+										continue;
+								}
+								if(this.checkApplyEventWait(event, msg.source()))
+									executeChange(msg.source(),msg.source(),event);
+							}
+						}
+					}
+				}
+			}
+			break;
+		}
 		case CMMsg.TYP_DEATH:
-			if(((msg.source()==myHost)||(msg.tool()==myHost))
-			&&(msg.tool() instanceof MOB))
+			if((msg.source()==myHost)||(msg.tool()==myHost))
 			{
 				final MOB killedM=msg.source();
-				final MOB killingBlowM=(MOB)msg.tool();
-				events=getChangeEvents((msg.source()==myHost)?"MURDER":"KILL");
-				if(events!=null)
+				if(msg.tool() instanceof MOB)
 				{
-					for (final FactionChangeEvent event : events)
+					final MOB killingBlowM=(MOB)msg.tool();
+					events=getChangeEvents(((msg.source()==myHost)?MiscTrigger.MURDER:MiscTrigger.KILL).toString());
+					if(events!=null)
 					{
-						if(event.applies(killingBlowM,killedM))
+						for (final FactionChangeEvent event : events)
 						{
-							final CharClass combatCharClass=CMLib.combat().getCombatDominantClass(killingBlowM,killedM);
-							final Set<MOB> combatBeneficiaries=CMLib.combat().getCombatBeneficiaries(killingBlowM,killedM,combatCharClass);
-							for (final MOB mob : combatBeneficiaries)
-								executeChange(mob,killedM,event);
+							if(event.applies(killingBlowM,killedM))
+							{
+								final CharClass combatCharClass=CMLib.combat().getCombatDominantClass(killingBlowM,killedM);
+								final Set<MOB> combatBeneficiaries=CMLib.combat().getCombatBeneficiaries(killingBlowM,killedM,combatCharClass);
+								for (final MOB mob : combatBeneficiaries)
+								{
+									if(checkApplyEventWait(event, mob))
+										executeChange(mob,killedM,event);
+								}
+							}
+						}
+					}
+					final Room R = msg.source().location();
+					if((R!=null)&&(R.getArea()!=null))
+					{
+						events=getChangeEvents(MiscTrigger.AREAASS.toString());
+						if((events!=null)
+						&&(killedM!=null)
+						&&(killedM.phyStats().level()==R.getArea().getIStat(Area.Stats.MAX_LEVEL))
+						&&(killingBlowM!=killedM)
+						&&(killedM.isMonster())
+						&&(killedM.getStartRoom()!=null)
+						&&(killedM.location()!=null)
+						&&(killedM.getStartRoom().getArea()==killingBlowM.location().getArea()))
+						{
+							final Area A=R.getArea();
+							for (final FactionChangeEvent event : events)
+							{
+								final CharClass combatCharClass=CMLib.combat().getCombatDominantClass(killingBlowM,killedM);
+								final Set<MOB> combatBeneficiaries=CMLib.combat().getCombatBeneficiaries(killingBlowM,killedM,combatCharClass);
+								final int pct = CMath.s_int(event.getTriggerParm("PCT"));
+								for (final MOB mob : combatBeneficiaries)
+								{
+									if(mob.isPlayer())
+									{
+										if(event.applies(mob,killedM))
+										{
+											final double population = A.getIStat(Area.Stats.MAX_LEVEL_MOBS);
+											final Faction.FData data = mob.fetchFactionData(factionID());
+											final int count = data.getCounter(""+event)+1;
+											data.setCounter(""+event, count);
+											final int myPct = (int)Math.round(100.0*CMath.div(count, population));
+											if(myPct < pct)
+												continue;
+											if(checkApplyEventWait(event, mob))
+												executeChange(mob,killedM,event);
+										}
+									}
+								}
+							}
+						}
+						events=getChangeEvents(MiscTrigger.AREAKILL.toString());
+						if((events!=null)
+						&&(killedM!=null)
+						&&(killingBlowM!=killedM)
+						&&(killedM.isMonster())
+						&&(killedM.getStartRoom()!=null)
+						&&(killedM.location()!=null)
+						&&(killedM.getStartRoom().getArea()==killedM.location().getArea()))
+						{
+							final Area A=R.getArea();
+							for (final FactionChangeEvent event : events)
+							{
+								final int pct = CMath.s_int(event.getTriggerParm("PCT"));
+								final CharClass combatCharClass=CMLib.combat().getCombatDominantClass(killingBlowM,killedM);
+								final Set<MOB> combatBeneficiaries=CMLib.combat().getCombatBeneficiaries(killingBlowM,killedM,combatCharClass);
+								for (final MOB mob : combatBeneficiaries)
+								{
+									if(mob.isPlayer())
+									{
+										if(event.applies(mob,killedM))
+										{
+											final Faction.FData data = mob.fetchFactionData(factionID());
+											final double population = A.getIStat(Area.Stats.POPULATION);
+											final int count = data.getCounter(""+event)+1;
+											data.setCounter(""+event, count);
+											final int myPct = (int)Math.round(100.0*CMath.div(count, population));
+											if(myPct < pct)
+												continue;
+											if(checkApplyEventWait(event, mob))
+												executeChange(mob,killedM,event);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				if(msg.source()==myHost)
+				{
+					events=getChangeEvents(MiscTrigger.DYING.toString());
+					if(events!=null)
+					{
+						for (final FactionChangeEvent event : events)
+						{
+							if(event.applies(killedM,killedM))
+							{
+								if(checkApplyEventWait(event, killedM))
+									executeChange(killedM,killedM,event);
+							}
 						}
 					}
 				}
@@ -1203,15 +1439,15 @@ public class DefaultFaction implements Faction, MsgListener
 			break;
 		case CMMsg.TYP_CAUSESINK:
 			if((myHost instanceof MOB)
-			&&(msg.target() instanceof BoardableShip))
+			&&(msg.target() instanceof Boardable))
 			{
 				final MOB killerM=msg.source();
-				final Area shipArea=((BoardableShip)msg.target()).getShipArea();
+				final Area shipArea=((Boardable)msg.target()).getArea();
 				if(CMLib.map().areaLocation(killerM)==shipArea)
-					events=getChangeEvents("SUNK");
+					events=getChangeEvents(MiscTrigger.SUNK.toString());
 				else
 				if(killerM == myHost)
-					events=getChangeEvents("SINK");
+					events=getChangeEvents(MiscTrigger.SINK.toString());
 				else
 					events=null;
 				if(events!=null)
@@ -1228,9 +1464,11 @@ public class DefaultFaction implements Faction, MsgListener
 		case CMMsg.TYP_GIVE:
 			if((msg.source()==myHost)
 			&&(msg.tool() instanceof Coins)
-			&&(msg.target() instanceof MOB))
+			&&(msg.target() instanceof MOB)
+			&&(!(msg.target() instanceof ShopKeeper))
+			)
 			{
-				events=getChangeEvents("BRIBE");
+				events=getChangeEvents(MiscTrigger.BRIBE.toString());
 				if(events!=null)
 				{
 					for (final FactionChangeEvent event : events)
@@ -1259,7 +1497,7 @@ public class DefaultFaction implements Faction, MsgListener
 			if((msg.othersMessage()!=null)
 			&&(msg.source()==myHost))
 			{
-				events=getChangeEvents("TALK");
+				events=getChangeEvents(MiscTrigger.TALK.toString());
 				if((events!=null)&&(events.length>0))
 				{
 					final Room R=msg.source().location();
@@ -1280,7 +1518,7 @@ public class DefaultFaction implements Faction, MsgListener
 					if((sayMsg!=null)&&(sayMsg.length()>0)&&(R!=null))
 					{
 						final MOB mob=msg.source();
-						Faction.FData data = mob.fetchFactionData(factionID());
+						final Faction.FData data = mob.fetchFactionData(factionID());
 						for (final FactionChangeEvent event : events)
 						{
 							Pattern P=(Pattern)event.stateVariable(0);
@@ -1308,21 +1546,12 @@ public class DefaultFaction implements Faction, MsgListener
 									}
 								}
 								if(foundOne)
-								{
-									if(data == null)
-										data = mob.fetchFactionData(factionID());
-									if(data != null)
-									{
-										final long newTime=CMath.s_long(event.getTriggerParm("WAIT"))*CMProps.getTickMillis();
-										if(newTime != 0)
-											data.setNextChangeTimers(event, System.currentTimeMillis()+newTime);
-									}
-								}
+									checkApplyEventWait(event, mob);
 							}
 						}
 					}
 				}
-				events=getChangeEvents("MUDCHAT");
+				events=getChangeEvents(MiscTrigger.MUDCHAT.toString());
 				if((events!=null)&&(events.length>0))
 				{
 					final Room R=msg.source().location();
@@ -1355,7 +1584,6 @@ public class DefaultFaction implements Faction, MsgListener
 							if((sayMsg!=null)&&(sayMsg.length()>0))
 							{
 								final MOB mob=msg.source();
-								Faction.FData data = mob.fetchFactionData(factionID());
 								for (final FactionChangeEvent event : events)
 								{
 									if(event.applies(mob,target))
@@ -1364,17 +1592,10 @@ public class DefaultFaction implements Faction, MsgListener
 										&&(mudChatB.getLastThingSaid()!=null)
 										&&(!mudChatB.getLastThingSaid().equalsIgnoreCase(sayMsg)))
 										{
-											if((data != null) && (System.currentTimeMillis() < data.getNextChangeTimers(event)))
-												continue;
-											executeChange(mob,target,event);
-											foundOne=true;
-											if(data == null)
-												data = mob.fetchFactionData(factionID());
-											if(data != null)
+											if(checkApplyEventWait(event, mob))
 											{
-												final long newTime=CMath.s_long(event.getTriggerParm("WAIT"))*CMProps.getTickMillis();
-												if(newTime != 0)
-													data.setNextChangeTimers(event, System.currentTimeMillis()+newTime);
+												executeChange(mob,target,event);
+												foundOne=true;
 											}
 										}
 									}
@@ -1388,16 +1609,70 @@ public class DefaultFaction implements Faction, MsgListener
 			}
 			break;
 		default:
+			if((events=findMsgChangeEvents(msg))!=null)
+			{
+				final EnglishParsing elib=CMLib.english();
+				for (final FactionChangeEvent C : events)
+				{
+					final MOB target;
+					if((msg.target() instanceof MOB)
+					&&(C.applies(msg.source(),(MOB)msg.target())))
+						target=(MOB)msg.target();
+					else
+					if((!(msg.target() instanceof MOB))
+					&&(C.applies(msg.source(), null)))
+						target=null;
+					else
+						continue;
+					String s;
+					s=C.getTriggerParm("SMSG");
+					if((s.length()>0)&&((msg.sourceMessage()==null)||(!elib.containsString(msg.sourceMessage(), s))))
+						continue;
+					s=C.getTriggerParm("TMSG");
+					if((s.length()>0)&&((msg.targetMessage()==null)||(!elib.containsString(msg.targetMessage(), s))))
+						continue;
+					s=C.getTriggerParm("OMSG");
+					if((s.length()>0)&&((msg.othersMessage()==null)||(!elib.containsString(msg.othersMessage(), s))))
+						continue;
+					s=C.getTriggerParm("SRC");
+					if(s.length()>0)
+					{
+						if(s.equalsIgnoreCase("me") && (msg.source()!=myHost))
+							continue;
+						if(!elib.containsString(msg.source().Name(), s))
+							continue;
+					}
+					s=C.getTriggerParm("TGT");
+					if(s.length()>0)
+					{
+						if(s.equalsIgnoreCase("me") && (msg.target()!=myHost))
+							continue;
+						if((msg.target()==null)||(!elib.containsString(msg.target().Name(), s)))
+							continue;
+					}
+					s=C.getTriggerParm("OTH");
+					if(s.length()>0)
+					{
+						if(s.equalsIgnoreCase("me") && (msg.tool()!=myHost))
+							continue;
+						if((msg.tool()==null)||(!elib.containsString(msg.tool().Name(), s)))
+							continue;
+					}
+					if(checkApplyEventWait(C, msg.source()))
+						executeChange(msg.source(),target,C);
+				}
+			}
 			if(msg.tool() instanceof Ability)
 			{
 				if((msg.target()==myHost)	// Arrested watching
 				&&(msg.source().isMonster())
-				&&(msg.tool().ID().equals("Skill_HandCuff")))
+				&&(msg.tool().ID().equals("Skill_HandCuff"))
+				&&(msg.sourceMinor()!=CMMsg.TYP_TEACH))
 				{
 					final Room R=msg.source().location();
 					if((R!=null)&&(R.getArea()!=null))
 					{
-						events=getChangeEvents("ARRESTED");
+						events=getChangeEvents(MiscTrigger.ARRESTED.toString());
 						if(events!=null)
 						{
 							final LegalBehavior B=CMLib.law().getLegalBehavior(R);
@@ -1427,18 +1702,8 @@ public class DefaultFaction implements Faction, MsgListener
 							target=null;
 						else
 							continue;
-						Faction.FData data = msg.source().fetchFactionData(factionID());
-						if((data != null) && (System.currentTimeMillis() < data.getNextChangeTimers(C)))
-							continue;
-						executeChange(msg.source(),target,C);
-						if(data == null)
-							data = msg.source().fetchFactionData(factionID());
-						if(data != null)
-						{
-							final long newTime=CMath.s_long(C.getTriggerParm("WAIT"))*CMProps.getTickMillis();
-							if(newTime != 0)
-								data.setNextChangeTimers(C, System.currentTimeMillis()+newTime);
-						}
+						if(checkApplyEventWait(C, msg.source()))
+							executeChange(msg.source(),target,C);
 					}
 				}
 			}
@@ -1449,7 +1714,7 @@ public class DefaultFaction implements Faction, MsgListener
 			&&(((Social)msg.tool()).targetable(msg.source()))
 			&&(msg.sourceMinor()!=CMMsg.TYP_CHANNEL))
 			{
-				events=getChangeEvents("SOCIAL");
+				events=getChangeEvents(MiscTrigger.SOCIAL.toString());
 				if(events == null)
 					events=findSocialChangeEvents((Social)msg.tool());
 				if(events!=null)
@@ -1457,10 +1722,9 @@ public class DefaultFaction implements Faction, MsgListener
 					final Social social = (Social)msg.tool();
 					final String socialName = social.baseName();
 					final MOB mob=msg.source();
-					Faction.FData data = mob.fetchFactionData(factionID());
 					for (final FactionChangeEvent event : events)
 					{
-						if(event.eventID().equals("SOCIAL"))
+						if(event.miscEvent()==MiscTrigger.SOCIAL)
 						{
 							final String triggerID=event.getTriggerParm("ID");
 							if(triggerID.length()==0)
@@ -1471,17 +1735,8 @@ public class DefaultFaction implements Faction, MsgListener
 						}
 						if((event.applies(mob,(MOB)msg.target())))
 						{
-							if((data != null) && (System.currentTimeMillis() < data.getNextChangeTimers(event)))
-								continue;
-							executeChange(mob,(MOB)msg.target(),event);
-							if(data == null)
-								data = mob.fetchFactionData(factionID());
-							if(data != null)
-							{
-								final long newTime=CMath.s_long(event.getTriggerParm("WAIT"))*CMProps.getTickMillis();
-								if(newTime != 0)
-									data.setNextChangeTimers(event, System.currentTimeMillis()+newTime);
-							}
+							if(checkApplyEventWait(event, mob))
+								executeChange(mob,(MOB)msg.target(),event);
 						}
 					}
 				}
@@ -1504,21 +1759,21 @@ public class DefaultFaction implements Faction, MsgListener
 			final MOB vic=(MOB)msg.target();
 
 			if(experienceFlag.equals("HIGHER"))
-				msg.setValue( (int)Math.round(((msg.value())*.75) +( ((msg.value())*.25) * CMath.div(Math.abs(killer.fetchFaction(ID)-minimum),(maximum - minimum)))));
+				msg.setValue( (int)Math.round(((msg.value())*.75) +( ((msg.value())*.25) * CMath.div(Math.abs(killer.fetchFaction(_factionID)-minimum),(maximum - minimum)))));
 			else
 			if(experienceFlag.equals("LOWER"))
-				msg.setValue( (int)Math.round(((msg.value())*.75) +( ((msg.value())*.25) * CMath.div(Math.abs(maximum-killer.fetchFaction(ID)),(maximum - minimum)))));
+				msg.setValue( (int)Math.round(((msg.value())*.75) +( ((msg.value())*.25) * CMath.div(Math.abs(maximum-killer.fetchFaction(_factionID)),(maximum - minimum)))));
 			else
-			if(vic.fetchFaction(ID)!=Integer.MAX_VALUE)
+			if(vic.fetchFaction(_factionID)!=Integer.MAX_VALUE)
 			{
 				if(experienceFlag.equals("EXTREME"))
-					msg.setValue( (int)Math.round(((msg.value())*.75) +( ((msg.value())*.25) * CMath.div(Math.abs(vic.fetchFaction(ID) - killer.fetchFaction(ID)),(maximum - minimum)))));
+					msg.setValue( (int)Math.round(((msg.value())*.75) +( ((msg.value())*.25) * CMath.div(Math.abs(vic.fetchFaction(_factionID) - killer.fetchFaction(_factionID)),(maximum - minimum)))));
 				else
 				if(experienceFlag.equals("FOLLOWHIGHER"))
-					msg.setValue( (int)Math.round(((msg.value())*.75) +( ((msg.value())*.25) * CMath.div(Math.abs(vic.fetchFaction(ID)-minimum),(maximum - minimum)))));
+					msg.setValue( (int)Math.round(((msg.value())*.75) +( ((msg.value())*.25) * CMath.div(Math.abs(vic.fetchFaction(_factionID)-minimum),(maximum - minimum)))));
 				else
 				if(experienceFlag.equals("FOLLOWLOWER"))
-					msg.setValue( (int)Math.round(((msg.value())*.75) +( ((msg.value())*.25) * CMath.div(Math.abs(maximum-vic.fetchFaction(ID)),(maximum - minimum)))));
+					msg.setValue( (int)Math.round(((msg.value())*.75) +( ((msg.value())*.25) * CMath.div(Math.abs(maximum-vic.fetchFaction(_factionID)),(maximum - minimum)))));
 				if(msg.value()<=0)
 					msg.setValue(0);
 			}
@@ -1529,17 +1784,17 @@ public class DefaultFaction implements Faction, MsgListener
 	@Override
 	public void executeChange(final MOB source, MOB target, final FactionChangeEvent event)
 	{
-		final int sourceFaction= source.fetchFaction(ID);
+		final int sourceFaction= source.fetchFaction(_factionID);
 		int targetFaction = sourceFaction * -1;
 		if((source==target)
 		&&(!event.selfTargetOK())
-		&&(!event.eventID().equalsIgnoreCase("TIME")))
+		&&(event.miscEvent() != MiscTrigger.TIME))
 			return;
 
 		if(target!=null)
 		{
 			if(hasFaction(target))
-				targetFaction=target.fetchFaction(ID);
+				targetFaction=target.fetchFaction(_factionID);
 			else
 			if(!event.outsiderTargetOK())
 				return;
@@ -1547,8 +1802,9 @@ public class DefaultFaction implements Faction, MsgListener
 		else
 			target = source;
 
-		final String chance=event.getTriggerParm("CHANCE");
-		if(CMath.isInteger(chance) && (CMLib.dice().rollPercentage()<CMath.s_int(chance)))
+		if((event.getPctChance()<100)
+		&&(event.getPctChance()>0)
+		&& (CMLib.dice().rollPercentage()<event.getPctChance()))
 			return;
 
 		double baseChangeAmount=100.0;
@@ -1570,9 +1826,64 @@ public class DefaultFaction implements Faction, MsgListener
 			}
 		}
 		if(event.getBonusXP()!=0)
-			CMLib.leveler().postExperience(source, target, "", event.getBonusXP(), false);
+			CMLib.leveler().postExperience(source, "FACTION:"+_factionID, target, "", event.getBonusXP(), false);
 		if(event.getBonusRoleplayXP()!=0)
-			CMLib.leveler().postRPExperience(source, target, "", event.getBonusRoleplayXP(), true);
+			CMLib.leveler().postRPExperience(source, "FACTION:"+_factionID, target, "", event.getBonusRoleplayXP(), true);
+
+		final String resetTimerEventID = event.getFlagValue("RESTIME");
+		if(resetTimerEventID.length()>0)
+		{
+			for(String resEventID : CMParms.parseCommas(resetTimerEventID, true))
+			{
+				final Integer which;
+				final int x=resEventID.indexOf('.');
+				if(x>0)
+				{
+					which=Integer.valueOf(CMath.s_int(resEventID.substring(x+1)));
+					resEventID=resEventID.substring(0,x);
+				}
+				else
+					which=null;
+				final boolean reset;
+				Faction.FactionChangeEvent[] events;
+				if(resetTimerEventID.startsWith("-"))
+				{
+					reset=false;
+					events = getChangeEvents(resEventID.substring(1));
+				}
+				else
+				{
+					events = getChangeEvents(resEventID);
+					reset=true;
+				}
+				if(events != null)
+				{
+					if((which != null)
+					&&(events.length>=which.intValue())
+					&&(which.intValue()>0))
+						events=new Faction.FactionChangeEvent[] { events[which.intValue()-1] };
+					final Faction.FData sdata = source.fetchFactionData(factionID());
+					final Faction.FData tdata = target.fetchFactionData(factionID());
+					for(final Faction.FactionChangeEvent event2 : events)
+					{
+						if(sdata != null)
+						{
+							if(reset)
+								sdata.resetEventTimers(event2.eventID());
+							else
+								sdata.setNextChangeTimers(event2, Long.MAX_VALUE);
+						}
+						if(tdata != null)
+						{
+							if(reset)
+								tdata.resetEventTimers(event2.eventID());
+							else
+								tdata.setNextChangeTimers(event2, Long.MAX_VALUE);
+						}
+					}
+				}
+			}
+		}
 
 		int factionAdj=1;
 		int changeDir=0;
@@ -1625,7 +1936,7 @@ public class DefaultFaction implements Faction, MsgListener
 		case FactionChangeEvent.CHANGE_DIRECTION_ADD:
 			factionAdj=findDefault(source);
 			if(!hasFaction(source))
-				source.addFaction(ID,0);
+				source.addFaction(_factionID,0);
 			else
 				factionAdj=0;
 			break;
@@ -1644,10 +1955,22 @@ public class DefaultFaction implements Faction, MsgListener
 			factionAdj=(int)Math.round(CMath.mul(factionAdj,findFactor(source,(factionAdj>=0))));
 		}
 
-		if(factionAdj==0)
+		if((factionAdj==0)&&(event.factor()!=0.0))
 			return;
 
-		CMMsg facMsg=CMClass.getMsg(source,target,null,CMMsg.MASK_ALWAYS|CMMsg.TYP_FACTIONCHANGE,null,CMMsg.NO_EFFECT,null,CMMsg.NO_EFFECT,ID);
+		final String announceMsg = event.getFlagValue("ANNOUNCE");
+		final String seenMsg = announceMsg.length()>0 ? announceMsg : null;
+		if(seenMsg != null)
+		{
+			final List<String> channels=CMLib.channels().getFlaggedChannelNames(ChannelsLibrary.ChannelFlag.FACTIONANNOUNCEMENTS, source);
+			if(channels.size()>0)
+			{
+				final String msgStr = source.Name()+" ("+name()+"): "+seenMsg;
+				for(int i=0;i<channels.size();i++)
+					CMLib.commands().postChannel(channels.get(i),source.clans(),msgStr,true,source);
+			}
+		}
+		CMMsg facMsg=CMClass.getMsg(source,target,null,CMMsg.MASK_ALWAYS|CMMsg.TYP_FACTIONCHANGE,seenMsg,CMMsg.NO_EFFECT,null,CMMsg.NO_EFFECT,_factionID);
 		facMsg.setValue(factionAdj);
 		final Room R=source.location();
 		if(R!=null)
@@ -1676,9 +1999,9 @@ public class DefaultFaction implements Faction, MsgListener
 		}
 		else
 		if((factionAdj==Integer.MAX_VALUE)||(factionAdj==Integer.MIN_VALUE))
-			source.removeFaction(ID);
+			source.removeFaction(_factionID);
 		else
-			source.adjustFaction(ID,factionAdj);
+			source.adjustFaction(_factionID,factionAdj);
 	}
 
 	@Override
@@ -1692,14 +2015,31 @@ public class DefaultFaction implements Faction, MsgListener
 			for(final Enumeration<FRange> e=ranges();e.hasMoreElements();)
 			{
 				final FRange R=e.nextElement();
-				if((((R.high()<=usage.high())&&(R.high()>=usage.low()))
-					||((R.low()>=usage.low()))&&(R.low()<=usage.high()))
-				&&(!namesAdded.contains(R.name())))
+				if(!namesAdded.contains(R.name()))
 				{
-					namesAdded.add(R.name());
-					if(rangeStr.length()>0)
-						rangeStr.append(", ");
-					rangeStr.append(R.name());
+					final
+					boolean inRange = (((R.high()<=usage.high())&&(R.high()>=usage.low()))
+									 ||((R.low()>=usage.low()))&&(R.low()<=usage.high()));
+					if(usage.notRange())
+					{
+						if(!inRange)
+						{
+							namesAdded.add(R.name());
+							if(rangeStr.length()>0)
+								rangeStr.append(", ");
+							rangeStr.append(R.name());
+						}
+					}
+					else
+					{
+						if(inRange)
+						{
+							namesAdded.add(R.name());
+							if(rangeStr.length()>0)
+								rangeStr.append(", ");
+							rangeStr.append(R.name());
+						}
+					}
 				}
 			}
 		}
@@ -1714,11 +2054,11 @@ public class DefaultFaction implements Faction, MsgListener
 		final StringBuffer ALL_TYPES=new StringBuffer("");
 		if(_ALL_TYPES!=null)
 			return _ALL_TYPES;
-		for (final String element : Faction.FactionChangeEvent.MISC_TRIGGERS)
+		for (final MiscTrigger element : Faction.FactionChangeEvent.MiscTrigger.values())
+			ALL_TYPES.append(element.name()+", ");
+		for (final String element : Ability.ACODE.DESCS)
 			ALL_TYPES.append(element+", ");
-		for (final String element : Ability.ACODE_DESCS)
-			ALL_TYPES.append(element+", ");
-		for (final String element : Ability.DOMAIN_DESCS)
+		for (final String element : Ability.DOMAIN.DESCS)
 			ALL_TYPES.append(element+", ");
 		for (final String element : Ability.FLAG_DESCS)
 			ALL_TYPES.append(element+", ");
@@ -1738,21 +2078,22 @@ public class DefaultFaction implements Faction, MsgListener
 	}
 
 	@Override
-	public Faction.FactionChangeEvent createChangeEvent(final String key)
+	public Faction.FactionChangeEvent createChangeEvent(final String eventKey, final String eventData)
 	{
 		Faction.FactionChangeEvent event;
-		if(key==null)
+		if(eventData==null)
 			return null;
-		if(key.indexOf(';')<0)
+		if(eventData.indexOf(';')<0)
 		{
 			event=new DefaultFaction.DefaultFactionChangeEvent(this);
-			if(!event.setEventID(key))
+			if(!event.setEventID(eventData))
 				return null;
 		}
 		else
-			event=new DefaultFaction.DefaultFactionChangeEvent(this,key);
+			event=new DefaultFaction.DefaultFactionChangeEvent(this,eventKey,eventData);
 		abilChangeCache.clear();
 		socChangeCache.clear();
+		msgChangeCache.clear();
 		Faction.FactionChangeEvent[] events=changes.get(event.eventID().toUpperCase().trim());
 		if(events==null)
 			events=new Faction.FactionChangeEvent[0];
@@ -1787,6 +2128,7 @@ public class DefaultFaction implements Faction, MsgListener
 		if(done)
 		{
 			abilChangeCache.clear();
+			msgChangeCache.clear();
 			socChangeCache.clear();
 		}
 		return done;
@@ -1798,6 +2140,7 @@ public class DefaultFaction implements Faction, MsgListener
 		abilChangeCache.clear();
 		socChangeCache.clear();
 		changes.clear();
+		msgChangeCache.clear();
 	}
 
 	@Override
@@ -1809,6 +2152,8 @@ public class DefaultFaction implements Faction, MsgListener
 			{
 				abilChangeCache.clear();
 				socChangeCache.clear();
+				msgChangeCache.clear();
+				msgChangeCache.clear();
 				return true;
 			}
 		}
@@ -1818,6 +2163,8 @@ public class DefaultFaction implements Faction, MsgListener
 			{
 				abilChangeCache.clear();
 				socChangeCache.clear();
+				msgChangeCache.clear();
+				msgChangeCache.clear();
 				return true;
 			}
 		}
@@ -1826,7 +2173,8 @@ public class DefaultFaction implements Faction, MsgListener
 
 	public class DefaultFactionChangeEvent implements Faction.FactionChangeEvent
 	{
-		private String		ID				= "";
+		private String		eventTriggerID	= "";
+		private MiscTrigger miscEventTrigger= null;
 		private String		flagCache		= "";
 		private int			IDclassFilter	= -1;
 		private long		IDflagFilter	= -1;
@@ -1841,6 +2189,9 @@ public class DefaultFaction implements Faction, MsgListener
 		private int			bonusRPXP		= 0;
 		private Object[]	stateVariables	= new Object[0];
 		private String		triggerParms	= "";
+		private int			withinTicks		= -1;
+		private long		waitMs			= -1;
+		private int			pctChance		= 100;
 
 		private final Faction	myFaction;
 
@@ -1852,7 +2203,13 @@ public class DefaultFaction implements Faction, MsgListener
 		@Override
 		public String eventID()
 		{
-			return ID;
+			return eventTriggerID;
+		}
+
+		@Override
+		public MiscTrigger miscEvent()
+		{
+			return miscEventTrigger;
 		}
 
 		@Override
@@ -1895,6 +2252,24 @@ public class DefaultFaction implements Faction, MsgListener
 		public int getBonusXP()
 		{
 			return bonusXP;
+		}
+
+		@Override
+		public int getWithinTicks()
+		{
+			return withinTicks;
+		}
+
+		@Override
+		public long getWaitBetweenMs()
+		{
+			return this.waitMs;
+		}
+
+		@Override
+		public int getPctChance()
+		{
+			return pctChance;
 		}
 
 		@Override
@@ -1951,7 +2326,7 @@ public class DefaultFaction implements Faction, MsgListener
 			if(compiledTargetZapper == null)
 			{
 				if(targetZapperStr.trim().length()>0)
-					compiledTargetZapper=CMLib.masking().maskCompile(targetZapperStr);
+					compiledTargetZapper=CMLib.masking().getPreCompiledMask(targetZapperStr);
 			}
 			return compiledTargetZapper;
 		}
@@ -1963,7 +2338,7 @@ public class DefaultFaction implements Faction, MsgListener
 			{
 				final String sourceZapperStr=savedTriggerParms.get("MASK");
 				if((sourceZapperStr!=null)&&(sourceZapperStr.length()>0))
-					compiledSourceZapper=CMLib.masking().maskCompile(sourceZapperStr);
+					compiledSourceZapper=CMLib.masking().getPreCompiledMask(sourceZapperStr);
 			}
 			return compiledSourceZapper;
 		}
@@ -1983,9 +2358,9 @@ public class DefaultFaction implements Faction, MsgListener
 		public String toString()
 		{
 			if(triggerParms.trim().length()>0)
-				return ID+"("+triggerParms.replace(';',',')+");"+CHANGE_DIRECTION_DESCS[direction]+";"+((int)Math.round(factor*100.0))+"%;"+flagCache+";"+targetZapperStr;
+				return eventTriggerID+"("+triggerParms.replace(';',',')+");"+CHANGE_DIRECTION_DESCS[direction]+";"+((int)Math.round(factor*100.0))+"%;"+flagCache+";"+targetZapperStr;
 			else
-				return ID+";"+CHANGE_DIRECTION_DESCS[direction]+";"+((int)Math.round(factor*100.0))+"%;"+flagCache+";"+targetZapperStr;
+				return eventTriggerID+";"+CHANGE_DIRECTION_DESCS[direction]+";"+((int)Math.round(factor*100.0))+"%;"+flagCache+";"+targetZapperStr;
 		}
 
 		public DefaultFactionChangeEvent(final Faction F)
@@ -1993,10 +2368,10 @@ public class DefaultFaction implements Faction, MsgListener
 			myFaction = F;
 		}
 
-		public DefaultFactionChangeEvent(final Faction F, final String key)
+		public DefaultFactionChangeEvent(final Faction F, final String eventKey, final String eventData)
 		{
 			myFaction=F;
-			final List<String> v = CMParms.parseSemicolons(key,false);
+			final List<String> v = CMParms.parseSemicolons(eventData,false);
 
 			String trigger =v.get(0);
 			triggerParms="";
@@ -2027,29 +2402,31 @@ public class DefaultFaction implements Faction, MsgListener
 			IDclassFilter=-1;
 			IDflagFilter=-1;
 			IDdomainFilter=-1;
-			for (final String element : MISC_TRIGGERS)
+			miscEventTrigger = null;
+			for (final MiscTrigger element : MiscTrigger.values())
 			{
-				if(element.equalsIgnoreCase(newID))
+				if(element.name().equalsIgnoreCase(newID))
 				{
-					ID = element;
+					eventTriggerID = element.name();
+					miscEventTrigger = element;
 					return true;
 				}
 			}
-			for(int i=0;i<Ability.ACODE_DESCS.length;i++)
+			for(int i=0;i<Ability.ACODE.DESCS.size();i++)
 			{
-				if(Ability.ACODE_DESCS[i].equalsIgnoreCase(newID))
+				if(Ability.ACODE.DESCS.get(i).equalsIgnoreCase(newID))
 				{
 					IDclassFilter = i;
-					ID = newID;
+					eventTriggerID = newID;
 					return true;
 				}
 			}
-			for(int i=0;i<Ability.DOMAIN_DESCS.length;i++)
+			for(int i=0;i<Ability.DOMAIN.DESCS.size();i++)
 			{
-				if(Ability.DOMAIN_DESCS[i].equalsIgnoreCase(newID))
+				if(Ability.DOMAIN.DESCS.get(i).equalsIgnoreCase(newID))
 				{
 					IDdomainFilter = i << 5;
-					ID = newID;
+					eventTriggerID = newID;
 					return true;
 				}
 			}
@@ -2058,24 +2435,29 @@ public class DefaultFaction implements Faction, MsgListener
 				if(Ability.FLAG_DESCS[i].equalsIgnoreCase(newID))
 				{
 					IDflagFilter = Math.round(Math.pow(2, i));
-					ID = newID;
+					eventTriggerID = newID;
 					return true;
 				}
 			}
 			if(CMClass.getAbility(newID)!=null)
 			{
-				ID = newID;
+				eventTriggerID = newID;
 				return true;
 			}
 			if(CMLib.socials().fetchSocial(newID, true)!=null)
 			{
-				ID=newID.toUpperCase();
+				eventTriggerID=newID.toUpperCase();
 				return true;
 			}
 			if((newID.endsWith(" *"))
 			&&(CMLib.socials().fetchSocial(newID.substring(0,newID.length()-2).trim(), true)!=null))
 			{
-				ID=newID.toUpperCase().trim();
+				eventTriggerID=newID.toUpperCase().trim();
+				return true;
+			}
+			if(getCMMsgTypeMap().containsKey(newID.toUpperCase().trim()))
+			{
+				eventTriggerID=newID.toUpperCase().trim();
 				return true;
 			}
 			return false;
@@ -2159,8 +2541,32 @@ public class DefaultFaction implements Faction, MsgListener
 		{
 			if(!CMLib.masking().maskCheck(compiledTargetZapper(),target,false))
 				return false;
-			if(!CMLib.masking().maskCheck(compiledSourceZapper(),target,false))
+			if(!CMLib.masking().maskCheck(compiledSourceZapper(),source,false))
 				return false;
+			final Faction F=getFaction();
+			if(F!=null)
+			{
+				if(withinTicks > 0)
+				{
+					final long now=System.currentTimeMillis() - (withinTicks * CMProps.getTickMillis());
+					Faction.FData data;
+					data = source.fetchFactionData(F.factionID());
+					if(data != null)
+					{
+						if(now > data.getEventTime(eventTriggerID))
+							return false;
+					}
+					if(source != target)
+					{
+						data = target.fetchFactionData(F.factionID());
+						if(data != null)
+						{
+							if(now > data.getEventTime(eventTriggerID))
+								return false;
+						}
+					}
+				}
+			}
 			return true;
 		}
 
@@ -2174,8 +2580,11 @@ public class DefaultFaction implements Faction, MsgListener
 		public void setTriggerParameters(final String newVal)
 		{
 			triggerParms=newVal;
-			savedTriggerParms=CMParms.parseEQParms(newVal);
+			savedTriggerParms=CMParms.parseStrictEQParms(newVal);
 			compiledSourceZapper=null;
+			withinTicks=savedTriggerParms.containsKey("WITHIN")?CMath.s_int(savedTriggerParms.get("WITHIN")):-1;
+			pctChance=savedTriggerParms.containsKey("CHANCE")?CMath.s_int(savedTriggerParms.get("CHANCE")):100;
+			waitMs=savedTriggerParms.containsKey("WAIT")?(CMath.s_long(savedTriggerParms.get("WAIT"))*CMProps.getTickMillis()):-1;
 		}
 
 		@Override
@@ -2318,6 +2727,12 @@ public class DefaultFaction implements Faction, MsgListener
 		}
 
 		@Override
+		public int med()
+		{
+			return high - (high-low)/2;
+		}
+
+		@Override
 		public int compareTo(final FRange o)
 		{
 			if(low < o.low())
@@ -2364,9 +2779,12 @@ public class DefaultFaction implements Faction, MsgListener
 		private boolean			erroredOut;
 		private Faction			myFaction;
 		public boolean			isReset	= false;
-		private DVector			currentReactionSets;
+		private long			birthTime = System.currentTimeMillis();
+		private PairList<CompiledZMask,List<Faction.FReactionItem>> currentReactionSets;
 
-		private Map<Faction.FactionChangeEvent, Long> nextChangeTime;
+		private final CMap<String, Long>				timers	= new SHashtable<String, Long>();
+		private final CMap<String, int[]>				counters= new SHashtable<String, int[]>();
+		private Map<Faction.FactionChangeEvent, Long>	nextChangeTime;
 
 		public DefaultFactionData(final Faction F)
 		{
@@ -2386,12 +2804,46 @@ public class DefaultFaction implements Faction, MsgListener
 				lastUpdated=System.currentTimeMillis();
 				myEffects=new Ability[0];
 				myBehaviors=new Behavior[0];
-				currentReactionSets = new DVector(2);
+				currentReactionSets = new PairVector<CompiledZMask,List<Faction.FReactionItem>>();
 				lightPresenceAbilities = new Ability[0];
 				currentRange = null;
 				erroredOut=false;
 				isReset = true;
 				nextChangeTime = new Hashtable<Faction.FactionChangeEvent, Long>();
+				timers.clear();
+				counters.clear();
+			}
+		}
+
+		@Override
+		public long getEventTime(final String eventID)
+		{
+			if(!timers.containsKey(eventID))
+				return this.birthTime;
+			return timers.get(eventID).longValue();
+		}
+
+		@Override
+		public void resetEventTimers(final String eventID)
+		{
+			this.birthTime = System.currentTimeMillis();
+			if(eventID == null)
+			{
+				timers.clear();
+				nextChangeTime.clear();
+			}
+			else
+			{
+				timers.put(eventID, Long.valueOf(System.currentTimeMillis()));
+				for(final Iterator<Faction.FactionChangeEvent> e = nextChangeTime.keySet().iterator();e.hasNext();)
+				{
+					final Faction.FactionChangeEvent event = e.next();
+					if(event.eventID().equalsIgnoreCase(eventID))
+					{
+						nextChangeTime.remove(event);
+						break;
+					}
+				}
 			}
 		}
 
@@ -2408,6 +2860,12 @@ public class DefaultFaction implements Faction, MsgListener
 		}
 
 		@Override
+		public FRange getRange()
+		{
+			return currentRange;
+		}
+
+		@Override
 		public long getNextChangeTimers(final Faction.FactionChangeEvent event)
 		{
 			if(nextChangeTime.containsKey(event))
@@ -2421,7 +2879,6 @@ public class DefaultFaction implements Faction, MsgListener
 			nextChangeTime.put(event, Long.valueOf(time));
 		}
 
-		@SuppressWarnings("unchecked")
 		@Override
 		public void setValue(final int newValue)
 		{
@@ -2442,7 +2899,7 @@ public class DefaultFaction implements Faction, MsgListener
 					else
 					{
 						erroredOut=false;
-						currentReactionSets=new DVector(2);
+						currentReactionSets=new PairVector<CompiledZMask,List<Faction.FReactionItem>>();
 						for(final Enumeration<Faction.FReactionItem> e=reactions();e.hasMoreElements();)
 						{
 							Faction.FReactionItem react = e.nextElement();
@@ -2452,7 +2909,7 @@ public class DefaultFaction implements Faction, MsgListener
 							Vector<Faction.FReactionItem> reactSet=null;
 							for(int r=0;r<currentReactionSets.size();r++)
 							{
-								reactSet=(Vector<Faction.FReactionItem>)currentReactionSets.elementAt(r,2);
+								reactSet=(Vector<Faction.FReactionItem>)currentReactionSets.get(r).second;
 								sampleReact=reactSet.firstElement();
 								if(react.presentMOBMask().trim().equalsIgnoreCase(sampleReact.presentMOBMask().trim()))
 								{
@@ -2461,7 +2918,7 @@ public class DefaultFaction implements Faction, MsgListener
 								}
 							}
 							if(react!=null)
-								currentReactionSets.addElement(react.compiledPresentMOBMask(),new XVector<Faction.FReactionItem>(react));
+								currentReactionSets.add(react.compiledPresentMOBMask(),new XVector<Faction.FReactionItem>(react));
 						}
 						//noReactions=currentReactionSets.size()==0;
 					}
@@ -2509,24 +2966,23 @@ public class DefaultFaction implements Faction, MsgListener
 			return lastDataChange[0] > lastUpdated;
 		}
 
-		@SuppressWarnings("unchecked")
 		private Ability setPresenceReaction(final MOB M, final Physical myHost)
 		{
 			if((!CMLib.flags().canBeSeenBy(myHost, M))
 			&&(!CMLib.flags().canBeHeardMovingBy(myHost,M)))
 				return null;
-			if((M.amUltimatelyFollowing()!=null)
-			&&(!M.amUltimatelyFollowing().isMonster()))
+			if((M.amFollowing()!=null)
+			&&(!M.getGroupLeader().isMonster()))
 				return null;
-			Vector<String> myReactions=null;
+			List<String> myReactions=null;
 			List<Faction.FReactionItem> tempReactSet=null;
 			for(int d=0;d<currentReactionSets.size();d++)
 			{
-				if(CMLib.masking().maskCheck((MaskingLibrary.CompiledZMask)currentReactionSets.elementAt(d,1),M,true))
+				if(CMLib.masking().maskCheck(currentReactionSets.get(d).first,M,true))
 				{
 					if(myReactions==null)
 						myReactions=new Vector<String>();
-					tempReactSet=(List<Faction.FReactionItem>)currentReactionSets.elementAt(d,2);
+					tempReactSet=currentReactionSets.get(d).second;
 					for(final Faction.FReactionItem reactionItem : tempReactSet)
 						myReactions.add(reactionItem.reactionObjectID()+"="+reactionItem.parameters(myHost.Name()));
 				}
@@ -2703,6 +3159,26 @@ public class DefaultFaction implements Faction, MsgListener
 			}
 			return true;
 		}
+
+		@Override
+		public int getCounter(final String key)
+		{
+			if(counters.containsKey(key))
+				return counters.get(key)[0];
+			return 0;
+		}
+
+		@Override
+		public void setCounter(final String key, final int newValue)
+		{
+			if(key == null)
+				counters.clear();
+			else
+			if(counters.containsKey(key))
+				counters.get(key)[0]=newValue;
+			else
+				counters.put(key, new int[] {newValue});
+		}
 	}
 
 	public class DefaultFactionZapFactor implements Faction.FZapFactor
@@ -2873,16 +3349,17 @@ public class DefaultFaction implements Faction, MsgListener
 
 	}
 
-	public class DefaultFactionAbilityUsage implements Faction.FAbilityUsage
+	private class DefaultFactionAbilityUsage implements Faction.FAbilityUsage
 	{
-		public String	ID					= "";
-		public boolean	possibleAbilityID	= false;
-		public int		type				= -1;
-		public int		domain				= -1;
-		public long		flag				= -1;
-		public int		low					= 0;
-		public int		high				= 0;
-		public long		notflag				= -1;
+		private String	ID					= "";
+		private boolean	possibleAbilityID	= false;
+		private int		type				= -1;
+		private int		domain				= -1;
+		private long	flagsBitmap			= -1;
+		private long	notFlagsBitmap		= -1;
+		private boolean	notRange			= false;
+		private int		low					= 0;
+		private int		high				= 0;
 
 		@Override
 		public String abilityFlags()
@@ -2909,9 +3386,9 @@ public class DefaultFaction implements Faction, MsgListener
 		}
 
 		@Override
-		public long flag()
+		public long flagsBitmap()
 		{
-			return flag;
+			return flagsBitmap;
 		}
 
 		@Override
@@ -2927,15 +3404,32 @@ public class DefaultFaction implements Faction, MsgListener
 		}
 
 		@Override
-		public long notflag()
+		public long notFlagsBitmap()
 		{
-			return notflag;
+			return notFlagsBitmap;
 		}
 
 		@Override
-		public void setLow(final int newVal)
+		public boolean notRange()
 		{
-			low = newVal;
+			return notRange;
+		}
+
+		@Override
+		public void setLow(final String newVal)
+		{
+			if(newVal != null)
+			{
+				final String s = newVal.trim();
+				notRange=false;
+				if(s.startsWith("!"))
+				{
+					notRange=true;
+					low = CMath.s_int(s.substring(1).trim());
+				}
+				else
+					low = CMath.s_int(s);
+			}
 		}
 
 		@Override
@@ -2952,7 +3446,14 @@ public class DefaultFaction implements Faction, MsgListener
 		{
 			final List<String> v = CMParms.parseSemicolons(key,false);
 			setAbilityFlag(v.get(0));
-			low = CMath.s_int( v.get(1));
+			notRange = false;
+			if(v.get(1).startsWith("!"))
+			{
+				notRange=true;
+				low = CMath.s_int( v.get(1).substring(1).trim());
+			}
+			else
+				low = CMath.s_int( v.get(1));
 			high = CMath.s_int( v.get(2));
 		}
 
@@ -2975,35 +3476,41 @@ public class DefaultFaction implements Faction, MsgListener
 				final boolean not=strflag.startsWith("!");
 				if(not)
 					strflag=strflag.substring(1);
-				switch(CMLib.factions().getAbilityFlagType(strflag))
+				final FAbilityMaskType flag = CMLib.factions().getAbilityFlagType(strflag);
+				if(flag == null)
+					Log.errOut("Error in faction "+ID+": unknown flag: "+strflag);
+				else
+				switch(flag)
 				{
-				case 1:
-					type=CMParms.indexOfIgnoreCase(Ability.ACODE_DESCS, strflag);
+				case ACODE:
+					type=CMParms.indexOfIgnoreCase(Ability.ACODE.DESCS, strflag);
 					break;
-				case 2:
-					domain=CMParms.indexOfIgnoreCase(Ability.DOMAIN_DESCS, strflag);
+				case DOMAIN:
+					domain=CMParms.indexOfIgnoreCase(Ability.DOMAIN.DESCS, strflag);
 					break;
-				case 3:
+				case FLAG:
+				{
 					final int val=CMParms.indexOfIgnoreCase(Ability.FLAG_DESCS, strflag);
 					if(not)
 					{
-						if(notflag<0)
-							notflag=0;
-						notflag=notflag|CMath.pow(2,val);
+						if(notFlagsBitmap<0)
+							notFlagsBitmap=0;
+						notFlagsBitmap=notFlagsBitmap|CMath.pow(2,val);
 					}
 					else
 					{
-						if(flag<0)
-							flag=0;
-						flag=flag|CMath.pow(2,val);
+						if(flagsBitmap<0)
+							flagsBitmap=0;
+						flagsBitmap=flagsBitmap|CMath.pow(2,val);
 					}
 					break;
+				}
 				default:
 					unknowns.add(strflag);
 					break;
 				}
 			}
-			if((type<0)&&(domain<0)&&(flag<0))
+			if((type<0)&&(domain<0)&&(flagsBitmap<0))
 				possibleAbilityID=true;
 			return unknowns;
 		}
@@ -3020,6 +3527,7 @@ public class DefaultFaction implements Faction, MsgListener
 		affBehavs.clear();
 		changes.clear();
 		abilChangeCache.clear();
+		msgChangeCache.clear();
 		socChangeCache.clear();
 		factors.clear();
 		relations.clear();

@@ -19,7 +19,7 @@ import java.util.*;
 import java.util.regex.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -104,12 +104,28 @@ public class GModify extends StdCommand
 			else
 			if(E instanceof FactionMember)
 			{
-				for(final Enumeration<Faction> f=CMLib.factions().factions();f.hasMoreElements();)
+				for(final Enumeration<String> fs=((FactionMember)E).factions();fs.hasMoreElements();)
 				{
-					final Faction F=f.nextElement();
-					if(stat.equalsIgnoreCase(F.factionID())
-					&&((FactionMember)E).hasFaction(F.factionID()))
-						return ""+((FactionMember)E).fetchFaction(F.factionID());
+					final String factionID=fs.nextElement();
+					if(stat.equalsIgnoreCase(factionID))
+						return ""+((FactionMember)E).fetchFaction(factionID);
+				}
+			}
+			if(!E.isStat(stat))
+			{
+				if((E instanceof Physical) && ((Physical)E).basePhyStats().isStat(stat))
+					return ((Physical)E).basePhyStats().getStat(stat);
+				if((E instanceof MOB)
+				&&(((MOB)E).isPlayer()))
+				{
+					if(stat.equalsIgnoreCase("CHARCLASS"))
+						return ((MOB)E).baseCharStats().getCurrentClass().ID();
+					if(((MOB)E).baseCharStats().isStat(stat))
+						return ((MOB)E).baseCharStats().getStat(stat);
+					if(((MOB)E).baseState().isStat(stat))
+						return ((MOB)E).baseState().getStat(stat);
+					if(CMLib.coffeeMaker().getGenMobCodeNum(stat)>=0)
+						return CMLib.coffeeMaker().getGenMobStat((MOB)E,stat);
 				}
 			}
 			return E.getStat(stat);
@@ -176,6 +192,34 @@ public class GModify extends StdCommand
 			if((stat.equalsIgnoreCase("REJUV"))
 			&&(E instanceof Physical))
 				((Physical)E).basePhyStats().setRejuv(CMath.s_int(value));
+			else
+			if(stat.equalsIgnoreCase("REBALANCE"))
+			{
+				int newLevel = 0;
+				int oldLevel = 0;
+				if(E instanceof Physical)
+				{
+					newLevel = ((Physical)E).basePhyStats().level();
+					oldLevel=newLevel;
+					if(CMath.isInteger(value))
+					{
+						newLevel=CMath.s_int(value);
+						((Item) E).basePhyStats().setLevel(newLevel);
+						((Item) E).phyStats().setLevel(newLevel);
+					}
+				}
+
+				if(E instanceof Item)
+					CMLib.itemBuilder().balanceItemByLevel((Item)E);
+				else
+				if(E instanceof MOB)
+					CMLib.leveler().fillOutMOB((MOB)E, ((MOB) E).basePhyStats().level());
+				if(E instanceof Physical)
+				{
+					((Item) E).basePhyStats().setLevel(oldLevel);
+					((Item) E).phyStats().setLevel(oldLevel);
+				}
+			}
 			else
 			if((stat.equalsIgnoreCase("RESOURCE"))
 			&&(E instanceof Item))
@@ -277,7 +321,17 @@ public class GModify extends StdCommand
 			else
 			if((stat.equalsIgnoreCase("DELAFFECT"))
 			&&(E instanceof Affectable))
-				((Affectable)E).delEffect(((Affectable)E).fetchEffect(value));
+			{
+				Ability A = ((Affectable)E).fetchEffect(value);
+				if(A == null)
+				{
+					A = CMClass.getAbility(value);
+					if(A != null)
+						A = ((Affectable)E).fetchEffect(A.ID());
+				}
+				if(A != null)
+					((Affectable)E).delEffect(A);
+			}
 			else
 			if((stat.equalsIgnoreCase("DELBEHAVIOR"))
 			&&(E instanceof Behavable))
@@ -291,21 +345,55 @@ public class GModify extends StdCommand
 				boolean found=false;
 				if(E instanceof FactionMember)
 				{
-					for(final Enumeration<Faction> f=CMLib.factions().factions();f.hasMoreElements();)
+					for(final Enumeration<String> fs=((FactionMember)E).factions();fs.hasMoreElements();)
 					{
-						final Faction F=f.nextElement();
-						if(stat.equalsIgnoreCase(F.factionID())
+						final String factionID=fs.nextElement();
+						if(stat.equalsIgnoreCase(factionID)
 						&&(E instanceof FactionMember)
 						&&(CMath.isInteger(value)))
 						{
-							((FactionMember)E).addFaction(F.factionID(), CMath.s_int(value));
+							((FactionMember)E).addFaction(factionID, CMath.s_int(value));
 							found=true;
 							break;
 						}
 					}
 				}
 				if(!found)
+				{
+					if(!E.isStat(stat))
+					{
+						if((E instanceof Physical) && ((Physical)E).basePhyStats().isStat(stat))
+						{
+							((Physical)E).basePhyStats().setStat(stat, value);
+							return E;
+						}
+						if((E instanceof MOB)
+						&&(((MOB)E).isPlayer()))
+						{
+							if(CMLib.coffeeMaker().getGenMobCodeNum(stat)>=0)
+							{
+								CMLib.coffeeMaker().setGenMobStat((MOB)E,stat,value);
+								return E;
+							}
+							if(stat.equalsIgnoreCase("CHARCLASS"))
+							{
+								((MOB)E).baseCharStats().setCurrentClass(CMClass.getCharClass(value));
+								return E;
+							}
+							if(((MOB)E).baseCharStats().isStat(stat))
+							{
+								((MOB)E).baseCharStats().setStat(stat,value);
+								return E;
+							}
+							if(((MOB)E).baseState().isStat(stat))
+							{
+								((MOB)E).baseState().setStat(stat,value);
+								return E;
+							}
+						}
+					}
 					E.setStat(stat,value);
+				}
 			}
 		}
 		return E;
@@ -318,9 +406,9 @@ public class GModify extends StdCommand
 		Log.sysOut("GMODIFY",msg);
 	}
 
-	private static Environmental tryModfy(final MOB mob, final Room room, Environmental E, final DVector changes, final DVector onfields, final boolean noisy)
+	private static Environmental tryModfy(final MOB mob, final Session sess, final Room room, Environmental E, final DVector changes, final DVector onfields, final boolean noisy)
 	{
-		if((mob.session()==null)||(mob.session().isStopped()))
+		if((sess==null)||(sess.isStopped()))
 			return null;
 		try
 		{
@@ -328,7 +416,7 @@ public class GModify extends StdCommand
 		}
 		catch (final Exception e)
 		{
-			mob.session().stopSession(false, false, false);
+			sess.stopSession(true, false, false, false);
 			return null;
 		}
 		boolean didAnything=false;
@@ -342,7 +430,7 @@ public class GModify extends StdCommand
 		Pattern pattern=null;
 		boolean checkedOut=true;
 		Matcher M=null;
-		final DVector matches=new DVector(3);
+		final TriadArrayList<String,Integer,Integer> matches=new TriadArrayList<String,Integer,Integer>();
 		int lastCode=FLAG_AND;
 		for(int i=0;i<onfields.size();i++)
 		{
@@ -512,6 +600,12 @@ public class GModify extends StdCommand
 							CMLib.map().obliterateMapRoom((Room)E);
 						}
 						else
+						if((E instanceof MOB)&&(((MOB)E).isPlayer()))
+						{
+							Log.sysOut("GMODIFY",E.Name()+" in "+room.roomID()+" was DESTROYED by "+mob.Name()+"!");
+							CMLib.players().obliteratePlayer((MOB)E, true, true);
+						}
+						else
 						{
 							Log.sysOut("GMODIFY",E.Name()+" in "+room.roomID()+" was DESTROYED by "+mob.Name()+"!");
 							E.destroy();
@@ -528,10 +622,10 @@ public class GModify extends StdCommand
 					int matchEnd=-1;
 					for(int m=0;m<matches.size();m++)
 					{
-						if(((String)matches.get(m,1)).equals(field))
+						if(matches.get(m).first.equals(field))
 						{
-							matchStart=((Integer)matches.get(m,2)).intValue();
-							matchEnd=((Integer)matches.get(m,3)).intValue();
+							matchStart=matches.get(m).second.intValue();
+							matchEnd=matches.get(m).third.intValue();
 						}
 					}
 					if(matchStart>=0)
@@ -585,6 +679,82 @@ public class GModify extends StdCommand
 		}
 	}
 
+	protected String getAllFieldsMsg(final Set<String> allKnownFields)
+	{
+		final StringBuffer allFieldsMsg=new StringBuffer("");
+		addEnumeratedStatCodes(CMClass.mobTypes(),allKnownFields,allFieldsMsg);
+		addEnumeratedStatCodes(CMClass.basicItems(),allKnownFields,allFieldsMsg);
+		addEnumeratedStatCodes(CMClass.weapons(),allKnownFields,allFieldsMsg);
+		addEnumeratedStatCodes(CMClass.armor(),allKnownFields,allFieldsMsg);
+		addEnumeratedStatCodes(CMClass.clanItems(),allKnownFields,allFieldsMsg);
+		addEnumeratedStatCodes(CMClass.miscMagic(),allKnownFields,allFieldsMsg);
+		addEnumeratedStatCodes(CMClass.tech(),allKnownFields,allFieldsMsg);
+		addEnumeratedStatCodes(CMClass.locales(),allKnownFields,allFieldsMsg);
+		for(final Enumeration<Faction> f=CMLib.factions().factions();f.hasMoreElements();)
+		{
+			final Faction F=f.nextElement();
+			if(F.isPreLoaded())
+			{
+				allFieldsMsg.append(F.factionID().toUpperCase()).append(" ");
+				allKnownFields.add(F.factionID().toUpperCase());
+			}
+		}
+		final PhyStats phy = (PhyStats)CMClass.getCommon("DefaultPhyStats");
+		for(final String stat : phy.getStatCodes())
+		{
+			if(!allKnownFields.contains(stat))
+			{
+				allKnownFields.add(stat);
+				allFieldsMsg.append(stat).append(" ");
+			}
+		}
+		allFieldsMsg.append("CLASSTYPE REJUV DESTROY ADDABILITY DELABILITY ADDBEHAVIOR DELBEHAVIOR ADDAFFECT DELAFFECT "
+				+ "DELFACTION RESOURCE MATERIALTYPE REBALANCE");
+		allKnownFields.addAll(Arrays.asList(new String[]{"CLASSTYPE","REJUV","RESOURCE","MATERIALTYPE","GENDER","DESTROY",
+				"ADDABILITY","DELABILITY","ADDBEHAVIOR","DELBEHAVIOR","ADDAFFECT","DELAFFECT","DELFACTION","REBALANCE"}));
+		allFieldsMsg.append(" (** Players Only: ");
+		final CharStats chy = (CharStats)CMClass.getCommon("DefaultCharStats");
+		allKnownFields.add("CHARCLASS");
+		allFieldsMsg.append("CHARCLASS").append(" ");
+		for(final String stat : chy.getStatCodes())
+		{
+			if(!allKnownFields.contains(stat))
+			{
+				allKnownFields.add(stat);
+				allFieldsMsg.append(stat).append(" ");
+			}
+		}
+		final CharState che = (CharState)CMClass.getCommon("DefaultCharState");
+		for(final String stat : che.getStatCodes())
+		{
+			if(!allKnownFields.contains(stat))
+			{
+				allKnownFields.add(stat);
+				allFieldsMsg.append(stat).append(" ");
+			}
+		}
+		allFieldsMsg.append(")");
+		return allFieldsMsg.toString();
+	}
+
+	protected static void fixDeities(final Room R)
+	{
+		if(R==null)
+			return;
+		//OK! Keep this weirdness here!  It's necessary because oldRoom will have blown
+		//away any real deities with copy deities in the CMMap, and this will restore
+		//the real ones.
+		for(final Enumeration<MOB> m=R.inhabitants();m.hasMoreElements();)
+		{
+			final MOB M=m.nextElement();
+			if((M instanceof Deity)
+			&&(M.isMonster())
+			&&(M.isSavable())
+			&&(M.getStartRoom()==R))
+				CMLib.map().registerWorldObjectLoaded(R.getArea(), R, M);
+		}
+	}
+
 	@Override
 	public boolean execute(final MOB mob, final List<String> commands, final int metaFlags)
 		throws java.io.IOException
@@ -606,26 +776,11 @@ public class GModify extends StdCommand
 		if((commands.size()>0)&&
 			commands.get(0).equalsIgnoreCase("?"))
 		{
-			final StringBuffer allFieldsMsg=new StringBuffer("");
-			final Set<String> allKnownFields=new TreeSet<String>();
-			addEnumeratedStatCodes(CMClass.mobTypes(),allKnownFields,allFieldsMsg);
-			addEnumeratedStatCodes(CMClass.basicItems(),allKnownFields,allFieldsMsg);
-			addEnumeratedStatCodes(CMClass.weapons(),allKnownFields,allFieldsMsg);
-			addEnumeratedStatCodes(CMClass.armor(),allKnownFields,allFieldsMsg);
-			addEnumeratedStatCodes(CMClass.clanItems(),allKnownFields,allFieldsMsg);
-			addEnumeratedStatCodes(CMClass.miscMagic(),allKnownFields,allFieldsMsg);
-			addEnumeratedStatCodes(CMClass.tech(),allKnownFields,allFieldsMsg);
-			for(final Enumeration<Faction> f=CMLib.factions().factions();f.hasMoreElements();)
-			{
-				final Faction F=f.nextElement();
-				if(F.isPreLoaded())
-					allFieldsMsg.append(F.factionID()).append(" ");
-			}
-			allFieldsMsg.append("CLASSTYPE ADDABILITY DELABILITY ADDBEHAVIOR DELBEHAVIOR ADDAFFECT DELAFFECT REJUV GENDER DESTROY RESOURCE MATERIALTYPE DELFACTION ");
-			mob.tell(L("Valid field names are @x1",allFieldsMsg.toString()));
+			mob.tell(L("Valid field names are @x1",this.getAllFieldsMsg(new HashSet<String>()).toString()));
 			return false;
 		}
 
+		boolean doPlayersOnly=false;
 		if((commands.size()>0)&&
 			commands.get(0).equalsIgnoreCase("room"))
 		{
@@ -662,34 +817,29 @@ public class GModify extends StdCommand
 			placesToDo=new Vector<Places>();
 		}
 		else
+		if((commands.size()>0)&&
+			commands.get(0).equalsIgnoreCase("players"))
+		{
+			if((!CMSecurity.isAllowedEverywhere(mob,CMSecurity.SecFlag.GMODIFY))
+			||(!CMSecurity.isAllowedEverywhere(mob,CMSecurity.SecFlag.CMDPLAYERS)))
+			{
+				mob.tell(L("You are not allowed to do that."));
+				return false;
+			}
+			commands.remove(0);
+			placesToDo=new Vector<Places>();
+			doPlayersOnly=true;
+		}
+		else
 			placesToDo.add(mob.location());
 		final DVector changes=new DVector(5);
 		final DVector onfields=new DVector(5);
 		DVector use=null;
-		final Set<String> allKnownFields=new HashSet<String>();
-		final StringBuffer allFieldsMsg=new StringBuffer("");
-		addEnumeratedStatCodes(CMClass.mobTypes(),allKnownFields,allFieldsMsg);
-		addEnumeratedStatCodes(CMClass.basicItems(),allKnownFields,allFieldsMsg);
-		addEnumeratedStatCodes(CMClass.weapons(),allKnownFields,allFieldsMsg);
-		addEnumeratedStatCodes(CMClass.armor(),allKnownFields,allFieldsMsg);
-		addEnumeratedStatCodes(CMClass.clanItems(),allKnownFields,allFieldsMsg);
-		addEnumeratedStatCodes(CMClass.miscMagic(),allKnownFields,allFieldsMsg);
-		addEnumeratedStatCodes(CMClass.tech(),allKnownFields,allFieldsMsg);
-		addEnumeratedStatCodes(CMClass.locales(),allKnownFields,allFieldsMsg);
-		for(final Enumeration<Faction> f=CMLib.factions().factions();f.hasMoreElements();)
-		{
-			final Faction F=f.nextElement();
-			if(F.isPreLoaded())
-			{
-				allFieldsMsg.append(F.factionID().toUpperCase()).append(" ");
-				allKnownFields.add(F.factionID().toUpperCase());
-			}
-		}
-		allFieldsMsg.append("CLASSTYPE REJUV DESTROY ADDABILITY DELABILITY ADDBEHAVIOR DELBEHAVIOR ADDAFFECT DELAFFECT DELFACTION ");
-		allKnownFields.addAll(Arrays.asList(new String[]{"CLASSTYPE","REJUV","RESOURCE","MATERIALTYPE","GENDER","DESTROY","ADDABILITY","DELABILITY","ADDBEHAVIOR","DELBEHAVIOR","ADDAFFECT","DELAFFECT","DELFACTION"}));
 
 		use=onfields;
 		final Vector<String> newSet=new Vector<String>();
+		final HashSet<String> allKnownFields=new HashSet<String>();
+		final String fieldsMsg = this.getAllFieldsMsg(allKnownFields);
 		StringBuffer s=new StringBuffer("");
 		for(int i=0;i<commands.size();i++)
 		{
@@ -828,7 +978,7 @@ public class GModify extends StdCommand
 					use.add(key,equator,val,code,P);
 				else
 				{
-					mob.tell(L("'@x1' is an unknown field name.  Valid fields include: @x2",key,allFieldsMsg.toString()));
+					mob.tell(L("'@x1' is an unknown field name.  Valid fields include: @x2",key,fieldsMsg.toString()));
 					return false;
 				}
 			}
@@ -838,13 +988,72 @@ public class GModify extends StdCommand
 			mob.tell(L("You must specify either WHEN, or CHANGES parameters for valid matches to be made."));
 			return false;
 		}
-		if(placesToDo.size()==0)
-		for(final Enumeration<Area> a=CMLib.map().areas();a.hasMoreElements();)
+
+		/**
+		 * GMODIFY just for players...
+		 */
+		if(doPlayersOnly)
 		{
-			final Area A=a.nextElement();
-			if(A.getCompleteMap().hasMoreElements()
-			&&CMSecurity.isAllowed(mob,(A.getCompleteMap().nextElement()),CMSecurity.SecFlag.GMODIFY))
-				placesToDo.add(A);
+			final Session sess=mob.session();
+			if(sess!=null)
+			{
+				if(changes.size()==0)
+					sess.safeRawPrintln(L("Searching..."));
+				else
+					sess.safeRawPrint(L("Searching, modifying and saving..."));
+			}
+			final java.util.List<PlayerLibrary.ThinPlayer> allUsers=CMLib.database().getExtendedUserList();
+			final PlayerLibrary plib=CMLib.players();
+			for(final PlayerLibrary.ThinPlayer tP : allUsers)
+			{
+				if((sess==null)||(sess.isStopped()))
+					return false;
+				final boolean wasLoaded=plib.isLoadedPlayer(tP.name());
+				final MOB M=plib.getLoadPlayer(tP.name());
+				if(M!=null)
+				{
+					final Room room=(M.location()==null)?mob.location():M.location();
+					final boolean changed = tryModfy(mob, sess, room, M, changes, onfields, noisy) != null;
+					if(!M.amDestroyed())
+					{
+						if(!wasLoaded)
+						{
+							if(changed)
+							{
+								M.delAllEffects(true);
+								CMLib.database().DBUpdatePlayer(M);
+							}
+							final PlayerStats pStats = M.playerStats();
+							if(pStats != null)
+								pStats.getExtItems().delAllItems(true);
+							CMLib.players().delPlayer(M);
+							M.destroy();
+						}
+						else
+						if(changed)
+							CMLib.database().DBUpdatePlayer(M);
+					}
+					if((sess!=null)&&(changes.size()>0))
+						sess.rawPrint(".");
+				}
+			}
+			if(sess!=null)
+				sess.rawPrintln(L("!\n\rDone!"));
+			return true;
+		}
+
+		/**
+		 * Normal GMODIFY for map is below
+		 */
+		if(placesToDo.size()==0)
+		{
+			for(final Enumeration<Area> a=CMLib.map().areas();a.hasMoreElements();)
+			{
+				final Area A=a.nextElement();
+				if(A.getCompleteMap().hasMoreElements()
+				&&CMSecurity.isAllowed(mob,(A.getCompleteMap().nextElement()),CMSecurity.SecFlag.GMODIFY))
+					placesToDo.add(A);
+			}
 		}
 		if(placesToDo.size()==0)
 		{
@@ -888,6 +1097,9 @@ public class GModify extends StdCommand
 		if(noisy)
 			gmodifydebugtell(mob,"Change fields="+CMParms.toListString(changes.getDimensionList(1)));
 		Log.sysOut("GModify",mob.Name()+" "+whole+".");
+		final Session sess=mob.session();
+
+		final Set<Area> areasSeen = new HashSet<Area>();
 		for(int r=0;r<placesToDo.size();r++)
 		{
 			Room R=(Room)placesToDo.get(r);
@@ -895,12 +1107,20 @@ public class GModify extends StdCommand
 				continue;
 			if((R==null)||(R.roomID()==null)||(R.roomID().length()==0))
 				continue;
-			synchronized(("SYNC"+R.roomID()).intern())
+			synchronized(CMClass.getSync("SYNC"+R.roomID()))
 			{
 				R=CMLib.map().getRoom(R);
-				if((mob.session()==null)||(mob.session().isStopped())||(R==null)||(R.getArea()==null))
+				if((sess==null)||(sess.isStopped())||(R==null)||(R.getArea()==null))
 					return false;
+				final Room origR=R;
 				final Area A=R.getArea();
+				if(!areasSeen.contains(A))
+				{
+					areasSeen.add(A);
+					final Area possNewA = (Area)tryModfy(mob,sess,R,A,changes,onfields,noisy);
+					if(possNewA != null)
+						CMLib.database().DBUpdateArea(A.Name(), possNewA);
+				}
 				final Area.State oldFlag=A.getAreaState();
 				if(changes.size()==0)
 				{
@@ -918,7 +1138,7 @@ public class GModify extends StdCommand
 				boolean savemobs=false;
 				boolean saveitems=false;
 				boolean saveroom=false;
-				final Room possNewRoom=(Room)tryModfy(mob,R,R,changes,onfields,noisy);
+				final Room possNewRoom=(Room)tryModfy(mob,sess,R,R,changes,onfields,noisy);
 				if(possNewRoom!=null)
 				{
 					R=possNewRoom;
@@ -929,7 +1149,7 @@ public class GModify extends StdCommand
 					final Item I=R.getItem(i);
 					if(I==null)
 						continue;
-					final Item newI=(Item)tryModfy(mob,R,I,changes,onfields,noisy);
+					final Item newI=(Item)tryModfy(mob,sess,R,I,changes,onfields,noisy);
 					if(newI!=null)
 					{
 						saveitems=true;
@@ -944,7 +1164,7 @@ public class GModify extends StdCommand
 					MOB M=R.fetchInhabitant(m);
 					if((M!=null)&&(M.isSavable()))
 					{
-						final MOB newM=(MOB)tryModfy(mob,R,M,changes,onfields,noisy);
+						final MOB newM=(MOB)tryModfy(mob,sess,R,M,changes,onfields,noisy);
 						if(newM!=null)
 						{
 							savemobs=true;
@@ -961,7 +1181,7 @@ public class GModify extends StdCommand
 								final Item I=M.getItem(i);
 								if(I==null)
 									continue;
-								final Item newI=(Item)tryModfy(mob,R,I,changes,onfields,noisy);
+								final Item newI=(Item)tryModfy(mob,sess,R,I,changes,onfields,noisy);
 								if(newI!=null)
 								{
 									savemobs=true;
@@ -982,7 +1202,7 @@ public class GModify extends StdCommand
 									final Environmental E2=P.product;
 									if((E2 instanceof Item)||(E2 instanceof MOB))
 									{
-										final Environmental E3=tryModfy(mob,R,E2,changes,onfields,noisy);
+										final Environmental E3=tryModfy(mob,sess,R,E2,changes,onfields,noisy);
 										if(E3!=null)
 										{
 											savemobs=true;
@@ -1006,11 +1226,15 @@ public class GModify extends StdCommand
 					CMLib.database().DBUpdateItems(R);
 				if(savemobs)
 					CMLib.database().DBUpdateMOBs(R);
-				if((mob.session()!=null)&&(changes.size()>0))
-					mob.session().rawPrint(".");
+				if((sess!=null)&&(changes.size()>0))
+					sess.rawPrint(".");
 				A.setAreaState(oldFlag);
 				if(changes.size()==0)
+				{
 					R.destroy();
+					if(origR!=null)
+						fixDeities(origR);
+				}
 				if(saveroom)
 				{
 					final Room realR=CMLib.map().getRoom(R);
@@ -1024,8 +1248,8 @@ public class GModify extends StdCommand
 			}
 		}
 
-		if(mob.session()!=null)
-			mob.session().rawPrintln(L("!\n\rDone!"));
+		if(sess!=null)
+			sess.rawPrintln(L("!\n\rDone!"));
 		for(int i=0;i<placesToDo.size();i++)
 		{
 			final Room R=(Room)placesToDo.get(i);

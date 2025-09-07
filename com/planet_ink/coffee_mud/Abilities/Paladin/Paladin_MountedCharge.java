@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -126,7 +126,7 @@ public class Paladin_MountedCharge extends StdAbility
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
 		super.affectPhyStats(affected,affectableStats);
-		final int xlvl=adjustedLevel(invoker(),0);
+		final int xlvl=adjustedLevel((MOB)affected,0);
 		affectableStats.setAttackAdjustment(affectableStats.attackAdjustment()+(4*xlvl));
 		affectableStats.setArmor(affectableStats.armor()+(4*xlvl));
 		affectableStats.setDamage(affectableStats.damage()+xlvl);
@@ -160,13 +160,13 @@ public class Paladin_MountedCharge extends StdAbility
 			return false;
 		}
 
-		if(!PaladinSkill.paladinAlignmentCheck(this, mob, false))
-			return false;
+		//if(!PaladinSkill.paladinAlignmentCheck(this, mob, false))
+		//	return false;
 
 		final Rideable mount=mob.riding();
-		if(mount==null)
+		if(!CMLib.flags().isMobileMounted(mob))
 		{
-			mob.tell(L("You must be mounted to use this skill."));
+			mob.tell(L("You must be riding a mount to use this skill."));
 			return false;
 		}
 
@@ -177,30 +177,44 @@ public class Paladin_MountedCharge extends StdAbility
 		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MASK_MALICIOUS|CMMsg.MSG_ADVANCE,L("<S-NAME> "+mount.rideString(mob)+" hard at <T-NAMESELF>!"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MASK_MALICIOUS|CMMsg.MSG_ADVANCE,
+					L("<S-NAME> @x1 hard at <T-NAMESELF>!",mount.rideString(mob)));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
 				if(mob.getVictim()==target)
 				{
-					mob.setRangeToTarget(0);
-					target.setRangeToTarget(0);
-					beneficialAffect(mob,mob,asLevel,2);
-					mob.recoverPhyStats();
-					if(notInCombat)
+					msg.setSourceMessage(null);
+					msg.setTargetMessage(null);
+					msg.setOthersMessage(null);
+					msg.setTool(null);
+					for(int i=mob.rangeToTarget()-1;i>=0;i--)
 					{
-						done=true;
-						CMLib.combat().postAttack(mob,target,mob.fetchWieldedItem());
+						if(mob.location().okMessage(mob, msg))
+							mob.location().send(mob, msg);
 					}
-					else
-						done=false;
-					if(mob.getVictim()==null) mob.setVictim(null); // correct range
-					if(target.getVictim()==null) target.setVictim(null); // correct range
+					if(mob.rangeToTarget()==0)
+					{
+						target.setRangeToTarget(0);
+						beneficialAffect(mob,mob,asLevel,2);
+						mob.recoverPhyStats();
+						if(notInCombat)
+						{
+							done=true;
+							CMLib.combat().postAttack(mob,target,mob.fetchWieldedItem());
+						}
+						else
+							done=false;
+						if(mob.getVictim()==null)
+							mob.setVictim(null); // correct range
+						if(target.getVictim()==null)
+							target.setVictim(null); // correct range
+					}
 				}
 			}
 		}
 		else
-			return beneficialVisualFizzle(mob,target,L("<S-NAME> "+mount.rideString(mob)+" at <T-NAMESELF>, but miss(es)."));
+			return beneficialVisualFizzle(mob,target,L("<S-NAME> @x1 at <T-NAMESELF>, but miss(es).",mount.rideString(mob)));
 
 		// return whether it worked
 		return success;

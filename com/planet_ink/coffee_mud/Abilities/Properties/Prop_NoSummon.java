@@ -2,6 +2,9 @@ package com.planet_ink.coffee_mud.Abilities.Properties;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
+
+import java.util.List;
+
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -16,7 +19,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,6 +54,7 @@ public class Prop_NoSummon extends Property
 	}
 
 	protected boolean nonAggroOK=false;
+	protected boolean magicOnly=false;
 
 	@Override
 	public long flags()
@@ -61,7 +65,9 @@ public class Prop_NoSummon extends Property
 	@Override
 	public void setMiscText(final String text)
 	{
-		nonAggroOK=CMParms.parse(text.toUpperCase()).contains("ALLOWNONAGGR");
+		final List<String> parms = CMParms.parse(text.toUpperCase());
+		nonAggroOK=parms.contains("ALLOWNONAGGR");
+		magicOnly=parms.contains("MAGICONLY");
 
 	}
 
@@ -72,20 +78,27 @@ public class Prop_NoSummon extends Property
 			return false;
 
 		if((msg.tool() instanceof Ability)
+		&&(CMath.bset(((Ability)msg.tool()).flags(),Ability.FLAG_SUMMONING))
 		&&(msg.source().location()!=null)
 		&&(msg.sourceMinor()!=CMMsg.TYP_TEACH)
 		&&((msg.source().location()==affected)
 		   ||((affected instanceof Area)&&(((Area)affected).inMyMetroArea(msg.source().location().getArea()))))
-		&&((!nonAggroOK)||(!(msg.target() instanceof MOB))||(!CMLib.flags().isAggressiveTo((MOB)msg.target(),null)))
-		&&(CMath.bset(((Ability)msg.tool()).flags(),Ability.FLAG_SUMMONING)))
+		&&((!nonAggroOK)||(!(msg.target() instanceof MOB))||(!CMLib.flags().isAggressiveTo((MOB)msg.target(),null))))
 		{
 			final Ability A=(Ability)msg.tool();
 			if(((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)
 			||((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SPELL)
 			||((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_PRAYER)
 			||((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SONG))
+			{
 				msg.source().location().showHappens(CMMsg.MSG_OK_VISUAL,L("Magic energy fizzles and is absorbed into the air."));
-			return false;
+				return false;
+			}
+			if(!magicOnly)
+			{
+				msg.source().location().showHappens(CMMsg.MSG_OK_VISUAL,L("<S-YOUPOSS> @x1 attempt fails.",A.Name()));
+				return false;
+			}
 		}
 		return true;
 	}

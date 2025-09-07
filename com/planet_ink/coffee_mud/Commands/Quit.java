@@ -9,6 +9,7 @@ import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.Session.InputCallback;
+import com.planet_ink.coffee_mud.Common.interfaces.Session.SessionPing;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
@@ -19,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -112,7 +113,8 @@ public class Quit extends StdCommand
 							if((R!=null)&&(R.okMessage(mob,msg)))
 							{
 								CMLib.map().sendGlobalMessage(mob,CMMsg.TYP_QUIT, msg);
-								session.stopSession(false,false, false); // this should call prelogout and later loginlogoutthread to cause msg SEND
+								mob.tell(L("Bye!"));
+								session.stopSession(true,false, false, false); // this should call prelogout and later loginlogoutthread to cause msg SEND
 								CMLib.commands().monitorGlobalMessage(R, msg);
 							}
 						}
@@ -121,6 +123,18 @@ public class Quit extends StdCommand
 			}
 		}
 		return false;
+	}
+
+	@Override
+	public double combatActionsCost(final MOB mob, final List<String> cmds)
+	{
+		return CMProps.getCommandCombatActionCost(ID());
+	}
+
+	@Override
+	public double actionsCost(final MOB mob, final List<String> cmds)
+	{
+		return CMProps.getCommandActionCost(ID());
 	}
 
 	@Override

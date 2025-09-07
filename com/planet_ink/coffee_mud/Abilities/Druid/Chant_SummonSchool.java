@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -167,9 +167,9 @@ public class Chant_SummonSchool extends Chant
 				if(compress)
 					Say.append(CMLib.flags().getDispositionBlurbs(mob,mob)+"^M ");
 				if(mob.displayText(msg.source()).length()>0)
-					Say.append(CMStrings.endWithAPeriod(CMStrings.capitalizeFirstLetter(mob.displayText(msg.source()))));
+					Say.append(CMStrings.endWithAPeriod(CMStrings.capitalizeFirstLetter(mob.displayText(msg.source())), '.'));
 				else
-					Say.append(CMStrings.endWithAPeriod(CMStrings.capitalizeFirstLetter(mob.name())));
+					Say.append(CMStrings.endWithAPeriod(CMStrings.capitalizeFirstLetter(mob.name()), '.'));
 				if(!compress)
 					Say.append(CMLib.flags().getDispositionBlurbs(mob,msg.source())+"^N\n\r");
 				else
@@ -207,7 +207,7 @@ public class Chant_SummonSchool extends Chant
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> already <S-HAS-HAVE> a school here."));
+			failureTell(mob,target,auto,L("<S-NAME> already <S-HAS-HAVE> a school here."));
 			return false;
 		}
 
@@ -250,7 +250,9 @@ public class Chant_SummonSchool extends Chant
 				numberOfImages = CMLib.dice().roll(1,adjustedLevel(mob,asLevel),100);
 			else
 				numberOfImages = CMLib.dice().roll(1,(int)(Math.round(CMath.div(adjustedLevel(mob,asLevel),3.0))),2);
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L((auto?"":"^S<S-NAME> chant(s) to the waters, and ")+"suddenly @x1 @x2(s) arrive, forming up as a school around <S-NAME>.^?",""+numberOfImages,raceName.toLowerCase()));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					auto?L("Suddenly @x1 @x2(s) arrive, forming up as a school around <S-NAME>.^?",""+numberOfImages,raceName.toLowerCase())
+							:L("^S<S-NAME> chant(s) to the waters, and suddenly @x1 @x2(s) arrive, forming up as a school around <S-NAME>.^?",""+numberOfImages,raceName.toLowerCase()));
 			if(mob.charStats().getStat(CharStats.STAT_INTELLIGENCE)<5)
 				mob.charStats().setStat(CharStats.STAT_INTELLIGENCE, 5);
 			if(mob.location().okMessage(mob,msg))

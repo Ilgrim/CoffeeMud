@@ -19,7 +19,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2000-2020 Bo Zimmerman, Jeremy Vyska
+   Copyright 2000-2025 Bo Zimmerman, Jeremy Vyska
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -137,24 +137,6 @@ public interface Area extends Economics, PhysicalAgent, Places
 	public String getAuthorID();
 
 	/**
-	 * Sets the default currency for this area, which will be referenced by
-	 * shopkeepers, bankers, and other mobs.  See Archon's Guide for the proper
-	 * format for this string, as it can be anything from a full current
-	 * definition, to a reference to an existing one.
-	 * @return a currency name/definition
-	 */
-	public String getCurrency();
-
-	/**
-	 * Returns the default currency for this area, which will be referenced by
-	 * shopkeepers, bankers, and other mobs.  See Archon's Guide for the proper
-	 * format for this string, as it can be anything from a full current
-	 * definition, to a reference to an existing one.
-	 * @param currency  a currency name/definition
-	 */
-	public void setCurrency(String currency);
-
-	/**
 	 * A blurb flag is a run-time modifiable set of strings that can be added
 	 * to an area in order to display them in the HELP entry for an area.
 	 * @return the number of such strings defined
@@ -238,8 +220,11 @@ public interface Area extends Economics, PhysicalAgent, Places
 
 	/**
 	 * Returns a room of the given roomID, if it has already been added by calling
-	 * addProperRoom.
+	 * addProperRoom.  If this area is Thin, this will load the room from the
+	 * database and cache it.
+	 *
 	 * @see com.planet_ink.coffee_mud.Locales.interfaces.Room
+	 *
 	 * @param roomID the roomID of the room to return.
 	 * @return a reference to the room that the id refers to, IF the room belongs here.
 	 */
@@ -253,6 +238,15 @@ public interface Area extends Economics, PhysicalAgent, Places
 	 * @return whether it belongs to this Area or no.
 	 */
 	public boolean isRoom(Room R);
+
+	/**
+	 * Returns whether the given room id object belongs to this Area, and has been
+	 * loaded into the memory cache.
+	 * @see com.planet_ink.coffee_mud.Locales.interfaces.Room
+	 * @param roomID the Room id to check for
+	 * @return whether it belongs to this Area or no, and is cached
+	 */
+	public boolean isRoomCached(String roomID);
 
 	/**
 	 * Returns a random room from this area, loading it if necessary.
@@ -495,23 +489,58 @@ public interface Area extends Economics, PhysicalAgent, Places
 
 	/**
 	 * Returns a descriptive list of statistics about this area based on a
-	 * snapshot from getAreaIStats(), which is cached after being generated.
+	 * snapshot from area statistics, which is cached after being generated.
 	 * This stringbuffer returned is user-readable.
-	 * @see com.planet_ink.coffee_mud.Areas.interfaces.Area#getAreaIStats()
+	 * @see com.planet_ink.coffee_mud.Areas.interfaces.Area#getIStat(Stats)
 	 * @return a user readable string describing stats about the area.
 	 */
 	public StringBuffer getAreaStats();
 
 	/**
-	 * Returns an integer array of statistics about this area based on
+	 * Returns an integer from the array of statistics about this area based on
 	 * a snapshot generated the first time it is called.  This array is
 	 * the cached for future calls, but can be unloaded from resources
 	 * using the UNLOAD command, to force a re-generation.
-	 * The array is dereferenced using AREASTAT_ constants.
+	 * The array is dereferenced using Area.Stats constants.
+	 *
 	 * @see com.planet_ink.coffee_mud.Areas.interfaces.Area.Stats
-	 * @return an array of integer statistics
+	 * @see Area#getPiety(String)
+	 * @see Area#isAreaStatsLoaded()
+	 *
+	 * @param stat Area.Stats the stat to return
+	 * @return the current integer statistic
 	 */
-	public int[] getAreaIStats();
+	public int getIStat(Area.Stats stat);
+
+	/**
+	 * Returns whether the area statistics are ready for reading.
+	 *
+	 * @see Area#getIStat(Stats)
+	 * @see Area#getPiety(String)
+	 *
+	 * @return true if the stats are complete, false otherwise
+	 */
+	public boolean isAreaStatsLoaded();
+
+	/**
+	 * Returns the most common race in the area, or null if one is either
+	 * not determined yet, or the area is unpopulated.
+	 * This is derived from the area istats.
+	 * @return the area race
+	 */
+	public Race getAreaRace();
+
+	/**
+	 * Returns the number of registered followers of the given
+	 * deity are in the given area name.
+	 *
+	 * @see Area#getIStat(Stats)
+	 * @see Area#isAreaStatsLoaded()
+	 *
+	 * @param deityName the deity to get the piety of
+	 * @return the piety of the area for that deity
+	 */
+	public int getPiety(final String deityName);
 
 	/**
 	 * Returns a fake player-level, to be used instead of median or average
@@ -565,6 +594,15 @@ public interface Area extends Economics, PhysicalAgent, Places
 	 * @return whether the area named is a child of this one
 	 */
 	public boolean isChild(String named);
+
+	/**
+	 * Returns whether the Area named is a Child of this Area,
+	 * or child of a child of this area, recursively.
+	 * A Child Area passes down certain behaviors and property effects to its children
+	 * @param named the name of an Area
+	 * @return whether the area named is a Child of this one
+	 */
+	public boolean isChildRecurse(String named);
 
 	/**
 	 * Designates the given Area object as a Child of this one.
@@ -628,6 +666,15 @@ public interface Area extends Economics, PhysicalAgent, Places
 	public boolean isParent(String named);
 
 	/**
+	 * Returns whether the Area named is a Parent of this Area,
+	 * or parent of a parent of this area, recursively.
+	 * A Parent Area passes down certain behaviors and property effects to its children
+	 * @param named the name of an Area
+	 * @return whether the area named is a Parent of this one
+	 */
+	public boolean isParentRecurse(String named);
+
+	/**
 	 * Designates the given Area object as a Parent of this one.
 	 * A Parent Area passes down certain behaviors and property effects to its children
 	 * @param area an Area object
@@ -648,27 +695,6 @@ public interface Area extends Economics, PhysicalAgent, Places
 	 * @return whether the Area named MAY BE designated as a parent of this Area
 	 */
 	public boolean canParent(Area newParent);
-
-	/**
-	 * Class to hold a reference to a child area instance,
-	 * and the inhabitants who belong there.
-	 * @author Bo Zimmerman
-	 */
-	public static class AreaInstanceChild
-	{
-		/** List of players and their pets that belong in this instance */
-		public final List<WeakReference<MOB>> mobs;
-		/** Reference to the actual area where they go. */
-		public final Area A;
-		/** the time the instance was created */
-		public final long creationTime;
-		public AreaInstanceChild(final Area A, final List<WeakReference<MOB>> mobs)
-		{
-			this.A=A;
-			this.mobs=mobs;
-			this.creationTime = System.currentTimeMillis();
-		}
-	}
 
 	public final static String[] THEME_BIT_NAMES={"FANTASY","TECH","HEROIC","SKILLONLY"};
 	/**	Bitmap flag meaning that the object supports magic.  @see com.planet_ink.coffee_mud.Areas.interfaces.Area#getTheme() */
@@ -748,15 +774,17 @@ public interface Area extends Economics, PhysicalAgent, Places
 		DESERT_ROOMS,
 		CITY_ROOMS,
 		CAVE_ROOMS,
-		INTELLIGENT_MOBS
-		/*
+		INTELLIGENT_MOBS,
+		MAX_LEVEL_MOBS,
 		HUMANOIDS,
 		GOOD_MOBS,
 		EVIL_MOBS,
 		LAWFUL_MOBS,
 		CHAOTIC_MOBS,
-		BOSS_MOBS
-		*/
+		BOSS_MOBS,
+		MODE_LEVEL,
+		MODE_ALIGNMENT,
+		AGGRO_MOBS
 	}
 
 	/**

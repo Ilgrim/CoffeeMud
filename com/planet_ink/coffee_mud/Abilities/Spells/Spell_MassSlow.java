@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -68,16 +68,36 @@ public class Spell_MassSlow extends Spell
 	}
 
 	@Override
+	protected int canTargetCode()
+	{
+		return 0;
+	}
+
+	@Override
 	public int classificationCode()
 	{
 		return Ability.ACODE_SPELL|Ability.DOMAIN_ALTERATION;
 	}
 
 	@Override
+	public int castingQuality(final MOB mob, final Physical target)
+	{
+		if(mob!=null)
+		{
+			if(target instanceof MOB)
+			{
+				if(((MOB)target).fetchEffect("Spell_Slow")!=null)
+					return Ability.QUALITY_INDIFFERENT;
+			}
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		final Set<MOB> h=properTargets(mob,givenTarget,auto);
-		if(h==null)
+		if((h==null)||(h.size()==0))
 		{
 			mob.tell(L("There doesn't appear to be anyone here worth slowing down."));
 			return false;
@@ -90,7 +110,7 @@ public class Spell_MassSlow extends Spell
 
 		if(success)
 		{
-			if(mob.location().show(mob,null,this,somanticCastCode(mob,null,auto),auto?"":L("^S<S-NAME> whisper(s) and wave(s) <S-HIS-HER> arms.^?")))
+			if(mob.location().show(mob,null,this,somaticCastCode(mob,null,auto),auto?"":L("^S<S-NAME> whisper(s) and wave(s) <S-HIS-HER> arms.^?")))
 			{
 				for (final Object element : h)
 				{
@@ -101,7 +121,7 @@ public class Spell_MassSlow extends Spell
 					if(CMLib.flags().canBeHeardSpeakingBy(mob,target))
 					{
 						final MOB oldVictim=mob.getVictim();
-						final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),null);
+						final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),null);
 						if((mob.location().okMessage(mob,msg))&&(target.fetchEffect(this.ID())==null))
 						{
 							mob.location().send(mob,msg);

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -64,84 +64,84 @@ public class AHelp extends StdCommand
 				StringBuffer theRest=(StringBuffer)Resources.getResource("arc_help.therest");
 				if(theRest==null)
 				{
-					final Vector<String> V=new Vector<String>();
+					final List<String> ableIV=new ArrayList<String>();
 					theRest=new StringBuffer("");
 
 					for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
 					{
 						final Ability A=a.nextElement();
 						if((A!=null)&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_PROPERTY))
-							V.add(A.ID());
+							ableIV.add(A.ID());
 					}
-					if(V.size()>0)
+					if(ableIV.size()>0)
 					{
 						theRest.append("\n\rProperties:\n\r");
-						theRest.append(CMLib.lister().fourColumns(mob,V));
+						theRest.append(CMLib.lister().build4ColTable(mob,ableIV));
 					}
 
-					V.clear();
+					ableIV.clear();
 					for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
 					{
 						final Ability A=a.nextElement();
 						if((A!=null)&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_DISEASE))
-							V.add(A.ID());
+							ableIV.add(A.ID());
 					}
-					if(V.size()>0)
+					if(ableIV.size()>0)
 					{
 						theRest.append("\n\rDiseases:\n\r");
-						theRest.append(CMLib.lister().fourColumns(mob,V));
+						theRest.append(CMLib.lister().build4ColTable(mob,ableIV));
 					}
 
-					V.clear();
+					ableIV.clear();
 					for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
 					{
 						final Ability A=a.nextElement();
 						if((A!=null)&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_POISON))
-							V.add(A.ID());
+							ableIV.add(A.ID());
 					}
-					if(V.size()>0)
+					if(ableIV.size()>0)
 					{
 						theRest.append("\n\rPoisons:\n\r");
-						theRest.append(CMLib.lister().fourColumns(mob,V));
+						theRest.append(CMLib.lister().build4ColTable(mob,ableIV));
 					}
 
-					V.clear();
+					ableIV.clear();
 					for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
 					{
 						final Ability A=a.nextElement();
 						if((A!=null)&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SUPERPOWER))
-							V.add(A.ID());
+							ableIV.add(A.ID());
 					}
-					if(V.size()>0)
+					if(ableIV.size()>0)
 					{
 						theRest.append("\n\rSuper Powers:\n\r");
-						theRest.append(CMLib.lister().fourColumns(mob,V));
+						theRest.append(CMLib.lister().build4ColTable(mob,ableIV));
 					}
 
-					V.clear();
+					ableIV.clear();
 					for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
 					{
 						final Ability A=a.nextElement();
 						if((A!=null)&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_TECH))
-							V.add(A.ID());
+							ableIV.add(A.ID());
 					}
-					if(V.size()>0)
+					if(ableIV.size()>0)
 					{
 						theRest.append("\n\rTech Skills:\n\r");
-						theRest.append(CMLib.lister().fourColumns(mob,V));
+						theRest.append(CMLib.lister().build4ColTable(mob,ableIV));
 					}
 
-					V.clear();
+					ableIV.clear();
 					for(final Enumeration<Behavior> b=CMClass.behaviors();b.hasMoreElements();)
 					{
 						final Behavior B=b.nextElement();
 						if(B!=null)
-							V.add(B.ID());
+							ableIV.add(B.ID());
 					}
-					if(V.size()>0)
+					if(ableIV.size()>0)
 					{
 						theRest.append("\n\r\n\rBehaviors:\n\r");
-						theRest.append(CMLib.lister().fourColumns(mob,V));
+						theRest.append(CMLib.lister().build4ColTable(mob,ableIV));
 					}
 					Resources.submitResource("arc_help.therest",theRest);
 				}
@@ -151,9 +151,17 @@ public class AHelp extends StdCommand
 		}
 		else
 		{
-			final StringBuilder text = CMLib.help().getHelpText(helpStr,CMLib.help().getArcHelpFile(),mob);
-			if(text != null)
-				thisTag=new StringBuffer(text.toString());
+			final Pair<String,String> textP = CMLib.help().getHelpMatch(helpStr,CMLib.help().getArcHelpFile(),mob, 0);
+			if((textP != null) && (textP.second != null))
+			{
+				thisTag=new StringBuffer(textP.second.toString());
+				final List<String> seeAlso = CMLib.help().getSeeAlsoHelpOn(mob, CMLib.help().getArcHelpFile(), helpStr, textP.first, textP.second, 5);
+				if(seeAlso.size()>0)
+				{
+					final String alsoHelpStr = CMLib.english().toEnglishStringList(seeAlso);
+					thisTag.append("\n\rSee also help on: "+alsoHelpStr);
+				}
+			}
 		}
 		if(thisTag==null)
 		{

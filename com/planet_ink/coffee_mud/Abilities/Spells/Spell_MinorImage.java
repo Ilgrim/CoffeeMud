@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -149,7 +149,7 @@ public class Spell_MinorImage extends Spell
 			final MOB simulacruM=(MOB)affected;
 			if(msg.amISource(simulacruM) && (!CMath.bset(msg.sourceMajor(), CMMsg.MASK_ALWAYS)))
 			{
-				msg.source().tell("You can't do anything, you're just a stationary illusion!");
+				msg.source().tell(L("You can't do anything, you're just a stationary illusion!"));
 				return false;
 			}
 			else
@@ -209,11 +209,11 @@ public class Spell_MinorImage extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> arms around <T-NAMESELF>, incanting.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> arms around <T-NAMESELF>, incanting.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				final MOB M=determineMonster(target,target.location(),target.phyStats().level());
+				final MOB M=determineMonster(mob,target,target.location(),target.phyStats().level());
 				final Spell_MinorImage A = (Spell_MinorImage)beneficialAffect(mob,M,asLevel,getDuration(mob,asLevel));
 				if(A!=null)
 				{
@@ -369,11 +369,11 @@ public class Spell_MinorImage extends Spell
 		return seenTatts;
 	}
 
-	public MOB determineMonster(final MOB target, final Room R, final int level)
+	public MOB determineMonster(final MOB caster, final MOB target, final Room R, final int level)
 	{
 
 		final MOB newMOB=CMClass.getMOB("GenMob");
-		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase());
+		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase());//normal
 		newMOB.basePhyStats().setLevel(target.basePhyStats().level());
 		newMOB.basePhyStats().setWeight(target.basePhyStats().weight());
 		newMOB.basePhyStats().setRejuv(PhyStats.NO_REJUV);
@@ -387,13 +387,15 @@ public class Spell_MinorImage extends Spell
 		newMOB.setName(L("an image of @x1",target.Name()));
 		newMOB.setDisplayText(L("@x1 is here.",target.Name()));
 		newMOB.setDescription(target.description());
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		newMOB.recoverCharStats();
 		newMOB.recoverPhyStats();
 		newMOB.recoverMaxState();
 		CMLib.factions().setAlignment(newMOB,Faction.Align.NEUTRAL);
 		newMOB.resetToMaxState();
-		newMOB.text();
+		newMOB.setMiscText(newMOB.text());
 		newMOB.bringToLife(target.location(),true);
 		newMOB.recoverCharStats();
 		newMOB.recoverPhyStats();
@@ -411,7 +413,7 @@ public class Spell_MinorImage extends Spell
 				eqI.setRawLogicalAnd(e.first.rawLogicalAnd());
 				eqI.basePhyStats().setDisposition(e.first.phyStats().disposition());
 				eqI.basePhyStats().setSensesMask(e.first.phyStats().sensesMask());
-				eqI.setDescription("You can see through it!");
+				eqI.setDescription(L("You can see through it!"));
 				eqI.setMaterial(RawMaterial.RESOURCE_NOTHING);
 				eqI.basePhyStats().setWeight(0);
 				eqI.recoverPhyStats();

@@ -21,7 +21,7 @@ import java.lang.reflect.Method;
 import java.net.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -56,18 +56,7 @@ public class Authenticate extends StdWebMacro
 	{
 		final java.util.Map<String,String> parms=parseParms(parm);
 		if((parms!=null)&&(parms.containsKey("AUTH")))
-		{
-			try
-			{
-				final String loginUrlStr= URLEncoder.encode(CMLib.encoder().filterEncrypt(Authenticate.getLogin(httpReq)),"UTF-8");
-				final String passwordUrlStr=URLEncoder.encode(CMLib.encoder().filterEncrypt(Authenticate.getPassword(httpReq)),"UTF-8");
-				return loginUrlStr+"-"+passwordUrlStr;
-			}
-			catch(final Exception u)
-			{
-				return "false";
-			}
-		}
+			return getAuth(httpReq);
 		final String login=getLogin(httpReq);
 		if((parms!=null)&&(parms.containsKey("SETPLAYER")))
 			httpReq.addFakeUrlParameter("PLAYER",login);
@@ -82,9 +71,23 @@ public class Authenticate extends StdWebMacro
 		return "false";
 	}
 
+	public static String getAuth(final HTTPRequest httpReq)
+	{
+		try
+		{
+			final String loginUrlStr= URLEncoder.encode(CMLib.encoder().filterEncrypt(Authenticate.getLogin(httpReq)),"UTF-8");
+			final String passwordUrlStr=URLEncoder.encode(CMLib.encoder().filterEncrypt(Authenticate.getPassword(httpReq)),"UTF-8");
+			return loginUrlStr+"-"+passwordUrlStr;
+		}
+		catch(final Exception u)
+		{
+			return "false";
+		}
+	}
+	
 	public static boolean authenticated(final HTTPRequest httpReq, final String login, final String password)
 	{
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return false;
 		final MOB mob=CMLib.players().getLoadPlayer(login);
 		if((mob!=null)

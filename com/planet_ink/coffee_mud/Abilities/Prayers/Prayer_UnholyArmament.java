@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -121,8 +121,8 @@ public class Prayer_UnholyArmament extends Prayer
 			pos=checkOrder[i];
 			if(pos<0)
 			{
-				if(mob.getWorshipCharID().length()>0)
-					mob.tell(L("@x1 can see that you are already completely armed.",mob.getWorshipCharID()));
+				if(mob.charStats().getWorshipCharID().length()>0)
+					mob.tell(L("@x1 can see that you are already completely armed.",mob.charStats().getWorshipCharID()));
 				else
 					mob.tell(L("The gods can see that you are already armed."));
 				return false;
@@ -138,6 +138,7 @@ public class Prayer_UnholyArmament extends Prayer
 				I.setDescription(L("Whatever made this twisted thing couldn`t have been good.."));
 				I.basePhyStats().setLevel(mob.phyStats().level());
 				I.basePhyStats().setWeight(20);
+				I.basePhyStats().setSensesMask(I.basePhyStats().sensesMask()|PhyStats.SENSE_ITEMNOSCRAP);
 				I.setMaterial(RawMaterial.RESOURCE_MITHRIL);
 				I.recoverPhyStats();
 				final Map<String,String> H=CMLib.itemBuilder().timsItemAdjustments(I,mob.phyStats().level()+(2*getXLEVELLevel(mob)),I.material(),1,((Weapon)I).weaponClassification(),0,I.rawProperLocationBitmap());
@@ -154,6 +155,7 @@ public class Prayer_UnholyArmament extends Prayer
 				I.setDescription(L("Whatever made this hideous shield couldn`t have been good."));
 				I.basePhyStats().setLevel(mob.phyStats().level());
 				I.basePhyStats().setWeight(20);
+				I.basePhyStats().setSensesMask(I.basePhyStats().sensesMask()|PhyStats.SENSE_ITEMNOSCRAP);
 				I.setMaterial(RawMaterial.RESOURCE_MITHRIL);
 				I.recoverPhyStats();
 				final Map<String,String> H=CMLib.itemBuilder().timsItemAdjustments(I,mob.phyStats().level()+(2*getXLEVELLevel(mob)),I.material(),1,0,0,I.rawProperLocationBitmap());
@@ -174,6 +176,7 @@ public class Prayer_UnholyArmament extends Prayer
 				final Map<String,String> H=CMLib.itemBuilder().timsItemAdjustments(I,mob.phyStats().level()+(2*getXLEVELLevel(mob)),I.material(),1,0,0,I.rawProperLocationBitmap());
 				I.basePhyStats().setArmor(CMath.s_int(H.get("ARMOR")));
 				I.basePhyStats().setWeight(CMath.s_int(H.get("WEIGHT")));
+				I.basePhyStats().setSensesMask(I.basePhyStats().sensesMask()|PhyStats.SENSE_ITEMNOSCRAP);
 				I.setBaseValue(0);
 				if(pos==Wearable.WORN_TORSO)
 				{
@@ -204,7 +207,7 @@ public class Prayer_UnholyArmament extends Prayer
 				{
 					numThatsOk=2;
 					I.setName(L("an unholy vambrace"));
-					I.setDisplayText(L("a wicked looking spiked vambrace sit here."));
+					I.setDisplayText(L("a wicked looking spiked vambrace sits here."));
 					I.setDescription(L("Whatever made this twisted black metal couldn`t have been good."));
 				}
 				if(pos==Wearable.WORN_HANDS)
@@ -262,8 +265,8 @@ public class Prayer_UnholyArmament extends Prayer
 
 		if(I==null)
 		{
-			if(mob.getWorshipCharID().length()>0)
-				mob.tell(L("@x1 can see that you are already completely armed.",mob.getWorshipCharID()));
+			if(mob.charStats().getWorshipCharID().length()>0)
+				mob.tell(L("@x1 can see that you are already completely armed.",mob.charStats().getWorshipCharID()));
 			else
 				mob.tell(L("The gods can see that you are already armed."));
 			return false;

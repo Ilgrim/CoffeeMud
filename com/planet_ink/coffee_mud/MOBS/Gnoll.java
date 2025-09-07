@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Gnoll extends StdMOB
 	public Gnoll()
 	{
 		super();
-		username="a Gnoll";
+		_name="a Gnoll";
 		setDescription("a 7 foot tall creature with a body resembling a large human and the head of a hyena.");
 		setDisplayText("A nasty Gnoll stands here.");
 		CMLib.factions().setAlignment(this,Faction.Align.EVIL);
@@ -69,7 +69,7 @@ public class Gnoll extends StdMOB
 		baseCharStats().setStat(CharStats.STAT_CHARISMA,2);
 		baseCharStats().setStat(CharStats.STAT_STRENGTH,22);
 
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(2);
 		basePhyStats().setArmor(90);
 

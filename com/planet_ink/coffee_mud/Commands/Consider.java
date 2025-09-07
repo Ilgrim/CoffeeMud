@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ public class Consider extends StdCommand
 	{
 	}
 
-	private final String[] access=I(new String[]{"CONSIDER","COS","CO"});
+	private final String[] access=I(new String[]{"CONSIDER","CONS","CON","COS","CO"});
 	@Override
 	public String[] getAccessWords()
 	{
@@ -72,12 +72,12 @@ public class Consider extends StdCommand
 		return levelDiffed*(levelDiff<0.0?-1:1);
 	}
 
-	public int doConsider(final MOB mob, final Physical target)
+	public int doConsider(final MOB mob, final Physical target, final boolean heShe, final String msgStr)
 	{
 		final Room R=mob.location();
 		if(R==null)
 			return 0;
-		final CMMsg msg=CMClass.getMsg(mob,target,null,CMMsg.MASK_EYES|CMMsg.TYP_OK_VISUAL,null,L("<S-NAME> consider(s) <T-NAMESELF>."),L("<S-NAME> consider(s) <T-NAMESELF>."));
+		final CMMsg msg=CMClass.getMsg(mob,target,null,CMMsg.MASK_EYES|CMMsg.TYP_OK_VISUAL,null,msgStr,msgStr);
 		if(R.okMessage(mob,msg))
 			R.send(mob,msg);
 		int lvlDiff=0;
@@ -98,72 +98,85 @@ public class Consider extends StdCommand
 			if(mob.phyStats().level()>80)
 				theDiff=6;
 
+			final String name = heShe?targetMOB.charStats().HeShe():targetMOB.name(mob);
+			final String targetName = target.name(mob);
 			final StringBuilder levelMsg=new StringBuilder("");
 			if(lvlDiff==0)
-				levelMsg.append(L(targetMOB.charStats().HeShe()+" is your equal"));
+				levelMsg.append(L("@x1 is your equal", name));
 			else
 			if(lvlDiff<-CMProps.getIntVar(CMProps.Int.EXPRATE))
-				levelMsg.append(L(targetMOB.charStats().HeShe()+" is vastly inferior to you"));
+				levelMsg.append(L("@x1 is vastly inferior to you", name));
 			else
 			if(lvlDiff>CMProps.getIntVar(CMProps.Int.EXPRATE))
-				levelMsg.append(L(targetMOB.charStats().HeShe()+" is far superior to you"));
+				levelMsg.append(L("@x1 is far superior to you", name));
 			else
 			if(CMProps.getIntVar(CMProps.Int.EXPRATE)!=0)
 			{
 				final int relLvlDiff=(lvlDiff<0)?-lvlDiff:lvlDiff;
 				final double pct=CMath.div(relLvlDiff,CMProps.getIntVar(CMProps.Int.EXPRATE));
 				if((lvlDiff<0)&&(pct<0.5))
-					levelMsg.append(L(targetMOB.charStats().HeShe()+" is almost your equal"));
+					levelMsg.append(L("@x1 is almost your equal", name));
 				else
 				if((lvlDiff<0)&&(pct<=1.0))
-					levelMsg.append(L(targetMOB.charStats().HeShe()+" is somewhat inferior to you"));
+					levelMsg.append(L("@x1 is somewhat inferior to you", name));
 				else
 				if((lvlDiff<0))
-					levelMsg.append(L(targetMOB.charStats().HeShe()+" is inferior to you"));
+					levelMsg.append(L("@x1 is inferior to you", name));
 				else
 				if((lvlDiff>0)&&(pct<0.5))
-					levelMsg.append(L("You are almost "+targetMOB.charStats().hisher()+" equal"));
+					levelMsg.append(L("@x1 is almost your equal", name));
 				else
 				if((lvlDiff>0)&&(pct<0.8))
-					levelMsg.append(L(targetMOB.charStats().HeShe()+" is somewhat superior to you"));
+					levelMsg.append(L("@x1 is somewhat superior to you", name));
 				else
-					levelMsg.append(L(targetMOB.charStats().HeShe()+" is superior to you"));
+					levelMsg.append(L("@x1 is superior to you", name));
 			}
 
 			final int levelDiff=Math.abs(realDiff);
 			if(levelDiff<theDiff)
 			{
-				levelMsg.append(L((lvlDiff!=0)?" but ":" and "));
-				levelMsg.append(L("the perfect match!"));
+				if(levelMsg.length()==0)
+					levelMsg.append(L("@x1 is is the perfect match!",targetName));
+				else
+				if(levelDiff != 0)
+					levelMsg.append(L(" but is the perfect match!"));
+				else
+					levelMsg.append(L(" and is the perfect match!"));
 			}
 			else
 			if(realDiff<0)
 			{
-				levelMsg.append(L((lvlDiff<0)?" and ":" but "));
+				if(levelMsg.length()==0)
+					levelMsg.append(targetName+" ");
+				else
+					levelMsg.append((lvlDiff<0)?L(" and "):L(" but "));
 				if(realDiff>-(2*theDiff))
-					levelMsg.append(L(targetMOB.charStats().heshe()+" might actually give you a fight."));
+					levelMsg.append(L("might actually give you a fight."));
 				else
 				if(realDiff>-(3*theDiff))
-					levelMsg.append(L(targetMOB.charStats().heshe()+" won't put up a big fight."));
+					levelMsg.append(L("won't put up a big fight."));
 				else
 				if(realDiff>-(4*theDiff))
-					levelMsg.append(L(targetMOB.charStats().heshe()+" is basically a pushover."));
+					levelMsg.append(L("is basically a pushover."));
 				else
-					levelMsg.append(L(targetMOB.charStats().heshe()+" is an easy kill."));
+					levelMsg.append(L("is an easy kill."));
 			}
 			else
 			{
-				levelMsg.append(L((lvlDiff>0)?" and ":" but "));
+				if(levelMsg.length()==0)
+					levelMsg.append(targetName+" ");
+				else
+					levelMsg.append((lvlDiff>0)?L(" and "):(" but "));
 				if(realDiff<(2*theDiff))
-					levelMsg.append(L(targetMOB.charStats().heshe()+" looks a little tough."));
+					levelMsg.append(L("looks a little tough."));
 				else
 				if(realDiff<(3*theDiff))
-					levelMsg.append(L(targetMOB.charStats().heshe()+" is a serious threat."));
+					levelMsg.append(L("is a serious threat."));
 				else
 				if(realDiff<(4*theDiff))
-					levelMsg.append(L(targetMOB.charStats().heshe()+" will clean your clock."));
+					levelMsg.append(L("will clean your clock."));
 				else
-					levelMsg.append(L(targetMOB.charStats().heshe()+" WILL KILL YOU DEAD!"));
+					levelMsg.append(L("WILL KILL YOU DEAD!"));
 			}
 			mob.tell(levelMsg.toString());
 		}
@@ -190,7 +203,7 @@ public class Consider extends StdCommand
 		if(withWhat.length()>0)
 			mob.tell(withWhat.toString()+".");
 		else
-		if(!(target instanceof MOB))
+		if((!(target instanceof MOB))&&(msgStr!=null))
 			mob.tell(L("You don't have any particular thoughts about that."));
 		return lvlDiff;
 	}
@@ -200,24 +213,70 @@ public class Consider extends StdCommand
 		throws java.io.IOException
 	{
 		final Vector<String> origCmds=new XVector<String>(commands);
-		Physical target=null;
 		if(commands.size()<2)
 		{
 			CMLib.commands().postCommandFail(mob,origCmds,L("Consider whom or what?"));
 			return false;
 		}
 		commands.remove(0);
-		final String targetName=CMParms.combine(commands,0);
-		if(ID.equalsIgnoreCase("SELF")||ID.equalsIgnoreCase("ME"))
-			target=mob;
-		if(target==null)
-			target=mob.location().fetchFromMOBRoomFavorsMOBs(mob,null,targetName,Wearable.FILTER_ANY);
-		if((target==null)||(!CMLib.flags().canBeSeenBy(target,mob)))
+		String targetName=CMParms.combine(commands,0);
+		final List<Physical> targets = new ArrayList<Physical>();
+		if(targetName.equalsIgnoreCase("SELF")||targetName.equalsIgnoreCase("ME"))
+			targets.add(mob);
+		else
+		{
+			boolean allFlag = targetName.equalsIgnoreCase("ALL");
+			if ((targetName.toUpperCase().startsWith("ALL."))||(targetName.toUpperCase().startsWith("ALL ")))
+			{
+				allFlag = true;
+				targetName = "ALL " + targetName.substring(4);
+			}
+			else
+			if (targetName.toUpperCase().endsWith(".ALL"))
+			{
+				allFlag = true;
+				targetName = "ALL " + targetName.substring(0, targetName.length() - 4);
+			}
+			Physical target=mob.location().fetchFromMOBRoomFavorsMOBs(mob,null,targetName,Wearable.FILTER_ANY);
+			int ctr=1;
+			if(target!=null)
+			{
+				if(((!allFlag)||(targetName.indexOf('.')>0))
+				&&(CMLib.flags().canBeSeenBy(target, mob)))
+					targets.add(target);
+				else
+				while ((target != null)
+				&&((allFlag||(!CMLib.flags().canBeSeenBy(target, mob))))
+				&&(targetName.indexOf('.')<0))
+				{
+					targets.add(target);
+					target = mob.location().fetchFromMOBRoomFavorsMOBs(mob, null, targetName+"."+(++ctr), Wearable.FILTER_ANY);
+				}
+			}
+		}
+		if(targets.size()>1)
+			targets.remove(mob);
+		for(final Iterator<Physical> p=targets.iterator();p.hasNext();)
+		{
+			final Physical P = p.next();
+			if(!CMLib.flags().canBeSeenBy(P,mob))
+				p.remove();
+		}
+		if(targets.size()==0)
 		{
 			CMLib.commands().postCommandFail(mob,origCmds,L("I don't see '@x1' here.",targetName));
 			return false;
 		}
-		doConsider(mob,target);
+		String msgStr;
+		if(targets.size()>1)
+			msgStr = L("<S-NAME> consider(s) several things.");
+		else
+			msgStr = L("<S-NAME> consider(s) <T-NAMESELF>.");
+		for(int p=0;p<targets.size();p++)
+		{
+			doConsider(mob,targets.get(p),false, msgStr);
+			msgStr=null;
+		}
 		return true;
 	}
 
@@ -226,7 +285,8 @@ public class Consider extends StdCommand
 	{
 		if(!super.checkArguments(internalParameters, args))
 			return Integer.valueOf(0);
-		return Integer.valueOf(doConsider(mob, (MOB)args[0]));
+		final String msgStr = L("<S-NAME> consider(s) <T-NAMESELF>.");
+		return Integer.valueOf(doConsider(mob, (MOB)args[0], false, msgStr));
 	}
 
 	@Override

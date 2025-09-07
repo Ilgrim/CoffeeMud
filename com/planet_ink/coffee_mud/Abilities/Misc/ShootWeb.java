@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -183,7 +183,8 @@ public class ShootWeb extends StdAbility
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE,L(auto?"":"^F^<FIGHT^><S-NAME> shoot(s) a web at <T-NAME>.^</FIGHT^>^N")+CMLib.protocol().msp("web.wav",40));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE,
+					L(auto?"":"^F^<FIGHT^><S-NAME> shoot(s) a web at <T-NAME>.^</FIGHT^>^N")+CMLib.protocol().msp("web.wav",40));
 			CMLib.color().fixSourceFightColor(msg);
 			if((mob.location().okMessage(mob,msg))&&(target.fetchEffect(this.ID())==null))
 			{
@@ -191,6 +192,7 @@ public class ShootWeb extends StdAbility
 				if(msg.value()<=0)
 				{
 					amountRemaining=super.adjustedLevel(mob, asLevel)*10;
+					amountRemaining=(int)Math.round(CMath.mul(amountRemaining, target.basePhyStats().speed()));
 					if(target.location()==mob.location())
 					{
 						success=maliciousAffect(mob,target,asLevel,(adjustedLevel(mob,asLevel)*10),-1)!=null;
@@ -201,7 +203,7 @@ public class ShootWeb extends StdAbility
 			}
 		}
 		else
-			return maliciousFizzle(mob,null,L("<S-NAME> shoot(s) a web at <T-NAME> and miss(es)."));
+			return maliciousFizzle(mob,target,L("<S-NAME> shoot(s) a web at <T-NAME> and miss(es)."));
 
 		// return whether it worked
 		return success;

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -80,8 +80,8 @@ public class GoodyBag extends BagOfEndlessness implements ArchonOnly
 				for(int v=0;v<V.size();v++)
 				{
 					final String currency=V.get(v);
-					final MoneyLibrary.MoneyDenomination[] DV=CMLib.beanCounter().getCurrencySet(currency);
-					for (final MoneyDenomination element : DV)
+					final MoneyLibrary.MoneyDefinition DV=CMLib.beanCounter().getCurrencySet(currency);
+					for (final MoneyDenomination element : DV.denominations())
 					{
 						final Coins C=CMLib.beanCounter().makeBestCurrency(currency,element.value(),owner(),this);
 						if(C!=null)

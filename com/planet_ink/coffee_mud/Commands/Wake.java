@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -64,14 +64,19 @@ public class Wake extends StdCommand
 					mob.location().send(mob,msg);
 					msg.modify(mob, CMMsg.MSG_STAND, null);
 					if(mob.location().okMessage(mob,msg))
+					{
 						mob.location().send(mob,msg);
+						CMLib.commands().postLook(mob, true);
+					}
+					else
+						CMLib.commands().postCommandRejection(msg.source(),msg.target(),msg.tool(),origCmds);
 				}
 			}
 		}
 		else
 		{
 			final String whom=CMParms.combine(commands,0);
-			final MOB M=mob.location().fetchInhabitant(whom);
+			final MOB M=getVisibleRoomTarget(mob,whom);
 			if((M==null)||(!CMLib.flags().canBeSeenBy(M,mob)))
 			{
 				CMLib.commands().postCommandFail(mob,origCmds,L("You don't see '@x1' here.",whom));
@@ -88,6 +93,8 @@ public class Wake extends StdCommand
 				mob.location().send(mob,msg);
 				execute(M,null,metaFlags|MUDCmdProcessor.METAFLAG_ORDER);
 			}
+			else
+				CMLib.commands().postCommandRejection(msg.source(),msg.target(),msg.tool(),origCmds);
 		}
 		return false;
 	}

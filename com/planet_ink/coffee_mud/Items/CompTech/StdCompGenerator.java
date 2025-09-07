@@ -21,7 +21,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ public class StdCompGenerator extends StdCompFuelConsumer implements PowerGenera
 					msg.source().location().show(msg.source(), this, CMMsg.MSG_OK_VISUAL, L("<S-NAME> shut(s) down <T-NAME>."));
 				this.activate(false);
 				break;
-			case CMMsg.TYP_LOOK:
+			case CMMsg.TYP_EXAMINE:
 				if(CMLib.flags().canBeSeenBy(this, msg.source()))
 					msg.source().tell(L("@x1 is currently @x2",name(),(activated()?"delivering power.\n\r":"deactivated/shut down.\n\r")));
 				return;

@@ -10,13 +10,14 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Items.interfaces.Technical.TechCommand;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -35,7 +36,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
  * @author Bo Zimmerman
  *
  */
-public interface SpaceShip extends SpaceObject, BoardableShip
+public interface SpaceShip extends SpaceObject, Boardable
 {
 	/**
 	 *
@@ -92,12 +93,12 @@ public interface SpaceShip extends SpaceObject, BoardableShip
 	 * The direction of facing of this object in radians.
 	 * @return 2 dimensional array for the direction of facing
 	 */
-	public double[] facing();
+	public Dir3D facing();
 	/**
 	 * Sets the direction of facing of this object in radians.
 	 * @param dir 2 dimensional array for the direction of facing
 	 */
-	public void setFacing(double[] dir);
+	public void setFacing(Dir3D dir);
 
 	/**
 	 * The full 360 orientation of the top of the object in radians.
@@ -110,4 +111,26 @@ public interface SpaceShip extends SpaceObject, BoardableShip
 	 * @param dir radian for the direction of orientation
 	 */
 	public void setRoll(double dir);
+
+	/**
+	 * Register a global ship listener.
+	 *
+	 * @see SpaceShip#unregisterListener(TechCommand, MsgListener)
+	 *
+	 * @param command command which should be listened for
+	 * @param listener the listener
+	 */
+	public void registerListener(final TechCommand command, final MsgListener listener);
+
+	/**
+	 * Register a global ship listener.
+	 *
+	 * @see SpaceShip#registerListener(TechCommand, MsgListener)
+	 *
+	 * @param command command which should be listened for
+	 * @param listener the listener
+	 */
+	public void unregisterListener(final TechCommand command, final MsgListener listener);
+
+
 }

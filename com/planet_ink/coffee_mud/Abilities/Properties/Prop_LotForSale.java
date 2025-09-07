@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,11 +62,18 @@ public class Prop_LotForSale extends Prop_LotsForSale
 	}
 
 	@Override
+	protected void fillLotsCluster(final Room R, final List<Room> roomsV)
+	{
+		fillCluster(R, roomsV, getOwnerName(), true);
+	}
+
+	@Override
 	public boolean canGenerateAdjacentRooms(final Room R)
 	{
-		return ((R.displayText().indexOf(L(LegalLibrary.INDOORSTR).trim())<0)
-			  &&(R.displayText().indexOf(L(LegalLibrary.OUTDOORSTR).trim())<0)
-			  &&(R.description().indexOf(L(LegalLibrary.SALESTR).trim())<0)
-			  &&(R.description().indexOf(L(LegalLibrary.RENTSTR).trim())<0));
+		final String displayText = (R==null)?"":R.displayText();
+		return ((displayText.indexOf(INDOORSTR.trim())<0)
+			  &&(displayText.indexOf(OUTDOORSTR.trim())<0)
+			  &&(displayText.indexOf(SALESTR.trim())<0)
+			  &&(displayText.indexOf(RENTSTR.trim())<0));
 	}
 }

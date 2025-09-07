@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ public class Dance_Musette extends Dance
 	@Override
 	protected String danceOf()
 	{
-		return name()+" Dance";
+		return L("@x1 Dance",name());
 	}
 
 	@Override
@@ -69,6 +69,7 @@ public class Dance_Musette extends Dance
 		if(invoker==affected)
 			return;
 
-		affectableStats.setSpeed(CMath.div(affectableStats.speed(),2.0+CMath.mul(super.getXLEVELLevel(invoker()),0.30)));
+		final double pct = 1.0 + super.statBonusPct();
+		affectableStats.setSpeed(CMath.div(affectableStats.speed(),pct+CMath.mul(super.getXLEVELLevel(invoker()),0.30)));
 	}
 }

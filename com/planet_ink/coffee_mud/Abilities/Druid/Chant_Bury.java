@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -100,11 +100,10 @@ public class Chant_Bury extends Chant
 			mob.tell(L("You must be outdoors for this chant to work."));
 			return false;
 		}
-		if((R.domainType()==Room.DOMAIN_OUTDOORS_CITY)
-		   ||(R.domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT)
-		   ||(R.domainType()==Room.DOMAIN_OUTDOORS_UNDERWATER)
-		   ||(R.domainType()==Room.DOMAIN_OUTDOORS_AIR)
-		   ||(R.domainType()==Room.DOMAIN_OUTDOORS_WATERSURFACE))
+		if(CMLib.flags().isACityRoom(R)
+		||(R.domainType()==Room.DOMAIN_OUTDOORS_UNDERWATER)
+		||(R.domainType()==Room.DOMAIN_OUTDOORS_AIR)
+		||(R.domainType()==Room.DOMAIN_OUTDOORS_WATERSURFACE))
 		{
 			mob.tell(L("This chant does not work here."));
 			return false;

@@ -4,7 +4,7 @@ import java.io.Serializable;
 import java.util.*;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -38,6 +38,13 @@ public class XHashtable<K, V> extends Hashtable<K, V>
 		super();
 		if (V != null)
 			putAll(V);
+	}
+
+	public XHashtable(final K A, final V B)
+	{
+		super();
+		if (A != null)
+			put(A,B);
 	}
 
 	public synchronized void removeAll(final Enumeration<K> E)

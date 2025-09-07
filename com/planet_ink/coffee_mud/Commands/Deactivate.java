@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -127,9 +127,11 @@ public class Deactivate extends StdCommand
 		}
 
 		final String rest=CMParms.combine(commands,0);
-		final CMMsg newMsg=CMClass.getMsg(mob,item,null,CMMsg.MSG_DEACTIVATE,null,CMMsg.MSG_DEACTIVATE,(rest.length()==0)?null:rest,CMMsg.MSG_DEACTIVATE,null);
-		if(R.okMessage(mob,newMsg))
-			R.send(mob,newMsg);
+		final CMMsg msg=CMClass.getMsg(mob,item,null,CMMsg.MSG_DEACTIVATE,null,CMMsg.MSG_DEACTIVATE,(rest.length()==0)?null:rest,CMMsg.MSG_DEACTIVATE,null);
+		if(R.okMessage(mob,msg))
+			R.send(mob,msg);
+		else
+			CMLib.commands().postCommandRejection(msg.source(),msg.target(),msg.tool(),origCmds);
 		return false;
 	}
 

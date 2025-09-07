@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ public class Injury extends StdAbility implements LimbDamage, HealthCondition
 	public int			lastHP			= -1;
 
 	//public final static String[] BODYPARTSTR={
-	//    "ANTENNEA","EYE","EAR","HEAD","NECK","ARM","HAND","TORSO","LEG","FOOT",
+	//    "ANTENNA","EYE","EAR","HEAD","NECK","ARM","HAND","TORSO","LEG","FOOT",
 	//    "NOSE","GILL","MOUTH","WAIST","TAIL","WING"};
 	public final static int[] INJURYCHANCE=
 	{
@@ -81,35 +81,40 @@ public class Injury extends StdAbility implements LimbDamage, HealthCondition
 					{
 						for(int i2=0;i2<V.size();i2++)
 						{
-							O=V.elementAt(i2);
-							String wounds="";
-							final int dmg = O.second.intValue();
-							if (dmg<5)
-								wounds=("a bruised ");
-							else
-							if (dmg<10)
-								wounds=("a scratched ");
-							else
-							if (dmg<20)
-								wounds=("a cut ");
-							else
-							if (dmg<30)
-								wounds=("a sliced ");
-							else
-							if (dmg<40)
-								wounds=("a gashed ");
-							else
-							if (dmg<60)
-								wounds=("a bloody ");
-							else
-							if ((dmg<75)||(i==Race.BODY_TORSO))
-								wounds=("a mangled ");
-							else
-							if ((dmg<100)||(i==Race.BODY_HEAD))
-								wounds=("a dangling ");
-							else
-								wounds=("a shredded ");
-							buf.append(", "+wounds+O.first.toLowerCase()+" ("+dmg+"%)");
+							try
+							{
+								O=V.elementAt(i2);
+								String wounds="";
+								final int dmg = O.second.intValue();
+								if (dmg<5)
+									wounds=("a bruised ");
+								else
+								if (dmg<10)
+									wounds=("a scratched ");
+								else
+								if (dmg<20)
+									wounds=("a cut ");
+								else
+								if (dmg<30)
+									wounds=("a sliced ");
+								else
+								if (dmg<40)
+									wounds=("a gashed ");
+								else
+								if (dmg<60)
+									wounds=("a bloody ");
+								else
+								if ((dmg<75)||(i==Race.BODY_TORSO))
+									wounds=("a mangled ");
+								else
+								if ((dmg<100)||(i==Race.BODY_HEAD))
+									wounds=("a dangling ");
+								else
+									wounds=("a shredded ");
+								buf.append(", "+wounds+O.first.toLowerCase()+" ("+dmg+"%)");
+							}
+							catch(final ArrayIndexOutOfBoundsException ae)
+							{}
 						}
 					}
 				}
@@ -198,8 +203,13 @@ public class Injury extends StdAbility implements LimbDamage, HealthCondition
 				{
 					for(int i2=0;i2<V.size();i2++)
 					{
-						O=V.elementAt(i2);
-						buf.append(i+":"+O.first.toLowerCase()+":"+O.second.intValue()+";");
+						try
+						{
+							O=V.elementAt(i2);
+							buf.append(i+":"+O.first.toLowerCase()+":"+O.second.intValue()+";");
+						}
+						catch(final ArrayIndexOutOfBoundsException ae)
+						{}
 					}
 				}
 			}
@@ -336,7 +346,7 @@ public class Injury extends StdAbility implements LimbDamage, HealthCondition
 	}
 
 	@Override
-	public Item damageLimb(final String limbName)
+	public Item damageLimb(final String limbName, final boolean intentional)
 	{
 		if(affected!=null)
 		{
@@ -417,8 +427,14 @@ public class Injury extends StdAbility implements LimbDamage, HealthCondition
 				{
 					for(int i2=0;i2<V.size();i2++)
 					{
-						O=V.elementAt(i2);
-						list.add(O.first.toLowerCase());
+						try
+						{
+							O=V.elementAt(i2);
+							if(O != null)
+								list.add(O.first.toLowerCase());
+						}
+						catch(final ArrayIndexOutOfBoundsException ae)
+						{}
 					}
 				}
 			}
@@ -427,23 +443,45 @@ public class Injury extends StdAbility implements LimbDamage, HealthCondition
 	}
 
 	@Override
+	public boolean isDamaged(String limbName)
+	{
+		limbName = limbName.toLowerCase();
+		final List<String> theRest = affectedLimbNameSet();
+		if (theRest.contains(limbName))
+			return true;
+		for(final String s : theRest)
+		{
+			if(s.endsWith(" "+limbName))
+				return true;
+		}
+		return false;
+	}
+
+	@Override
 	public void restoreLimb(final String limbName)
 	{
 		for(int partNum=0;partNum<Race.BODY_PARTS;partNum++)
 		{
-			if(injuries[partNum]!=null)
+			final PairVector<String,Integer> pV = injuries[partNum];
+			if(pV!=null)
 			{
-				for(final Pair<String,Integer> part : injuries[partNum])
+				for(int i=0;i<pV.size();i++)
 				{
-					if(part.first.equalsIgnoreCase(limbName))
+					try
 					{
-						injuries[partNum].remove(part);
-						if(injuries[partNum].size()==0)
-							injuries[partNum]=null;
-						if((affected != null)&&(affectedLimbNameSet().size()==0))
-							affected.delEffect(this);
-						return;
+						final Pair<String,Integer> part = pV.get(i);
+						if(part.first.equalsIgnoreCase(limbName))
+						{
+							injuries[partNum].remove(part);
+							if(injuries[partNum].size()==0)
+								injuries[partNum]=null;
+							if((affected != null)&&(affectedLimbNameSet().size()==0))
+								affected.delEffect(this);
+							return;
+						}
 					}
+					catch(final ArrayIndexOutOfBoundsException ae)
+					{}
 				}
 			}
 		}
@@ -469,12 +507,16 @@ public class Injury extends StdAbility implements LimbDamage, HealthCondition
 				{
 					if(injuries[i]!=null)
 					{
-						for(int x=0;x<injuries[i].size();x++)
+						final PairVector<String,Integer> pV = injuries[i];
+						if(pV != null)
 						{
-							final int[] choice=new int[2];
-							choice[0] = i;
-							choice[1] = x;
-							choicesToHeal.addElement(choice);
+							for(int x=0;x<pV.size();x++)
+							{
+								final int[] choice=new int[2];
+								choice[0] = i;
+								choice[1] = x;
+								choicesToHeal.addElement(choice);
+							}
 						}
 					}
 				}
@@ -525,7 +567,10 @@ public class Injury extends StdAbility implements LimbDamage, HealthCondition
 			&& (!CMSecurity.isDisabled(CMSecurity.DisFlag.AUTODISEASE)))
 			{
 				final Ability A=CMClass.getAbility("Disease_Infection");
-				if((A!=null)&&(mob.fetchEffect(A.ID())==null)&&(injuries.length>0)&&(!CMSecurity.isAbilityDisabled(A.ID())))
+				if((A!=null)
+				&&(mob.fetchEffect(A.ID())==null)
+				&&(injuries.length>0)
+				&&(!CMSecurity.isAbilityDisabled(A.ID())))
 				{
 					final List<String> injuredList = affectedLimbNameSet();
 					if(injuredList.size()>0)
@@ -736,7 +781,7 @@ public class Injury extends StdAbility implements LimbDamage, HealthCondition
 											@Override
 											public void run()
 											{
-												if(amputationA.damageLimb(bodyPartName)!=null)
+												if(amputationA.damageLimb(bodyPartName, false)!=null)
 												{
 													if(mob.fetchEffect(amputationA.ID())==null)
 													{

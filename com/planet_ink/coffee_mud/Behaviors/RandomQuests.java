@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Behaviors;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMSecurity.DbgFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.core.exceptions.CMException;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -18,12 +19,13 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,7 +64,8 @@ public class RandomQuests extends ActiveTicker
 	protected int					maxQuests	= 1;
 	protected int					numQuests	= -1;
 	protected int					maxAttempts	= 3;
-	protected String				expireTime	= "3 hours";
+	protected boolean				inline		= false;
+	protected String				expireTime	= "6 hours";
 	protected String				tagId		= "all_quests";
 	protected String				filePath	= "randareas/example.xml";
 	protected Map<String, String>	varMap		= new Hashtable<String, String>(1);
@@ -92,8 +95,9 @@ public class RandomQuests extends ActiveTicker
 		maxAttempts=CMParms.getParmInt(parms,"maxattempts",maxAttempts);
 		expireTime=CMParms.getParmStr(parms, "expire", expireTime);
 		tagId=CMParms.getParmStr(parms, "tagid", tagId);
+		inline=CMParms.getParmBool(parms, "inline", false);
 		numQuests=-1;
-		final String[] igore= {"PATH", "MINQUESTS", "MAXQUESTS", "MIN", "MAX", "CHANCE", "EXPIRE", "TAGID", "MAXATTEMPTS"};
+		final String[] igore= {"PATH", "MINQUESTS", "MAXQUESTS", "MIN", "MAX", "CHANCE", "EXPIRE", "TAGID", "MAXATTEMPTS", "INLINE"};
 		final Map<String,String> parms=CMParms.parseEQParms(newParms);
 		varMap.clear();
 		for(final String key :parms.keySet())
@@ -102,10 +106,11 @@ public class RandomQuests extends ActiveTicker
 				varMap.put(key.toUpperCase(), parms.get(key));
 		}
 		if(!varMap.containsKey("TEMPLATE"))
-			varMap.put("TEMPLATE", "random");
+			varMap.put("TEMPLATE", "normal");
 		varMap.put("EXPIRATION", expireTime);
+		if(CMSecurity.isDisabled(CMSecurity.DisFlag.RANDOMQUESTS))
+			disable.set(true);
 	}
-
 
 	@Override
 	public void endBehavior(final PhysicalAgent forMe)
@@ -144,6 +149,7 @@ public class RandomQuests extends ActiveTicker
 
 	protected final AtomicBoolean disable = new AtomicBoolean(false);
 	protected final AtomicBoolean processing = new AtomicBoolean(false);
+	protected final static AtomicInteger allprocessing = new AtomicInteger(0);
 
 	public final class GenerateAQuest implements Runnable
 	{
@@ -154,15 +160,21 @@ public class RandomQuests extends ActiveTicker
 			this.ticking=ticking;
 		}
 
+		@Override
 		public void run()
 		{
 			try
 			{
+				final int max=(int)Math.round(Math.ceil(Runtime.getRuntime().availableProcessors()/4));
+				if(allprocessing.addAndGet(1)>max)
+					return;
 				processing.set(true);
 				for(int i=0;i<maxAttempts;i++)
 				{
 					try
 					{
+						if(CMProps.isState(CMProps.HostState.SHUTTINGDOWN))
+							return;
 						final StringBuffer xml = Resources.getFileResource(getGeneratorXmlPath(), true);
 						if((xml==null)||(xml.length()==0))
 						{
@@ -206,13 +218,12 @@ public class RandomQuests extends ActiveTicker
 						Q.setScript(s,true);
 						if((Q.name().trim().length()==0)||(Q.duration()<0))
 						{
-							System.out.println(s);
 							throw new CMException("Unable to create your quest.  Please consult the log.");
 						}
 						final Quest badQ=CMLib.quests().fetchQuest(name);
 						if(badQ!=null)
 							throw new CMException("Unable to create your quest.  One of that name already exists!");
-						//mob.tell("Generated quest '"+Q.name()+"'");
+						//mob.tell(L("Generated quest '@x1'",Q.name()));
 						//Log.sysOut("Generate",mob.Name()+" created quest '"+Q.name()+"'");
 						CMLib.quests().addQuest(Q);
 						if(!Q.running())
@@ -220,27 +231,36 @@ public class RandomQuests extends ActiveTicker
 							if(!Q.startQuest())
 							{
 								CMLib.quests().delQuest(Q);
-								throw new CMException("Unable to start the quest.  Something went wrong.  Perhaps the problem was logged?");
+								throw new CMException("Unable to start quest '"+Q.name()+" for "+ticking.name()+"'");
 							}
 						}
 						Q.setCopy(true);
 						myQuests.add(new WeakReference<Quest>(Q));
+						if(CMSecurity.isDebugging(DbgFlag.RANDOMQUESTS))
+							Log.debugOut("RandomQuests generated "+Q.name()+" for "+ticking.name());
 						break;
 					}
 					catch(final CMException cme)
 					{
 						if(i==maxAttempts-1)
 						{
-							Log.errOut("RandomQuests",cme);
-							Log.errOut(L("Failed to finish creating a quest for @x1",ticking.name()));
+							if(Log.debugChannelOn() && CMSecurity.isDebugging(DbgFlag.RANDOMQUESTS))
+								Log.debugOut("RandomQuests",cme);
+							else
+								Log.errOut("RandomQuests",cme.getMessage());
+							Log.errOut(L("Failed to finish creating a quest for @x1. Disabling.",ticking.name()));
 							disable.set(true);
 							return;
 						}
+						else
+						if(CMSecurity.isDebugging(DbgFlag.RANDOMQUESTS))
+							Log.debugOut("RandomQuests",ticking.name()+": "+cme.getMessage());
 					}
 				}
 			}
 			finally
 			{
+				allprocessing.addAndGet(-1);
 				processing.set(false);
 			}
 		}
@@ -267,12 +287,38 @@ public class RandomQuests extends ActiveTicker
 						myQuests.remove(i);
 				}
 			}
+			final GenerateAQuest generator=new GenerateAQuest(ticking);
 			if(myQuests.size() < numQuests)
 			{
-				final GenerateAQuest generator=new GenerateAQuest(ticking);
-				CMLib.threads().executeRunnable(generator);
+				if(inline)
+				{
+					while(myQuests.size() < numQuests)
+						generator.run();
+				}
+				else
+					CMLib.threads().executeRunnable(generator);
 			}
 		}
 		return true;
+	}
+
+	@Override
+	public String getStat(final String code)
+	{
+		if(code.equalsIgnoreCase("NUMQUESTS"))
+			return ""+numQuests;
+		else
+		if(code.equalsIgnoreCase("QUEST"))
+		{
+			if(myQuests.size()==0)
+				return "";
+			for(final Reference<Quest> r : myQuests)
+			{
+				if(r.get()!=null)
+					return r.get().name();
+			}
+			return "";
+		}
+		return super.getStat(code);
 	}
 }

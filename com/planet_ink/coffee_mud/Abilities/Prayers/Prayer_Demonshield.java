@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -171,7 +171,10 @@ public class Prayer_Demonshield extends Prayer
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),((auto?"":"^S<S-NAME> "+prayWord(mob)+".  ")+L("A field of unholy flames erupt(s) around <T-NAME>!^?"))+CMLib.protocol().msp("fireball.wav",10));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					(auto?L("A field of unholy flames erupt(s) around <T-NAME>!^?")
+						:L("^S<S-NAME> @x1.  A field of unholy flames erupt(s) around <T-NAME>!^?",prayWord(mob)))
+					+CMLib.protocol().msp("fireball.wav",10));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

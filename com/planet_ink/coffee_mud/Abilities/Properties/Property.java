@@ -21,7 +21,7 @@ import java.util.Enumeration;
 import java.util.List;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -55,7 +55,6 @@ public class Property extends ThinAbility
 	{
 		return "a Property";
 	}
-
 
 	/**
 	 * Designates whether, when used as a property/effect, what sort of objects
@@ -114,7 +113,7 @@ public class Property extends ThinAbility
 	{
 		try
 		{
-			return this.getClass().newInstance();
+			return this.getClass().getDeclaredConstructor().newInstance();
 		}
 		catch (final Exception e)
 		{

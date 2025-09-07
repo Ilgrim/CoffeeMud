@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.core.CMLib;
 import com.planet_ink.coffee_mud.core.Directions;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -102,6 +102,11 @@ public class LayoutSet
 		return set.size() < total;
 	}
 
+	public boolean spaceAvailable(final int plus)
+	{
+		return set.size() + plus <= total;
+	}
+
 	public long[] makeNextCoord(final long[] n, final int dir)
 	{
 		switch(dir)
@@ -114,6 +119,14 @@ public class LayoutSet
 			return new long[]{n[0]+1,n[1]};
 		case Directions.WEST:
 			return new long[]{n[0]-1,n[1]};
+		case Directions.NORTHWEST:
+			return new long[]{n[0]-1,n[1]-1};
+		case Directions.SOUTHEAST:
+			return new long[]{n[0]+1,n[1]+1};
+		case Directions.NORTHEAST:
+			return new long[]{n[0]+1,n[1]-1};
+		case Directions.SOUTHWEST:
+			return new long[]{n[0]-1,n[1]+1};
 		default:
 			return makeNextCoord(n,CMLib.dice().pick(Directions.CODES())); // picks one of the above, and only one of the above
 		}

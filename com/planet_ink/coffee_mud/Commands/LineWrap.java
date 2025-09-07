@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -54,8 +54,23 @@ public class LineWrap extends StdCommand
 
 		if(commands.size()<2)
 		{
-			final String wrap=(mob.playerStats().getWrap()!=0)?(""+mob.playerStats().getWrap()):"Disabled";
-			mob.tell(L("Change your line wrap to what? Your current line wrap setting is: @x1. Enter a number larger than 10 or 'disable'.",wrap));
+			final int mobWrap = mob.playerStats().getWrap();
+			final int sessWrap = (mob.session()!=null)?mob.session().getWrap():mobWrap;
+			String wrap;
+			if(mobWrap == 0)
+				wrap = L("Disabled");
+			else
+			if(mobWrap == PlayerStats.DEFAULT_WORDWRAP)
+			{
+				if(mobWrap == sessWrap)
+					wrap = mobWrap+L("Default (@x1)",""+mobWrap);
+				else
+					wrap = mobWrap+L("NAWS (@x1)",""+sessWrap);
+			}
+			else
+				wrap = ""+mobWrap;
+			mob.tell(L("Change your line wrap to what? Your current line wrap setting is: @x1. "
+						+"Enter a number larger than 10 or 'disable', @x2 to use the default.",wrap,""+PlayerStats.DEFAULT_WORDWRAP));
 			return false;
 		}
 		final String newWrap=CMParms.combine(commands,1);
@@ -65,6 +80,12 @@ public class LineWrap extends StdCommand
 		else
 		if("DISABLED".startsWith(newWrap.toUpperCase()))
 			newVal=0;
+		else
+		if("DEFAULT".startsWith(newWrap.toUpperCase()))
+		{
+			final PlayerStats P = (PlayerStats)CMClass.getCommon("DefaultPlayerStats");
+			newVal=P.getWrap();
+		}
 		else
 		{
 			mob.tell(L("'@x1' is not a valid setting. Enter a number larger than 10 or 'disable'.",newWrap));

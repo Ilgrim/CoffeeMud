@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -89,14 +89,14 @@ public class Prayer_EarthMud extends Prayer
 	@Override
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
-		if((affected!=null)&&(affected instanceof Room))
+		if((affected instanceof Room))
 			affectableStats.setWeight((affectableStats.weight()*2)+1);
 	}
 
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof Room))
+		if((affected instanceof Room))
 		{
 			final Room R=(Room)affected;
 			for(int m=0;m<R.numInhabitants();m++)
@@ -118,13 +118,13 @@ public class Prayer_EarthMud extends Prayer
 			final Room R=mob.location();
 			if(R!=null)
 			{
+				if(CMLib.flags().isACityRoom(R))
+					return Ability.QUALITY_INDIFFERENT;
 				final int type=mob.location().domainType();
 				if(((type&Room.INDOORS)>0)
-					||(type==Room.DOMAIN_OUTDOORS_AIR)
-					||(type==Room.DOMAIN_OUTDOORS_CITY)
-					||(type==Room.DOMAIN_OUTDOORS_SPACEPORT)
-					||CMLib.flags().isWateryRoom(mob.location()))
-						return Ability.QUALITY_INDIFFERENT;
+				||(type==Room.DOMAIN_OUTDOORS_AIR)
+				||CMLib.flags().isWateryRoom(mob.location()))
+					return Ability.QUALITY_INDIFFERENT;
 			}
 		}
 		return super.castingQuality(mob,target);
@@ -137,8 +137,7 @@ public class Prayer_EarthMud extends Prayer
 		final int type=mob.location().domainType();
 		if(((type&Room.INDOORS)>0)
 			||(type==Room.DOMAIN_OUTDOORS_AIR)
-			||(type==Room.DOMAIN_OUTDOORS_CITY)
-			||(type==Room.DOMAIN_OUTDOORS_SPACEPORT)
+			||(CMLib.flags().isACityRoom(mob.location()))
 			||(CMLib.flags().isWateryRoom(mob.location())))
 		{
 			mob.tell(L("That magic won't work here."));

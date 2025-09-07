@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,6 +57,7 @@ public class Prop_SpellAdder extends Property implements AbilityContainer, Trigg
 	protected boolean		uninvocable		= true;
 	protected short			level			= -1;
 	protected short			maxTicks		= -1;
+	protected boolean		onClosed		= false;
 	protected short			chanceToHappen	= -1;
 
 	protected PairList<Ability, Integer>	spellV		= null;
@@ -112,10 +113,16 @@ public class Prop_SpellAdder extends Property implements AbilityContainer, Trigg
 		compiledMask=null;
 		lastMOB=null;
 		chanceToHappen=-1;
+		onClosed=false;
 		maxTicks=-1;
 		final String maskString=getMaskString(newText);
 		if(maskString.length()>0)
 			compiledMask=CMLib.masking().getPreCompiledMask(maskString);
+	}
+
+	protected boolean setOtherField(final String var)
+	{
+		return false;
 	}
 
 	protected final PairList<Ability, Integer> getMySpellsV()
@@ -135,6 +142,11 @@ public class Prop_SpellAdder extends Property implements AbilityContainer, Trigg
 				this.uninvocable=false;
 				continue;
 			}
+			if(thisOne.equalsIgnoreCase("ONCLOSED"))
+			{
+				this.onClosed=true;
+				continue;
+			}
 			if(thisOne.toUpperCase().startsWith("LEVEL"))
 			{
 				level=(short)CMParms.getParmInt(thisOne,"LEVEL",-1);
@@ -152,6 +164,21 @@ public class Prop_SpellAdder extends Property implements AbilityContainer, Trigg
 				ticks = Integer.valueOf(CMParms.getParmInt(thisOne,"TICKS",-1));
 				continue;
 			}
+			if(setOtherField(thisOne))
+				continue;
+			//TODO: RESTORE THE COMMENTED OVER THE BELOW:
+			/**
+			final int pctDex=thisOne.indexOf("% ");
+			if((pctDex>0) && (pctDex<5) && (thisOne.substring(pctDex+1).trim().length()>0))
+				thisOne=thisOne.substring(pctDex+1).trim();
+			final List<Ability> aList=CMLib.coffeeMaker().getCodedEffects(thisOne, null);
+			if(aList.size()>0)
+			{
+				final Ability A=aList.get(0);
+				if((A.classificationCode()&Ability.ALL_DOMAINS)!=Ability.DOMAIN_ARCHON)
+					spellV.add(A, ticks);
+			}
+			 */
 			final int pctDex=thisOne.indexOf("% ");
 			if((pctDex>0) && (thisOne.substring(pctDex+1).trim().length()>0))
 				thisOne=thisOne.substring(pctDex+1).trim();
@@ -167,7 +194,8 @@ public class Prop_SpellAdder extends Property implements AbilityContainer, Trigg
 			}
 
 			Ability A=CMClass.getAbility(thisOne);
-			if((A!=null)&&((A.classificationCode()&Ability.ALL_DOMAINS)!=Ability.DOMAIN_ARCHON))
+			if((A!=null)
+			&&((A.classificationCode()&Ability.ALL_DOMAINS)!=Ability.DOMAIN_ARCHON))
 			{
 				A=(Ability)A.copyOf();
 				A.setMiscText(parm);
@@ -291,6 +319,10 @@ public class Prop_SpellAdder extends Property implements AbilityContainer, Trigg
 		||((compiledMask!=null)
 			&&(!CMLib.masking().maskCheck(compiledMask,target,true))))
 				return false;
+		if((affected instanceof Container)
+		&&(((Container)affected).isOpen())
+		&&onClosed)
+			return false;
 		final List<Triad<Ability, List<String>, Integer>> VTOO=convertToV2(V,target);
 		if(VTOO.size()==0)
 			return false;
@@ -313,6 +345,8 @@ public class Prop_SpellAdder extends Property implements AbilityContainer, Trigg
 			// which means they dont go away when item is removed.
 			if(EA!=null)
 			{
+				if(EA.invoker() == null)
+					EA.setInvoker(qualMOB);
 				if((maxTicks>0)
 				&&(maxTicks<Short.MAX_VALUE)
 				&&(CMath.s_int(EA.getStat("TICKDOWN"))>maxTicks))

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Undead extends StdMOB
 	public Undead()
 	{
 		super();
-		username="an undead being";
+		_name="an undead being";
 		setDescription("decayed and rotting, a dead body has been brought back to life...");
 		setDisplayText("an undead thing slowly moves about.");
 		CMLib.factions().setAlignment(this,Faction.Align.EVIL);
@@ -55,7 +55,7 @@ public class Undead extends StdMOB
 		baseCharStats().getMyRace().startRacing(this,false);
 		basePhyStats().setDamage(8);
 
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(1);
 		basePhyStats().setArmor(90);
 		basePhyStats().setSpeed(1.0);

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,13 +48,26 @@ public class ActiveTicker extends StdBehavior
 
 	protected int minTicks=10;
 	protected int maxTicks=30;
+	protected int minGroup=1;
 	protected int chance=100;
+	protected volatile int grpCount = 0;
 	//protected short speed=1;
 	protected int tickDown=(int)Math.round(Math.random()*(maxTicks-minTicks))+minTicks;
 
 	protected void tickReset()
 	{
-		tickDown=(int)Math.round(Math.random()*(maxTicks-minTicks))+minTicks;
+		if(minGroup == 1)
+			tickDown=(int)Math.round(Math.random()*(maxTicks-minTicks))+minTicks;
+		else
+		{
+			if(++grpCount >=minGroup)
+			{
+				tickDown=(int)Math.round(Math.random()*(maxTicks-minTicks))+minTicks;
+				grpCount=0;
+			}
+			else
+				tickDown=minTicks;
+		}
 	}
 
 	@Override
@@ -64,7 +77,18 @@ public class ActiveTicker extends StdBehavior
 		minTicks=CMParms.getParmInt(parms,"min",minTicks);
 		maxTicks=CMParms.getParmInt(parms,"max",maxTicks);
 		chance=CMParms.getParmInt(parms,"chance",chance);
+		minGroup=CMParms.getParmInt(parms,"mingrp",minGroup);
 		tickReset();
+	}
+	
+	protected Map<String,String> getCleanedParms()
+	{
+		final Map<String,String> ps = CMParms.parseEQParms(parms);
+		ps.remove("MIN");
+		ps.remove("MAX");
+		ps.remove("CHANCE");
+		ps.remove("MINGRP");
+		return ps;
 	}
 
 	public String rebuildParms()
@@ -73,6 +97,8 @@ public class ActiveTicker extends StdBehavior
 		rebuilt.append(" min="+minTicks);
 		rebuilt.append(" max="+maxTicks);
 		rebuilt.append(" chance="+chance);
+		if(minGroup != 1)
+			rebuilt.append(" mingrp="+minGroup);
 		return rebuilt.toString();
 	}
 
@@ -99,6 +125,14 @@ public class ActiveTicker extends StdBehavior
 		return parms;
 	}
 
+	protected boolean canChance()
+	{
+		final int a=CMLib.dice().rollPercentage();
+		if(a>chance)
+			return false;
+		return true;
+	}
+
 	protected boolean canAct(final Tickable ticking, final int tickID)
 	{
 		switch(tickID)
@@ -118,10 +152,9 @@ public class ActiveTicker extends StdBehavior
 				tickReset();
 				if((ticking instanceof MOB)&&(!canActAtAll(ticking)))
 					return false;
-				final int a=CMLib.dice().rollPercentage();
-				if(a>chance)
+				if(CMProps.isState(CMProps.HostState.SHUTTINGDOWN))
 					return false;
-				return true;
+				return canChance();
 			}
 			break;
 		}

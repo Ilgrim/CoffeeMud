@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -90,11 +90,19 @@ public class Chant_Labyrinth extends Chant
 		if(!(affected instanceof Room))
 			return;
 		final Room room=(Room)affected;
-		if((canBeUninvoked())&&(room instanceof GridLocale)&&(oldRoom!=null))
-			((GridLocale)room).clearGrid(oldRoom);
-		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
-			room.setRawExit(d,null);
-		super.unInvoke();
+		if(canBeUninvoked())
+		{
+			super.unInvoke();
+			if(room.getGridParent() != null)
+				room.getGridParent().clearGrid(oldRoom);
+			else
+			if(room instanceof GridLocale)
+				((GridLocale)room).clearGrid(oldRoom);
+			for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+				room.setRawExit(d,null);
+		}
+		else
+			super.unInvoke();
 		room.destroy();
 	}
 

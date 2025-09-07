@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ public class Throw extends StdCommand
 		final int dir=CMLib.directions().getGoodDirectionCode(str);
 		Environmental target=null;
 		if(dir<0)
-			target=mob.location().fetchInhabitant(str);
+			target=mob.location().fetchFromRoomFavorItems(null, str);
 		else
 		{
 			target=mob.location().getRoomInDir(dir);
@@ -147,10 +147,10 @@ public class Throw extends StdCommand
 		}
 		else
 		{
-			final boolean useShipDirs=((mob.location() instanceof BoardableShip)||(mob.location().getArea() instanceof BoardableShip));
+			final Directions.DirType dirType=CMLib.flags().getInDirType(mob);
 			final int opDir=mob.location().getReverseDir(dir);
-			final String inDir=useShipDirs?CMLib.directions().getShipInDirectionName(dir):CMLib.directions().getInDirectionName(dir);
-			final String fromDir=useShipDirs?CMLib.directions().getFromShipDirectionName(opDir):CMLib.directions().getFromCompassDirectionName(opDir);
+			final String inDir=CMLib.directions().getInDirectionName(dir, dirType);
+			final String fromDir=CMLib.directions().getFromDirectionName(opDir, dirType);
 			final CMMsg msg=CMClass.getMsg(mob,target,item,CMMsg.MSG_THROW,L("<S-NAME> throw(s) <O-NAME> @x1.",inDir.toLowerCase()));
 			final CMMsg msg2=CMClass.getMsg(mob,target,item,CMMsg.MSG_THROW,L("<O-NAME> fl(ys) in from @x1.",fromDir.toLowerCase()));
 			if(mob.location()==target)

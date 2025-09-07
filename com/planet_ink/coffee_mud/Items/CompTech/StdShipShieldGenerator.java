@@ -1,6 +1,5 @@
 package com.planet_ink.coffee_mud.Items.CompTech;
 import com.planet_ink.coffee_mud.core.interfaces.*;
-import com.planet_ink.coffee_mud.core.interfaces.BoundedObject.BoundedCube;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.CMSecurity.DbgFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
@@ -25,7 +24,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -81,7 +80,7 @@ public class StdShipShieldGenerator extends StdElecCompItem implements ShipWarCo
 	@Override
 	public int powerNeeds()
 	{
-		return (int) Math.min((int) Math.min(powerCapacity,powerSetting) - power, (int)Math.round((double)powerCapacity*getRechargeRate()));
+		return (int) Math.min((int) Math.min(powerCapacity(),powerTarget()) - power, (int)Math.round((double)powerCapacity*getRechargeRate()));
 	}
 
 	protected synchronized SpaceShip getMyShip()
@@ -90,7 +89,7 @@ public class StdShipShieldGenerator extends StdElecCompItem implements ShipWarCo
 		{
 			final Area area = CMLib.map().areaLocation(this);
 			if(area instanceof SpaceShip)
-				myShip = new WeakReference<SpaceShip>((SpaceShip)area);
+				myShip = new WeakReference<SpaceShip>((SpaceShip)((SpaceShip)area).getBoardableItem());
 			else
 				myShip = new WeakReference<SpaceShip>(null);
 		}
@@ -133,6 +132,18 @@ public class StdShipShieldGenerator extends StdElecCompItem implements ShipWarCo
 		return shieldedMsgTypes;
 	}
 
+	@Override
+	public long powerTarget()
+	{
+		return powerSetting > powerCapacity() ? powerCapacity() : powerSetting;
+	}
+
+	@Override
+	public void setPowerTarget(final long capacity)
+	{
+		powerSetting = capacity;
+	}
+
 	protected ShipDir[] getCurrentCoveredDirections()
 	{
 		if(this.currCoverage == null)
@@ -168,11 +179,12 @@ public class StdShipShieldGenerator extends StdElecCompItem implements ShipWarCo
 	{
 		if(!super.okMessage(host, msg))
 			return false;
-		final SpaceShip ship = getMyShip();
-		if((msg.target() == ship)
+		if((msg.target() instanceof SpaceShip)
 		&&(activated())
-		&&(CMParms.contains(this.getDamageMsgTypes(), msg.sourceMinor())))
+		&&(msg.target()==getMyShip())
+		&&(CMParms.contains(getDamageMsgTypes(), msg.sourceMinor())))
 		{
+			final SpaceShip ship = getMyShip();
 			switch(msg.targetMinor())
 			{
 			case CMMsg.TYP_DAMAGE: // laser, energy, some other kind of directed damage
@@ -190,8 +202,8 @@ public class StdShipShieldGenerator extends StdElecCompItem implements ShipWarCo
 					else
 					if(weaponO.knownSource() != null)
 					{
-						final double[] directionToMe = CMLib.map().getDirection(weaponO.knownSource(), ship);
-						final ShipDir dir = CMLib.map().getDirectionFromDir(ship.facing(), ship.roll(), directionToMe);
+						final Dir3D directionToMe = CMLib.space().getDirection(weaponO.knownSource(), ship);
+						final ShipDir dir = CMLib.space().getDirectionFromDir(ship.facing(), ship.roll(), directionToMe);
 						absorbs = CMParms.contains(getCurrentCoveredDirections(), dir);
 					}
 
@@ -236,6 +248,8 @@ public class StdShipShieldGenerator extends StdElecCompItem implements ShipWarCo
 							}
 							msg.setValue(newVal);
 						}
+						CMLib.space().sendSpaceEmissionEvent(ship, weaponO, CMMsg.TYP_OK_VISUAL|CMMsg.MASK_EYES
+															,L("<T-YOUPOSS> shields are struck by <O-NAME>"));
 					}
 				}
 				break;
@@ -245,7 +259,7 @@ public class StdShipShieldGenerator extends StdElecCompItem implements ShipWarCo
 		return true;
 	}
 
-	protected static void sendComputerMessage(final ShipWarComponent me, final String circuitKey, final MOB mob, final Item controlI, final String code)
+	protected static void sendComputerMessage(final Technical me, final String circuitKey, final MOB mob, final Item controlI, final String code)
 	{
 		for(final Iterator<Computer> c=CMLib.tech().getComputers(circuitKey);c.hasNext();)
 		{
@@ -296,13 +310,12 @@ public class StdShipShieldGenerator extends StdElecCompItem implements ShipWarCo
 				}
 				else
 				{
-					final String[] parts=msg.targetMessage().split(" ");
-					final TechCommand command=TechCommand.findCommand(parts);
+					final TechCommand command=TechCommand.findCommand(msg.targetMessage());
 					if(command==null)
 						reportError(this, controlI, mob, lang.L("@x1 does not respond.",me.name(mob)), lang.L("Failure: @x1: control failure.",me.name(mob)));
 					else
 					{
-						final Object[] parms=command.confirmAndTranslate(parts);
+						final Object[] parms=command.confirmAndTranslate(msg.targetMessage());
 						if(parms==null)
 							reportError(this, controlI, mob, lang.L("@x1 did not respond.",me.name(mob)), lang.L("Failure: @x1: control syntax failure.",me.name(mob)));
 						else

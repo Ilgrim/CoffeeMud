@@ -5,7 +5,7 @@ import java.util.Iterator;
 import java.util.List;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -46,6 +46,8 @@ public interface TriadList<T, K, L> extends List<Triad<T, K, L>>
 	public L getThird(int index);
 
 	public void add(T t, K k, L l);
+
+	public void add(int x, T t, K k, L l);
 
 	public boolean containsFirst(T t);
 

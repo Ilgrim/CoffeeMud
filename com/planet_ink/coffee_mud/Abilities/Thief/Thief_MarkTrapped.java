@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -148,10 +148,12 @@ public class Thief_MarkTrapped extends ThiefSkill
 		&&(mob.location().getExitInDir(dir)!=null)
 		&&(mob.location().getRoomInDir(dir)!=null))
 			item=mob.location().getExitInDir(dir);
+		final String what = CMParms.combine(commands,0);
 		if((item==null)
-		&&(CMParms.combine(commands,0).equalsIgnoreCase("room")
-			||CMParms.combine(commands,0).equalsIgnoreCase("here")))
-			item=mob.location();
+		&&(what.equalsIgnoreCase("room")
+			||what.equalsIgnoreCase("here")
+			||what.equalsIgnoreCase(CMLib.english().removeArticleLead(mob.location().Name()))))
+				item=mob.location();
 		if(item==null)
 			item=getAnyTarget(mob,commands,givenTarget,Wearable.FILTER_UNWORNONLY,false,true);
 		if(item==null)

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.List;
 import java.util.Vector;
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -49,6 +49,36 @@ public class DireWolf extends GiantWolf
 	}
 
 	private final static String localizedStaticRacialCat = CMLib.lang().L("Canine");
+
+	@Override
+	public int shortestMale()
+	{
+		return 56;
+	}
+
+	@Override
+	public int shortestFemale()
+	{
+		return 56;
+	}
+
+	@Override
+	public int heightVariance()
+	{
+		return 12;
+	}
+
+	@Override
+	public int lightestWeight()
+	{
+		return 1800;
+	}
+
+	@Override
+	public int weightVariance()
+	{
+		return 160;
+	}
 
 	@Override
 	public String racialCategory()

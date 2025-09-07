@@ -1,5 +1,6 @@
 package com.planet_ink.coffee_mud.Abilities.Common;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.ShopKeeper.ViewType;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -12,6 +13,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.TimeClock.TimePeriod;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.ShoppingLibrary.BuySellFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -19,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -76,7 +78,7 @@ public class Merchant extends CommonSkill implements ShopKeeper
 	}
 
 	@Override
-	protected ExpertiseLibrary.SkillCostDefinition getRawTrainingCost()
+	protected CostDef getRawTrainingCost()
 	{
 		return CMProps.getNormalSkillGainCost(ID());
 	}
@@ -99,16 +101,17 @@ public class Merchant extends CommonSkill implements ShopKeeper
 		return Ability.ACODE_COMMON_SKILL | Ability.DOMAIN_INFLUENTIAL;
 	}
 
-	protected CoffeeShop	shop				= ((CoffeeShop) CMClass.getCommon("DefaultCoffeeShop")).build(this);
-	private double[]		devalueRate			= null;
-	private long			whatIsSoldMask		= ShopKeeper.DEAL_ANYTHING;
-	private String			prejudice			= "";
-	private String			ignore				= "";
-	private MOB				staticMOB			= null;
-	private String[]		pricingAdjustments	= new String[0];
-	private String			itemZapperMask		= "";
-
-	private Pair<Long,TimePeriod> budget		= new Pair<Long,TimePeriod>(Long.valueOf(100000), TimePeriod.DAY);
+	protected CoffeeShop			shop				= ((CoffeeShop) CMClass.getCommon("DefaultCoffeeShop")).build(this);
+	protected double[]				devalueRate			= null;
+	protected long					whatIsSoldMask		= ShopKeeper.DEAL_GENERAL;
+	protected String				prejudice			= "";
+	protected String				ignore				= "";
+	protected String				currency			= "";
+	protected MOB					staticMOB			= null;
+	protected String[]				pricingAdjustments	= new String[0];
+	protected String				itemZapperMask		= "";
+	protected final Set<ViewType>	viewTypes			= new XHashSet<ViewType>(ViewType.BASIC);
+	protected Pair<Long,TimePeriod> budget				= new Pair<Long,TimePeriod>(Long.valueOf(100000), TimePeriod.DAY);
 
 	public Merchant()
 	{
@@ -116,6 +119,12 @@ public class Merchant extends CommonSkill implements ShopKeeper
 		displayText="";
 
 		isAutoInvoked();
+	}
+
+	@Override
+	public CoffeeShop getShop(final MOB mob)
+	{
+		return getShop();
 	}
 
 	@Override
@@ -131,7 +140,7 @@ public class Merchant extends CommonSkill implements ShopKeeper
 	}
 
 	@Override
-	public String budget()
+	public String getRawBbudget()
 	{
 		return budget == null ? "" : (budget.first + " " + budget.second.name());
 	}
@@ -143,7 +152,7 @@ public class Merchant extends CommonSkill implements ShopKeeper
 	}
 
 	@Override
-	public String devalueRate()
+	public String getRawDevalueRate()
 	{
 		return devalueRate == null ? "" : (devalueRate[0] + " "+devalueRate[1]);
 	}
@@ -155,9 +164,15 @@ public class Merchant extends CommonSkill implements ShopKeeper
 	}
 
 	@Override
-	public int invResetRate()
+	public int getRawInvResetRate()
 	{
 		return 0;
+	}
+
+	@Override
+	public Set<ViewType> viewFlags()
+	{
+		return viewTypes;
 	}
 
 	@Override
@@ -248,7 +263,7 @@ public class Merchant extends CommonSkill implements ShopKeeper
 	}
 
 	@Override
-	public String prejudiceFactors()
+	public String getRawPrejudiceFactors()
 	{
 		return prejudice;
 	}
@@ -260,7 +275,7 @@ public class Merchant extends CommonSkill implements ShopKeeper
 	}
 
 	@Override
-	public String ignoreMask()
+	public String getRawIgnoreMask()
 	{
 		return ignore;
 	}
@@ -272,7 +287,36 @@ public class Merchant extends CommonSkill implements ShopKeeper
 	}
 
 	@Override
-	public String[] itemPricingAdjustments()
+	public String getFinalCurrency()
+	{
+		if(currency.length()>0)
+			return currency;
+		return CMLib.beanCounter().getCurrency(affected);
+	}
+
+	@Override
+	public String getRawCurrency()
+	{
+		return currency;
+	}
+
+	@Override
+	public void setCurrency(final String newCurrency)
+	{
+		if ((currency != null) && (currency.length() > 0))
+		{
+			CMLib.beanCounter().unloadCurrencySet(currency);
+			currency = newCurrency;
+		}
+		else
+		{
+			currency = newCurrency;
+			CMLib.beanCounter().getCurrencySet(currency);
+		}
+	}
+
+	@Override
+	public String[] getRawItemPricingAdjustments()
 	{
 		return pricingAdjustments;
 	}
@@ -296,52 +340,52 @@ public class Merchant extends CommonSkill implements ShopKeeper
 	}
 
 	@Override
-	public int finalInvResetRate()
+	public int getFinalInvResetRate()
 	{
-		if((invResetRate()!=0)||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
-			return invResetRate();
-		return getStartArea().finalInvResetRate();
+		if((getRawInvResetRate()!=0)||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
+			return getRawInvResetRate();
+		return getStartArea().getFinalInvResetRate();
 	}
 
 	@Override
-	public String finalPrejudiceFactors()
+	public String getFinalPrejudiceFactors()
 	{
-		if((prejudiceFactors().length()>0)||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
-			return prejudiceFactors();
-		return getStartArea().finalPrejudiceFactors();
+		if((getRawPrejudiceFactors().length()>0)||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
+			return getRawPrejudiceFactors();
+		return getStartArea().getFinalPrejudiceFactors();
 	}
 
 	@Override
-	public String finalIgnoreMask()
+	public String getFinalIgnoreMask()
 	{
-		if((ignoreMask().length()>0)||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
-			return ignoreMask();
-		return getStartArea().finalIgnoreMask();
+		if((getRawIgnoreMask().length()>0)||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
+			return getRawIgnoreMask();
+		return getStartArea().getFinalIgnoreMask();
 	}
 
 	@Override
-	public String[] finalItemPricingAdjustments()
+	public String[] getFinalItemPricingAdjustments()
 	{
-		if(((itemPricingAdjustments()!=null)&&(itemPricingAdjustments().length>0))
+		if(((getRawItemPricingAdjustments()!=null)&&(getRawItemPricingAdjustments().length>0))
 		||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
-			return itemPricingAdjustments();
-		return getStartArea().finalItemPricingAdjustments();
+			return getRawItemPricingAdjustments();
+		return getStartArea().getFinalItemPricingAdjustments();
 	}
 
 	@Override
-	public Pair<Long, TimePeriod> finalBudget()
+	public Pair<Long, TimePeriod> getFinalBudget()
 	{
 		if((budget != null)||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
 			return budget;
-		return getStartArea().finalBudget();
+		return getStartArea().getFinalBudget();
 	}
 
 	@Override
-	public double[] finalDevalueRate()
+	public double[] getFinalDevalueRate()
 	{
 		if ((devalueRate != null)||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
 			return devalueRate;
-		return getStartArea().finalDevalueRate();
+		return getStartArea().getFinalDevalueRate();
 	}
 
 	@Override
@@ -384,10 +428,10 @@ public class Merchant extends CommonSkill implements ShopKeeper
 		}
 		staticMOB.setStartRoom(room);
 		staticMOB.setLocation(room);
-		if(finalBudget() != null)
+		if(getFinalBudget() != null)
 		{
-			if( CMLib.beanCounter().getTotalAbsoluteNativeValue( staticMOB ) < finalBudget().first.longValue() )
-				staticMOB.setMoney(finalBudget().first.intValue());
+			if( CMLib.beanCounter().getTotalAbsoluteNativeValue( staticMOB ) < getFinalBudget().first.longValue() )
+				staticMOB.setMoney(getFinalBudget().first.intValue());
 		}
 		return staticMOB;
 	}
@@ -402,7 +446,8 @@ public class Merchant extends CommonSkill implements ShopKeeper
 		final MOB shopperM=msg.source();
 		if((msg.source()==merchantM)
 		&&(msg.targetMinor()==CMMsg.TYP_GET)
-		&&(msg.target() instanceof Item))
+		&&(msg.target() instanceof Item)
+		&&(isActive(merchantM)))
 		{
 			final Item newitem=(Item)msg.target();
 			if((newitem.numberOfItems()>(merchantM.maxItems()-(merchantM.numItems()+shop.totalStockSizeIncludingDuplicates())))
@@ -420,45 +465,63 @@ public class Merchant extends CommonSkill implements ShopKeeper
 			case CMMsg.TYP_VALUE:
 			case CMMsg.TYP_SELL:
 			{
-				if(!merchantM.isMonster())
+				if(isActive(merchantM))
 				{
-					shopperM.tell(shopperM,null,null,L("You'll have to talk to <S-NAME> about that."));
+					if(!merchantM.isMonster())
+					{
+						shopperM.tell(shopperM,null,null,L("You'll have to talk to <S-NAME> about that."));
+						return false;
+					}
+					if(!CMLib.coffeeShops().ignoreIfNecessary(msg.source(),getFinalIgnoreMask(),merchantM))
+						return false;
+					final double budgetRemaining=CMLib.beanCounter().getTotalAbsoluteValue(merchantM,CMLib.beanCounter().getCurrency(merchantM));
+					final double budgetMax=budgetRemaining*100;
+					final BuySellFlag flag = (msg.targetMinor()==CMMsg.TYP_SELL)?BuySellFlag.RETAIL:BuySellFlag.INFO;
+					if(CMLib.coffeeShops().pawnEvaluation(merchantM,msg.source(),msg.tool(),this,budgetRemaining,budgetMax,flag))
+						return super.okMessage(myHost,msg);
 					return false;
 				}
-				if(!CMLib.coffeeShops().ignoreIfNecessary(msg.source(),finalIgnoreMask(),merchantM))
-					return false;
-				final double budgetRemaining=CMLib.beanCounter().getTotalAbsoluteValue(merchantM,CMLib.beanCounter().getCurrency(merchantM));
-				final double budgetMax=budgetRemaining*100;
-				if(CMLib.coffeeShops().standardSellEvaluation(merchantM,msg.source(),msg.tool(),this,budgetRemaining,budgetMax,msg.targetMinor()==CMMsg.TYP_SELL))
-					return super.okMessage(myHost,msg);
-				return false;
+				break;
 			}
 			case CMMsg.TYP_BUY:
 			case CMMsg.TYP_VIEW:
 			{
-				if(!CMLib.coffeeShops().ignoreIfNecessary(msg.source(),finalIgnoreMask(),merchantM))
+				if(isActive(merchantM))
+				{
+					if(!CMLib.coffeeShops().ignoreIfNecessary(msg.source(),getFinalIgnoreMask(),merchantM))
+						return false;
+					if((msg.targetMinor()==CMMsg.TYP_BUY)&&(msg.tool()!=null)&&(!msg.tool().okMessage(myHost,msg)))
+						return false;
+					final BuySellFlag buyFlag = (msg.targetMinor()==CMMsg.TYP_BUY)?BuySellFlag.RETAIL:BuySellFlag.INFO;
+					if(CMLib.coffeeShops().sellEvaluation(merchantM,msg.source(),msg.tool(),this,buyFlag))
+						return super.okMessage(myHost,msg);
 					return false;
-				if((msg.targetMinor()==CMMsg.TYP_BUY)&&(msg.tool()!=null)&&(!msg.tool().okMessage(myHost,msg)))
-					return false;
-				if(CMLib.coffeeShops().standardBuyEvaluation(merchantM,msg.source(),msg.tool(),this,msg.targetMinor()==CMMsg.TYP_BUY))
-					return super.okMessage(myHost,msg);
-				return false;
+				}
+				break;
 			}
 			case CMMsg.TYP_LIST:
-				CMLib.coffeeShops().ignoreIfNecessary(msg.source(),finalIgnoreMask(),merchantM);
+				if(isActive(merchantM))
+					CMLib.coffeeShops().ignoreIfNecessary(msg.source(),getFinalIgnoreMask(),merchantM);
 				break;
 			default:
 				break;
 			}
 		}
 		else
-		if(msg.amISource(merchantM)&&(msg.sourceMinor()==CMMsg.TYP_DEATH))
+		if(msg.amISource(merchantM)
+		&&(msg.sourceMinor()==CMMsg.TYP_DEATH))
 		{
-			Item I=(Item)getShop().removeStock("all",merchantM);
-			while(I!=null)
+			final Room R=merchantM.location();
+			Environmental E=getShop().removeStock("all",merchantM);
+			while(E!=null)
 			{
-				merchantM.addItem(I);
-				I=(Item)getShop().removeStock("all",merchantM);
+				if(E instanceof Item)
+					merchantM.addItem((Item)E);
+				else
+				if((E instanceof MOB)
+				&&(R!=null))
+					((MOB)E).bringToLife(R, true);
+				E=getShop().removeStock("all",merchantM);
 			}
 			merchantM.recoverPhyStats();
 		}
@@ -525,78 +588,96 @@ public class Merchant extends CommonSkill implements ShopKeeper
 			switch(msg.targetMinor())
 			{
 			case CMMsg.TYP_GIVE:
-				if(!putUpForSale(msg.source(),merchantM,msg.tool()))
+				if(isActive(merchantM)
+				&& (!putUpForSale(msg.source(),merchantM,msg.tool())))
 					super.executeMsg(myHost,msg);
 				break;
 			case CMMsg.TYP_PUT:
-				if((canPossiblyVend(affected,msg.tool()))
+				if(isActive(merchantM)
+				&&(canPossiblyVend(affected,msg.tool()))
 				&&(putUpForSale(msg.source(),merchantM,msg.tool())))
 					return;
 				super.executeMsg(myHost,msg);
 				break;
 			case CMMsg.TYP_VALUE:
 				super.executeMsg(myHost,msg);
-				if(merchantM.isMonster())
-					CMLib.commands().postSay(merchantM,mob,L("I'll give you @x1 for @x2.",CMLib.beanCounter().nameCurrencyShort(merchantM,CMLib.coffeeShops().pawningPrice(merchantM,mob,msg.tool(),this, getShop()).absoluteGoldPrice),msg.tool().name()),true,false);
+				if(isActive(merchantM) && merchantM.isMonster())
+				{
+					final double pawnPrice = CMLib.coffeeShops().pawningPrice(merchantM,mob,msg.tool(),this).absoluteGoldPrice;
+					final String currencyPriceStr = CMLib.beanCounter().nameCurrencyShort(merchantM,pawnPrice);
+					CMLib.commands().postSay(merchantM,mob,L("I'll give you @x1 for @x2.", currencyPriceStr,msg.tool().name()),true,false);
+				}
 				break;
 			case CMMsg.TYP_VIEW:
 				super.executeMsg(myHost,msg);
 				if((msg.tool() instanceof Physical)
+				&& isActive(merchantM)
 				&&(getShop().doIHaveThisInStock(msg.tool().Name(),mob)))
 				{
-					CMLib.commands().postSay(merchantM,msg.source(),L("Interested in @x1? Here is some information for you:\n\rLevel @x2\n\rDescription: @x3",msg.tool().name(),""+((Physical)msg.tool()).phyStats().level(),msg.tool().description()),true,false);
+					CMLib.commands().postSay(merchantM,msg.source(),
+							L("Interested in @x1? Here is some information for you:\n\rLevel @x2\n\rDescription: @x3",
+									msg.tool().name(),""+((Physical)msg.tool()).phyStats().level(),msg.tool().description()),true,false);
 				}
 				break;
 			case CMMsg.TYP_SELL: // sell TO -- this is a shopkeeper purchasing from a player
 			{
 				super.executeMsg(myHost,msg);
-				CMLib.coffeeShops().transactPawn(merchantM,msg.source(),this,msg.tool());
+				if(isActive(merchantM))
+					CMLib.coffeeShops().transactPawn(merchantM,msg.source(),this,msg.tool(), getShop(), BuySellFlag.RETAIL);
 				break;
 			}
 			case CMMsg.TYP_BUY:
 			{
 				super.executeMsg(myHost,msg);
-				final MOB mobFor=CMLib.coffeeShops().parseBuyingFor(msg.source(),msg.targetMessage());
-				if((msg.tool()!=null)
-				&&(getShop().doIHaveThisInStock("$"+msg.tool().Name()+"$",mobFor))
-				&&(merchantM.location()!=null))
+				if((msg.tool()!=null) && isActive(merchantM))
 				{
-					final Environmental item=getShop().getStock("$"+msg.tool().Name()+"$",mobFor);
-					if(item!=null)
-						CMLib.coffeeShops().transactMoneyOnly(merchantM,msg.source(),this,item,!merchantM.isMonster());
-
-					final List<Environmental> products=getShop().removeSellableProduct("$"+msg.tool().Name()+"$",mobFor);
-					if(products.size()==0)
-						break;
-					final Environmental product=products.get(0);
-					if(product instanceof Item)
+					final MOB mobFor=CMLib.coffeeShops().parseBuyingFor(msg.source(),msg.targetMessage());
+					if((getShop().doIHaveThisInStock("$"+msg.tool().Name()+"$",mobFor))
+					&&(merchantM.location()!=null))
 					{
-						if(!CMLib.coffeeShops().purchaseItems((Item)product,products,merchantM,mobFor))
-							return;
-					}
-					else
-					if(product instanceof MOB)
-					{
-						if(CMLib.coffeeShops().purchaseMOB((MOB)product,merchantM,this,mobFor))
+						final Environmental item=getShop().getStock("$"+msg.tool().Name()+"$",mobFor);
+						if(item!=null)
 						{
-							msg.modify(msg.source(),msg.target(),product,msg.sourceCode(),msg.sourceMessage(),msg.targetCode(),msg.targetMessage(),msg.othersCode(),msg.othersMessage());
-							product.executeMsg(myHost,msg);
+							final BuySellFlag flag = !merchantM.isMonster() ? BuySellFlag.RETAIL : BuySellFlag.INFO;
+							CMLib.coffeeShops().transactMoneyOnly(merchantM,msg.source(),this,item,flag);
 						}
+
+						final List<Environmental> products=getShop().removeSellableProduct("$"+msg.tool().Name()+"$",mobFor);
+						if(products.size()==0)
+							break;
+						final Environmental product=products.get(0);
+						if(product instanceof Item)
+						{
+							if(!CMLib.coffeeShops().purchaseItems((Item)product,products,merchantM,mobFor))
+								return;
+						}
+						else
+						if(product instanceof MOB)
+						{
+							if(CMLib.coffeeShops().purchaseMOB((MOB)product,merchantM,this,mobFor))
+							{
+								msg.modify(msg.source(),msg.target(),product,msg.sourceCode(),msg.sourceMessage(),msg.targetCode(),msg.targetMessage(),msg.othersCode(),msg.othersMessage());
+								product.executeMsg(myHost,msg);
+							}
+						}
+						else
+						if(product instanceof Ability)
+							CMLib.coffeeShops().purchaseAbility((Ability)product,merchantM,this,mobFor);
 					}
-					else
-					if(product instanceof Ability)
-						CMLib.coffeeShops().purchaseAbility((Ability)product,merchantM,this,mobFor);
 				}
 				break;
 			}
 			case CMMsg.TYP_LIST:
 			{
 				super.executeMsg(myHost,msg);
-				final Vector<Environmental> inventory=new XVector<Environmental>(getShop().getStoreInventory());
-				final String forMask=CMLib.coffeeShops().getListForMask(msg.targetMessage());
-				final String s=CMLib.coffeeShops().getListInventory(merchantM,mob,inventory,0,this,forMask);
-				if(s.length()>0)
-					mob.tell(s);
+				if(isActive(merchantM))
+				{
+					final Vector<Environmental> inventory=new XVector<Environmental>(getShop().getStoreInventory());
+					final String forMask=CMLib.coffeeShops().getListForMask(msg.targetMessage());
+					final String s=CMLib.coffeeShops().getListInventory(merchantM,mob,inventory,0,this,forMask);
+					if(s.length()>0)
+						mob.tell(s);
+				}
 				break;
 			}
 			default:
@@ -607,9 +688,11 @@ public class Merchant extends CommonSkill implements ShopKeeper
 		else
 		if((msg.targetMinor()==CMMsg.TYP_DROP)
 		&&(myHost==affected)
+		&&(isActive(merchantM))
 		&&((affected instanceof Room)
 			||(affected instanceof Exit)
 			||((affected instanceof Item)&&(!canPossiblyVend(affected,msg.tool()))))
+		&&(!CMath.bset(msg.targetMajor(), CMMsg.MASK_INTERMSG))
 		&&(putUpForSale(msg.source(),merchantM,msg.target())))
 			return;
 		else
@@ -618,6 +701,7 @@ public class Merchant extends CommonSkill implements ShopKeeper
 		&&(affected instanceof Area)
 		&&(msg.target() instanceof Room)
 		&&(((Room)msg.target()).domainType()==Room.DOMAIN_OUTDOORS_AIR)
+		&&(isActive(merchantM))
 		&&(msg.source().location().getRoomInDir(Directions.UP)==msg.target())
 		&&(putUpForSale(msg.source(),merchantM,msg.tool())))
 			return;
@@ -625,19 +709,86 @@ public class Merchant extends CommonSkill implements ShopKeeper
 			super.executeMsg(myHost,msg);
 	}
 
+	protected boolean canSell(final MOB mob, final Environmental E)
+	{
+		if(E instanceof Item)
+		{
+			if(!CMLib.law().mayOwnThisItem(mob, (Item)E))
+			{
+				commonTelL(mob,"@x1 is a stolen item!",((Item)E).name(mob));
+				return false;
+			}
+			return true;
+		}
+		return false;
+	}
+
+	protected boolean isActive(final MOB mob)
+	{
+		Physical P = affected;
+		if(P == null)
+			P = mob;
+		if(P instanceof MOB)
+		{
+			for(final Enumeration<Ability> a=P.effects();a.hasMoreElements();)
+			{
+				final Ability A=a.nextElement();
+				if(A.ID().equals(ID()))
+					return true;
+				if(A instanceof ShopKeeper)
+					return false;
+			}
+			return true;
+		}
+		return true;
+	}
+
+	protected void makeActive(final MOB mob)
+	{
+		Physical P = affected;
+		if(P == null)
+			P=mob;
+		if(P instanceof MOB)
+		{
+			for(final Enumeration<Ability> a=P.effects();a.hasMoreElements();)
+			{
+				final Ability A=a.nextElement();
+				if(A.ID().equals(ID()))
+					return;
+				if(A instanceof ShopKeeper)
+				{
+					// if we are here, then a different merchant is first
+					final Ability meA=P.fetchEffect(ID()); // fetch this ones effect
+					if(meA!=null)
+					{
+						P.delEffect(meA);
+						((MOB)P).addPriorityEffect(meA);
+						if(mob != null)
+							commonTelL(mob,"^H@x1 is now your active store.",name());
+						return;
+					}
+				}
+			}
+		}
+	}
+
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
+		makeActive(mob);
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Market what? Enter \"market list\" for a list or \"market item value\" to sell something."));
+			commonTelL(mob,"Market what? Enter \"market list\" for a list or \"market item value\" to sell something.");
 			return false;
 		}
+		final Room R=mob.location();
+		if(R == null)
+			return false;
 		if(CMParms.combine(commands,0).equalsIgnoreCase("list"))
 		{
 			final CMMsg msg=CMClass.getMsg(mob,mob,CMMsg.MSG_LIST,L("<S-NAME> review(s) <S-HIS-HER> inventory."));
-			if(mob.location().okMessage(mob,msg))
-				mob.location().send(mob,msg);
+			if(R.okMessage(mob,msg))
+				R.send(mob,msg);
 			return true;
 		}
 		if((commands.get(0)).equalsIgnoreCase("remove")
@@ -645,27 +796,31 @@ public class Merchant extends CommonSkill implements ShopKeeper
 		{
 			if(commands.size()==1)
 			{
-				commonTell(mob,L("Remove what item from the marketing list?"));
+				commonTelL(mob,"Remove what item from the list?");
 				return false;
 			}
 			final String itemName=CMParms.combine(commands,1);
-			Item I=(Item)getShop().removeStock(itemName,mob);
-			if(I==null)
+			Environmental E=getShop().removeStock(itemName,mob);
+			if(E==null)
 			{
-				commonTell(mob,L("'@x1' is not on the list.",itemName));
+				commonTelL(mob,"'@x1' is not on the list.",itemName);
 				return false;
 			}
-			final String iname=I.name();
-			while(I!=null)
+			final String iname=E.name();
+			while(E!=null)
 			{
-				mob.addItem(I);
-				I=(Item)getShop().removeStock(itemName,mob);
+				if(E instanceof Item)
+					mob.addItem((Item)E);
+				else
+				if(E instanceof MOB)
+					((MOB)E).bringToLife(R, true);
+				E=getShop().removeStock(itemName,mob);
 			}
-			getShop().delAllStoreInventory(I);
+			getShop().delAllStoreInventory(E);
 			mob.recoverCharStats();
 			mob.recoverPhyStats();
 			mob.recoverMaxState();
-			mob.tell(L("@x1 has been removed from your inventory list.",iname));
+			commonTelL(mob,"@x1 has been removed from your inventory list.",iname);
 			return true;
 		}
 
@@ -698,7 +853,7 @@ public class Merchant extends CommonSkill implements ShopKeeper
 		}
 
 		String itemName=CMParms.combine(commands,0);
-		final List<Item> itemsV=new ArrayList<Item>();
+		final List<Environmental> itemsV=new ArrayList<Environmental>();
 		boolean allFlag=commands.get(0).equalsIgnoreCase("all");
 		if(itemName.toUpperCase().startsWith("ALL."))
 		{
@@ -716,34 +871,38 @@ public class Merchant extends CommonSkill implements ShopKeeper
 		while(doBugFix || allFlag)
 		{
 			doBugFix=false;
-			final Item I=mob.fetchItem(null,Wearable.FILTER_UNWORNONLY,itemName+addendumStr);
-			if(I==null)
+			Environmental E=mob.fetchItem(null,Wearable.FILTER_UNWORNONLY,itemName+addendumStr);
+			if(E == null)
+				E = R.fetchInhabitant(itemName+addendumStr);
+			if(E == null)
+				E = mob.findAbility(itemName+addendumStr);
+			if(E==null)
 				break;
-			if((I instanceof Container)
-			&&(((Container)I).getContents().size()>0))
+			if(((E instanceof Container)&&(((Container)E).getContents().size()>0))
+			||(!canSell(mob, E)))
 			{
-				commonTell(mob,I,null,L("You may not put <T-NAME> up for sale."));
+				commonTelL(mob,E,null,"You may not put <T-NAME> up for sale.");
 				return false;
 			}
 			if(target==null)
-				target=I;
+				target=E;
 			else
-			if(!target.sameAs(I))
+			if(!target.sameAs(E))
 				break;
-			if(CMLib.flags().canBeSeenBy(I,mob))
-				itemsV.add(I);
+			if(CMLib.flags().canBeSeenBy(E,mob))
+				itemsV.add(E);
 			addendumStr="."+(++addendum);
 		}
 
 		if(itemsV.size()==0)
 		{
-			commonTell(mob,L("You don't seem to be carrying '@x1'.",itemName));
+			commonTelL(mob,"You don't seem to be carrying '@x1'.",itemName);
 			return false;
 		}
 
 		if((getShop().numberInStock(target)<=0)&&(val<=0))
 		{
-			commonTell(mob,L("You failed to specify a price for '@x1'.",itemName));
+			commonTelL(mob,"You failed to specify a price for '@x1'.",itemName);
 			return false;
 		}
 
@@ -752,7 +911,7 @@ public class Merchant extends CommonSkill implements ShopKeeper
 
 		if(!proficiencyCheck(mob,0,auto))
 		{
-			commonTell(mob,target,null,L("You fail to put <T-NAME> up for sale."));
+			commonTelL(mob,target,null,"You fail to put <T-NAME> up for sale.");
 			return false;
 		}
 
@@ -762,12 +921,25 @@ public class Merchant extends CommonSkill implements ShopKeeper
 			mob.location().send(mob,msg);
 			for(int i=0;i<itemsV.size();i++)
 			{
-				final Item I=itemsV.get(i);
+				final Environmental E=itemsV.get(i);
 				if(val<=0)
-					getShop().addStoreInventory(I);
+					getShop().addStoreInventory(E);
 				else
-					getShop().addStoreInventory(I,1,(int)Math.round(val));
-				mob.delItem(I);
+					getShop().addStoreInventory(E,1,(int)Math.round(val));
+				if(E instanceof Item)
+					mob.delItem((Item)E);
+				else
+				if(E instanceof MOB)
+				{
+					final MOB M = (MOB)E;
+					if(!M.isPlayer())
+					{
+						if(M.getStartRoom()!=null)
+							M.killMeDead(false);
+						else
+							M.destroy();
+					}
+				}
 			}
 		}
 		mob.location().recoverRoomStats();

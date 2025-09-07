@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -88,12 +88,14 @@ public class Chant_Bloodhound extends Chant
 		if(!super.tick(ticking, tickID))
 			return false;
 		final Physical affected = this.affected;
-		if((affected instanceof MOB) // because senses are diff on mobs
-		&&(CMath.bset(affected.phyStats().sensesMask(), PhyStats.CAN_NOT_SEE)))
+		if(affected instanceof MOB) // because senses are diff on mobs
 		{
-			affected.delEffect(this);
-			affected.addEffect(this);
-			affected.recoverPhyStats();
+			if(CMath.bset(affected.phyStats().sensesMask(), PhyStats.CAN_NOT_SEE))
+			{
+				affected.delEffect(this);
+				affected.addEffect(this);
+				affected.recoverPhyStats();
+			}
 		}
 		return true;
 	}
@@ -137,7 +139,7 @@ public class Chant_Bloodhound extends Chant
 			return false;
 		if(target.fetchEffect(ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> already <S-HAS-HAVE> a bloodhounds nose."));
+			failureTell(mob,target,auto,L("<S-NAME> already <S-HAS-HAVE> a bloodhounds nose."));
 			return false;
 		}
 

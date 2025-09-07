@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -139,7 +139,7 @@ public class Chant_TideMoon extends Chant
 					{
 						mob.location().showHappens(CMMsg.MSG_OK_VISUAL,L("The moon begins pushing and pulling on the tides in new ways!"));
 						A.setAbilityCode(A.abilityCode()+1);
-						mob.tell(L(mobA.getTimeObj().getTidePhase(mob.location()).getDesc()));
+						mob.tell(mobA.getTimeObj().getTidePhase(mob.location()).getDesc());//nothing to localize
 					}
 				}
 			}

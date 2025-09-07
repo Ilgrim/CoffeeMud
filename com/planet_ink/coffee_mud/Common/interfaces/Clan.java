@@ -24,7 +24,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ public interface Clan extends Cloneable, Tickable, CMCommon, Modifiable, Tattooa
 
 	/**
 	 * Sends a message to all members of all clans.
-	 * 
+	 *
 	 * @param msg the message to send
 	 */
 	public void clanAnnounce(String msg);
@@ -496,6 +496,14 @@ public interface Clan extends Cloneable, Tickable, CMCommon, Modifiable, Tattooa
 	public void adjDeposit(MOB memberM, double newValue);
 
 	/**
+	 * Adjusts the amount of base gold value deposited by this
+	 * member from an auto-dues payment.
+	 * @param memberM member the person contributing
+	 * @param newValue the value adjustment, + or -
+	 */
+	public void adjDuesDeposit(MOB memberM, double newValue);
+
+	/**
 	 * Adjusts the amount of experience earned by a player based
 	 * on the tax rate.  Will automatically adjust the exp of
 	 * the clan and save it.
@@ -522,17 +530,24 @@ public interface Clan extends Cloneable, Tickable, CMCommon, Modifiable, Tattooa
 
 	/**
 	 * Returns the amount of base gold value this clan has received.
-	 * @param killer the member of this clan that did the killing or NULL for all
+	 * @param memberM the member of this clan that did the killing or NULL for all
 	 * @return the amount of deposits.
 	 */
-	public double getCurrentClanGoldDonations(MOB killer);
+	public double getCurrentClanGoldDonations(MOB memberM);
+
+	/**
+	 * Returns the amount of base gold value this clan has received.
+	 * @param memberM the member of this clan that did the killing or NULL for all
+	 * @return the amount of deposits.
+	 */
+	public double getCurrentClanDuesOwed(MOB memberM);
 
 	/**
 	 * Returns the amount of xp this clan has earned.
-	 * @param killer the member of this clan that did the killing or NULL for all
+	 * @param memberM the member of this clan that did the killing or NULL for all
 	 * @return the number of xp contributed.
 	 */
-	public long getCurrentClanXPDonations(MOB killer);
+	public long getCurrentClanXPDonations(MOB memberM);
 
 	/**
 	 * Returns the total control points represented by the list of
@@ -575,6 +590,22 @@ public interface Clan extends Cloneable, Tickable, CMCommon, Modifiable, Tattooa
 	 * @return rate the tax rate 0-100.0
 	 */
 	public double getTaxes();
+
+	/**
+	 * Sets the amount of money dues due from
+	 * every member per rl day.
+	 *
+	 * @param dues the amount of dues in clan bank money
+	 */
+	public void setDues(double dues);
+
+	/**
+	 * Gets the amount of money dues due from
+	 * every member due every rl day.
+	 *
+	 * @return dues the amount of dues in clan bank money
+	 */
+	public double getDues();
 
 	/**
 	 * Returns the maximum number of players who can hold the given
@@ -689,7 +720,7 @@ public interface Clan extends Cloneable, Tickable, CMCommon, Modifiable, Tattooa
 	 * Returns the highest ranking member of this
 	 * @return the mob object for the highest ranking member.
 	 */
-	public MOB getResponsibleMember();
+	public String getResponsibleMemberName();
 
 	/**
 	 * Returns a REL_* constant denoting the relationship
@@ -871,6 +902,20 @@ public interface Clan extends Cloneable, Tickable, CMCommon, Modifiable, Tattooa
 	 */
 	public void setFlag(ClanFlag flag, boolean setOrUnset);
 
+	/**
+	 * Returns a temporary use nameless mob that belongs to this clan,
+	 * for the purposes of channelling, usually. Do Not Delete!
+	 * @return this clans factory mob
+	 */
+	public MOB getClanTalker();
+
+	/**
+	 * Expensively calculates the given clans preferred banking details,
+	 * which is a pair including the bank chain, and the currency preferred.
+	 *
+	 * @return the pair including the bank chain, and the currency preferred.
+	 */
+	public Pair<String,String> getPreferredBanking();
 
 	/**
 	 * Represents an individual clan vote
@@ -923,6 +968,7 @@ public interface Clan extends Cloneable, Tickable, CMCommon, Modifiable, Tattooa
 		public int		playerpvps	= 0;
 		public long		donatedXP	= 0;
 		public double	donatedGold	= 0;
+		public double	dues		= 0;
 
 		public MemberRecord(final String name, final int role)
 		{
@@ -971,6 +1017,7 @@ public interface Clan extends Cloneable, Tickable, CMCommon, Modifiable, Tattooa
 			this.level=level;
 			this.lastActiveTimeMs=timestamp;
 			this.isAdmin=isAdmin;
+			this.dues = M.dues;
 		}
 	}
 
@@ -981,11 +1028,11 @@ public interface Clan extends Cloneable, Tickable, CMCommon, Modifiable, Tattooa
 	/** Vote has passed constant for the ClanVote.voteStatus member. @see ClanVote#voteStatus */
 	public final static int VSTAT_PASSED=2;
 	/** Descriptors for the values of ClanVote.voteStatus member. @see ClanVote#voteStatus */
-	public final static String[] VSTAT_DESCS=CMLib.lang().sessionTranslation(new String[]{
-		"In Progress",
-		"Failed",
-		"Passed"
-	});
+	public final static String[] VSTAT_DESCS=new String[]{
+		CMLib.lang().L("In Progress"),
+		CMLib.lang().L("Failed"),
+		CMLib.lang().L("Passed")
+	};
 
 	/** constant for the getStatus() method, denoting normal status. @see Clan#getStatus() .*/
 	public static final int CLANSTATUS_ACTIVE=0;
@@ -1046,32 +1093,82 @@ public interface Clan extends Cloneable, Tickable, CMCommon, Modifiable, Tattooa
 	 */
 	public static enum Trophy
 	{
-		Points("Most control points", "Control Points", CMProps.Str.CLANTROPCP, 'C'),
-		Experience("Most clan experience", "Experience", CMProps.Str.CLANTROPEXP, 'E'),
-		Areas("Most controlled areas", "Areas Controlled", CMProps.Str.CLANTROPAREA, 'A'),
-		ClanKills("Most rival clan-kills", "Clan Kills", CMProps.Str.CLANTROPPK, 'K'),
-		Members("Most members", "Total Members", CMProps.Str.CLANTROPMB, 'M'),
-		MemberLevel("Highest median level", "Median Level", CMProps.Str.CLANTROPLVL, 'H'),
-		PlayerMinutes("Most player time", "Player Time", CMProps.Str.CLANTROPPTIME, 'T'),
-		PlayerLevelsGained("Most player Levels", "Most Level-ups", CMProps.Str.CLANTROPPLVL, 'L'),
-		MonthlyPlayerMinutes("Most player time last month", "Monthly Player Time", CMProps.Str.CLANTROPMONTHLYPTIME, 't'),
-		MonthlyPlayerXP("Most player xp last month", "Monthly Player XP", CMProps.Str.CLANTROPMONTHLYPXP, 'e'),
-		MonthlyClanXP("Most clan xp last month", "Monthly Clan XP", CMProps.Str.CLANTROPMONTHLYEXP, 'x'),
-		MonthlyConquests("Most conquests last month", "Monthly Conquests", CMProps.Str.CLANTROPMONTHLYAREA, 'a'),
-		MonthlyClanLevels("Most clan levels last month", "Monthly Clan Levels", CMProps.Str.CLANTROPMONTHLYLVLS, 'l'),
-		MonthlyControlPoints("Most control points last month", "Monthly Control Points", CMProps.Str.CLANTROPMONTHLYCP, 'c'),
-		MonthlyNewMembers("Most new members last month", "Monthly New Members",CMProps.Str.CLANTROPMONTHLYMB, 'm'),
+		Points(CMProps.Str.CLANTROPCP, 'C'),
+		Experience(CMProps.Str.CLANTROPEXP, 'E'),
+		Areas(CMProps.Str.CLANTROPAREA, 'A'),
+		ClanKills(CMProps.Str.CLANTROPPK, 'K'),
+		Members(CMProps.Str.CLANTROPMB, 'M'),
+		MemberLevel(CMProps.Str.CLANTROPLVL, 'H'),
+		PlayerMinutes(CMProps.Str.CLANTROPPTIME, 'T'),
+		PlayerLevelsGained(CMProps.Str.CLANTROPPLVL, 'L'),
+		MonthlyPlayerMinutes(CMProps.Str.CLANTROPMONTHLYPTIME, 't'),
+		MonthlyPlayerXP(CMProps.Str.CLANTROPMONTHLYPXP, 'e'),
+		MonthlyClanXP(CMProps.Str.CLANTROPMONTHLYEXP, 'x'),
+		MonthlyConquests(CMProps.Str.CLANTROPMONTHLYAREA, 'a'),
+		MonthlyClanLevels(CMProps.Str.CLANTROPMONTHLYLVLS, 'l'),
+		MonthlyControlPoints(CMProps.Str.CLANTROPMONTHLYCP, 'c'),
+		MonthlyNewMembers(CMProps.Str.CLANTROPMONTHLYMB, 'm'),
 		;
-		public final String description;
-		public final String codeString;
+		private String description = null;
+		private String codeString = null;
 		public final CMProps.Str propertyCode;
 		public final char shortChar;
-		private Trophy(final String desc, final String codeName, final CMProps.Str cd, final char shortChar)
+		private Trophy( final CMProps.Str cd, final char shortChar)
 		{
-			this.description=desc;
-			this.codeString=codeName;
 			this.propertyCode = cd;
 			this.shortChar = shortChar;
+		}
+
+		public String codeString()
+		{
+			if(codeString == null)
+			{
+				switch(this)
+				{
+				case Points: codeString = CMLib.lang().L("Control Points"); break;
+				case Experience: codeString = CMLib.lang().L("Experience"); break;
+				case Areas: codeString = CMLib.lang().L("Areas Controlled"); break;
+				case ClanKills: codeString = CMLib.lang().L("Clan Kills"); break;
+				case Members: codeString = CMLib.lang().L("Total Members"); break;
+				case MemberLevel: codeString = CMLib.lang().L("Median Level"); break;
+				case PlayerMinutes: codeString = CMLib.lang().L("Player Time"); break;
+				case PlayerLevelsGained: codeString = CMLib.lang().L("Most Level-ups"); break;
+				case MonthlyPlayerMinutes: codeString = CMLib.lang().L("Monthly Player Time"); break;
+				case MonthlyPlayerXP: codeString = CMLib.lang().L("Monthly Player XP"); break;
+				case MonthlyClanXP: codeString = CMLib.lang().L("Monthly Clan XP"); break;
+				case MonthlyConquests: codeString = CMLib.lang().L("Monthly Conquests"); break;
+				case MonthlyClanLevels: codeString = CMLib.lang().L("Monthly Clan Levels"); break;
+				case MonthlyControlPoints: codeString = CMLib.lang().L("Monthly Control Points"); break;
+				case MonthlyNewMembers: codeString = CMLib.lang().L("Monthly New Members"); break;
+				}
+			}
+			return codeString;
+		}
+
+		public String description()
+		{
+			if(description == null)
+			{
+				switch(this)
+				{
+				case Points: description = CMLib.lang().L("Most control points", "Control Points"); break;
+				case Experience: description = CMLib.lang().L("Most clan experience", "Experience"); break;
+				case Areas: description = CMLib.lang().L("Most controlled areas", "Areas Controlled"); break;
+				case ClanKills: description = CMLib.lang().L("Most rival clan-kills", "Clan Kills"); break;
+				case Members: description = CMLib.lang().L("Most members", "Total Members"); break;
+				case MemberLevel: description = CMLib.lang().L("Highest median level", "Median Level"); break;
+				case PlayerMinutes: description = CMLib.lang().L("Most player time", "Player Time"); break;
+				case PlayerLevelsGained: description = CMLib.lang().L("Most player Levels", "Most Level-ups"); break;
+				case MonthlyPlayerMinutes: description = CMLib.lang().L("Most player time last month", "Monthly Player Time"); break;
+				case MonthlyPlayerXP: description = CMLib.lang().L("Most player xp last month", "Monthly Player XP"); break;
+				case MonthlyClanXP: description = CMLib.lang().L("Most clan xp last month", "Monthly Clan XP"); break;
+				case MonthlyConquests: description = CMLib.lang().L("Most conquests last month", "Monthly Conquests"); break;
+				case MonthlyClanLevels: description = CMLib.lang().L("Most clan levels last month", "Monthly Clan Levels"); break;
+				case MonthlyControlPoints: description = CMLib.lang().L("Most control points last month", "Monthly Control Points"); break;
+				case MonthlyNewMembers: description = CMLib.lang().L("Most new members last month", "Monthly New Members"); break;
+				}
+			}
+			return description;
 		}
 
 		public boolean isEnabled()
@@ -1113,7 +1210,7 @@ public interface Clan extends Cloneable, Tickable, CMCommon, Modifiable, Tattooa
 		XP_OVERWRITE,
 		GOLD_OVERWRITE,
 		JOINDATE,
-		JOINDATE_OVERWRITE,
+		JOINDATE_OVERWRITE
 	}
 
 	/**
@@ -1187,11 +1284,35 @@ public interface Clan extends Cloneable, Tickable, CMCommon, Modifiable, Tattooa
 		LIST_MEMBERS,
 		/** constant for the clan function of enjoying clan homes. @see Clan#getAuthority(int,Function) */
 		HOME_PRIVS,
-		/** constant for the clan function of enjoying clan homes. @see Clan#getAuthority(int,Function) */
+		/** constant for the clan function of enjoying clan benefits. @see Clan#getAuthority(int,Function) */
 		CLAN_BENEFITS,
-		/** constant for the clan function of enjoying clan homes. @see Clan#getAuthority(int,Function) */
+		/** constant for the clan function of getting clan titles. @see Clan#getAuthority(int,Function) */
 		CLAN_TITLES,
 		/** constant for the clan function writing MOTD messages. @see Clan#getAuthority(int,Function) */
-		CLAN_MOTD,
+		READ_MOTD,
+		/** constant for the clan function writing Journal messages. @see Clan#getAuthority(int,Function) */
+		JOURNAL,
+		/** constant for the clan function writing in Law Books. @see Clan#getAuthority(int,Function) */
+		CREATE_LAW,
+		/** constant for the clan function of writing a new clan motd. @see Clan#getAuthority(int,Function) */
+		CREATE_MOTD,
+		/** constant for the clan function of writing new calendar entries. @see Clan#getAuthority(int,Function) */
+		CREATE_CALENDAR,
 	}
+
+	/**
+	 * A helpful comparator to sort clans in a pairlist by roles, with highest on top
+	 */
+	public static Comparator<Pair<Clan,Integer>> compareByRole = new Comparator<Pair<Clan,Integer>>()
+	{
+		@Override
+		public int compare(final Pair<Clan, Integer> o1, final Pair<Clan, Integer> o2)
+		{
+			if(o1.second.intValue()==o2.second.intValue())
+				return 0;
+			if(o1.second.intValue()>o2.second.intValue())
+				return -1;
+			return 1;
+		}
+	};
 }

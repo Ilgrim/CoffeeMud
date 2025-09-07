@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -112,6 +112,7 @@ public class Prayer_TrueResurrection extends Prayer_Resurrect
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, Physical givenTarget, final boolean auto, final int asLevel)
 	{
+		String argCorpseName=null;
 		if(givenTarget == null)
 		{
 			if(commands.size()<1)
@@ -119,16 +120,16 @@ public class Prayer_TrueResurrection extends Prayer_Resurrect
 				mob.tell(L("You must specify the name of a corpse within range of this magic."));
 				return false;
 			}
-			final String corpseName=CMParms.combine(commands,0).trim().toUpperCase();
+			argCorpseName=CMParms.combine(commands,0).trim().toUpperCase();
 
-			List<Item> candidates=CMLib.map().findRoomItems(mob.location().getArea().getProperMap(), mob, corpseName, false, 5);
+			List<Item> candidates=CMLib.hunt().findRoomItems(mob.location().getArea().getProperMap(), mob, argCorpseName, false, 5);
 			Item corpseItem=this.findCorpseRoom(candidates);
 			Room newRoom = null;
 			if(corpseItem != null)
 				newRoom=CMLib.map().roomLocation(corpseItem);
 			if(newRoom == null)
 			{
-				candidates=CMLib.map().findRoomItems(CMLib.map().rooms(), mob, corpseName, false, 5);
+				candidates=CMLib.hunt().findRoomItems(CMLib.map().rooms(), mob, argCorpseName, false, 5);
 				corpseItem=this.findCorpseRoom(candidates);
 				if(corpseItem != null)
 					newRoom=CMLib.map().roomLocation(corpseItem);
@@ -136,10 +137,12 @@ public class Prayer_TrueResurrection extends Prayer_Resurrect
 			candidates.clear();
 			if(newRoom==null)
 			{
-				mob.tell(L("You can't seem to fixate on a corpse called '@x1', perhaps it has decayed?",corpseName));
+				mob.tell(L("You can't seem to fixate on a corpse called '@x1', perhaps it has decayed?",argCorpseName));
 				return false;
 			}
 			givenTarget = corpseItem;
+			if(givenTarget != null)
+				argCorpseName = givenTarget.Name();
 			final Long lastTime;
 			synchronized(lastCasts)
 			{
@@ -150,20 +153,24 @@ public class Prayer_TrueResurrection extends Prayer_Resurrect
 				for(final String key : lastCasts.keySet())
 				{
 					if(lastCasts.get(key).longValue() <= expires)
-						removeThese.remove(key);
+						removeThese.add(key);
 				}
 				for(final String key : removeThese)
 					lastCasts.remove(key);
-				lastTime = lastCasts.get(corpseName);
+				lastTime = lastCasts.get(argCorpseName);
 			}
-			if(lastTime == null)
-				lastCasts.put(corpseName, Long.valueOf(System.currentTimeMillis()));
-			else
+			if(lastTime != null)
 			{
 				mob.tell(L("That spirit can not handle another True Resurrection right now."));
 				return false;
 			}
 		}
-		return super.invoke(mob,commands,givenTarget,auto,asLevel);
+		final boolean success = super.invoke(mob,commands,givenTarget,auto,asLevel);
+		if((argCorpseName != null)
+		&& (givenTarget != null)
+		&&(givenTarget.amDestroyed())
+		&&success)
+			lastCasts.put(argCorpseName, Long.valueOf(System.currentTimeMillis()));
+		return success;
 	}
 }

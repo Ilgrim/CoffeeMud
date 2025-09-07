@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -46,6 +46,12 @@ public class WolfSpeak extends AnimalSpeak
 	public String name()
 	{
 		return localizedName;
+	}
+
+	@Override
+	public String getTranslationVerb()
+	{
+		return "howl(s)";
 	}
 
 	private final static String[] animalSounds=

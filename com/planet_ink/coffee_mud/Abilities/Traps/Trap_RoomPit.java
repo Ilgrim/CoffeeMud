@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,10 +60,10 @@ public class Trap_RoomPit extends StdTrap
 		return 0;
 	}
 
-	@Override
-	protected int trapLevel()
+	public Trap_RoomPit()
 	{
-		return 1;
+		super();
+		trapLevel = 1;
 	}
 
 	@Override
@@ -237,27 +237,33 @@ public class Trap_RoomPit extends StdTrap
 			||(invoker().getGroupMembers(new HashSet<MOB>()).contains(target))
 			||(target==invoker())
 			||(doesSaveVsTraps(target)))
-				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> avoid(s) falling into a pit!"));
-			else
-			if(target.location().show(target,target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> fall(s) into a pit!")))
 			{
-				super.spring(target);
-				makePit(target);
-				final Exit door=CMClass.getExit("StdClosedDoorway");
-				door.setSavable(false);
-				door.setOpenDelayTicks(10);
-				pit.get(pit.size()-1).setRawExit(Directions.UP,door);
-				pit.get(pit.size()-1).rawDoors()[Directions.UP]=target.location();
-				if((target.location().getRoomInDir(Directions.DOWN)==null)
-				&&(target.location().getExitInDir(Directions.DOWN)==null))
+				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,
+						getAvoidMsg(L("<S-NAME> avoid(s) falling into a pit!")));
+			}
+			else
+			{
+				if(target.location().show(target,target,this,
+						CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,getTrigMsg(L("<S-NAME> fall(s) into a pit!"))))
 				{
-					target.location().setRawExit(Directions.DOWN,door);
-					target.location().rawDoors()[Directions.DOWN]=(pit.get(pit.size()-1));
+					super.spring(target);
+					makePit(target);
+					final Exit door=CMClass.getExit("StdClosedDoorway");
+					door.setSavable(false);
+					door.setOpenDelayTicks(10);
+					pit.get(pit.size()-1).setRawExit(Directions.UP,door);
+					pit.get(pit.size()-1).rawDoors()[Directions.UP]=target.location();
+					if((target.location().getRoomInDir(Directions.DOWN)==null)
+					&&(target.location().getExitInDir(Directions.DOWN)==null))
+					{
+						target.location().setRawExit(Directions.DOWN,door);
+						target.location().rawDoors()[Directions.DOWN]=(pit.get(pit.size()-1));
+					}
+					if((!door.isOpen())&&(affected instanceof Room))
+						door.executeMsg(target, CMClass.getMsg(target,door,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_OPEN,null));
+					pit.get(0).bringMobHere(target,false);
+					finishSpringing(target);
 				}
-				if((!door.isOpen())&&(affected instanceof Room))
-					door.executeMsg(target, CMClass.getMsg(target,door,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_OPEN,null));
-				pit.get(0).bringMobHere(target,false);
-				finishSpringing(target);
 			}
 		}
 	}

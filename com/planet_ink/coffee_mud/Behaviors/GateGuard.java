@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -40,10 +40,13 @@ public class GateGuard extends StdBehavior
 		return "GateGuard";
 	}
 
-	protected int noticeTock=4;
-	protected boolean heardKnock=false;
-	protected boolean keepLocked=false;
-	protected boolean allnight=false;
+	protected long[]	lastCheck	= new long[3];
+	protected int		noticeTock	= 4;
+	protected boolean	heardKnock	= false;
+	protected boolean	keepLocked	= false;
+	protected boolean	allnight	= false;
+
+	protected MaskingLibrary.CompiledZMask mask = null;
 
 	@Override
 	public String accountForYourself()
@@ -74,6 +77,10 @@ public class GateGuard extends StdBehavior
 				break;
 			}
 		}
+		final String maskStr = CMParms.combineQuoted(V, 0);
+		this.mask=null;
+		if(maskStr.length()>0)
+			this.mask=CMLib.masking().getPreCompiledMask(maskStr);
 	}
 
 	protected int findGate(final MOB mob)
@@ -116,9 +123,9 @@ public class GateGuard extends StdBehavior
 		return key;
 	}
 
-	protected int numValidPlayers(final MOB mob, final Room room)
+	protected int countSessionsHere(final MOB mob, final Room room)
 	{
-		if(room==null)
+		if((room==null)||(room.numInhabitants()==0))
 			return 0;
 		int num=0;
 		for(int i=0;i<room.numInhabitants();i++)
@@ -127,8 +134,46 @@ public class GateGuard extends StdBehavior
 			if((M!=null)
 			&&(!M.isMonster())
 			&&(CMLib.flags().canBeSeenBy(M,mob))
-			&&(CMLib.masking().maskCheck(getParms(),M,false)))
+			&&(CMLib.masking().maskCheck(this.mask,M,false)))
 				num++;
+		}
+		return num;
+	}
+
+	protected int numValidPlayers(final MOB mob, final Room room)
+	{
+		if(room==null)
+			return 0;
+		synchronized(lastCheck)
+		{
+			if((room.expirationDate()==lastCheck[1])
+			&&((room.numInhabitants()+room.numItems())==lastCheck[2]))
+				return (int)lastCheck[0];
+		}
+		int num=countSessionsHere(mob,room);
+		for(int i=0;i<room.numItems();i++)
+		{
+			final Item I=room.getItem(i);
+			if((I instanceof Boardable)
+			&&(I instanceof NavigableItem))
+			{
+				final Area A = ((Boardable)I).getArea();
+				if(A!=null)
+				{
+					for(final Enumeration<Room> r=A.getProperMap();r.hasMoreElements();)
+					{
+						final Room R=r.nextElement();
+						if(R!=null)
+							num += countSessionsHere(mob, room);
+					}
+				}
+			}
+		}
+		synchronized(lastCheck)
+		{
+			lastCheck[0] = num;
+			lastCheck[1] = room.expirationDate();
+			lastCheck[2] = room.numInhabitants() + room.numItems();
 		}
 		return num;
 	}
@@ -149,7 +194,7 @@ public class GateGuard extends StdBehavior
 			{
 				final int dir=findGate(mob);
 				if((dir>=0)
-				&&(CMLib.masking().maskCheck(getParms(),msg.source(),false)))
+				&&(CMLib.masking().maskCheck(this.mask,msg.source(),false)))
 				{
 					final Exit e=mob.location().getExitInDir(dir);
 					if(msg.amITarget(e))

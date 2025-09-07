@@ -1,8 +1,9 @@
 package com.planet_ink.coffee_mud.Libraries;
 import com.planet_ink.coffee_mud.core.interfaces.*;
-import com.planet_ink.coffee_mud.core.interfaces.BoundedObject.BoundedCube;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.CMLib.Library;
+import com.planet_ink.coffee_mud.core.CMProps.Bool;
+import com.planet_ink.coffee_mud.core.CMProps.Str;
 import com.planet_ink.coffee_mud.core.CMSecurity.DbgFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -18,16 +19,25 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.ChannelsLibrary.CMChannel;
 import com.planet_ink.coffee_mud.Libraries.interfaces.ChannelsLibrary.ChannelFlag;
 import com.planet_ink.coffee_mud.Libraries.interfaces.ChannelsLibrary.ChannelMsg;
 import com.planet_ink.coffee_mud.Libraries.interfaces.ColorLibrary.Color;
+import com.planet_ink.coffee_mud.Libraries.interfaces.IntermudInterface.InterProto;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.MOB.Attrib;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-import java.lang.reflect.Method;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.net.URLConnection;
+import java.net.URLStreamHandler;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -56,13 +66,18 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 
 	protected Language		commonLang		= null;
 
-	public final static List<ChannelMsg> emptyQueue=new ReadOnlyList<ChannelMsg>(new Vector<ChannelMsg>(1));
-	public final static Set<ChannelFlag> emptyFlags=new ReadOnlySet<ChannelFlag>(new HashSet<ChannelFlag>(1));
+	protected final static List<ChannelMsg> emptyQueue=new ReadOnlyList<ChannelMsg>(new Vector<ChannelMsg>(1));
+	protected final static Set<ChannelFlag> emptyFlags=new ReadOnlySet<ChannelFlag>(new HashSet<ChannelFlag>(1));
 
 	@Override
 	public int getNumChannels()
 	{
 		return channelList.size();
+	}
+
+	protected Enumeration<CMChannel> channels()
+	{
+		return new IteratorEnumeration<CMChannel>(channelList.iterator());
 	}
 
 	@Override
@@ -73,25 +88,35 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 		return null;
 	}
 
-	public CMChannel createNewChannel(final String name)
+	@Override
+	public CMChannel getChannelFromMsg(final CMMsg msg)
 	{
-		return createNewChannel(name, "", "", "", new HashSet<ChannelFlag>(), "", "");
-	}
-
-	public CMChannel createNewChannel(final String name, final String mask, final Set<ChannelFlag> flags,
-									  final String colorOverrideANSI, final String colorOverrideWords)
-	{
-		return createNewChannel(name, "", "", mask, flags, colorOverrideANSI, colorOverrideWords);
+		int channelCode;
+		if(CMath.bset(msg.othersMajor(), CMMsg.MASK_CHANNEL))
+			channelCode = msg.othersMinor() - CMMsg.TYP_CHANNEL;
+		else
+		if(CMath.bset(msg.targetMajor(), CMMsg.MASK_CHANNEL))
+			channelCode = msg.targetMinor() - CMMsg.TYP_CHANNEL;
+		else
+		if(CMath.bset(msg.sourceMajor(), CMMsg.MASK_CHANNEL))
+			channelCode = msg.sourceMajor() - CMMsg.TYP_CHANNEL;
+		else
+			return null;
+		return getChannel(channelCode);
 	}
 
 	@Override
-	public CMChannel createNewChannel(final String name, final String i3Name, final String imc2Name,
+	public CMChannel createNewChannel(final String name, final Map<InterProto,String> imudNames,
 									  final String mask, final Set<ChannelFlag> flags,
 									  final String colorOverrideANSI, final String colorOverrideWords)
 	{
 		final SLinkedList<ChannelMsg> queue = new SLinkedList<ChannelMsg>();
 		return new CMChannel()
 		{
+			final String i3Name = (imudNames.containsKey(InterProto.I3)?imudNames.get(InterProto.I3):"");
+			final String imc2Name = (imudNames.containsKey(InterProto.IMC2)?imudNames.get(InterProto.IMC2):"");
+			final String discordName = (imudNames.containsKey(InterProto.DISCORD)?imudNames.get(InterProto.DISCORD):"");
+			final String grapevineName = (imudNames.containsKey(InterProto.Grapevine)?imudNames.get(InterProto.Grapevine):"");
 			@Override
 			public String name()
 			{
@@ -108,6 +133,18 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 			public String imc2Name()
 			{
 				return imc2Name;
+			}
+
+			@Override
+			public String grapevineName()
+			{
+				return grapevineName;
+			}
+
+			@Override
+			public String discordName()
+			{
+				return discordName;
 			}
 
 			@Override
@@ -143,7 +180,120 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 	}
 
 	@Override
-	public List<ChannelMsg> getChannelQue(final int channelNumber, final int numNewToSkip, final int numToReturn)
+	public int getChannelQuePageEnd(final int channelNumber, final MOB mob)
+	{
+		if((channelNumber>=0)
+		&&(channelNumber<channelList.size()))
+		{
+			final CMChannel channel = channelList.get(channelNumber);
+			final int subNameField = this.getExtraChannelDataField(mob, channel);
+			return CMLib.database().getBackLogPageEnd(channel.name(), subNameField);
+		}
+		return -1;
+	}
+
+	@Override
+	public int getChannelQueIndex(final int channelNumber, final MOB mob, final long oldestDateMs)
+	{
+		if((channelNumber>=0)
+		&&(channelNumber<channelList.size()))
+		{
+			final CMChannel channel = channelList.get(channelNumber);
+			final int subNameField = this.getExtraChannelDataField(mob, channel);
+			return CMLib.database().getLowestBackLogIndex(channel.name(), subNameField, oldestDateMs);
+		}
+		return -1;
+	}
+
+	@Override
+	public List<ChannelMsg> searchChannelQue(final MOB mob, final int channelNumber, final String srchTerms, final int maxReturn)
+	{
+		if((channelNumber>=0)
+		&&(channelNumber<channelList.size()))
+		{
+			final String srch = srchTerms.toLowerCase().trim();
+			final CMChannel channel = channelList.get(channelNumber);
+			if(channel.flags().contains(ChannelsLibrary.ChannelFlag.NOBACKLOG))
+			{
+				final LinkedList<ChannelMsg> msgs=new LinkedList<ChannelMsg>();
+				for(final ChannelMsg msg : channel.queue())
+				{
+					if(msg.msg().othersMessage().toLowerCase().indexOf(srch)>=0)
+					{
+						msgs.add(msg);
+						if(msgs.size()>=maxReturn)
+							return msgs;
+					}
+				}
+				return msgs;
+			}
+			final int subNameField = this.getExtraChannelDataField(mob, channel);
+			final List<Triad<String,Integer,Long>> backLog=CMLib.database().searchBackLogEntries(channel.name(), subNameField, srch, maxReturn);
+			return this.convertBackLogEntries(mob, channel, subNameField, backLog);
+		}
+		return emptyQueue;
+	}
+
+	protected List<ChannelMsg> convertBackLogEntries(final MOB mob, final CMChannel channel, final int subNameField, final List<Triad<String,Integer,Long>> backLog)
+	{
+		final List<ChannelMsg> allMsgs = new XVector<ChannelMsg>();
+		for(int x=0;x<backLog.size();x++)
+		{
+			final Triad<String,Integer,Long> p = backLog.get(x);
+			final CMMsg msg=CMClass.getMsg();
+			final String codedMsgStr;
+			if(p.first.startsWith("<EXTRA>"))
+			{
+				final int y=p.first.indexOf("</EXTRA>");
+				if(y<0)
+					continue;
+				codedMsgStr = p.first.substring(y+8);
+			}
+			else
+				codedMsgStr = p.first;
+			msg.parseFlatString(codedMsgStr);
+			if((subNameField != 0)
+			&&(msg.source().isMonster()))
+			{
+				if((channel.flags().contains(ChannelFlag.CLANALLYONLY)||(channel.flags().contains(ChannelFlag.CLANONLY)))
+				&&(msg.source().isMonster())
+				&&(!msg.source().clans().iterator().hasNext()))
+				{
+					for(final Pair<Clan,Integer> c : mob.clans())
+						msg.source().setClan(c.first.clanID(), c.second.intValue());
+				}
+				else
+				if(channel.flags().contains(ChannelFlag.SAMEAREA))
+					msg.source().setLocation(mob.location());
+			}
+
+			final long time = p.third.longValue();
+			allMsgs.add(new ChannelMsg()
+			{
+				@Override
+				public CMMsg msg()
+				{
+					return msg;
+				}
+
+				@Override
+				public long sentTimeMillis()
+				{
+					return time;
+				}
+
+				@Override
+				public int subNameField()
+				{
+					return subNameField;
+				}
+			});
+		}
+		return allMsgs;
+	}
+
+	@Override
+	public List<ChannelMsg> getChannelQue(final int channelNumber, final int numNewToSkip, final int numToReturn, final MOB mob)
 	{
 		if((channelNumber>=0)
 		&&(channelNumber<channelList.size()))
@@ -164,30 +314,16 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 				return msgs;
 			if(channel.flags().contains(ChannelsLibrary.ChannelFlag.NOBACKLOG))
 				return msgs;
-			final List<Pair<String,Long>> backLog=CMLib.database().getBackLogEntries(channel.name(), numNewToSkip, numToReturn);
+			final int subNameField = this.getExtraChannelDataField(mob, channel);
+			final List<Triad<String,Integer,Long>> backLog=CMLib.database().getBackLogEntries(channel.name(), subNameField, numNewToSkip, numToReturn);
 			if(backLog.size()<=msgs.size())
 				return msgs;
-			final List<ChannelMsg> allMsgs = new XVector<ChannelMsg>();
-			for(int x=0;x<backLog.size()-msgs.size();x++)
-			{
-				final CMMsg msg=CMClass.getMsg();
-				msg.parseFlatString(backLog.get(x).first);
-				final long time = backLog.get(x).second.longValue();
-				allMsgs.add(new ChannelMsg()
-				{
-					@Override
-					public CMMsg msg()
-					{
-						return msg;
-					}
 
-					@Override
-					public long sentTimeMillis()
-					{
-						return time;
-					}
-				});
-			}
+			final int numRedundantIndex = msgs.size();
+			for(int i=0;i<numRedundantIndex;i++)  // we already have these, so just cut them.
+				backLog.remove(backLog.size()-1);
+
+			final List<ChannelMsg> allMsgs = this.convertBackLogEntries(mob, channel, subNameField, backLog);
 			allMsgs.addAll(msgs);
 			return allMsgs;
 		}
@@ -231,7 +367,7 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 				return false;
 		}
 
-		if((!pstats.isIgnored(sender))
+		if((!pstats.isIgnored(chan.name(),sender))
 		&&(CMLib.masking().maskCheck(chan.mask(),M,true))
 		&&((!areaReq)
 		   ||(sender.location()==null)
@@ -278,8 +414,9 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 		final Room R=M.location();
 		if((!ses.isStopped())
 		&&(R!=null)
-		&&(!pstats.isIgnored(sender))
+		&&(!pstats.isIgnored(chan.name(),sender))
 		&&(!pstats.isIgnored(senderName))
+		&&(!pstats.isIgnored(chan.name()+"."+senderName))
 		&&(CMLib.masking().maskCheck(chan.mask(),M,true))
 		&&((!areaReq)
 		   ||(sender.location()==null)
@@ -313,7 +450,7 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 	}
 
 	@Override
-	public void channelQueUp(final int channelNumber, final CMMsg msg)
+	public void channelQueUp(final int channelNumber, final CMMsg msg, final int subNameField)
 	{
 		CMLib.map().sendGlobalMessage(msg.source(),CMMsg.TYP_CHANNEL,msg);
 		final CMChannel channel=getChannel(channelNumber);
@@ -337,6 +474,12 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 				{
 					return now;
 				}
+
+				@Override
+				public int subNameField()
+				{
+					return subNameField;
+				}
 			});
 		}
 		if((!channel.flags().contains(ChannelsLibrary.ChannelFlag.NOBACKLOG))
@@ -345,7 +488,7 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 		{
 			try
 			{
-				CMLib.database().addBackLogEntry(getChannel(channelNumber).name(), now, msg.toFlatString());
+				CMLib.database().addBackLogEntry(getChannel(channelNumber).name(), subNameField, now, msg.toFlatString());
 			}
 			catch(final Exception e)
 			{
@@ -417,7 +560,7 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 	}
 
 	@Override
-	public List<String> getFlaggedChannelNames(final ChannelFlag flag, MOB mob)
+	public List<String> getFlaggedChannelNames(final ChannelFlag flag, final MOB mob)
 	{
 		final List<String> channels=new Vector<String>();
 		for(int c=0;c<channelList.size();c++)
@@ -429,10 +572,9 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 				if((mob==null)
 				||(!mob.isAttributeSet(Attrib.PRIVACY)))
 					channels.add(chan.name().toUpperCase());
-				else
+				else // mob is not null, and privacy is turned on, so readability is the key -- what they don't know can't hurt them.
 				if(!CMLib.masking().maskCheck(chan.mask(),mob,true))
 					channels.add(chan.name().toUpperCase());
-				
 			}
 		}
 		return channels;
@@ -466,31 +608,39 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 
 	private void clearChannels()
 	{
-		channelList=new Vector<CMChannel>();
+		channelList = new Vector<CMChannel>();
 	}
 
 	@Override
-	public List<CMChannel> getIMC2ChannelsList()
+	public List<CMChannel> getIMudChannelsList(final InterProto proto)
 	{
 		final List<CMChannel> list=new Vector<CMChannel>();
 		for(int i=0;i<channelList.size();i++)
 		{
-			if((channelList.get(i).imc2Name()!=null)
-			&&(channelList.get(i).imc2Name().length()>0))
-				list.add(channelList.get(i));
-		}
-		return list;
-	}
-
-	@Override
-	public List<CMChannel> getI3ChannelsList()
-	{
-		final List<CMChannel> list=new Vector<CMChannel>();
-		for(int i=0;i<channelList.size();i++)
-		{
-			if((channelList.get(i).i3name()!=null)
-			&&(channelList.get(i).i3name().length()>0))
-				list.add(channelList.get(i));
+			final CMChannel chan = channelList.get(i);
+			if(chan == null)
+				continue;
+			switch(proto)
+			{
+			case CM1:
+				break;
+			case DISCORD:
+				if((chan.discordName()!=null)&&(chan.discordName().length()>0))
+					list.add(chan);
+				break;
+			case Grapevine:
+				if((chan.grapevineName()!=null)&&(chan.grapevineName().length()>0))
+					list.add(chan);
+				break;
+			case I3:
+				if((chan.i3name()!=null)&&(chan.i3name().length()>0))
+					list.add(chan);
+				break;
+			case IMC2:
+				if((chan.imc2Name()!=null)&&(chan.imc2Name().length()>0))
+					list.add(chan);
+				break;
+			}
 		}
 		return list;
 	}
@@ -533,23 +683,51 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 			mySession.setBeingSnoopedBy(invalid.get(s), true);
 	}
 
-	public String parseOutFlags(final String mask, final Set<ChannelFlag> flags, final String[] colorOverride)
+	protected String parseOutFlags(final String mask, final Set<ChannelFlag> flags, final String[] colorOverride, final Map<InterProto,String> imudChans)
 	{
 		final List<String> V=CMParms.parseSpaces(mask,true);
-		for(int v=V.size()-1;v>=0;v--)
+		for(int i=V.size()-1;i>=0;i--)
 		{
-			final String s=V.get(v).toUpperCase();
+			final String vs=V.get(i);
+			final String s;
+			final String v;
+			final int x = vs.indexOf('=');
+			if(x<0)
+			{
+				s=vs.toUpperCase();
+				v="";
+			}
+			else
+			{
+				s=vs.substring(0,x).toUpperCase().trim();
+				v=vs.substring(x+1);
+			}
 			if(CMParms.contains(CMParms.toStringArray(ChannelFlag.values()), s))
 			{
-				V.remove(v);
-				flags.add(ChannelFlag.valueOf(s));
+				V.remove(i);
+				final ChannelFlag flag = ChannelFlag.valueOf(s);
+				flags.add(flag);
+				if(v.length()>0)
+				{
+					if(flag==ChannelFlag.DISCORD)
+						imudChans.put(InterProto.DISCORD, v);
+					else
+					if(flag==ChannelFlag.I3)
+						imudChans.put(InterProto.I3, v);
+					else
+					if(flag==ChannelFlag.IMC2)
+						imudChans.put(InterProto.IMC2, v);
+					else
+					if(flag==ChannelFlag.GRAPEVINE)
+						imudChans.put(InterProto.Grapevine, v);
+				}
 			}
 			else
 			{
 				final Color C=(Color)CMath.s_valueOf(Color.class, s);
 				if(C!=null)
 				{
-					V.remove(v);
+					V.remove(i);
 					if(s.startsWith("BG"))
 						colorOverride[0]=colorOverride[0]+C.getANSICode();
 					else
@@ -585,16 +763,17 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 			}
 			x=item.indexOf(' ');
 			final CMChannel chan;
+			final Map<InterProto,String> imudChans = new HashMap<InterProto,String>();
 			if(x>0)
 			{
 				final String[] colorOverride=new String[]{"",""};
 				final Set<ChannelFlag> flags = new HashSet<ChannelFlag>();
-				final String mask=parseOutFlags(item.substring(x+1).trim(),flags,colorOverride);
+				final String mask=parseOutFlags(item.substring(x+1).trim(),flags,colorOverride,imudChans);
 				item=item.substring(0,x);
-				chan = this.createNewChannel(item.toUpperCase().trim(), mask, flags, colorOverride[0], colorOverride[1]);
+				chan = this.createNewChannel(item.toUpperCase().trim(), imudChans, mask, flags, colorOverride[0], colorOverride[1]);
 			}
 			else
-				chan = this.createNewChannel(item.toUpperCase().trim());
+				chan = createNewChannel(item.toUpperCase().trim(), imudChans, "", new HashSet<ChannelFlag>(), "", "");
 			channelList.add(chan);
 		}
 		while(ilist.length()>0)
@@ -622,9 +801,11 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 			final Set<ChannelFlag> flags = new HashSet<ChannelFlag>();
 			final String nameStr=item.toUpperCase().trim();
 			final String[] colorOverride=new String[]{"",""};
-			final String maskStr=parseOutFlags(lvl,flags,colorOverride);
+			final Map<InterProto,String> imudChans = new HashMap<InterProto,String>();
+			final String maskStr=parseOutFlags(lvl,flags,colorOverride,imudChans);
 			final String i3nameStr=ichan;
-			final CMChannel chan = this.createNewChannel(nameStr, i3nameStr, "", maskStr, flags, colorOverride[0], colorOverride[1]);
+			imudChans.put(InterProto.I3,i3nameStr);
+			final CMChannel chan = this.createNewChannel(nameStr, imudChans, maskStr, flags, colorOverride[0], colorOverride[1]);
 			channelList.add(chan);
 		}
 		while(imc2list.length()>0)
@@ -652,21 +833,24 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 			item=item.substring(0,y1);
 			final String nameStr=item.toUpperCase().trim();
 			final String[] colorOverride=new String[]{"",""};
-			final String maskStr=parseOutFlags(lvl,flags,colorOverride);
+			final Map<InterProto,String> imudChans = new HashMap<InterProto,String>();
+			final String maskStr=parseOutFlags(lvl,flags,colorOverride,imudChans);
 			final String imc2Name=ichan;
-			final CMChannel chan = this.createNewChannel(nameStr, "", imc2Name, maskStr, flags, colorOverride[0], colorOverride[1]);
+			imudChans.put(InterProto.IMC2,imc2Name);
+			final CMChannel chan = this.createNewChannel(nameStr,imudChans, maskStr, flags, colorOverride[0], colorOverride[1]);
 			channelList.add(chan);
 		}
 		baseChannelNames=new String[channelList.size()];
 		for(int i=0;i<channelList.size();i++)
 			baseChannelNames[i]=channelList.get(i).name();
-		if(channelList.size()>31)
+		final Map<InterProto,String> imudChans = new HashMap<InterProto,String>();
+		if((!CMSecurity.isDisabled(CMSecurity.DisFlag.CHANNELAUCTION))
+		&&(this.getChannel("AUCTION")==null))
+			channelList.add(createNewChannel("AUCTION", imudChans, "", new HashSet<ChannelFlag>(), "", ""));
+		while(channelList.size()>31)
 		{
 			Log.errOut("CMChannels", "Too many channels defined: "+channelList.size()+".");
-		}
-		if(!CMSecurity.isDisabled(CMSecurity.DisFlag.CHANNELAUCTION))
-		{
-			channelList.add(this.createNewChannel("AUCTION"));
+			channelList.remove(channelList.size()-1);
 		}
 		return channelList.size();
 	}
@@ -693,9 +877,11 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 		{
 			if(ses.getClientTelnetMode(Session.TELNET_GMCP)&&(channel!=null))
 			{
-				ses.sendGMCPEvent("comm.channel", "{\"chan\":\""+channel.name()+"\",\"msg\":\""+
-						MiniJSON.toJSONString(CMLib.coffeeFilter().fullOutFilter(null, M, msg.source(), msg.target(), msg.tool(), CMStrings.removeColors((M==msg.source())?msg.sourceMessage():msg.othersMessage()), false))
-						+"\",\"player\":\""+msg.source().name()+"\"}");
+				final String player=CMStrings.removeAllButLettersAndDigits(CMStrings.removeColors(msg.source().name()));
+				final String chanMsgStr = CMStrings.removeColors((M==msg.source())?msg.sourceMessage():msg.othersMessage()).trim();
+				final String filteredMsgStr = CMLib.coffeeFilter().fullOutFilter(null, M, msg.source(), msg.target(), msg.tool(), chanMsgStr, false).trim();
+				final String jsonMsgStr = MiniJSON.toJSONString(CMStrings.unWWrap(filteredMsgStr));
+				ses.sendGMCPEvent("comm.channel", "{\"chan\":\""+channel.name()+"\",\"msg\":\""+jsonMsgStr+"\",\"player\":\""+player+"\"}");
 			}
 			M.executeMsg(M,msg);
 			didIt=true;
@@ -718,8 +904,43 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 		return didIt;
 	}
 
+	protected int[] getExtraChannelDataFields(final MOB mob, final CMChannel chan)
+	{
+		final List<Integer> all=new LinkedList<Integer>();
+		if(chan.flags().contains(ChannelsLibrary.ChannelFlag.SAMEAREA))
+		{
+			final Area A=CMLib.map().areaLocation(mob);
+			if(A!=null)
+				all.add(Integer.valueOf(A.Name().toUpperCase().hashCode()));
+		}
+		else
+		if((chan.flags().contains(ChannelsLibrary.ChannelFlag.CLANONLY))
+		||(chan.flags().contains(ChannelsLibrary.ChannelFlag.CLANALLYONLY)))
+		{
+			final List<Pair<Clan,Integer>> allClans=new ArrayList<Pair<Clan,Integer>>();
+			allClans.addAll(CMLib.clans().findPrivilegedClans(mob, Clan.Function.CHANNEL));
+			Collections.sort(allClans,Clan.compareByRole);
+			for(final Pair<Clan,Integer> p : allClans)
+				all.add(Integer.valueOf(p.first.name().toUpperCase().hashCode()));
+		}
+		if(all.size()==0)
+			return new int[0];
+		final int[] f = new int[all.size()];
+		for(int i=0;i<f.length;i++)
+			f[i]=all.get(i).intValue();
+		return f;
+	}
+
+	protected int getExtraChannelDataField(final MOB mob, final CMChannel chan)
+	{
+		final int[] extraFields = getExtraChannelDataFields(mob, chan);
+		if(extraFields.length==0)
+			return 0;
+		return extraFields[0];
+	}
+
 	@Override
-	public void createAndSendChannelMessage(final MOB mob, String channelName, String message, final boolean systemMsg)
+	public void createAndSendChannelMessage(final MOB mob, String channelName, String message, final boolean systemMsg, final boolean skipIMud)
 	{
 		if(mob == null)
 			return;
@@ -731,6 +952,7 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 		final Room R=mob.location();
 
 		message=CMProps.applyINIFilter(message,CMProps.Str.CHANNELFILTER);
+		final String rawMessage = message;
 		final CMChannel chan=getChannel(channelInt);
 		final Set<ChannelFlag> flags=chan.flags();
 		channelName=chan.name();
@@ -759,7 +981,7 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 					if(CMProps.getIntVar(CMProps.Int.RP_CHANNEL_NAMED)!=0)
 					{
 						pStats.setLastRolePlayXPTime(System.currentTimeMillis());
-						CMLib.leveler().postRPExperience(mob, null, "", CMProps.getIntVar(CMProps.Int.RP_CHANNEL_NAMED), false);
+						CMLib.leveler().postRPExperience(mob, "CHANNEL:"+channelName, null, "", CMProps.getIntVar(CMProps.Int.RP_CHANNEL_NAMED), false);
 					}
 				}
 				else
@@ -767,20 +989,24 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 					if(CMProps.getIntVar(CMProps.Int.RP_CHANNEL)!=0)
 					{
 						pStats.setLastRolePlayXPTime(System.currentTimeMillis());
-						CMLib.leveler().postRPExperience(mob, null, "", CMProps.getIntVar(CMProps.Int.RP_CHANNEL), false);
+						CMLib.leveler().postRPExperience(mob, "CHANNEL:"+channelName, null, "", CMProps.getIntVar(CMProps.Int.RP_CHANNEL), false);
 					}
 				}
 			}
 		}
 
 		CMMsg msg=null;
+		final int srcCode = chan.flags().contains(ChannelFlag.NOMOUTH) ? CMMsg.TYP_OK_ACTION : CMMsg.MSG_SPEAK;
 		if(systemMsg)
 		{
 			String str="["+channelName+"]"+nameAppendage+" '"+message+"'^</CHANNEL^>^?^.";
 			if((!mob.name().startsWith("^"))||(mob.name().length()>2))
+			{
 				str="<S-NAME>"+nameAppendage+" "+str;
+				message = "(<S-NAME>"+"@"+CMProps.getVar(CMProps.Str.MUDNAME)+nameAppendage+") "+message;
+			}
 			msg=CMClass.getMsg(mob,null,null,
-					CMMsg.MASK_CHANNEL|CMMsg.MASK_ALWAYS|CMMsg.MSG_SPEAK,channelColor+"^<CHANNEL \""+channelName+"\"^>"+str,
+					CMMsg.MASK_CHANNEL|CMMsg.MASK_ALWAYS|srcCode,channelColor+"^<CHANNEL \""+channelName+"\"^>"+str,
 					CMMsg.NO_EFFECT,null,
 					CMMsg.MASK_CHANNEL|(CMMsg.TYP_CHANNEL+channelInt),channelColor+"^<CHANNEL \""+channelName+"\"^>"+str);
 		}
@@ -795,8 +1021,18 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 			Social S=CMLib.socials().fetchSocial(V,true,false);
 			if(S==null)
 				S=CMLib.socials().fetchSocial(V,false,false);
-			if(S!=null)
+			if((S!=null)
+			&&(S.meetsCriteriaToUse(mob)))
+			{
 				msg=S.makeChannelMsg(mob,channelInt,channelName,V,false);
+				if(msg.othersMessage()!=null)
+				{
+					message=CMStrings.removeColors(msg.othersMessage());
+					if(msg.target()!=null)
+						message=CMStrings.replaceAll(message,"<T-NAME>",msg.target().name());
+					message=CMStrings.replaceAll(message,"["+channelName+"]","(@"+CMProps.getVar(Str.MUDNAME)+")");
+				}
+			}
 			else
 			{
 				msgstr=CMProps.applyINIFilter(msgstr,CMProps.Str.EMOTEFILTER);
@@ -807,17 +1043,21 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 				final String srcstr="^<CHANNEL \""+channelName+"\"^>["+channelName+"] "+mob.name()+nameAppendage+msgstr+"^</CHANNEL^>^N^.";
 				final String reststr="^<CHANNEL \""+channelName+"\"^>["+channelName+"] <S-NAME>"+nameAppendage+msgstr+"^</CHANNEL^>^N^.";
 				msg=CMClass.getMsg(mob,null,null,
-						CMMsg.MASK_CHANNEL|CMMsg.MASK_ALWAYS|CMMsg.MSG_SPEAK,channelColor+""+srcstr,
+						CMMsg.MASK_CHANNEL|CMMsg.MASK_ALWAYS|srcCode,channelColor+""+srcstr,
 						CMMsg.NO_EFFECT,null,
 						CMMsg.MASK_CHANNEL|(CMMsg.TYP_CHANNEL+channelInt),channelColor+reststr);
+				if((chan.discordName()!=null)&&(chan.discordName().length()>0))
+					message=mob.Name()+"@"+CMProps.getVar(CMProps.Str.MUDNAME)+nameAppendage+msgstr;
 			}
 		}
 		else
 		{
 			msg=CMClass.getMsg(mob,null,null,
-					CMMsg.MASK_CHANNEL|CMMsg.MASK_ALWAYS|CMMsg.MSG_SPEAK,channelColor+"^<CHANNEL \""+channelName+"\"^>"+L("You")+nameAppendage+" "+channelName+" '"+message+"'^</CHANNEL^>^N^.",
+					CMMsg.MASK_CHANNEL|CMMsg.MASK_ALWAYS|srcCode,channelColor+"^<CHANNEL \""+channelName+"\"^>"+L("You")+nameAppendage+" "+channelName+" '"+message+"'^</CHANNEL^>^N^.",
 					CMMsg.NO_EFFECT,null,
 					CMMsg.MASK_CHANNEL|(CMMsg.TYP_CHANNEL+channelInt),channelColor+"^<CHANNEL \""+channelName+"\"^><S-NAME>"+nameAppendage+" "+CMLib.english().makePlural(channelName)+" '"+message+"'^</CHANNEL^>^N^.");
+			if((chan.discordName()!=null)&&(chan.discordName().length()>0))
+				message="("+mob.Name()+"@"+CMProps.getVar(CMProps.Str.MUDNAME)+nameAppendage+") "+message;
 		}
 
 		if((chan.flags().contains(ChannelsLibrary.ChannelFlag.ACCOUNTOOC)
@@ -858,9 +1098,16 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 		&&((!R.isInhabitant(mob))||(R.okMessage(mob,msg))))
 		{
 			if(chan.flags().contains(ChannelsLibrary.ChannelFlag.TWITTER))
-				tweet(message);
+				CMLib.protocol().tweet(rawMessage);
 			final boolean areareq=flags.contains(ChannelsLibrary.ChannelFlag.SAMEAREA);
-			channelQueUp(channelInt,msg);
+			try
+			{
+				channelQueUp(channelInt, msg, this.getExtraChannelDataField(mob, chan));
+			}
+			catch(final Exception e)
+			{
+				Log.errOut(e);
+			}
 			for(final Session S : CMLib.sessions().localOnlineIterable())
 			{
 				final ChannelsLibrary myChanLib=CMLib.get(S)._channels();
@@ -872,9 +1119,8 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 				}
 			}
 		}
-		if((CMLib.intermud().i3online()&&(CMLib.intermud().isI3channel(channelName)))
-		||(CMLib.intermud().imc2online()&&(CMLib.intermud().isIMC2channel(channelName))))
-			CMLib.intermud().i3channel(mob,channelName,message);
+		if(!skipIMud)
+			CMLib.intermud().imudChannel(mob,channelName,message);
 	}
 
 	protected Language getCommonLanguage()
@@ -890,55 +1136,15 @@ public class CMChannels extends StdLibrary implements ChannelsLibrary
 	@Override
 	public boolean activate()
 	{
+		if(!super.activate())
+			return false;
 		if(serviceClient==null)
 		{
 			name="THChannels"+Thread.currentThread().getThreadGroup().getName().charAt(0);
 			serviceClient=CMLib.threads().startTickDown(this, Tickable.TICKID_SUPPORT|Tickable.TICKID_SOLITARYMASK, MudHost.TIME_UTILTHREAD_SLEEP, 1);
+			CMLib.database().checkUpgradeBacklogTable(this);
 		}
 		return true;
-	}
-
-	/**
-	 * Requires including special library and special configuration.
-	 * @param msg the message to tweet
-	 */
-	private void tweet(String msg)
-	{
-		msg = CMStrings.scrunchWord(CMStrings.removeColors(msg), 280);
-		try
-		{
-			final Class<?> cbClass = Class.forName("twitter4j.conf.ConfigurationBuilder");
-			final Object cbObj = cbClass.newInstance();
-			final Method cbM1=cbClass.getMethod("setOAuthConsumerKey", String.class);
-			cbM1.invoke(cbObj,CMProps.getProp("TWITTER-OAUTHCONSUMERKEY"));
-			final Method cbM2=cbClass.getMethod("setOAuthConsumerSecret", String.class);
-			cbM2.invoke(cbObj,CMProps.getProp("TWITTER-OAUTHCONSUMERSECRET"));
-			final Method cbM3=cbClass.getMethod("setOAuthAccessToken", String.class);
-			cbM3.invoke(cbObj,CMProps.getProp("TWITTER-OAUTHACCESSTOKEN"));
-			final Method cbM4=cbClass.getMethod("setOAuthAccessTokenSecret", String.class);
-			cbM4.invoke(cbObj,CMProps.getProp("TWITTER-OAUTHACCESSTOKENSECRET"));
-			final Method cbM5=cbClass.getMethod("build");
-			final Object cbBuildObj = cbM5.invoke(cbObj);
-
-			final Class<?> cfClass = Class.forName("twitter4j.conf.Configuration");
-			final Class<?> afClass = Class.forName("twitter4j.auth.AuthorizationFactory");
-			final Method adM1 = afClass.getMethod("getInstance",cfClass);
-			final Object auObj = adM1.invoke(null, cbBuildObj);
-
-			final Class<?> auClass = Class.forName("twitter4j.auth.Authorization");
-			final Class<?> tfClass = Class.forName("twitter4j.TwitterFactory");
-			final Object tfObj = tfClass.newInstance();
-			final Method tfM1 = tfClass.getMethod("getInstance", auClass);
-			final Object twObj = tfM1.invoke(tfObj, auObj);
-
-			final Class<?> twClass = Class.forName("twitter4j.Twitter");
-			final Method twM1 = twClass.getMethod("updateStatus", String.class);
-			twM1.invoke(twObj, msg);
-		}
-		catch (final Exception e)
-		{
-			Log.errOut(e);
-		}
 	}
 
 	@Override

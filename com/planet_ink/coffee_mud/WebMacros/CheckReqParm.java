@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,20 +44,27 @@ public class CheckReqParm extends StdWebMacro
 	@Override
 	public String runMacro(final HTTPRequest httpReq, final String parm, final HTTPResponse httpResp)
 	{
-		final java.util.Map<String,String> parms=parseParms(parm);
-		boolean finalCondition=false;
-		for(String key : parms.keySet())
+		final PairSVector<String,String> parms=parseOrderedParms(parm,false);
+		Boolean finalCondition=null;
+		for(final Pair<String,String> p : parms)
 		{
+			String key = p.first;
 			if(key.length()==0)
 				continue;
-			final String equals=parms.get(key);
+			final String equals=p.second;
 			boolean not=false;
 			boolean thisCondition=true;
+			boolean orCondition=false;
 			boolean startswith=false;
 			boolean inside=false;
 			boolean endswith=false;
 			if(key.startsWith("||"))
+			{
+				orCondition=true;
 				key=key.substring(2);
+			}
+			if(key.startsWith("|/")&&(key.indexOf("/|")>0))
+				key=key.substring(key.indexOf("/|")+2);
 			if(key.startsWith("<"))
 			{
 				startswith=true;
@@ -89,10 +96,24 @@ public class CheckReqParm extends StdWebMacro
 					thisCondition=true;
 				else
 				if(startswith)
-					thisCondition=!check.startsWith(equals);
+				{
+					final boolean cc = CMath.isNumber(check);
+					final boolean ec = CMath.isNumber(equals);
+					if((cc && ec) || (cc && (equals.length()==0)) || (ec && (check.length()==0)))
+						thisCondition = CMath.s_double(check) >= CMath.s_double(equals);
+					else
+						thisCondition=!check.startsWith(equals);
+				}
 				else
 				if(endswith)
-					thisCondition=!check.endsWith(equals);
+				{
+					final boolean cc = CMath.isNumber(check);
+					final boolean ec = CMath.isNumber(equals);
+					if((cc && ec) || (cc && (equals.length()==0)) || (ec && (check.length()==0)))
+						thisCondition = CMath.s_double(check) <= CMath.s_double(equals);
+					else
+						thisCondition=!check.endsWith(equals);
+				}
 				else
 				if(inside)
 					thisCondition=!(check.indexOf(equals)>=0);
@@ -111,10 +132,24 @@ public class CheckReqParm extends StdWebMacro
 					thisCondition=false;
 				else
 				if(startswith)
-					thisCondition=check.startsWith(equals);
+				{
+					final boolean cc = CMath.isNumber(check);
+					final boolean ec = CMath.isNumber(equals);
+					if((cc && ec) || (cc && (equals.length()==0)) || (ec && (check.length()==0)))
+						thisCondition = CMath.s_double(check) < CMath.s_double(equals);
+					else
+						thisCondition=check.startsWith(equals);
+				}
 				else
 				if(endswith)
-					thisCondition=check.endsWith(equals);
+				{
+					final boolean cc = CMath.isNumber(check);
+					final boolean ec = CMath.isNumber(equals);
+					if((cc && ec) || (cc && (equals.length()==0)) || (ec && (check.length()==0)))
+						thisCondition = CMath.s_double(check) > CMath.s_double(equals);
+					else
+						thisCondition=check.endsWith(equals);
+				}
 				else
 				if(inside)
 					thisCondition=(check.indexOf(equals)>=0);
@@ -124,9 +159,16 @@ public class CheckReqParm extends StdWebMacro
 				else
 					thisCondition=true;
 			}
-			finalCondition=finalCondition||thisCondition;
+			if(finalCondition==null)
+				finalCondition=Boolean.valueOf(thisCondition);
+			else
+			if(orCondition)
+				finalCondition=Boolean.valueOf(finalCondition.booleanValue()||thisCondition);
+			else
+				finalCondition=Boolean.valueOf(finalCondition.booleanValue()&&thisCondition);
 		}
-		if(finalCondition)
+		if((finalCondition==null)
+		||(finalCondition.booleanValue()))
 			return "true";
 		return "false";
 	}

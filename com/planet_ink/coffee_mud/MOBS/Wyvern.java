@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ public class Wyvern extends StdMOB
 		super();
 		final Random randomizer = new Random(System.currentTimeMillis());
 
-		username="a wyvern";
+		_name="a wyvern";
 		setDescription("A distant cousin to the dragon, a wyvern is 35-foot-long dark brown to gray body of the wyvern is half tail. Its leathery batlike wings are over 50 feet from tip to tip..");
 		setDisplayText("A mean looking wyvern is here.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -64,7 +64,7 @@ public class Wyvern extends StdMOB
 
 		basePhyStats().setDamage(16);
 		basePhyStats().setSpeed(2.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(7);
 		basePhyStats().setArmor(70);
 		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_FLYING);

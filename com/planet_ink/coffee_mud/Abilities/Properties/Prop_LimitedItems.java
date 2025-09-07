@@ -19,7 +19,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -119,7 +119,7 @@ public class Prop_LimitedItems extends Property
 		meCopy.norecurse=false;
 		if((affP instanceof Item)
 		&&(((Item)affP).owner() != null)
-		&&(CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		&&(CMProps.isState(CMProps.HostState.RUNNING))
 		&&(!canBeUninvoked()))
 		{
 			CMLib.threads().scheduleRunnable(new Runnable(){
@@ -231,7 +231,7 @@ public class Prop_LimitedItems extends Property
 		if(((msg.targetMinor()==CMMsg.TYP_ENTER)
 			||(msg.targetMinor()==CMMsg.TYP_LOOK)
 			||(msg.targetMinor()==CMMsg.TYP_GET))
-		&&(CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		&&(CMProps.isState(CMProps.HostState.RUNNING))
 		&&(affected instanceof Item)
 		&&((!(((Item)affected).owner() instanceof MOB))
 		   ||((MOB)((Item)affected).owner()).playerStats()==null))
@@ -246,7 +246,7 @@ public class Prop_LimitedItems extends Property
 		if((!(E instanceof Item))||(((Item)E).owner()==null))
 			return;
 
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return;
 
 		if(norecurse)
@@ -258,9 +258,9 @@ public class Prop_LimitedItems extends Property
 			final Physical affected = this.affected;
 			if(affected == null)
 				return;
-
 			affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.SENSE_UNLOCATABLE);
 			final String affId = getId(affected);
+
 			if(!inventoriesChecked.contains(affId))
 			{
 				boolean doScan = false;
@@ -271,7 +271,24 @@ public class Prop_LimitedItems extends Property
 				}
 				if(doScan)
 				{
-					synchronized((ID()+"_"+affId).intern())
+					final Filterer<Pair<String,String>> idFilter = new Filterer<Pair<String,String>>()
+					{
+						@Override
+						public boolean passesFilter(final Pair<String, String> obj)
+						{
+							return obj.first.equalsIgnoreCase(affected.ID());
+						}
+					};
+					final Filterer<String> textFilter = new Filterer<String>()
+					{
+						@Override
+						public boolean passesFilter(final String obj)
+						{
+							return obj.indexOf(ID())>0 && obj.indexOf(affId) >0;
+						}
+					};
+
+					synchronized(CMClass.getSync((ID()+"_"+affId)))
 					{
 						if(!inventoriesChecked.contains(affId))
 						{
@@ -285,25 +302,20 @@ public class Prop_LimitedItems extends Property
 								MOB M=CMLib.players().getPlayer(name);
 								if(M==null)
 								{
-									final PairList<String,String> matchingItems = CMLib.database().DBReadPlayerItemData(name,ID());
-									for(final Pair<String,String> p : matchingItems)
+									final List<String[]> matchingItems = CMLib.database().DBReadPlayerItemData(name,idFilter,textFilter);
+									if((matchingItems!=null)&&(matchingItems.size()>0))
 									{
-										if(p.first.equalsIgnoreCase(affected.ID())
-										&&(p.second.indexOf(affId)>0))
+										M=CMLib.players().getLoadPlayer(name);
+										if(M!=null)
 										{
-											M=CMLib.players().getLoadPlayer(name);
-											break;
+											final Room R=M.location();
+											if((R!=null)
+											&&(R.isInhabitant(M)))
+												Log.sysOut("Prop_LimitedItems",M.name()+" was found in the game, even though this is supposed to be a temporary load.");
+											else
+											if(M.session()!=null)
+												Log.sysOut("Prop_LimitedItems",M.name()+" had a session, even though this is supposed to be a temporary load.");
 										}
-									}
-									if(M!=null)
-									{
-										final Room R=M.location();
-										if((R!=null)
-										&&(R.isInhabitant(M)))
-											Log.sysOut("Prop_LimitedItems",M.name()+" was found in the game, even though this is supposed to be a temporary load.");
-										else
-										if(M.session()!=null)
-											Log.sysOut("Prop_LimitedItems",M.name()+" had a session, even though this is supposed to be a temporary load.");
 									}
 								}
 							}

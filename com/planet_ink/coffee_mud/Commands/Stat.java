@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMSecurity.DisFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -21,7 +22,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,6 +63,7 @@ public class Stat  extends Skills
 	public static final int	ABLETYPE_CHARSTATS		= -13;
 	public static final int	ABLETYPE_LEVELTIMES		= -14;
 	public static final int	ABLETYPE_AFFECTS		= -15;
+	public static final int	ABLETYPE_OBJECTS		= -16;
 
 	public static final String[][] ABLETYPE_DESCS={
 		{"EQUIPMENT","EQ","EQUIP"},
@@ -78,6 +80,7 @@ public class Stat  extends Skills
 		{"CHARSTATISTICS","CSTAT","CHARSTATS"},
 		{"LEVELTIMES","LVLS"},
 		{"AFFECTS","EFFECTS","EFF"},
+		{"POBJECTS"},
 	};
 
 	public MOB getTarget(final MOB mob, final String targetName, final boolean quiet)
@@ -100,32 +103,6 @@ public class Stat  extends Skills
 		return target;
 	}
 
-	public String doSenses(final int senseMask)
-	{
-		final StringBuilder str=new StringBuilder("");
-		for(int i=0;i<PhyStats.CAN_SEE_DESCS.length;i++)
-		{
-			if(CMath.isSet(senseMask, i))
-				str.append(PhyStats.CAN_SEE_DESCS[i].replace(' ','_')).append(" ");
-		}
-		if(str.length()==0)
-			str.append("NONE");
-		return str.toString().trim();
-	}
-
-	public String doDisposition(final int dispositionMask)
-	{
-		final StringBuilder str=new StringBuilder("");
-		for(int i=0;i<PhyStats.IS_DESCS.length;i++)
-		{
-			if(CMath.isSet(dispositionMask, i))
-				str.append(PhyStats.IS_DESCS[i].replace(' ','_')).append(" ");
-		}
-		if(str.length()==0)
-			str.append("NONE");
-		return str.toString().trim();
-	}
-
 	public boolean showTableStats(final MOB mob, final int days, final int scale, String rest)
 	{
 		final Calendar ENDQ=Calendar.getInstance();
@@ -135,7 +112,7 @@ public class Stat  extends Skills
 		ENDQ.set(Calendar.SECOND,59);
 		ENDQ.set(Calendar.MILLISECOND,999);
 		CMLib.coffeeTables().update();
-		final List<CoffeeTableRow> V=CMLib.database().DBReadStats(ENDQ.getTimeInMillis()-1,0);
+		final List<CoffeeTableRow> V=CMLib.coffeeTables().readRawStats(ENDQ.getTimeInMillis()-1,0);
 		if (V.size() == 0)
 		{
 			mob.tell(L("No Stats?!"));
@@ -146,7 +123,9 @@ public class Stat  extends Skills
 		boolean socUse=false;
 		boolean cmdUse=false;
 		boolean questStats=false;
+		boolean crimeStats=false;
 		boolean areaStats=false;
+		boolean players=false;
 		if(rest.toUpperCase().trim().startsWith("SKILLUSE"))
 		{
 			skillUse=true;
@@ -183,9 +162,27 @@ public class Stat  extends Skills
 			else
 				rest="";
 		}
+		if(rest.toUpperCase().trim().startsWith("CRIME"))
+		{
+			crimeStats=true;
+			final int x=rest.indexOf(' ');
+			if(x>0)
+				rest=rest.substring(x+1).trim();
+			else
+				rest="";
+		}
 		if(rest.toUpperCase().trim().startsWith("AREA"))
 		{
 			areaStats=true;
+			final int x=rest.indexOf(' ');
+			if(x>0)
+				rest=rest.substring(x+1).trim();
+			else
+				rest="";
+		}
+		if(rest.toUpperCase().trim().startsWith("PLAY"))
+		{
+			players=true;
 			final int x=rest.indexOf(' ');
 			if(x>0)
 				rest=rest.substring(x+1).trim();
@@ -214,6 +211,17 @@ public class Stat  extends Skills
 						+CMStrings.padRight(L("DROP"),5)
 						+CMStrings.padRight(L("TSTP"),5)
 						+CMStrings.padRight(L("STOP"),5)
+						+"\n\r");
+		}
+		else
+		if(crimeStats)
+		{
+			table.append(CMStrings.padRight(L("Date"),25)
+						+CMStrings.padRight(L("Warrants"),10)
+	   					+CMStrings.padRight(L("Arrests"),10)
+						+CMStrings.padRight(L("Paroles"),10)
+						+CMStrings.padRight(L("Jailings"),10)
+						+CMStrings.padRight(L("Executions"),10)
 						+"\n\r");
 		}
 		else
@@ -528,6 +536,68 @@ public class Stat  extends Skills
 			table.append("\n\r");
 		}
 		else
+		if(crimeStats)
+		{
+			while((V.size()>0)&&(curTime>(ENDQ.getTimeInMillis())))
+			{
+				lastCur=curTime;
+				final Calendar C2=Calendar.getInstance();
+				C2.setTimeInMillis(curTime);
+				C2.add(Calendar.DATE,-(scale));
+				curTime=C2.getTimeInMillis();
+				C2.set(Calendar.HOUR_OF_DAY,23);
+				C2.set(Calendar.MINUTE,59);
+				C2.set(Calendar.SECOND,59);
+				C2.set(Calendar.MILLISECOND,999);
+				curTime=C2.getTimeInMillis();
+				final ArrayList<CoffeeTableRow> set=new ArrayList<CoffeeTableRow>();
+				for(int v=V.size()-1;v>=0;v--)
+				{
+					final CoffeeTableRow T=V.get(v);
+					if((T.startTime()>curTime)&&(T.endTime()<=lastCur))
+					{
+						set.add(T);
+						V.remove(v);
+					}
+				}
+				final long[] totals=new long[CoffeeTableRow.STAT_TOTAL];
+				long highestCOnline=0;
+				long numberCOnlineTotal=0;
+				long highestPOnline=0;
+				long numberPOnlineTotal=0;
+				long numberOnlineCounter=0;
+				for(int s=0;s<set.size();s++)
+				{
+					final CoffeeTableRow T=set.get(s);
+					T.totalUp(code,totals);
+					if(T.highestCharsOnline()>highestCOnline)
+						highestCOnline=T.highestCharsOnline();
+					numberCOnlineTotal+=T.numberCharsOnlineTotal();
+					if(T.highestOnline()>highestPOnline)
+						highestPOnline=T.highestOnline();
+					numberPOnlineTotal+=T.numberOnlineTotal();
+					numberOnlineCounter+=T.numberOnlineCounter();
+				}
+				if(players)
+				{
+					highestCOnline=highestPOnline;
+					numberCOnlineTotal=numberPOnlineTotal;
+				}
+				totals[CoffeeTableRow.STAT_TICKSONLINE]=(totals[CoffeeTableRow.STAT_TICKSONLINE]*CMProps.getTickMillis())/scale/(1000*60);
+				double avgOnline=(numberOnlineCounter>0)?CMath.div(numberCOnlineTotal,numberOnlineCounter):0.0;
+				avgOnline=CMath.div(Math.round(avgOnline*10.0),10.0);
+				table.append(CMStrings.padRight(CMLib.time().date2DateString(curTime+1)+" - "+CMLib.time().date2DateString(lastCur-1),25)
+							 +CMStrings.centerPreserve(""+totals[CoffeeTableRow.STAT_WARRANTS],10)
+							 +CMStrings.centerPreserve(""+totals[CoffeeTableRow.STAT_ARRESTS],10)
+							 +CMStrings.centerPreserve(""+totals[CoffeeTableRow.STAT_PAROLES],10)
+							 +CMStrings.centerPreserve(""+totals[CoffeeTableRow.STAT_JAILINGS],10)
+							 +CMStrings.centerPreserve(""+totals[CoffeeTableRow.STAT_EXECUTIONS],10)+"\n\r");
+				if(scale==0)
+					break;
+			}
+			table.append("\n\r");
+		}
+		else
 		if(areaStats)
 		{
 			lastCur=ENDQ.getTimeInMillis();
@@ -548,24 +618,34 @@ public class Stat  extends Skills
 				{
 					code = "X"+A.Name().toUpperCase().replace(' ','_');
 					final long[] totals=new long[CoffeeTableRow.STAT_TOTAL];
-					long highestOnline=0;
-					long numberOnlineTotal=0;
+					long highestCOnline=0;
+					long numberCOnlineTotal=0;
+					long highestPOnline=0;
+					long numberPOnlineTotal=0;
 					long numberOnlineCounter=0;
 					for(int s=0;s<set.size();s++)
 					{
 						final CoffeeTableRow T=set.get(s);
 						T.totalUp(code,totals);
-						if(T.highestOnline()>highestOnline)
-							highestOnline=T.highestOnline();
-						numberOnlineTotal+=T.numberOnlineTotal();
+						if(T.highestCharsOnline()>highestCOnline)
+							highestCOnline=T.highestCharsOnline();
+						numberCOnlineTotal+=T.numberCharsOnlineTotal();
+						if(T.highestOnline()>highestPOnline)
+							highestPOnline=T.highestOnline();
+						numberPOnlineTotal+=T.numberOnlineTotal();
 						numberOnlineCounter+=T.numberOnlineCounter();
 					}
-					totals[CoffeeTableRow.STAT_TICKSONLINE]=(totals[CoffeeTableRow.STAT_TICKSONLINE]*CMProps.getTickMillis())/scale/(1000*60);
-					double avgOnline=(numberOnlineCounter>0)?CMath.div(numberOnlineTotal,numberOnlineCounter):0.0;
+					if(players)
+					{
+						highestCOnline=highestPOnline;
+						numberCOnlineTotal=numberPOnlineTotal;
+					}
+					double avgOnline=(numberOnlineCounter>0)?CMath.div(numberCOnlineTotal,numberOnlineCounter):0.0;
 					avgOnline=CMath.div(Math.round(avgOnline*10.0),10.0);
+					totals[CoffeeTableRow.STAT_TICKSONLINE]=(totals[CoffeeTableRow.STAT_TICKSONLINE]*CMProps.getTickMillis())/scale/(1000*60);
 					table.append(CMStrings.padRight(A.Name(),25)
 								 +CMStrings.centerPreserve(""+totals[CoffeeTableRow.STAT_LOGINS],5)
-								 +CMStrings.centerPreserve(""+highestOnline,5)
+								 +CMStrings.centerPreserve(""+highestCOnline,5)
 								 +CMStrings.centerPreserve(""+avgOnline,5)
 								 +CMStrings.centerPreserve(""+totals[CoffeeTableRow.STAT_TICKSONLINE],5)
 								 +CMStrings.centerPreserve(""+totals[CoffeeTableRow.STAT_NEWPLAYERS],5)
@@ -602,24 +682,34 @@ public class Stat  extends Skills
 					}
 				}
 				final long[] totals=new long[CoffeeTableRow.STAT_TOTAL];
-				long highestOnline=0;
-				long numberOnlineTotal=0;
+				long highestCOnline=0;
+				long numberCOnlineTotal=0;
+				long highestPOnline=0;
+				long numberPOnlineTotal=0;
 				long numberOnlineCounter=0;
 				for(int s=0;s<set.size();s++)
 				{
 					final CoffeeTableRow T=set.get(s);
 					T.totalUp(code,totals);
-					if(T.highestOnline()>highestOnline)
-						highestOnline=T.highestOnline();
-					numberOnlineTotal+=T.numberOnlineTotal();
+					if(T.highestCharsOnline()>highestCOnline)
+						highestCOnline=T.highestCharsOnline();
+					numberCOnlineTotal+=T.numberCharsOnlineTotal();
+					if(T.highestOnline()>highestPOnline)
+						highestPOnline=T.highestOnline();
+					numberPOnlineTotal+=T.numberOnlineTotal();
 					numberOnlineCounter+=T.numberOnlineCounter();
 				}
-				totals[CoffeeTableRow.STAT_TICKSONLINE]=(totals[CoffeeTableRow.STAT_TICKSONLINE]*CMProps.getTickMillis())/scale/(1000*60);
-				double avgOnline=(numberOnlineCounter>0)?CMath.div(numberOnlineTotal,numberOnlineCounter):0.0;
+				if(players)
+				{
+					highestCOnline=highestPOnline;
+					numberCOnlineTotal=numberPOnlineTotal;
+				}
+				double avgOnline=(numberOnlineCounter>0)?CMath.div(numberCOnlineTotal,numberOnlineCounter):0.0;
 				avgOnline=CMath.div(Math.round(avgOnline*10.0),10.0);
+				totals[CoffeeTableRow.STAT_TICKSONLINE]=(totals[CoffeeTableRow.STAT_TICKSONLINE]*CMProps.getTickMillis())/scale/(1000*60);
 				table.append(CMStrings.padRight(CMLib.time().date2DateString(curTime+1)+" - "+CMLib.time().date2DateString(lastCur-1),25)
 							 +CMStrings.centerPreserve(""+totals[CoffeeTableRow.STAT_LOGINS],5)
-							 +CMStrings.centerPreserve(""+highestOnline,5)
+							 +CMStrings.centerPreserve(""+highestCOnline,5)
 							 +CMStrings.centerPreserve(""+avgOnline,5)
 							 +CMStrings.centerPreserve(""+totals[CoffeeTableRow.STAT_TICKSONLINE],5)
 							 +CMStrings.centerPreserve(""+totals[CoffeeTableRow.STAT_NEWPLAYERS],5)
@@ -687,14 +777,14 @@ public class Stat  extends Skills
 	{
 		MOB target=getTarget(mob,MOBname,true);
 		if(target==null)
-			target=CMLib.players().getLoadPlayer(MOBname);
+			target=CMLib.players().getLoadPlayerAllHosts(MOBname);
 		if(target==null)
 		{
 			try
 			{
-				final List<MOB> inhabs=CMLib.map().findInhabitantsFavorExact(mob.location().getArea().getProperMap(), mob,MOBname,false,100);
+				final List<MOB> inhabs=CMLib.hunt().findInhabitantsFavorExact(mob.location().getArea().getProperMap(), mob,MOBname,false,100);
 				if(inhabs.size()==0)
-					inhabs.addAll(CMLib.map().findInhabitantsFavorExact(CMLib.map().rooms(), mob,MOBname,false,100));
+					inhabs.addAll(CMLib.hunt().findInhabitantsFavorExact(CMLib.map().rooms(), mob,MOBname,false,100));
 				for(final MOB mob2 : inhabs)
 				{
 					final Room R=mob2.location();
@@ -723,9 +813,9 @@ public class Stat  extends Skills
 		{
 			try
 			{
-				final List<Item> items=CMLib.map().findRoomItems(mob.location().getArea().getProperMap(), mob,itemName,true,100);
+				final List<Item> items=CMLib.hunt().findRoomItems(mob.location().getArea().getProperMap(), mob,itemName,true,100);
 				if(items.size()==0)
-					items.addAll(CMLib.map().findRoomItems(CMLib.map().rooms(), mob,itemName,true,100));
+					items.addAll(CMLib.hunt().findRoomItems(CMLib.map().rooms(), mob,itemName,true,100));
 				for(final Item item2 : items)
 				{
 					final Room R=CMLib.map().roomLocation(item2);
@@ -744,9 +834,9 @@ public class Stat  extends Skills
 		{
 			try
 			{
-				final List<Item> items=CMLib.map().findInventory(mob.location().getArea().getProperMap(), mob,itemName,100);
+				final List<Item> items=CMLib.hunt().findInventory(mob.location().getArea().getProperMap(), mob,itemName,100);
 				if(items.size()==0)
-					items.addAll(CMLib.map().findInventory(CMLib.map().rooms(), mob,itemName,100));
+					items.addAll(CMLib.hunt().findInventory(CMLib.map().rooms(), mob,itemName,100));
 				for(final Item item2 : items)
 				{
 					final Room R=CMLib.map().roomLocation(item2);
@@ -816,9 +906,9 @@ public class Stat  extends Skills
 			}
 			if(ableTypes==-1)
 			{
-				for(int a=0;a<Ability.ACODE_DESCS.length;a++)
+				for(int a=0;a<Ability.ACODE.DESCS.size();a++)
 				{
-					if((Ability.ACODE_DESCS[a]+"S").equals(s)||(Ability.ACODE_DESCS[a]).equals(s))
+					if((Ability.ACODE.DESCS.get(a)+"S").equals(s)||(Ability.ACODE.DESCS.get(a)).equals(s))
 					{
 						ableTypes=a;
 						commands.remove(0);
@@ -876,9 +966,10 @@ public class Stat  extends Skills
 				final StringBuffer ttl=new StringBuffer("");
 				if(target.playerStats()!=null)
 				{
-					for(int t=0;t<target.playerStats().getTitles().size();t++)
+					final List<String> roTitles = target.playerStats().getTitles();
+					for(int t=0;t<roTitles.size();t++)
 					{
-						final String title = target.playerStats().getTitles().get(t);
+						final String title = roTitles.get(t);
 						ttl.append(" "+title+",");
 					}
 				}
@@ -914,6 +1005,20 @@ public class Stat  extends Skills
 					str.append(" "+e.nextElement().getTattooName()+",");
 				str.deleteCharAt(str.length()-1);
 				str.append("\n\r");
+			}
+			else
+			if(ableTypes==ABLETYPE_OBJECTS)
+			{
+				str.append(L("Player Objects:\n\r  "));
+				final PlayerStats pstats = target.playerStats();
+				if(pstats != null)
+				{
+					for(final Enumeration<Item> e=pstats.getExtItems().items();e.hasMoreElements();)
+						str.append(" "+e.nextElement().name(mob)+", ");
+					str.deleteCharAt(str.length()-1);
+					str.deleteCharAt(str.length()-1);
+					str.append("\n\r");
+				}
 			}
 			else
 			if(ableTypes==ABLETYPE_AFFECTS)
@@ -1291,35 +1396,52 @@ public class Stat  extends Skills
 		throws java.io.IOException
 	{
 		commands.remove(0);
+		final Set<String> allowedCharStats = new HashSet<String>();
+		if((!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.STAT))
+		&&(CMSecurity.isDisabled(DisFlag.FULLSTATS))
+		&&(CMProps.getListFileStringList(CMProps.ListFile.LMT_STATS).length>0))
+			allowedCharStats.addAll(Arrays.asList(CMProps.getListFileStringList(CMProps.ListFile.LMT_STATS)));
 		if(((commands.size()>0)&&commands.get(0).equals("?"))
 		||((commands.size()==0)&&(!(CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.STAT)))))
 		{
 			final StringBuilder msg = new StringBuilder("STAT allows the following options: \n\r");
-			for(final String stat : mob.curState().getStatCodes())
-				msg.append(stat).append(", ");
-			for(final String stat : mob.curState().getStatCodes())
-				msg.append("MAX"+stat).append(", ");
-			for(final String stat : mob.charStats().getStatCodes())
-				msg.append(stat).append(", ");
-			for(final String stat : mob.charStats().getStatCodes())
-				msg.append("BASE"+stat).append(", ");
-			for(final String stat : mob.phyStats().getStatCodes())
-				msg.append(stat).append(", ");
-			msg.append("STINK, XP, XPTNL, XPFNL, QUESTPOINTS, TRAINS, PRACTICES, HEALTH, RESISTS, ATTRIBUTES");
-			for(final Enumeration<Faction> f=CMLib.factions().factions();f.hasMoreElements();)
+			if(allowedCharStats.size()>0)
 			{
-				final Faction F=f.nextElement();
-				if((F!=null)&&(F.showInScore()))
-					msg.append(", "+F.name().toUpperCase().replace(' ','_'));
+				for(final String stat : allowedCharStats)
+					msg.append(stat).append(", ");
 			}
-			if(CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.STAT))
+			else
 			{
-				msg.append(L(", [MOB/PLAYER NAME], [NUMBER] [DAYS/WEEKS/MONTHS], "));
-				for (final String[] element : ABLETYPE_DESCS)
-					msg.append(element[0]+", ");
-				msg.append(CMParms.toListString(Ability.ACODE_DESCS));
+				for(final String stat : mob.curState().getStatCodes())
+					msg.append(stat).append(", ");
+				for(final String stat : mob.curState().getStatCodes())
+					msg.append("MAX"+stat).append(", ");
+				for(final String stat : mob.charStats().getStatCodes())
+					msg.append(stat).append(", ");
+				for(final String stat : mob.charStats().getStatCodes())
+					msg.append("BASE"+stat).append(", ");
+				for(final String stat : mob.phyStats().getStatCodes())
+					msg.append(stat).append(", ");
+				msg.append("STINK, XP, XPTNL, XPFNL, QUESTPOINTS, TRAINS, PRACTICES, HEALTH, RESISTS, ATTRIBUTES");
+				for(final Enumeration<Faction> f=CMLib.factions().factions();f.hasMoreElements();)
+				{
+					final Faction F=f.nextElement();
+					if((F!=null)&&(F.showInScore()))
+						msg.append(", "+F.name().toUpperCase().replace(' ','_'));
+				}
+				if(CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.STAT))
+				{
+					msg.append(L(", [MOB/PLAYER NAME], [NUMBER] [DAYS/WEEKS/MONTHS], "));
+					for (final String[] element : ABLETYPE_DESCS)
+						msg.append(element[0]+", ");
+					msg.append(CMParms.toListString(Ability.ACODE.DESCS));
+				}
 			}
-			mob.tell(msg.toString());
+			final String msgStr = msg.toString().trim();
+			if(msgStr.endsWith(","))
+				mob.tell(msgStr.substring(0,msgStr.length()-1));
+			else
+				mob.tell(msgStr);
 			return false;
 		}
 		final StringBuilder str=new StringBuilder("");
@@ -1333,7 +1455,7 @@ public class Stat  extends Skills
 				return showTableStats(mob,1,1,CMParms.combine(commands,1));
 			else
 			if((commands.size()==1)
-			&&(s1.equalsIgnoreCase("SKILLUSE")||s1.equalsIgnoreCase("AREA")||s1.equalsIgnoreCase("QUEST")))
+			&&(s1.equalsIgnoreCase("SKILLUSE")||s1.equalsIgnoreCase("AREA")||s1.equalsIgnoreCase("QUEST")||s1.equalsIgnoreCase("CRIME")))
 				return showTableStats(mob,1,1,CMParms.combine(commands,0));
 			else
 			if(commands.size()>1)
@@ -1395,7 +1517,7 @@ public class Stat  extends Skills
 						str.setLength(0);
 						str.append(CMStrings.padRight(""+C.getClanLevel(),7)).append(": ").append(L("Clan Level")).append("\n\r");
 						for(final Clan.Trophy t : Clan.Trophy.values())
-							str.append(CMStrings.padRight(""+C.getTrophyData(t),7)).append(": ").append(L(t.codeString)).append("\n\r");
+							str.append(CMStrings.padRight(""+C.getTrophyData(t),7)).append(": ").append(t.codeString()).append("\n\r");
 						mob.tell(str.toString());
 						return true;
 					}
@@ -1440,13 +1562,13 @@ public class Stat  extends Skills
 					Environmental itarget = null;
 					try
 					{
-						final List<Room> rooms=CMLib.map().findRooms(mob.location().getArea().getProperMap(), mob,restWords,true,100);
+						final List<Room> rooms=CMLib.hunt().findRooms(mob.location().getArea().getProperMap(), mob,restWords,true,100);
 						if(rooms.size()==0)
-							rooms.addAll(CMLib.map().findRooms(mob.location().getArea().getProperMap(), mob,restWords,false,100));
+							rooms.addAll(CMLib.hunt().findRooms(mob.location().getArea().getProperMap(), mob,restWords,false,100));
 						if(rooms.size()==0)
-							rooms.addAll(CMLib.map().findRooms(CMLib.map().rooms(), mob,restWords,true,100));
+							rooms.addAll(CMLib.hunt().findRooms(CMLib.map().rooms(), mob,restWords,true,100));
 						if(rooms.size()==0)
-							rooms.addAll(CMLib.map().findRooms(CMLib.map().rooms(), mob,restWords,false,100));
+							rooms.addAll(CMLib.hunt().findRooms(CMLib.map().rooms(), mob,restWords,false,100));
 						for(final Room room : rooms)
 						{
 							final Room R=CMLib.map().roomLocation(room);
@@ -1529,13 +1651,13 @@ public class Stat  extends Skills
 							{
 								try
 								{
-									final List<Room> rooms=CMLib.map().findRooms(mob.location().getArea().getProperMap(), mob,mobName,true,100);
+									final List<Room> rooms=CMLib.hunt().findRooms(mob.location().getArea().getProperMap(), mob,mobName,true,100);
 									if(rooms.size()==0)
-										rooms.addAll(CMLib.map().findRooms(mob.location().getArea().getProperMap(), mob,mobName,false,100));
+										rooms.addAll(CMLib.hunt().findRooms(mob.location().getArea().getProperMap(), mob,mobName,false,100));
 									if(rooms.size()==0)
-										rooms.addAll(CMLib.map().findRooms(CMLib.map().rooms(), mob,mobName,true,100));
+										rooms.addAll(CMLib.hunt().findRooms(CMLib.map().rooms(), mob,mobName,true,100));
 									if(rooms.size()==0)
-										rooms.addAll(CMLib.map().findRooms(CMLib.map().rooms(), mob,mobName,false,100));
+										rooms.addAll(CMLib.hunt().findRooms(CMLib.map().rooms(), mob,mobName,false,100));
 									for(final Room room : rooms)
 									{
 										final Room R=CMLib.map().roomLocation(room);
@@ -1583,10 +1705,31 @@ public class Stat  extends Skills
 			}
 			for(int i=0;i<commands.size()-1;i++)
 				commands.set(i,CMStrings.replaceAll(commands.get(i).toString()," ",""));
+
 			for(int i=0;i<commands.size();i++)
 			{
 				final String thisStat=commands.get(i).toString().toUpperCase().trim();
+				if(allowedCharStats.size()>0)
+				{
+					if(!allowedCharStats.contains(thisStat))
+					{
+						str.append(" *UNKNOWN:"+thisStat+"* ");
+						continue;
+					}
+				}
 				boolean found=false;
+				if(thisStat.equals("MAXHUNGER"))
+				{
+					str.append(M.maxState().maxHunger(M.baseWeight())).append(" ");
+					found=true;
+				}
+				else
+				if(thisStat.equals("MAXTHIRST"))
+				{
+					str.append(M.maxState().maxThirst(M.baseWeight())).append(" ");
+					found=true;
+				}
+				else
 				if(thisStat.equals("XP"))
 				{
 					str.append(M.getExperience()).append(" ");
@@ -1642,6 +1785,7 @@ public class Stat  extends Skills
 				else
 				if(thisStat.equals("DAMAGE"))
 				{
+					M.tell(""+M.phyStats().damage());
 					str.append(CMLib.combat().damageProwessStr(M)).append(" ");
 					found=true;
 				}
@@ -1661,6 +1805,22 @@ public class Stat  extends Skills
 				if(thisStat.equals("XPFNL"))
 				{
 					str.append(M.getExpNextLevel()).append(" ");
+					found=true;
+				}
+				else
+				if(thisStat.equals("XPSTATS"))
+				{
+					str.append(M.getExpPrevLevel()).append(" < ");
+					str.append(M.getExperience()).append(" > ");
+					str.append(M.getExpNextLevel()).append(" = ");
+					str.append(M.getExpNeededLevel()).append(" (");
+					str.append(M.getExpNeededDelevel()).append(")");
+					found=true;
+				}
+				else
+				if(thisStat.equals("MAXHUNGER"))
+				{
+					str.append(M.maxState().maxHunger(M.baseWeight()));
 					found=true;
 				}
 				if(!found)
@@ -1699,7 +1859,7 @@ public class Stat  extends Skills
 						if(stat.equals(thisStat.substring(4)))
 						{
 							final CharStats base=(CharStats)M.baseCharStats().copyOf();
-							M.baseCharStats().getMyRace().affectCharStats(M, base);
+							//M.baseCharStats().getMyRace().affectCharStats(M, base);
 							str.append(base.getStat(stat)).append(" ");
 							found=true;
 							break;
@@ -1713,7 +1873,7 @@ public class Stat  extends Skills
 						if(stat.equals(thisStat))
 						{
 							if(stat.startsWith("MAX"))
-								str.append(CMProps.getIntVar(CMProps.Int.BASEMAXSTAT)+CMath.s_int(M.charStats().getStat(stat)));
+								str.append(CMProps.getIntVar(CMProps.Int.BASEMAXSTAT)+CMath.s_int(M.charStats().getStat(stat))).append(" ");
 							else
 								str.append(M.charStats().getStat(stat)).append(" ");
 							found=true;
@@ -1728,10 +1888,10 @@ public class Stat  extends Skills
 						if(stat.equals(thisStat))
 						{
 							if(stat.equals("SENSES"))
-								str.append(doSenses(CMath.s_int(M.phyStats().getStat(stat))));
+								str.append(CMLib.flags().getMaskedCanSeeList(CMath.s_int(M.phyStats().getStat(stat))));
 							else
 							if(stat.equals("DISPOSITION"))
-								str.append(doDisposition(CMath.s_int(M.phyStats().getStat(stat))));
+								str.append(CMLib.flags().getMaskedDispositionIsList(CMath.s_int(M.phyStats().getStat(stat))));
 							else
 								str.append(M.phyStats().getStat(stat)).append(" ");
 							found=true;
@@ -1757,7 +1917,7 @@ public class Stat  extends Skills
 				{
 					if(CMLib.coffeeMaker().isAnyGenStat(M, thisStat))
 					{
-						str.append(CMLib.coffeeMaker().getAnyGenStat(M, thisStat));
+						str.append(CMLib.coffeeMaker().getAnyGenStat(M, thisStat)).append(" ");
 						found=true;
 					}
 				}
@@ -1792,7 +1952,7 @@ public class Stat  extends Skills
 						if(stat.startsWith(thisStat.substring(4)))
 						{
 							final CharStats base=(CharStats)M.baseCharStats().copyOf();
-							M.baseCharStats().getMyRace().affectCharStats(M, base);
+							//M.baseCharStats().getMyRace().affectCharStats(M, base);
 							str.append(base.getStat(stat)).append(" ");
 							found=true;
 							break;
@@ -1821,10 +1981,10 @@ public class Stat  extends Skills
 						if(stat.startsWith(thisStat))
 						{
 							if(stat.equals("SENSES"))
-								str.append(doSenses(CMath.s_int(M.phyStats().getStat(stat))));
+								str.append(CMLib.flags().getMaskedCanSeeList(CMath.s_int(M.phyStats().getStat(stat))));
 							else
 							if(stat.equals("DISPOSITION"))
-								str.append(doDisposition(CMath.s_int(M.phyStats().getStat(stat))));
+								str.append(CMLib.flags().getMaskedDispositionIsList(CMath.s_int(M.phyStats().getStat(stat))));
 							else
 								str.append(M.phyStats().getStat(stat)).append(" ");
 							found=true;

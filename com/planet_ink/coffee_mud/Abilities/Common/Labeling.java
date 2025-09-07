@@ -19,7 +19,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -130,15 +130,13 @@ public class Labeling extends CommonSkill
 				if(!tagPrefixes.containsKey(itemKey))
 				{
 					tagPrefixes.clear();
-					@SuppressWarnings("unchecked")
 					final
-					MultiEnumeration<Item> i=new MultiEnumeration<Item>(new Enumeration[] {
-						CMClass.basicItems(),
-						CMClass.armor(),
-						CMClass.clanItems(),
-						CMClass.miscMagic(),
-						CMClass.weapons()
-					});
+					MultiEnumeration<? extends Item> i=new MultiEnumeration<Item>()
+						.addEnumeration(CMClass.basicItems())
+						.addEnumeration(CMClass.armor())
+						.addEnumeration(CMClass.clanItems())
+						.addEnumeration(CMClass.miscMagic())
+						.addEnumeration(CMClass.weapons());
 					final HashSet<String> usedShortKeys=new HashSet<String>();
 					for(;i.hasMoreElements();)
 					{
@@ -176,11 +174,11 @@ public class Labeling extends CommonSkill
 	{
 		if(canBeUninvoked())
 		{
-			if((affected!=null)&&(affected instanceof MOB)&&(!aborted)&&(!helping))
+			if((affected instanceof MOB)&&(!aborted)&&(!helping))
 			{
 				final MOB mob=(MOB)affected;
 				if(writing.length()==0)
-					commonTell(mob,L("You mess up your labeling."));
+					commonTelL(mob,"You mess up your labeling.");
 				else
 				{
 					String desc=found.description();
@@ -200,7 +198,7 @@ public class Labeling extends CommonSkill
 						writing=getNextTag(found);
 						found.setDescription(desc+getTagLabel()+writing);
 						found.setDisplayText(disp+"("+getTagLabel().trim()+writing+")");
-						commonTell(mob,L("The tag number is @x1.",writing));
+						commonTelL(mob,"The tag number is @x1.",writing);
 					}
 					else
 					{
@@ -234,7 +232,7 @@ public class Labeling extends CommonSkill
 		}
 		if(commands.size()<1)
 		{
-			commonTell(mob,L("You must specify what you want to label.  Start with the word remove to remove a tag label."));
+			commonTelL(mob,"You must specify what you want to label.  Start with the word remove to remove a tag label.");
 			return false;
 		}
 		final String what=CMParms.combine(commands);
@@ -245,7 +243,7 @@ public class Labeling extends CommonSkill
 			if((target!=null)&&(CMLib.flags().canBeSeenBy(target,mob)))
 			{
 				/*
-				final Set<MOB> followers=mob.getGroupMembers(new TreeSet<MOB>());
+				final Set<MOB> followers=mob.getGroupMembers(new XTreeSet<MOB>());
 				boolean ok=false;
 				for(final MOB M : followers)
 				{
@@ -254,7 +252,7 @@ public class Labeling extends CommonSkill
 				}
 				if(!ok)
 				{
-					commonTell(mob,L("You aren't allowed to work on '@x1'.",what));
+					commonTelL(mob,"You aren't allowed to work on '@x1'.",what);
 					return false;
 				}
 				*/
@@ -262,20 +260,20 @@ public class Labeling extends CommonSkill
 		}
 		if((target==null)||(!CMLib.flags().canBeSeenBy(target,mob)))
 		{
-			commonTell(mob,L("You don't seem to have a '@x1'.",what));
+			commonTelL(mob,"You don't seem to have a '@x1'.",what);
 			return false;
 		}
 
 		final Ability write=mob.fetchAbility("Skill_Write");
 		if(write==null)
 		{
-			commonTell(mob,L("You must know how to write to label."));
+			commonTelL(mob,"You must know how to write to label.");
 			return false;
 		}
 
 		if(!target.isGeneric())
 		{
-			commonTell(mob,L("You can't label that."));
+			commonTelL(mob,"You can't label that.");
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))

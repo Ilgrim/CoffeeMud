@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -80,10 +80,25 @@ public class StdExit implements Exit
 	{
 	}
 
+	private final static String localizedName = CMLib.lang().L("a walkway");
+	private final static String localizedDName = CMLib.lang().L("door");
+	private final static String localizedCText = CMLib.lang().L("a closed door");
+	private final static String localizedCWord = CMLib.lang().L("close");
+	private final static String localizedOWord = CMLib.lang().L("open");
+
 	@Override
 	public String Name()
 	{
-		return "a walkway";
+		return localizedName;
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(this.hasADoor())
+			return CMLib.english().startWithAorAn(doorName()); // doorname is L(, and english is L(
+		else
+			return L("an exit");
 	}
 
 	@Override
@@ -131,25 +146,25 @@ public class StdExit implements Exit
 	@Override
 	public String doorName()
 	{
-		return "door";
+		return localizedDName;
 	}
 
 	@Override
 	public String closedText()
 	{
-		return "a closed door";
+		return localizedCText;
 	}
 
 	@Override
 	public String closeWord()
 	{
-		return "close";
+		return localizedCWord;
 	}
 
 	@Override
 	public String openWord()
 	{
-		return "open";
+		return localizedOWord;
 	}
 
 	@Override
@@ -293,7 +308,7 @@ public class StdExit implements Exit
 	{
 		try
 		{
-			return this.getClass().newInstance();
+			return this.getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -319,6 +334,21 @@ public class StdExit implements Exit
 		affects=null;
 		behaviors=null;
 		scripts=null;
+		Ability A;
+		for(final Enumeration<Ability> a=X.effects();a.hasMoreElements();)
+		{
+			A=a.nextElement();
+			if(A!=null)
+			{
+				A=(Ability)A.copyOf();
+				addEffect(A);
+				if(A.canBeUninvoked())
+				{
+					A.unInvoke();
+					delEffect(A);
+				}
+			}
+		}
 		for(final Enumeration<Behavior> e=X.behaviors();e.hasMoreElements();)
 		{
 			final Behavior B=e.nextElement();
@@ -609,9 +639,10 @@ public class StdExit implements Exit
 		default:
 			break;
 		}
-		if(msg.amITarget(this))
+		if(msg.amITarget(this)
+		&&(!msg.targetMajor(CMMsg.MASK_ALWAYS)))
 		{
-			mob.tell(L("You can't do that."));
+			mob.tell(mob,this,null,L("You can't do that to <T-NAME>."));
 			return false;
 		}
 		return true;
@@ -1037,7 +1068,7 @@ public class StdExit implements Exit
 		{
 			return affects.get(index);
 		}
-		catch (final java.lang.ArrayIndexOutOfBoundsException x)
+		catch (final IndexOutOfBoundsException x)
 		{
 		}
 		return null;
@@ -1124,7 +1155,7 @@ public class StdExit implements Exit
 		{
 			return behaviors.get(index);
 		}
-		catch(final java.lang.ArrayIndexOutOfBoundsException x)
+		catch(final IndexOutOfBoundsException x)
 		{
 		}
 		return null;
@@ -1270,7 +1301,7 @@ public class StdExit implements Exit
 	@Override
 	public String L(final String str, final String... xs)
 	{
-		return CMLib.lang().fullSessionTranslation(str, xs);
+		return CMLib.lang().fullSessionTranslation(getClass(), str, xs);
 	}
 
 	@Override

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -149,6 +149,13 @@ public class PlayerRace extends Human
 	}
 
 	@Override
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
+	{
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.setStat(CharStats.STAT_SAVE_JUSTICE,affectableStats.getStat(CharStats.STAT_SAVE_JUSTICE)-10);
+	}
+
+	@Override
 	protected String[] racialEffectNames()
 	{
 		return null;
@@ -183,52 +190,17 @@ public class PlayerRace extends Human
 			outfitChoices.add(p1);
 			final Armor s3=CMClass.getArmor("GenBelt");
 			outfitChoices.add(s3);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public Weapon[] getNaturalWeapons()
 	{
-		return funHumanoidWeapon();
-	}
-
-	@Override
-	public String healthText(final MOB viewer, final MOB mob)
-	{
-		final double pct=(CMath.div(mob.curState().getHitPoints(),mob.maxState().getHitPoints()));
-
-		if(pct<.10)
-			return L("^r@x1^r is mortally wounded and will soon die.^N",mob.name(viewer));
-		else
-		if(pct<.20)
-			return L("^r@x1^r is covered in blood.^N",mob.name(viewer));
-		else
-		if(pct<.30)
-			return L("^r@x1^r is bleeding badly from lots of wounds.^N",mob.name(viewer));
-		else
-		if(pct<.40)
-			return L("^y@x1^y has numerous bloody wounds and gashes.^N",mob.name(viewer));
-		else
-		if(pct<.50)
-			return L("^y@x1^y has some bloody wounds and gashes.^N",mob.name(viewer));
-		else
-		if(pct<.60)
-			return L("^p@x1^p has a few bloody wounds.^N",mob.name(viewer));
-		else
-		if(pct<.70)
-			return L("^p@x1^p is cut and bruised.^N",mob.name(viewer));
-		else
-		if(pct<.80)
-			return L("^g@x1^g has some minor cuts and bruises.^N",mob.name(viewer));
-		else
-		if(pct<.90)
-			return L("^g@x1^g has a few bruises and scratches.^N",mob.name(viewer));
-		else
-		if(pct<.99)
-			return L("^g@x1^g has a few small bruises.^N",mob.name(viewer));
-		else
-			return L("^c@x1^c is in perfect health.^N",mob.name(viewer));
+		if(naturalWeaponChoices.length==0)
+			naturalWeaponChoices = getHumanoidWeapons();
+		return super.getNaturalWeapons();
 	}
 
 	@Override

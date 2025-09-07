@@ -5,7 +5,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -136,9 +136,20 @@ public class TriadVector<T, K, L> extends Vector<Triad<T, K, L>> implements Tria
 		add(new Triad<T, K, L>(t, k, l));
 	}
 
+	@Override
+	public void add(final int x, final T t, final K k, final L l)
+	{
+		add(x, new Triad<T, K, L>(t, k, l));
+	}
+
 	public void addElement(final T t, final K k, final L l)
 	{
 		add(new Triad<T, K, L>(t, k, l));
+	}
+
+	public void addElement(final int x, final T t, final K k, final L l)
+	{
+		add(x, new Triad<T, K, L>(t, k, l));
 	}
 
 	@Override

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -148,7 +148,7 @@ public class Thief_Mark extends ThiefSkill
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
 		super.affectPhyStats(affected,affectableStats);
-		if((affected!=null)&&(affected instanceof MOB)&&(((MOB)affected).getVictim()==mark))
+		if((affected instanceof MOB)&&(((MOB)affected).getVictim()==mark))
 		{
 			final int xlvl=super.getXLEVELLevel(invoker());
 			affectableStats.setDamage(affectableStats.damage()+((ticks+xlvl)/20));
@@ -222,7 +222,7 @@ public class Thief_Mark extends ThiefSkill
 		if((A!=null)&&(((Thief_Mark)A).mark==target))
 		{
 			mob.delEffect(A);
-			mob.tell(L("You remove your mark from @x1",target.name(mob)));
+			mob.tell(L("You remove your mark from @x1.",target.name(mob)));
 			return true;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))

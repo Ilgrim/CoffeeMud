@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -178,8 +178,13 @@ public class Gnoll extends StdRace
 			p1.setName(L("a loincloth"));
 			p1.setDisplayText(L("a simple loincloth sits here."));
 			p1.setDescription(L("A simple piece of cloth for wrapping around your mid-parts."));
+			p1.setRawProperLocationBitmap(Wearable.WORN_WAIST);
+			p1.basePhyStats().setAbility(0);
+			((Container)p1).setCapacity(20);
+			((Container)p1).setContainTypes(Container.CONTAIN_DAGGERS|Container.CONTAIN_ONEHANDWEAPONS|Container.CONTAIN_SWORDS|Container.CONTAIN_OTHERWEAPONS);
 			p1.text();
 			outfitChoices.add(p1);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}
@@ -195,12 +200,9 @@ public class Gnoll extends StdRace
 	public void affectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
 		super.affectCharStats(affectedMOB, affectableStats);
-		affectableStats.setStat(CharStats.STAT_INTELLIGENCE,affectableStats.getStat(CharStats.STAT_INTELLIGENCE)-3);
-		affectableStats.setStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ,affectableStats.getStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ)-3);
-		affectableStats.setStat(CharStats.STAT_WISDOM,affectableStats.getStat(CharStats.STAT_WISDOM)-2);
-		affectableStats.setStat(CharStats.STAT_MAX_WISDOM_ADJ,affectableStats.getStat(CharStats.STAT_MAX_WISDOM_ADJ)-2);
-		affectableStats.setStat(CharStats.STAT_STRENGTH,affectableStats.getStat(CharStats.STAT_STRENGTH)+2);
-		affectableStats.setStat(CharStats.STAT_MAX_STRENGTH_ADJ,affectableStats.getStat(CharStats.STAT_MAX_STRENGTH_ADJ)+2);
+		affectableStats.adjStat(CharStats.STAT_INTELLIGENCE,-3);
+		affectableStats.adjStat(CharStats.STAT_WISDOM,-2);
+		affectableStats.adjStat(CharStats.STAT_STRENGTH,+2);
 		affectableStats.setStat(CharStats.STAT_SAVE_DISEASE,affectableStats.getStat(CharStats.STAT_SAVE_DISEASE)+20);
 		affectableStats.setStat(CharStats.STAT_SAVE_MIND,affectableStats.getStat(CharStats.STAT_SAVE_MIND)-10);
 		affectableStats.setStat(CharStats.STAT_SAVE_FIRE,affectableStats.getStat(CharStats.STAT_SAVE_FIRE)-10);
@@ -209,9 +211,25 @@ public class Gnoll extends StdRace
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
-		return funHumanoidWeapon();
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.adjStat(CharStats.STAT_INTELLIGENCE,+3);
+		affectableStats.adjStat(CharStats.STAT_WISDOM,+2);
+		affectableStats.adjStat(CharStats.STAT_STRENGTH,-2);
+		affectableStats.setStat(CharStats.STAT_SAVE_DISEASE,affectableStats.getStat(CharStats.STAT_SAVE_DISEASE)-20);
+		affectableStats.setStat(CharStats.STAT_SAVE_MIND,affectableStats.getStat(CharStats.STAT_SAVE_MIND)+10);
+		affectableStats.setStat(CharStats.STAT_SAVE_FIRE,affectableStats.getStat(CharStats.STAT_SAVE_FIRE)+10);
+		affectableStats.setStat(CharStats.STAT_SAVE_COLD,affectableStats.getStat(CharStats.STAT_SAVE_COLD)-15);
+		affectableStats.setStat(CharStats.STAT_SAVE_POISON,affectableStats.getStat(CharStats.STAT_SAVE_POISON)-10);
+	}
+
+	@Override
+	public Weapon[] getNaturalWeapons()
+	{
+		if(naturalWeaponChoices.length==0)
+			naturalWeaponChoices = getHumanoidWeapons();
+		return super.getNaturalWeapons();
 	}
 
 	@Override
@@ -223,17 +241,11 @@ public class Gnoll extends StdRace
 			case Race.AGE_TODDLER:
 				return name().toLowerCase()+" puppy";
 			case Race.AGE_CHILD:
-				switch(gender)
-				{
-				case 'M':
-				case 'm':
-					return "boy " + name().toLowerCase() + " puppy";
-				case 'F':
-				case 'f':
-					return "girl " + name().toLowerCase() + " puppy";
-				default:
-					return "young " + name().toLowerCase();
-				}
+			{
+				final CharStats cs = (CharStats)CMClass.getCommon("DefaultCharStats");
+				cs.setStat(CharStats.STAT_GENDER, gender);
+				return cs.boygirl()+" " + name().toLowerCase() + " puppy";
+			}
 			default:
 				return super.makeMobName(gender, age);
 		}

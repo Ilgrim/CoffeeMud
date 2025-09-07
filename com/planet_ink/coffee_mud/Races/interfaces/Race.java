@@ -17,7 +17,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -218,9 +218,19 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, M
 	 * race fights with when unarmed.  This method may change what it
 	 * returns on every call to mix things up a bit.
 	 * @see com.planet_ink.coffee_mud.Items.interfaces.Weapon
+	 * @see Race#getNaturalWeapons()
 	 * @return a Weapon object representing claws or teeth, etc..
 	 */
-	public Weapon myNaturalWeapon();
+	public Weapon getNaturalWeapon();
+
+	/**
+	 * Returns all Weapon objects representing what a member of this
+	 * race fights with when unarmed.
+	 * @see com.planet_ink.coffee_mud.Items.interfaces.Weapon
+	 * @see Race#getNaturalWeapon()
+	 * @return a Weapon object representing claws or teeth, etc..
+	 */
+	public Weapon[] getNaturalWeapons();
 
 	/**
 	 * Returns resource codes of what this race can breathe as
@@ -304,6 +314,17 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, M
 	 * @param gainedAbilityIDs the set of abilities/skill IDs gained during this leveling process
 	 */
 	public void level(MOB mob, List<String> gainedAbilityIDs);
+	/**
+	 * This method is called by the recoverCharStats() method on other Stats Affecting objects,
+	 * when those objects are altering the Race away from this current race object to something
+	 * else.  This gives the race an opportunity to undo any stat changes.
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.CharStats
+	 * @see com.planet_ink.coffee_mud.core.interfaces.StatsAffecting
+	 * @see com.planet_ink.coffee_mud.core.interfaces.StatsAffecting#affectCharStats(MOB, CharStats)
+	 * @param affected the mob of the CharStats object being affected
+	 * @param affectableStats the particular CharStats object being affected
+	 */
+	public void unaffectCharStats(final MOB affected, final CharStats affectableStats);
 
 	/**
 	 * Whenever a player or mob of this race gains experience, this method gets a chance
@@ -347,13 +368,19 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, M
 	public boolean expless();
 
 	/**
+	 * Whether mobs of this race can gain fatigue points.
+	 * @return whether mobs of this race can gain fatigue points.
+	 */
+	public boolean infatigueable();
+
+	/**
 	 * Return a vector of skills, spells, and other ability ids granted to the given
 	 * mob when they are created as this race.  The entries are the ability id,
 	 * the default proficiency, the level, and whether it is auto-gained.
 	 * @see com.planet_ink.coffee_mud.Abilities.interfaces.Ability
-	 * @return a quadvector of the Ability IDs, profs, levels, auto-gained
+	 * @return a quadvector of the Ability IDs, profs, levels, auto-gained, parms
 	 */
-	public QuadVector<String,Integer,Integer,Boolean> culturalAbilities();
+	public QuintVector<String,Integer,Integer,Boolean,String> culturalAbilities();
 
 	/**
 	 * Return a vector of skills, spells, and other abilities granted to the given
@@ -376,7 +403,7 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, M
 	public ChameleonList<Ability> racialEffects(MOB mob);
 
 	/**
-	 * Returns the number of racial effects elligible to the given lob. Must
+	 * Returns the number of racial effects eligible to the given lob. Must
 	 * faster and more efficient than getting the whole list and checking its
 	 * size.
 	 * @param mob the mob to grant the abilities to
@@ -474,16 +501,24 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, M
 	/** Age constant for the very very old*/
 	public final static int AGE_ANCIENT=8;
 	/** Constant string list for the names of the age constants, in their order of value */
-	public final static String[] AGE_DESCS=CMLib.lang().sessionTranslation(new String[]
+	public final static String[] AGE_DESCS=new String[]
 	{
-			"Infant","Toddler","Child","Young adult","Adult", "Mature", "Old", "Venerable", "Ancient"
-	});
+		CMLib.lang().L("Infant"),
+		CMLib.lang().L("Toddler"),
+		CMLib.lang().L("Child"),
+		CMLib.lang().L("Young adult"),
+		CMLib.lang().L("Adult"),
+		CMLib.lang().L("Mature"),
+		CMLib.lang().L("Old"),
+		CMLib.lang().L("Venerable"),
+		CMLib.lang().L("Ancient")
+	};
 
 	/** Age in Years constant for an immortal thing */
 	public final static int YEARS_AGE_LIVES_FOREVER=Integer.MAX_VALUE;
 
-	/** body part constant representing antennea*/
-	public final static int BODY_ANTENNEA=0;
+	/** body part constant representing antenna*/
+	public final static int BODY_ANTENNA=0;
 	/** body part constant representing eyes */
 	public final static int BODY_EYE=1;
 	/** body part constant representing ears*/
@@ -519,7 +554,7 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, M
 	/** constant string list naming each of the BODY_* constants in the order of their value*/
 	public final static String[] BODYPARTSTR=
 	{
-		"ANTENNEA","EYE","EAR","HEAD","NECK","ARM","HAND","TORSO","LEG","FOOT",
+		"ANTENNA","EYE","EAR","HEAD","NECK","ARM","HAND","TORSO","LEG","FOOT",
 		"NOSE","GILL","MOUTH","WAIST","TAIL","WING"
 	};
 	/** constant hash of BODYPARTSTR */
@@ -569,7 +604,7 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, M
 	/** array mapping worn locations to body parts, indexed by body parts. */
 	public final static long[] BODY_WEARVECTOR=
 	{
-		Wearable.WORN_HEAD, // ANTENNEA, having any of these removes that pos
+		Wearable.WORN_HEAD, // ANTENNA, having any of these removes that pos
 		Wearable.WORN_EYES, // EYES, having any of these adds this position
 		Wearable.WORN_EARS, // EARS, gains a wear position here for every 2
 		Wearable.WORN_HEAD, // HEAD, gains a wear position here for every 1
@@ -594,7 +629,7 @@ public interface Race extends Tickable, StatsAffecting, MsgListener, CMObject, M
 	 */
 	public final static long[][] BODY_WEARGRID=
 	{
-		{Wearable.WORN_HEAD,-1}, // ANTENNEA, having any of these removes that pos
+		{Wearable.WORN_HEAD,-1}, // ANTENNA, having any of these removes that pos
 		{Wearable.WORN_EYES,2}, // EYES, having any of these adds this position
 		{Wearable.WORN_EARS,2}, // EARS, gains a wear position here for every 2
 		{Wearable.WORN_HEAD,1}, // HEAD, gains a wear position here for every 1

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -138,8 +138,7 @@ public class Ranger_Sneak extends StdAbility
 			mob.tell(L("You must be in the wilderness to do this."));
 			return false;
 		}
-		if(((mob.location().domainType()==Room.DOMAIN_OUTDOORS_CITY)
-		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT))
+		if((CMLib.flags().isACityRoom(mob.location()))
 		&&(!auto))
 		{
 			mob.tell(L("You don't know how to sneak around a place like this."));

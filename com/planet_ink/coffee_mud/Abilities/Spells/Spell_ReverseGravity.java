@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ public class Spell_ReverseGravity extends Spell
 		else
 		{
 			final MOB invoker = this.invoker;
-			if((affected!=null)&&(affected instanceof Room)&&(invoker!=null))
+			if((affected instanceof Room)&&(invoker!=null))
 			{
 				final Room room=(Room)affected;
 				for(int i=0;i<room.numInhabitants();i++)
@@ -127,12 +127,12 @@ public class Spell_ReverseGravity extends Spell
 						}
 						else
 						if(CMLib.flags().isWateryRoom(room))
-							room.showHappens(CMMsg.MSG_OK_VISUAL, inhab, L("<S-NAME> manage(s) to keep a grip on the water around <S-HIM-HER>"));
+							room.showHappens(CMMsg.MSG_OK_VISUAL, inhab, L("<S-NAME> manage(s) to keep a grip on the water around <S-HIM-HER>."));
 						else
 						if(CMLib.flags().isAiryRoom(room))
-							room.showHappens(CMMsg.MSG_OK_VISUAL, inhab, L("<S-NAME> manage(s) to keep a grip on the air around <S-HIM-HER>"));
+							room.showHappens(CMMsg.MSG_OK_VISUAL, inhab, L("<S-NAME> manage(s) to keep a grip on the air around <S-HIM-HER>."));
 						else
-							room.showHappens(CMMsg.MSG_OK_VISUAL, inhab, L("<S-NAME> manage(s) to keep a grip on the ground below <S-HIM-HER>"));
+							room.showHappens(CMMsg.MSG_OK_VISUAL, inhab, L("<S-NAME> manage(s) to keep a grip on the ground below <S-HIM-HER>."));
 					}
 				}
 				for(int i=0;i<room.numItems();i++)
@@ -169,6 +169,7 @@ public class Spell_ReverseGravity extends Spell
 			{
 				final Room room=(Room)affected;
 				room.showHappens(CMMsg.MSG_OK_VISUAL, L("Gravity returns to normal..."));
+				final MOB invoker=this.invoker();
 				if(invoker!=null)
 				{
 					final Ability me=invoker.fetchEffect(ID());
@@ -227,7 +228,9 @@ public class Spell_ReverseGravity extends Spell
 
 		if(success)
 		{
-			final CMMsg msg = CMClass.getMsg(mob, target, this, verbalCastCode(mob,target,auto), L((auto?"G":"^S<S-NAME> speak(s) and wave(s) and g")+"ravity begins to reverse!^?"));
+			final CMMsg msg = CMClass.getMsg(mob, target, this, verbalCastCode(mob,target,auto),
+					(auto?L("Gravity begins to reverse!^?"):
+						L("^S<S-NAME> speak(s) and wave(s) and gravity begins to reverse!^?")));
 			if(mob.location().okMessage(mob,msg))
 			{
 				childrenAffects=new Vector<Ability>();

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2007-2020 Bo Zimmerman
+   Copyright 2007-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ public class AutoTitleNext extends StdWebMacro
 			return "";
 		}
 		String lastID="";
-		for(final Enumeration<String> r=CMLib.titles().autoTitles();r.hasMoreElements();)
+		for(final Enumeration<String> r=CMLib.awards().autoTitles();r.hasMoreElements();)
 		{
 			final String title=r.nextElement();
 			if((last==null)||((last.length()>0)&&(last.equals(lastID))&&(!title.equals(lastID))))

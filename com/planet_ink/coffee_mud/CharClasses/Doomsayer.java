@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -103,6 +104,7 @@ public class Doomsayer extends Cleric
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Prayer_Annul",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Prayer_Divorce",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Prayer_ReadPrayer",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Prayer_ProtBless",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"ScrollScribing",0,false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Prayer_CurseFlames",false);
@@ -121,6 +123,7 @@ public class Doomsayer extends Cleric
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Prayer_Faithless",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Prayer_FlameWeapon",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Prayer_Tongues",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Prayer_CauseFatigue",false);
 
 		if(CMLib.factions().isAlignmentLoaded(Faction.Align.LAWFUL))
@@ -159,6 +162,7 @@ public class Doomsayer extends Cleric
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Prayer_Anger",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Prayer_DailyBread",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Prayer_SenseParish",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Prayer_Blindness",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Skill_AttackHalf",false);
@@ -169,10 +173,12 @@ public class Doomsayer extends Cleric
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Prayer_DoomAura",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Prayer_ProtectElements",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Prayer_MassTongues",false);
 
 		if(CMLib.factions().isAlignmentLoaded(Faction.Align.GOOD))
 			CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Prayer_Hellfire",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Prayer_CurseLuck",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Prayer_ReligiousDoubt",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Prayer_MassParalyze",false,CMParms.parseSemicolons("Prayer_Curse",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Prayer_MassBlindness",false,CMParms.parseSemicolons("Prayer_Blindness",true));
@@ -196,8 +202,14 @@ public class Doomsayer extends Cleric
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Prayer_SummonElemental",0,"FIRE",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Prayer_Regeneration",false);
 
+		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Prayer_PlanarPlague", 0, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
+
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Prayer_FireHealing",true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Prayer_Stoning",0,"",false,true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Prayer_Stoning",0,"",false,SecretFlag.SECRET);
+
+		CMLib.ableMapper().addCharAbilityMapping(ID(),35,"Prayer_MalignedPortal", 0, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
 	}
 
 	@Override
@@ -274,6 +286,7 @@ public class Doomsayer extends Cleric
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

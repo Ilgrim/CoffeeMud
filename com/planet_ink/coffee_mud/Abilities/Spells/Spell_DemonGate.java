@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -205,7 +205,7 @@ public class Spell_DemonGate extends Spell
 	{
 		final MOB newMOB=CMClass.getMOB("GenRideable");
 		final Rideable ride=(Rideable)newMOB;
-		newMOB.basePhyStats().setAbility(22 + super.getXLEVELLevel(caster));
+		newMOB.basePhyStats().setAbility((CMProps.getMobHPBase()*2) + super.getXLEVELLevel(caster));
 		newMOB.basePhyStats().setLevel(level+ 2 + super.getXLEVELLevel(caster));
 		CMLib.factions().setAlignment(newMOB,Faction.Align.EVIL);
 		newMOB.basePhyStats().setWeight(850);
@@ -225,13 +225,15 @@ public class Spell_DemonGate extends Spell
 		newMOB.setName(L("the great demonbeast"));
 		newMOB.setDisplayText(L("a horrendous demonbeast is stalking around here"));
 		newMOB.setDescription(L("Blood red skin with massive horns, and of course muscles in places you didn`t know existed."));
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		ride.setRiderCapacity(2);
 		newMOB.recoverCharStats();
 		newMOB.recoverPhyStats();
 		newMOB.recoverMaxState();
 		newMOB.resetToMaxState();
-		newMOB.text();
+		newMOB.setMiscText(newMOB.text());
 		final Room R=caster.location();
 		if(R!=null)
 		{

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -106,7 +106,7 @@ public class ThiefSkill extends StdAbility
 		return meMOB.phyStats().level();
 	}
 
-	public MOB getHighestLevelMOB(final MOB meMOB, final List<MOB> not)
+	public MOB getHighestLevelMOB(final MOB meMOB, final List<MOB> not, final boolean whoCanSee)
 	{
 		if(meMOB==null)
 			return null;
@@ -124,6 +124,7 @@ public class ThiefSkill extends StdAbility
 			if((M!=null)
 			&&(M!=meMOB)
 			&&(!CMLib.flags().isSleeping(M))
+			&&((!whoCanSee)||(CMLib.flags().canSee(M)))
 			&&(!H.contains(M))
 			&&(highestLevel<M.phyStats().level())
 			&&(!CMSecurity.isASysOp(M)))
@@ -144,6 +145,8 @@ public class ThiefSkill extends StdAbility
 		dirCode[0]=CMLib.directions().getGoodDirectionCode(whatToOpen);
 		if(dirCode[0]>=0)
 			unlockThis=room.getExitInDir(dirCode[0]);
+		if(unlockThis==null)
+			unlockThis=room.fetchFromRoomFavorExits(whatToOpen);
 		if(unlockThis==null)
 			unlockThis=getTarget(mob,room,givenTarget,commands,Wearable.FILTER_ANY);
 		else
@@ -174,6 +177,7 @@ public class ThiefSkill extends StdAbility
 			}
 		}
 		else
+		if(unlockThis != null)
 		{
 			mob.tell(mob,unlockThis,null,L("You can't do that to <T-NAME>."));
 			return null;

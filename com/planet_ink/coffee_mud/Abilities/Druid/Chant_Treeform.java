@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -113,7 +113,8 @@ public class Chant_Treeform extends Chant
 		mob.recoverPhyStats();
 
 		if((msg.tool() instanceof Ability)
-		&&(msg.tool().ID().equals("Skill_Revoke"))
+		&&(msg.tool().ID().startsWith("Skill_"))
+		&&(msg.tool().ID().endsWith("Revoke"))
 		&&(msg.sourceMinor()!=CMMsg.TYP_TEACH))
 			return super.okMessage(myHost, msg);
 
@@ -235,7 +236,7 @@ public class Chant_Treeform extends Chant
 
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already a tree."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already a tree."));
 			return false;
 		}
 

@@ -13,7 +13,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.SpaceShip.ShipFlag;
-import com.planet_ink.coffee_mud.Items.interfaces.TechComponent.ShipDir;
+import com.planet_ink.coffee_mud.Items.interfaces.ShipDirectional.ShipDir;
 import com.planet_ink.coffee_mud.Items.interfaces.Technical.TechCommand;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
@@ -23,7 +23,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,9 +45,9 @@ public class StdSpaceBody extends StdItem implements SpaceObject
 		return "StdSpaceBody";
 	}
 
-	protected long[]		coordinates	= new long[3];
+	protected Coord3D		coordinates	= new Coord3D();
 	protected long			radius;
-	protected double[]		direction	= new double[2];
+	protected Dir3D			direction	= new Dir3D();
 	protected double		speed		= 0;
 	protected SpaceObject	spaceSource = null;
 	protected SpaceObject	spaceTarget = null;
@@ -65,29 +65,78 @@ public class StdSpaceBody extends StdItem implements SpaceObject
 		setMaterial(RawMaterial.RESOURCE_STONE);
 	}
 
+	@Override
+	public String genericName()
+	{
+		if(radius >= SpaceObject.Distance.StarBRadius.dm/2)
+			return L("a B-type star");
+		else
+		if(radius >= SpaceObject.Distance.StarGRadius.dm/2)
+			return L("a G-type star");
+		else
+		if(radius >= SpaceObject.Distance.StarDRadius.dm)
+			return L("a D-type star");
+		else
+		if(radius >= SpaceObject.Distance.SaturnRadius.dm)
+			return L("an enormous planet");
+		else
+		if(radius >= SpaceObject.Distance.SaturnRadius.dm/2)
+			return L("a huge planet");
+		else
+		if(radius >= SpaceObject.Distance.PlanetRadius.dm*2)
+			return L("an large planet");
+		else
+		if(radius >= SpaceObject.Distance.PlanetRadius.dm/2)
+			return L("a planet");
+		else
+		if(radius >= SpaceObject.Distance.MoonRadius.dm/2)
+			return L("a moon");
+		else
+		if(radius >= SpaceObject.Distance.AsteroidRadius.dm)
+			return L("a moonlet");
+		else
+			return L("an asteroid");
+	}
+
+	@Override
 	public void destroy()
 	{
-		CMLib.map().delObjectInSpace(this);
+		CMLib.space().delObjectInSpace(this);
 		super.destroy();
 	}
 
 	@Override
-	public BoundedCube getBounds()
+	public CMObject copyOf()
 	{
-		return new BoundedObject.BoundedCube(coordinates(),radius());
+		final StdSpaceBody E=(StdSpaceBody)super.copyOf();
+		E.coordinates = coordinates.copyOf();
+		E.direction = direction.copyOf();
+		return E;
 	}
 
 	@Override
-	public long[] coordinates()
+	public BoundedCube getCube()
+	{
+		return new BoundedCube(coordinates(),radius());
+	}
+
+	@Override
+	public BoundedSphere getSphere()
+	{
+		return new BoundedSphere(coordinates(),radius());
+	}
+
+	@Override
+	public Coord3D coordinates()
 	{
 		return coordinates;
 	}
 
 	@Override
-	public void setCoords(final long[] coords)
+	public void setCoords(final Coord3D coords)
 	{
-		if((coords!=null)&&(coords.length==3))
-			CMLib.map().moveSpaceObject(this,coords);
+		if((coords!=null)&&(coords.length()==3))
+			CMLib.space().moveSpaceObject(this,coords);
 	}
 
 	@Override
@@ -97,21 +146,27 @@ public class StdSpaceBody extends StdItem implements SpaceObject
 	}
 
 	@Override
+	public Coord3D center()
+	{
+		return coordinates();
+	}
+
+	@Override
 	public void setRadius(final long radius)
 	{
 		this.radius=radius;
 	}
 
 	@Override
-	public double[] direction()
+	public Dir3D direction()
 	{
 		return direction;
 	}
 
 	@Override
-	public void setDirection(final double[] dir)
+	public void setDirection(final Dir3D dir)
 	{
-		if((dir!=null)&&(dir.length==2))
+		if((dir!=null)&&(dir.length()==2))
 			direction=dir;
 	}
 
@@ -176,6 +231,13 @@ public class StdSpaceBody extends StdItem implements SpaceObject
 		return super.okMessage(myHost, msg);
 	}
 
+	protected boolean isTechWeapon(final Environmental E)
+	{
+		if((E instanceof SpaceObject) && (E instanceof Weapon))
+			return true;
+		return false;
+	}
+
 	@Override
 	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
@@ -191,7 +253,16 @@ public class StdSpaceBody extends StdItem implements SpaceObject
 				final long myMass=getMass();
 				if((msg.value() > 0)&&(myMass>0))
 				{
-					// not sure
+					if(!isTechWeapon(msg.tool()))
+					{
+						final SpaceObject srcP;
+						if((msg.tool() == this) && (msg.target() instanceof SpaceObject))
+						{
+							srcP=(SpaceObject)msg.target();
+							CMLib.space().sendSpaceEmissionEvent(srcP, this, CMMsg.TYP_COLLISION|CMMsg.MASK_MOVE|CMMsg.MASK_EYES,
+																L("<S-NAME> is hit by <O-NAME>"));
+						}
+					}
 				}
 				break;
 			}

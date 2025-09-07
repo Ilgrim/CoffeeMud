@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -47,12 +47,21 @@ public class Pot extends StdDrink
 		capacity=25;
 		baseGoldValue=5;
 		setLiquidHeld(20);
+		setCapacity(20);
 		setThirstQuenched(1);
 		setLiquidRemaining(0);
 		setLiquidType(RawMaterial.RESOURCE_FRESHWATER);
+		this.setContainTypes(Container.CONTAIN_DRINKABLES|Container.CONTAIN_EATABLES);
 		setMaterial(RawMaterial.RESOURCE_IRON);
 		basePhyStats().setWeight(5);
 		recoverPhyStats();
 	}
 
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a pot");
+	}
 }

@@ -12,10 +12,13 @@ import com.planet_ink.coffee_mud.Common.interfaces.PlayerAccount.AccountFlag;
 import com.planet_ink.coffee_mud.Common.interfaces.Session.InputCallback;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.ChannelsLibrary.CMChannel;
 import com.planet_ink.coffee_mud.Libraries.interfaces.DatabaseEngine;
 import com.planet_ink.coffee_mud.Libraries.interfaces.JournalsLibrary;
 import com.planet_ink.coffee_mud.Libraries.interfaces.DatabaseEngine.PlayerData;
 import com.planet_ink.coffee_mud.Libraries.interfaces.JournalsLibrary.CommandJournalFlags;
+import com.planet_ink.coffee_mud.Libraries.interfaces.JournalsLibrary.MsgMkrCallback;
+import com.planet_ink.coffee_mud.Libraries.interfaces.JournalsLibrary.MsgMkrResolution;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -24,7 +27,7 @@ import com.planet_ink.coffee_mud.core.exceptions.HTTPRedirectException;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -86,13 +89,14 @@ public class MOTD extends StdCommand
 		final String parm=CMParms.combine(commands,1).toUpperCase();
 		oldOk = "PREVIOUS".startsWith(parm) || parm.equals("OLD");
 		final PlayerStats pStats = mob.playerStats();
+		final CMFile motdFile = new CMFile(Resources.buildResourcePath("text")+"motd.txt",mob);
 		if((pStats!=null)
 		&&(parm.equals("AGAIN")||parm.equals("NEW")||oldOk))
 		{
 			final StringBuffer buf=new StringBuffer("");
 			try
 			{
-				String msg = new CMFile(Resources.buildResourcePath("text")+"motd.txt",null).text().toString();
+				String msg = motdFile.text().toString();
 				if(msg.length()>0)
 				{
 					if(msg.startsWith("<cmvp>"))
@@ -157,7 +161,7 @@ public class MOTD extends StdCommand
 				final List<String> postalChains=new ArrayList<String>();
 				final List<String> postalBranches=new ArrayList<String>();
 				PostOffice P=null;
-				for(final Enumeration<PostOffice> e=CMLib.map().postOffices();e.hasMoreElements();)
+				for(final Enumeration<PostOffice> e=CMLib.city().postOffices();e.hasMoreElements();)
 				{
 					P=e.nextElement();
 					if(!postalChains.contains(P.postalChain()))
@@ -230,14 +234,7 @@ public class MOTD extends StdCommand
 				if(CJseparator)
 					buf.append("\n\r--------------------------------------\n\r");
 
-				final boolean canReceiveRealEmail =
-						(pStats.getEmail().length()>0)
-					  &&(mob.isAttributeSet(MOB.Attrib.AUTOFORWARD))
-					  &&((pStats.getAccount()==null)
-						||(!pStats.getAccount().isSet(AccountFlag.NOAUTOFORWARD)));
-
-				if(canReceiveRealEmail
-				&&(CMProps.getVar(CMProps.Str.MAILBOX).length()>0))
+				if(CMProps.getVar(CMProps.Str.MAILBOX).length()>0)
 				{
 					final String[] queries=new String[] { mob.Name(),"ALL","MASK=%" };
 					final List<JournalEntry> msgs=CMLib.database().DBReadJournalMsgsByUpdateDate(CMProps.getVar(CMProps.Str.MAILBOX), false, max, queries);
@@ -261,7 +258,10 @@ public class MOTD extends StdCommand
 					final List<String> l=CMLib.login().getExpiredAcctOrCharsList();
 					if(l.size()>0)
 					{
-						buf.append(L("\n\r^XThere are currently @x1 expired "+((CMProps.isUsingAccountSystem())?"accounts":"characters"),""+l.size()));
+						if(CMProps.isUsingAccountSystem())
+							buf.append(L("\n\r^XThere are currently @x1 expired accounts",""+l.size()));
+						else
+							buf.append(L("\n\r^XThere are currently @x1 expired characters",""+l.size()));
 						buf.append(L(".  Enter LIST EXPIRED to view them.^?^.\n\r"));
 					}
 				}
@@ -326,48 +326,67 @@ public class MOTD extends StdCommand
 					{
 						for(String sub : pStats.getSubscriptions())
 						{
-							if(!sub.startsWith(" P :"))
-								continue;
-							sub=sub.substring(4).trim();
-							final List<JournalEntry> items=CMLib.database().DBReadJournalMsgsNewerThan(sub, null, pStats.getLastDateTime());
-							int newPosts = 0;
-							int newReplies=0;
-							final Map<String,JournalEntry> newEntries = new HashMap<String,JournalEntry>();
-							for(final JournalEntry J : items)
-								newEntries.put(J.key(), J);
-							for(final JournalEntry J : items)
+							if(sub.startsWith(" P :"))
 							{
-								if((J.to().equalsIgnoreCase(mob.Name())||J.to().equalsIgnoreCase("ALL"))
-								&&(!J.from().equalsIgnoreCase(mob.Name())))
+								sub=sub.substring(4).trim();
+								final List<JournalEntry> items=CMLib.database().DBReadJournalMsgsNewerThan(sub, null, pStats.getLastDateTime());
+								int newPosts = 0;
+								int newReplies=0;
+								final Map<String,JournalEntry> newEntries = new HashMap<String,JournalEntry>();
+								for(final JournalEntry J : items)
+									newEntries.put(J.key(), J);
+								for(final JournalEntry J : items)
 								{
-									if((J.parent()==null)
-									||(J.parent().length()==0))
-										newPosts++;
-									else
+									if((J.to().equalsIgnoreCase(mob.Name())||J.to().equalsIgnoreCase("ALL"))
+									&&(!J.from().equalsIgnoreCase(mob.Name())))
 									{
-										if(!newEntries.containsKey(J.parent()))
+										if((J.parent()==null)
+										||(J.parent().length()==0))
+											newPosts++;
+										else
 										{
-											final JournalEntry E=CMLib.database().DBReadJournalEntry(sub, J.parent());
-											if(E!=null)
-												newEntries.put(E.key(), E);
+											if(!newEntries.containsKey(J.parent()))
+											{
+												final JournalEntry E=CMLib.database().DBReadJournalEntry(sub, J.parent());
+												if(E!=null)
+													newEntries.put(E.key(), E);
+											}
+											final JournalEntry E=newEntries.get(J.parent());
+											if((E!=null)&&(E.from().equalsIgnoreCase(mob.Name())))
+												newReplies++;
 										}
-										final JournalEntry E=newEntries.get(J.parent());
-										if((E!=null)&&(E.from().equalsIgnoreCase(mob.Name())))
-											newReplies++;
 									}
 								}
+								if((session!=null)
+								&&(!session.isStopped()))
+								{
+									if((newPosts > 0) && (newReplies > 0))
+										session.println(L("The journal @x1 has @x2 new entries and @x3 replies for you.",sub,""+newPosts,""+newReplies));
+									else
+									if(newPosts > 0)
+										session.println(L("The journal @x1 has @x2 new entries.",sub,""+newPosts));
+									else
+									if(newReplies > 0)
+										session.println(L("The journal @x1 has @x2 new replies for you.",sub,""+newReplies));
+								}
 							}
-							if((session!=null)
-							&&(!session.isStopped()))
+							else
+							if(sub.startsWith(" C :"))
 							{
-								if((newPosts > 0) && (newReplies > 0))
-									session.println(L("The journal @x1 has @x2 new entries and @x3 replies for you.",sub,""+newPosts,""+newReplies));
-								else
-								if(newPosts > 0)
-									session.println(L("The journal @x1 has @x2 new entries.",sub,""+newPosts));
-								else
-								if(newReplies > 0)
-									session.println(L("The journal @x1 has @x2 new replies for you.",sub,""+newReplies));
+								sub=sub.substring(4).trim();
+								final int cn = CMLib.channels().getChannelIndex(sub);
+								final int lowestIndex = CMLib.channels().getChannelQueIndex(cn, mob, pStats.getLastDateTime());
+								if(lowestIndex >= 0)
+								{
+									final String channelName = CMLib.channels().getChannel(cn).name();
+									final int lastIndex = CMLib.channels().getChannelQuePageEnd(cn, mob);
+									session.println(L("You missed the last @x1 message(s) on the @x2 channel.",""+(lastIndex-lowestIndex)+1,channelName));
+									/*
+									final Command C = CMClass.getCommand("Channel");
+									final List<String> cmd = new XVector<String>(channelName,"LAST",(""+(lastIndex-lowestIndex)));
+									C.execute(mob, cmd, metaFlags);
+									*/
+								}
 							}
 						}
 					}
@@ -404,8 +423,51 @@ public class MOTD extends StdCommand
 			}
 		}
 		else
+		if((parm.equals("SET")||parm.equals("NEW"))
+		&&(motdFile.canWrite()))
 		{
-			mob.tell(L("'@x1' is not a valid parameter.  Try ON, OFF, PREVIOUS, or AGAIN.",parm));
+			final CMFile file=motdFile;
+			if((!file.canWrite())
+			||(file.isDirectory()))
+			{
+				mob.tell(L("^xError: You are not authorized to create/modify that file.^N"));
+				return false;
+			}
+			StringBuffer buf=file.textUnformatted();
+			final String CR=Resources.getEOLineMarker(buf);
+			final List<String> vbuf=Resources.getFileLineVector(buf);
+			buf=null;
+			mob.tell(L("@x1 has been loaded.\n\r\n\r",file.getName()));
+			final String messageTitle="File: "+file.getVFSPathAndName();
+			CMLib.journals().makeMessageASync(mob, messageTitle, vbuf, false, new MsgMkrCallback()
+			{
+				@Override
+				public void callBack(final MOB mob, final Session sess, final MsgMkrResolution resolution)
+				{
+					if(resolution==JournalsLibrary.MsgMkrResolution.SAVEFILE)
+					{
+						final StringBuffer text=new StringBuffer("");
+						for(int i=0;i<vbuf.size();i++)
+							text.append((vbuf.get(i))+CR);
+						if(file.saveText(text))
+						{
+							for(final Iterator<String> i=Resources.findResourceKeys(file.getName());i.hasNext();)
+								Resources.removeResource(i.next());
+							mob.tell(L("MOTD saved."));
+						}
+						else
+							mob.tell(L("^XError: could not save the file!^N^."));
+					}
+				}
+			});
+			return false;
+		}
+		else
+		{
+			if(motdFile.canWrite())
+				mob.tell(L("'@x1' is not a valid parameter.  Try ON, OFF, PREVIOUS, AGAIN, or SET.",parm));
+			else
+				mob.tell(L("'@x1' is not a valid parameter.  Try ON, OFF, PREVIOUS, or AGAIN.",parm));
 		}
 		return false;
 	}
@@ -439,7 +501,7 @@ public class MOTD extends StdCommand
 			if(x<0)
 				continue;
 			branch=branch.substring(0,x);
-			P=CMLib.map().getPostOffice(chain,branch);
+			P=CMLib.city().getPostOffice(chain,branch);
 			if(P==null)
 				continue;
 			final PostOffice.MailPiece pieces=P.parsePostalItemData(letter.xml());

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -126,14 +126,70 @@ public class Song extends StdAbility
 	protected volatile List<Room>	commonRoomSet	= null;
 	protected volatile Room			originRoom		= null;
 	protected volatile int			songDepth		= 0;
+	protected volatile int			lyricCtr		= 0;
+	protected volatile int			lyricPauseCtdn	= 0;
+
+	protected volatile Pair<Double,Integer> bonusCache = null;
+
+	@Override
+	public void setAffectedOne(final Physical P)
+	{
+		bonusCache = null;
+		super.setAffectedOne(P);
+	}
+
+	@Override
+	public void setInvoker(final MOB mob)
+	{
+		super.setInvoker(mob);
+		bonusCache = null;
+	}
+
+	protected synchronized Pair<Double,Integer> getBonuses()
+	{
+		if(bonusCache != null)
+			return bonusCache;
+		final Double d = Double.valueOf(innerStatBonusPct());
+		final Integer i = Integer.valueOf(innerAvgStat());
+		bonusCache = new Pair<Double,Integer>(d,i);
+		return bonusCache;
+	}
+
+	protected double statBonusPct()
+	{
+		return getBonuses().first.doubleValue();
+	}
+
+	protected int avgStat()
+	{
+		return getBonuses().second.intValue();
+	}
+
+	protected double innerStatBonusPct()
+	{
+		if(invoker()==null)
+			return 1.0;
+		final double max = CMProps.getIntVar(CMProps.Int.BASEMAXSTAT);
+		return CMath.div(invoker().charStats().getStat(CharStats.STAT_CHARISMA), max);
+	}
+
+	protected int innerAvgStat()
+	{
+		if(invoker()==null)
+			return CMProps.getIntVar(CMProps.Int.BASEMAXSTAT);
+		return invoker().charStats().getStat(CharStats.STAT_CHARISMA);
+	}
 
 	@Override
 	public int adjustedLevel(final MOB mob, final int asLevel)
 	{
 		final int level=super.adjustedLevel(mob,asLevel);
-		final int charisma=(invoker().charStats().getStat(CharStats.STAT_CHARISMA)-10);
-		if(charisma>10)
-			return level+(charisma/3);
+		if(mob != null)
+		{
+			final int charisma=(mob.charStats().getStat(CharStats.STAT_CHARISMA)-10);
+			if(charisma>10)
+				return level+(charisma/3);
+		}
 		return level;
 	}
 
@@ -141,7 +197,7 @@ public class Song extends StdAbility
 	public void affectPhyStats(final Physical affectedEnv, final PhyStats affectableStats)
 	{
 		if(this.invoker()==affectedEnv)
-			affectableStats.addAmbiance("(?)singing of "+songOf().toLowerCase());
+			affectableStats.addAmbiance("(?)singing the "+songOf().toLowerCase());
 		super.affectPhyStats(affectedEnv, affectableStats);
 	}
 
@@ -291,13 +347,27 @@ public class Song extends StdAbility
 		{
 			final List<String> lyrics=this.getLyrics();
 			final MOB invoker=this.invoker;
-			if((lyrics!=null) && (invoker==affected))
+			if((lyrics!=null)
+			&& (invoker==affected))
 			{
-				final String line = lyrics.get((int)((System.currentTimeMillis()/CMProps.getTickMillis()) % (lyrics.size())));
-				final Room R=invoker.location();
-				if(R!=null)
+				if(lyricPauseCtdn>0)
+					lyricPauseCtdn--;
+				else
 				{
-					R.show(invoker, null, this, CMMsg.MSG_SPEAK, L("<S-NAME> sing(s) '@x1'",line));
+					if(lyricCtr >= lyrics.size())
+						lyricCtr = 0;
+					final String line = lyrics.get(lyricCtr++);
+					final Room R=invoker.location();
+					if((R!=null)
+					&&(line.length()>0))
+					{
+						if((line.length()>=7)
+						&&(line.substring(0,6).toUpperCase().startsWith("PAUSE "))
+						&&(CMath.isInteger(line.substring(6))))
+							lyricPauseCtdn = CMath.s_int(line.substring(6));
+						else
+							R.show(invoker, null, this, CMMsg.MSG_SPEAK, L("<S-NAME> sing(s) '@x1'",line));
+					}
 				}
 			}
 		}
@@ -468,7 +538,9 @@ public class Song extends StdAbility
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		timeOut=0;
+		timeOut = 0;
+		lyricCtr = 0;
+		lyricPauseCtdn = 0;
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 

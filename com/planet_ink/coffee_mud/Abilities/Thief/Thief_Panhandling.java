@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -129,6 +129,13 @@ public class Thief_Panhandling extends ThiefSkill
 				return true;
 			tickTock=0;
 			final MOB mob=(MOB)affected;
+			if((CMLib.flags().isStanding(mob))
+			||(!CMLib.flags().isAliveAwakeMobileUnbound(mob, true))
+			||(mob.isInCombat()))
+			{
+				unInvoke();
+				return false;
+			}
 			for(int i=0;i<mob.location().numInhabitants();i++)
 			{
 				final MOB mob2=mob.location().fetchInhabitant(i);
@@ -144,7 +151,7 @@ public class Thief_Panhandling extends ThiefSkill
 						CMLib.commands().postSay(mob,mob2,L("A little something for a vet please?"),false,false);
 						break;
 					case 2:
-						CMLib.commands().postSay(mob,mob2,L("Spare a gold piece @x1",((mob2.charStats().getStat(CharStats.STAT_GENDER)=='M')?"mister?":"madam?")),false,false);
+						CMLib.commands().postSay(mob,mob2,L("Spare a gold piece @x1",mob2.charStats().MisterMadam().toLowerCase()),false,false);
 						break;
 					case 3:
 						CMLib.commands().postSay(mob,mob2,L("Spare some change?"),false,false);
@@ -222,7 +229,7 @@ public class Thief_Panhandling extends ThiefSkill
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already panhandling."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already panhandling."));
 			return false;
 		}
 
@@ -231,7 +238,7 @@ public class Thief_Panhandling extends ThiefSkill
 			mob.tell(L("You must be sitting!"));
 			return false;
 		}
-		if(mob.location().domainType()!=Room.DOMAIN_OUTDOORS_CITY)
+		if(!CMLib.flags().isACityRoom(mob))
 		{
 			mob.tell(L("You must be on a city street to panhandle."));
 			return false;

@@ -10,6 +10,7 @@ import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
@@ -20,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -73,6 +74,7 @@ public class CharClassData extends StdWebMacro
 		final boolean showPreReqs=httpReq.isUrlParameter("SHOWPREREQS")&&httpReq.getUrlParameter("SHOWPREREQS").equalsIgnoreCase("on");
 		final boolean showMasks=httpReq.isUrlParameter("SHOWMASKS")&&httpReq.getUrlParameter("SHOWMASKS").equalsIgnoreCase("on");
 		final boolean showParms=httpReq.isUrlParameter("SHOWPARMS")&&httpReq.getUrlParameter("SHOWPARMS").equalsIgnoreCase("on");
+		final boolean showSecret=httpReq.isUrlParameter("SHOWSECRET")&&httpReq.getUrlParameter("SHOWSECRET").equalsIgnoreCase("on");
 		if(httpReq.isUrlParameter("CABLES1"))
 		{
 			int num=1;
@@ -112,7 +114,7 @@ public class CharClassData extends StdWebMacro
 		else
 		{
 			final List<AbilityMapper.AbilityMapping> data1=CMLib.ableMapper().getUpToLevelListings(E.ID(),Integer.MAX_VALUE,true,false);
-			final DVector sortedData1=new DVector(2);
+			final PairList<String,Integer> sortedData1=new PairVector<String,Integer>();
 			String aID=null;
 			int minLvl=Integer.MAX_VALUE;
 			int maxLvl=Integer.MIN_VALUE;
@@ -126,7 +128,7 @@ public class CharClassData extends StdWebMacro
 						maxLvl=qlvl;
 					if(qlvl<minLvl)
 						minLvl=qlvl;
-					sortedData1.addElement(aID,Integer.valueOf(qlvl));
+					sortedData1.add(aID,Integer.valueOf(qlvl));
 				}
 			}
 			Integer qLvl=null;
@@ -134,15 +136,15 @@ public class CharClassData extends StdWebMacro
 			{
 				for(int i=0;i<sortedData1.size();i++)
 				{
-					qLvl=(Integer)sortedData1.elementAt(i,2);
+					qLvl=sortedData1.get(i).second;
 					if(qLvl.intValue()==lvl)
 					{
-						aID=(String)sortedData1.elementAt(i,1);
+						aID=sortedData1.get(i).first;
 						theclasses.addElement(aID,
 											  qLvl.toString(),
 											  Integer.toString(CMLib.ableMapper().getDefaultProficiency(E.ID(),false,aID)),
 											  CMLib.ableMapper().getDefaultGain(E.ID(),false,aID)?"":"on",
-											  CMLib.ableMapper().getSecretSkill(E.ID(),false,aID)?"on":"",
+											  CMLib.ableMapper().getSecretSkill(E.ID(),false,aID).name(),
 											  CMLib.ableMapper().getDefaultParm(E.ID(),false,aID),
 											  CMLib.ableMapper().getPreReqStrings(E.ID(), false, aID),
 											  CMLib.ableMapper().getExtraMask(E.ID(),false,aID),
@@ -168,13 +170,13 @@ public class CharClassData extends StdWebMacro
 			str.append("</TD><TD WIDTH=10%>");
 			if(parms.containsKey("HEADERCOL2"))
 				str.append(sfont + (parms.get("HEADERCOL2")) + efont);
-			str.append("</TD><TD WIDTH=10%>");
+			str.append("</TD><TD WIDTH=15%>");
 			if(parms.containsKey("HEADERCOL3"))
 				str.append(sfont + (parms.get("HEADERCOL3")) + efont);
-			str.append("</TD><TD WIDTH=10%>");
+			str.append("</TD><TD WIDTH=15%>");
 			if(parms.containsKey("HEADERCOL4"))
 				str.append(sfont + (parms.get("HEADERCOL4")) + efont);
-			str.append("</TD><TD WIDTH=30%>");
+			str.append("</TD><TD WIDTH=20%>");
 			if(parms.containsKey("HEADERCOL5"))
 				str.append(sfont + (parms.get("HEADERCOL5")) + efont);
 			str.append("</TD></TR>");
@@ -184,26 +186,27 @@ public class CharClassData extends StdWebMacro
 		{
 			final String theclass=(String)theclasses.elementAt(i,1);
 			used.add(theclass);
-			str.append("<TR><TD WIDTH=40%>");
+			str.append("<TR><TD>");
 			str.append("<SELECT ONCHANGE=\"EditAffect(this);\" NAME=CABLES"+(i+1)+">");
 			str.append("<OPTION VALUE=\"\">Delete!");
 			str.append("<OPTION VALUE=\""+theclass+"\" SELECTED>"+theclass);
 			str.append("</SELECT>");
 			str.append("</TD>");
-			str.append("<TD WIDTH=10%>");
-			str.append("<INPUT TYPE=TEXT NAME=CABLVL"+(i+1)+" VALUE=\""+((String)theclasses.elementAt(i,2))+"\" SIZE=2 MAXLENGTH=3>");
+			str.append("<TD>");
+			str.append("<INPUT TYPE=TEXT NAME=CABLVL"+(i+1)+" VALUE=\""+((String)theclasses.elementAt(i,2))+"\" SIZE=2 MAXLENGTH=2>");
 			str.append("</TD>");
-			str.append("<TD WIDTH=10%>");
-			str.append("<INPUT TYPE=TEXT NAME=CABPOF"+(i+1)+" VALUE=\""+((String)theclasses.elementAt(i,3))+"\" SIZE=2 MAXLENGTH=3>"+font+"%</B></I></FONT>");
+			str.append("<TD>");
+			str.append("<INPUT TYPE=TEXT NAME=CABPOF"+(i+1)+" VALUE=\""+((String)theclasses.elementAt(i,3))+"\" SIZE=2 MAXLENGTH=2>"+font+"%</B></I></FONT>");
 			str.append("</TD>");
-			str.append("<TD WIDTH=10%>");
-			str.append("<INPUT TYPE=TEXT NAME=CABMPOF"+(i+1)+" VALUE=\""+((String)theclasses.elementAt(i,9))+"\" SIZE=2 MAXLENGTH=3>"+font+"%</B></I></FONT>");
+			str.append("<TD>");
+			str.append("<INPUT TYPE=TEXT NAME=CABMPOF"+(i+1)+" VALUE=\""+((String)theclasses.elementAt(i,9))+"\" SIZE=2 MAXLENGTH=2>"+font+"%</B></I></FONT>");
 			str.append("</TD>");
-			str.append("<TD WIDTH=30%>");
+			str.append("<TD>");
 			str.append("<INPUT TYPE=CHECKBOX NAME=CABQUA"+(i+1)+" "+(((String)theclasses.elementAt(i,4)).equalsIgnoreCase("on")?"CHECKED":"")+">"+font+"Qualify Only</B></FONT></I>&nbsp;");
-			str.append("<INPUT TYPE=CHECKBOX NAME=CABSCR"+(i+1)+" "+(((String)theclasses.elementAt(i,5)).equalsIgnoreCase("on")?"CHECKED":"")+">"+font+"Secret</B></FONT></I>");
 			if(!showParms)
 				str.append("<INPUT TYPE=HIDDEN NAME=CABPRM"+(i+1)+" VALUE=\""+((String)theclasses.elementAt(i,6))+"\">");
+			if(!showSecret)
+				str.append("<INPUT TYPE=HIDDEN NAME=CABSCR"+(i+1)+" VALUE=\""+((String)theclasses.elementAt(i,5))+"\">");
 			if(!showMasks)
 				str.append("<INPUT TYPE=HIDDEN NAME=CABMSK"+(i+1)+" VALUE=\""+((String)theclasses.elementAt(i,8))+"\">");
 			if(!showPreReqs)
@@ -216,6 +219,18 @@ public class CharClassData extends StdWebMacro
 				str.append("<TR><TD WIDTH=100% COLSPAN=5>"+sfont+"Extra Mask: "+efont+"<INPUT TYPE=TEXT NAME=CABMSK"+(i+1)+" VALUE=\""+((String)theclasses.elementAt(i,8))+"\" SIZE=50 MAXLENGTH=255></TD></TR>");
 			if(showPreReqs)
 				str.append("<TR><TD WIDTH=100% COLSPAN=5>"+sfont+"Pre-Reqs list: "+efont+"<INPUT TYPE=TEXT NAME=CABPRE"+(i+1)+" VALUE=\""+((String)theclasses.elementAt(i,7))+"\" SIZE=50 MAXLENGTH=255></TD></TR>");
+			if(showSecret)
+			{
+				str.append("<TR><TD WIDTH=100% COLSPAN=5>"+sfont+"Status: "+efont+"<SELECT NAME=CABSCR"+(i+1)+">");
+				for(final SecretFlag f : SecretFlag.values())
+				{
+					str.append("<OPTION VALUE=\""+f.name()+"\"");
+					if(f.name().equalsIgnoreCase((String)theclasses.elementAt(i, 5)))
+						str.append(" SELECTED");
+					str.append(">").append(f.name());
+				}
+				str.append("</TD></TR>");
+			}
 		}
 		str.append("<TR><TD WIDTH=40%>");
 		str.append("<SELECT ONCHANGE=\"AddAffect(this);\" NAME=CABLES"+(theclasses.size()+1)+">");
@@ -228,27 +243,35 @@ public class CharClassData extends StdWebMacro
 				continue;
 			final String ID=A.ID();
 			if(!used.contains(ID))
-				str.append("<OPTION VALUE=\""+ID+"\">"+A.Name());
+				str.append("<OPTION VALUE=\""+ID+"\">"+CMStrings.limit(A.ID(),30));
 		}
 		str.append("</SELECT>");
 		str.append("</TD>");
 		str.append("<TD WIDTH=10%>");
-		str.append("<INPUT TYPE=TEXT NAME=CABLVL"+(theclasses.size()+1)+" VALUE=\"\" SIZE=2 MAXLENGTH=3>");
+		str.append("<INPUT TYPE=TEXT NAME=CABLVL"+(theclasses.size()+1)+" VALUE=\"\" SIZE=2 MAXLENGTH=2>");
 		str.append("</TD>");
 		str.append("<TD WIDTH=10%>");
-		str.append("<INPUT TYPE=TEXT NAME=CABPOF"+(theclasses.size()+1)+" VALUE=\"\" SIZE=2 MAXLENGTH=3>"+font+"%</B></I></FONT>");
+		str.append("<INPUT TYPE=TEXT NAME=CABPOF"+(theclasses.size()+1)+" VALUE=\"\" SIZE=2 MAXLENGTH=2>"+font+"%</B></I></FONT>");
 		str.append("</TD>");
 		str.append("<TD WIDTH=10%>");
-		str.append("<INPUT TYPE=TEXT NAME=CABMPOF"+(theclasses.size()+1)+" VALUE=\"\" SIZE=2 MAXLENGTH=3>"+font+"%</B></I></FONT>");
+		str.append("<INPUT TYPE=TEXT NAME=CABMPOF"+(theclasses.size()+1)+" VALUE=\"\" SIZE=2 MAXLENGTH=2>"+font+"%</B></I></FONT>");
 		str.append("</TD>");
 		str.append("<TD WIDTH=30%>");
 		str.append("<INPUT TYPE=CHECKBOX NAME=CABQUA"+(theclasses.size()+1)+" >"+font+"Qualify Only</B></I></FONT>&nbsp;");
-		str.append("<INPUT TYPE=CHECKBOX NAME=CABSCR"+(theclasses.size()+1)+" >"+font+"Secret</B></I></FONT>");
 		str.append("</TD>");
 		str.append("</TR>");
 		str.append("<TR><TD WIDTH=100% COLSPAN=5>"+sfont+"Parameters: "+efont+"<INPUT TYPE=TEXT NAME=CABPRM"+(theclasses.size()+1)+" VALUE=\"\" SIZE=50 MAXLENGTH=255></TD></TR>");
 		str.append("<TR><TD WIDTH=100% COLSPAN=5>"+sfont+"Extra Mask: "+efont+"<INPUT TYPE=TEXT NAME=CABMSK"+(theclasses.size()+1)+" VALUE=\"\" SIZE=50 MAXLENGTH=255></TD></TR>");
 		str.append("<TR><TD WIDTH=100% COLSPAN=5>"+sfont+"Pre-Reqs list: "+efont+"<INPUT TYPE=TEXT NAME=CABPRE"+(theclasses.size()+1)+" VALUE=\"\" SIZE=50 MAXLENGTH=255></TD></TR>");
+		str.append("<TR><TD WIDTH=100% COLSPAN=5>"+sfont+"Status: "+efont+"<SELECT NAME=CABSCR"+(theclasses.size()+1)+">");
+		for(final SecretFlag f : SecretFlag.values())
+		{
+			if(f==SecretFlag.PUBLIC)
+				str.append("<OPTION SELECTED VALUE=\""+f.name()+"\">"+f.name());
+			else
+				str.append("<OPTION VALUE=\""+f.name()+"\">"+f.name());
+		}
+		str.append("</TD></TR>");
 		str.append("</TABLE>");
 		return str;
 	}
@@ -319,7 +342,7 @@ public class CharClassData extends StdWebMacro
 				if(parms.containsKey("NAMES"))
 				{
 					final String old=httpReq.getUrlParameter("NAME1");
-					final DVector nameSet=new DVector(2);
+					final PairList<Integer,String> nameSet=new PairArrayList<Integer,String>();
 					int numNames=0;
 					boolean cSrc=false;
 					if(old==null)
@@ -335,7 +358,7 @@ public class CharClassData extends StdWebMacro
 
 					}
 					if(numNames<=0)
-						nameSet.addElement(Integer.valueOf(0),C.name());
+						nameSet.add(Integer.valueOf(0),C.name());
 					else
 					for(int i=0;i<numNames;i++)
 					{
@@ -347,35 +370,35 @@ public class CharClassData extends StdWebMacro
 							if((name!=null)&&(name.length()>0))
 							{
 								if(nameSet.size()==0)
-									nameSet.addElement(Integer.valueOf(minLevel),name);
+									nameSet.add(Integer.valueOf(minLevel),name);
 								else
 								{
 									boolean added=false;
 									for(int n=0;n<nameSet.size();n++)
 									{
-										if(minLevel<((Integer)nameSet.elementAt(n,1)).intValue())
+										if(minLevel<nameSet.get(n).first.intValue())
 										{
-											nameSet.insertElementAt(n,Integer.valueOf(minLevel),name);
+											nameSet.add(n,Integer.valueOf(minLevel),name);
 											added=true;
 											break;
 										}
 										else
-										if(minLevel==((Integer)nameSet.elementAt(n,1)).intValue())
+										if(minLevel==nameSet.get(n).first.intValue())
 										{
 											added=true;
 											break;
 										}
 									}
 									if(!added)
-										nameSet.addElement(Integer.valueOf(minLevel),name);
+										nameSet.add(Integer.valueOf(minLevel),name);
 								}
 							}
 						}
 					}
 					if(nameSet.size()==0)
-						nameSet.addElement(Integer.valueOf(0),C.name());
+						nameSet.add(Integer.valueOf(0),C.name());
 					else
-						nameSet.setElementAt(0,1,Integer.valueOf(0));
+						nameSet.get(0).first=Integer.valueOf(0);
 					final int borderSize=1;
 					str.append("<TABLE WIDTH=100% BORDER=\""+borderSize+"\" CELLSPACING=0 CELLPADDING=0>");
 					final String sfont=(parms.containsKey("FONT"))?("<FONT "+(parms.get("FONT"))+">"):"";
@@ -392,8 +415,8 @@ public class CharClassData extends StdWebMacro
 					}
 					for(int i=0;i<nameSet.size();i++)
 					{
-						final Integer lvl=(Integer)nameSet.elementAt(i,1);
-						final String name=(String)nameSet.elementAt(i,2);
+						final Integer lvl=nameSet.get(i).first;
+						final String name=nameSet.get(i).second;
 						str.append("<TR><TD WIDTH=20%>");
 						str.append("<INPUT TYPE=TEXT SIZE=5 NAME=NAMELEVEL"+(i+1)+" VALUE=\""+lvl.toString()+"\">");
 						str.append("</TD><TD WIDTH=80%>");
@@ -770,7 +793,7 @@ public class CharClassData extends StdWebMacro
 				if(parms.containsKey("SECURITYSETS"))
 				{
 					final String old=httpReq.getUrlParameter("SSET1");
-					final DVector sSet=new DVector(2);
+					final PairList<Integer,String> sSet=new PairArrayList<Integer,String>();
 					int numSSet=0;
 					boolean cSrc=false;
 					if(old==null)
@@ -804,27 +827,27 @@ public class CharClassData extends StdWebMacro
 							{
 								sec=CMParms.combineWithX(CMParms.parseCommas(sec.toUpperCase().trim(),true),",",0);
 								if(sSet.size()==0)
-									sSet.addElement(Integer.valueOf(minLevel),sec);
+									sSet.add(Integer.valueOf(minLevel),sec);
 								else
 								{
 									boolean added=false;
 									for(int n=0;n<sSet.size();n++)
 									{
-										if(minLevel<((Integer)sSet.elementAt(n,1)).intValue())
+										if(minLevel<sSet.get(n).first.intValue())
 										{
-											sSet.insertElementAt(n,Integer.valueOf(minLevel),sec);
+											sSet.add(n,Integer.valueOf(minLevel),sec);
 											added=true;
 											break;
 										}
 										else
-										if(minLevel==((Integer)sSet.elementAt(n,1)).intValue())
+										if(minLevel==sSet.get(n).first.intValue())
 										{
 											added=true;
 											break;
 										}
 									}
 									if(!added)
-										sSet.addElement(Integer.valueOf(minLevel),sec);
+										sSet.add(Integer.valueOf(minLevel),sec);
 								}
 							}
 						}
@@ -845,8 +868,8 @@ public class CharClassData extends StdWebMacro
 					}
 					for(int i=0;i<sSet.size();i++)
 					{
-						final Integer lvl=(Integer)sSet.elementAt(i,1);
-						final String sec=(String)sSet.elementAt(i,2);
+						final Integer lvl=sSet.get(i).first;
+						final String sec=sSet.get(i).second;
 						str.append("<TR><TD WIDTH=20%>");
 						str.append("<INPUT TYPE=TEXT SIZE=5 NAME=SSETLEVEL"+(i+1)+" VALUE=\""+lvl.toString()+"\">");
 						str.append("</TD><TD WIDTH=80%>");
@@ -946,13 +969,13 @@ public class CharClassData extends StdWebMacro
 				/******************************************************/
 				if(parms.containsKey("HELP"))
 				{
-					StringBuilder s=CMLib.help().getHelpText(C.ID(),null,false,true);
+					String s=CMLib.help().getHelpText(C.ID(),null,false,true);
 					if(s==null)
 						s=CMLib.help().getHelpText(C.name(),null,false,true);
 					if(s!=null)
 					{
 						if(s.toString().startsWith("<CHARCLASS>"))
-							s=new StringBuilder(s.toString().substring(11));
+							s=s.toString().substring(11);
 						int limit=78;
 						if(parms.containsKey("LIMIT"))
 							limit=CMath.s_int(parms.get("LIMIT"));
@@ -983,9 +1006,9 @@ public class CharClassData extends StdWebMacro
 						if(CMLib.ableMapper().getQualifyingLevel(C.ID(),true,A.ID())>0)
 						{
 							if((A.classificationCode()&Ability.ALL_DOMAINS)==0)
-								domain=Ability.ACODE_DESCS[A.classificationCode()];
+								domain=Ability.ACODE.DESCS.get(A.classificationCode());
 							else
-								domain=Ability.DOMAIN_DESCS[(A.classificationCode()&Ability.ALL_DOMAINS)>>5];
+								domain=Ability.DOMAIN.DESCS.get((A.classificationCode()&Ability.ALL_DOMAINS)>>5);
 							Integer I=domains.get(domain);
 							if(I==null)
 								I=Integer.valueOf(0);
@@ -1201,7 +1224,7 @@ public class CharClassData extends StdWebMacro
 						for(final Item I : items)
 						{
 							if(I!=null)
-								str.append(I.name()+", ");
+								str.append(super.helpHelp(I.name())+", ");
 						}
 					}
 				}
@@ -1250,7 +1273,7 @@ public class CharClassData extends StdWebMacro
 			for(int s=0;s<set.size();s++)
 			{
 				final String able=set.get(s);
-				if(CMLib.ableMapper().getSecretSkill(C.ID(), true, able))
+				if(CMLib.ableMapper().getSecretSkill(C.ID(), true, able)!=SecretFlag.PUBLIC)
 					continue;
 				if(able.equalsIgnoreCase("Skill_Recall"))
 					continue;
@@ -1278,7 +1301,8 @@ public class CharClassData extends StdWebMacro
 					if(C2.baseClass().equals(C.baseClass()))
 					{
 						tlvl=CMLib.ableMapper().getQualifyingLevel(C2.ID(),true,able);
-						if((tlvl>0)&&(!CMLib.ableMapper().getSecretSkill(C2.ID(), true, able)))
+						if((tlvl>0)
+						&&(CMLib.ableMapper().getSecretSkill(C2.ID(), true, able)==SecretFlag.PUBLIC))
 						{
 							if(tlvl>l)
 								thisCrossClassLevelDiffs+=(tlvl-l);
@@ -1290,7 +1314,8 @@ public class CharClassData extends StdWebMacro
 					else
 					{
 						tlvl=CMLib.ableMapper().getQualifyingLevel(C2.ID(),true,able);
-						if((tlvl>0)&&(!CMLib.ableMapper().getSecretSkill(C2.ID(), true, able)))
+						if((tlvl>0)
+						&&(CMLib.ableMapper().getSecretSkill(C2.ID(), true, able)==SecretFlag.PUBLIC))
 						{
 							if(tlvl>l)
 								thisCrossClassLevelDiffs+=(tlvl-l);
@@ -1407,6 +1432,11 @@ public class CharClassData extends StdWebMacro
 			stat,
 			stat
 		};
-		return add+(level*(int)Math.round(CMath.parseMathExpression(formula, variables)));
+		final CMath.CompiledFormula cform =  CMath.compileMathExpression(formula);
+		final int iters = 100;
+		long sum = 0;
+		for(int i=0;i<iters;i++)
+			sum += add+(level*(int)Math.round(CMath.parseMathExpression(cform, variables, 0.0)));
+		return (int)Math.round(CMath.div((double)sum, iters));
 	}
 }

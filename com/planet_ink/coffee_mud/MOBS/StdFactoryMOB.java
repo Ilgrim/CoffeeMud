@@ -22,7 +22,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ public class StdFactoryMOB extends StdMOB
 	{
 		try
 		{
-			return this.getClass().newInstance();
+			return this.getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -69,6 +69,7 @@ public class StdFactoryMOB extends StdMOB
 	@Override
 	public void setName(final String newName)
 	{
+		_name = newName; // this is done for debugging and single-thread purposes.
 		volatileName = newName;
 	}
 
@@ -113,7 +114,7 @@ public class StdFactoryMOB extends StdMOB
 			if((curState==baseState)||(curState==maxState))
 				curState=(CharState)CMClass.getCommon("DefaultCharState");
 			super.destroy();
-			this.username="";
+			this._name="";
 			this.displayText="";
 			removeFromGame=false;
 			charStats=savedCStats;

@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -136,25 +136,23 @@ public class GrinderRaces
 	{
 		if(items==null)
 			items=new Vector<Item>();
-		final Vector<Item> classes=new Vector<Item>(); // return value
-		List<Item> itemlist=null;
+		final List<Item> classes=new Vector<Item>(); // return value
 		if(httpReq.isUrlParameter(c+"ITEM1"))
 		{
-			itemlist=RoomData.getItemCache();
 			for(int i=1;;i++)
 			{
 				final String MATCHING=httpReq.getUrlParameter(c+"ITEM"+i);
 				if(MATCHING==null)
 					break;
-				Item I2=RoomData.getItemFromAnywhere(itemlist,MATCHING);
+				Item I2=CMLib.webMacroFilter().findItemInWebCache(MATCHING);
 				if(I2==null)
 				{
-					I2=RoomData.getItemFromAnywhere(items,MATCHING);
+					I2=CMLib.webMacroFilter().findItemInAnything(items,MATCHING);
 					if(I2!=null)
-						RoomData.contributeItems(new XVector<Item>(I2));
+						CMLib.webMacroFilter().contributeItemsToWebCache(new XVector<Item>(I2));
 				}
 				if(I2!=null)
-					classes.addElement(I2);
+					classes.add(I2);
 				if(one)
 					break;
 			}
@@ -252,7 +250,7 @@ public class GrinderRaces
 
 	public static void setDynImmunities(final Modifiable M, final HTTPRequest httpReq)
 	{
-		final List<String> theclasses=new Vector<String>();
+		final List<String> theclasses=new ArrayList<String>();
 		if(httpReq.isUrlParameter("IABLE1"))
 		{
 			int num=1;
@@ -272,9 +270,9 @@ public class GrinderRaces
 			M.setStat("GETIABLE"+i, theclasses.get(i));
 	}
 
-	public static QuadVector<String,Integer,Integer,Boolean> cabilities(final HTTPRequest httpReq)
+	public static QuintVector<String,Integer,Integer,Boolean,String> cabilities(final HTTPRequest httpReq)
 	{
-		final QuadVector<String,Integer,Integer,Boolean> theclasses=new QuadVector<String,Integer,Integer,Boolean>();
+		final QuintVector<String,Integer,Integer,Boolean,String> theclasses=new QuintVector<String,Integer,Integer,Boolean,String>();
 		if(httpReq.isUrlParameter("CABLES1"))
 		{
 			int num=1;
@@ -292,7 +290,14 @@ public class GrinderRaces
 					String levl=httpReq.getUrlParameter("CABLVL"+num);
 					if(levl==null)
 						levl="0";
-					theclasses.addElement(behav,Integer.valueOf(CMath.s_int(prof)),Integer.valueOf(CMath.s_int(levl)),qual.equals("on")?Boolean.TRUE:Boolean.FALSE);
+					String parm=httpReq.getUrlParameter("CABPRM"+num);
+					if(parm==null)
+						parm="";
+					theclasses.addElement(behav,
+							Integer.valueOf(CMath.s_int(prof)),
+							Integer.valueOf(CMath.s_int(levl)),
+							qual.equals("on")?Boolean.TRUE:Boolean.FALSE,
+							parm);
 				}
 				num++;
 				behav=httpReq.getUrlParameter("CABLES"+num);
@@ -344,7 +349,7 @@ public class GrinderRaces
 		R.setStat("EVENTRACE",(old==null)?"EVENTRACE":old);
 		old=httpReq.getUrlParameter("CANRIDE");
 		R.setStat("CANRIDE",(old==null)?"false":(""+old.equalsIgnoreCase("on")));
-		old=httpReq.getUrlParameter("GENHELP");
+		old=CMStrings.fixMudCRLF(httpReq.getUrlParameter("GENHELP"));
 		R.setStat("HELP", ((old==null)?"":old));
 		final StringBuffer bodyOld=new StringBuffer("");
 		for(int i=0;i<Race.BODYPARTSTR.length;i++)
@@ -404,19 +409,23 @@ public class GrinderRaces
 			R.setStat("GETOFTID"+l,((Environmental)V.get(l)).ID());
 			R.setStat("GETOFTPARM"+l,((Environmental)V.get(l)).text());
 		}
-		V=itemList(new XVector<Item>(oldR.myNaturalWeapon()),'W',httpReq,true);
+		V=itemList(Arrays.asList(oldR.getNaturalWeapons()),'W',httpReq,false);
 		if(V.size()==0)
-			R.setStat("WEAPONCLASS","StdWeapon");
+			R.setStat("WEAPONXML","");
 		else
 		{
-			R.setStat("WEAPONCLASS",((Environmental)V.get(0)).ID());
-			R.setStat("WEAPONXML",((Environmental)V.get(0)).text());
+			final StringBuilder x = new StringBuilder("");
+			x.append("<ITEMS>");
+			for(final Item I : V)
+				x.append(CMLib.coffeeMaker().getItemXML(I));
+			x.append("</ITEMS>");
+			R.setStat("WEAPONXML",x.toString());
 		}
 		int breathe=CMath.s_int(httpReq.getUrlParameter("BREATHES"));
-		final List<Integer> l=new Vector<Integer>();
+		final List<Integer> breatheCodesV=new ArrayList<Integer>();
 		if(breathe>=0)
 		{
-			l.add(Integer.valueOf(breathe));
+			breatheCodesV.add(Integer.valueOf(breathe));
 			for(int i=1;;i++)
 			{
 				if(httpReq.isUrlParameter("BREATHES"+(Integer.toString(i))))
@@ -424,22 +433,22 @@ public class GrinderRaces
 					breathe=CMath.s_int(httpReq.getUrlParameter("BREATHES"+(Integer.toString(i))));
 					if(breathe<0)
 					{
-						l.clear();
+						breatheCodesV.clear();
 						break;
 					}
-					l.add(Integer.valueOf(breathe));
+					breatheCodesV.add(Integer.valueOf(breathe));
 				}
 				else
 					break;
 			}
 		}
-		R.setStat("BREATHES", CMParms.toListString(l));
+		R.setStat("BREATHES", CMParms.toListString(breatheCodesV));
 
 		setDynAbilities(R,httpReq);
 		setDynEffects(R,httpReq);
 		setDynImmunities(R,httpReq);
 
-		final QuadVector<String,Integer,Integer,Boolean> CV=cabilities(httpReq);
+		final QuintVector<String,Integer,Integer,Boolean,String> CV=cabilities(httpReq);
 		R.setStat("NUMCABLE", ""+CV.size());
 		for(int i=0;i<CV.size();i++)
 		{
@@ -447,6 +456,7 @@ public class GrinderRaces
 			R.setStat("GETCABLEPROF"+i, CV.elementAt(i).second.toString());
 			R.setStat("GETCABLELVL"+i, CV.elementAt(i).third.toString());
 			R.setStat("GETCABLEGAIN"+i, Boolean.valueOf(!CV.elementAt(i).fourth.booleanValue()).toString());
+			R.setStat("GETCABLELPARM"+i, CV.elementAt(i).fifth.toString());
 		}
 		return "";
 	}

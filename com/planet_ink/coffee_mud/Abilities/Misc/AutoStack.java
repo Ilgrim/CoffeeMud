@@ -22,7 +22,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -68,6 +68,12 @@ public class AutoStack extends StdAbility
 	public int classificationCode()
 	{
 		return Ability.ACODE_PROPERTY;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_NONENCHANTMENT;
 	}
 
 	protected final static int	INTERVAL				= (2 * 60) / 4000;
@@ -233,8 +239,8 @@ public class AutoStack extends StdAbility
 				final Room R=(Room)affected;
 				if((R!=null)&&(!R.amDestroyed()))
 				{
-					if(CMProps.getBoolVar(CMProps.Bool.MUDSTARTED)
-					&&(!CMProps.getBoolVar(CMProps.Bool.MUDSHUTTINGDOWN)))
+					if(CMProps.isState(CMProps.HostState.RUNNING)
+					&&(!CMProps.isState(CMProps.HostState.SHUTTINGDOWN)))
 					{
 						tickDown = intervalTicks;
 						nextTriggeringTime = System.currentTimeMillis() + (CMProps.getTickMillis() * tickDown);

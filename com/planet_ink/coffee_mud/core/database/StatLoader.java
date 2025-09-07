@@ -19,7 +19,7 @@ import java.sql.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -69,6 +69,35 @@ public class StatLoader
 		}
 		// log comment
 		return T;
+	}
+
+	public long DBReadOldestStatMs()
+	{
+		DBConnection D=null;
+		long startTime = System.currentTimeMillis();
+		try
+		{
+			D=DB.DBFetch();
+			final ResultSet R=D.query("SELECT CMSTRT FROM CMSTAT ORDER BY CMSTRT");
+			try
+			{
+				if(R.next())
+					startTime=DBConnections.getLongRes(R,"CMSTRT");
+			}
+			finally
+			{
+				R.close();
+			}
+		}
+		catch(final Exception sqle)
+		{
+			Log.errOut("DataLoader",sqle);
+		}
+		finally
+		{
+			DB.DBDone(D);
+		}
+		return startTime;
 	}
 
 	public List<CoffeeTableRow> DBReadAfter(final long startTime, final long endTime)

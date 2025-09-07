@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ public class Chant_AnimalFriendship extends Chant
 		if(((msg.targetMajor()&CMMsg.MASK_MALICIOUS)>0)
 		&&(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_ALWAYS))
 		&&((msg.amITarget(affected)))
-		&&(CMLib.flags().isAnimalIntelligence(msg.source())))
+		&&(CMLib.flags().isAnAnimal(msg.source())))
 		{
 			final MOB target=(MOB)msg.target();
 			if((!target.isInCombat())
@@ -115,7 +115,7 @@ public class Chant_AnimalFriendship extends Chant
 
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already friendly to animals."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already friendly to animals."));
 			return false;
 		}
 

@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Vector;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -130,6 +130,7 @@ public interface Banker extends ShopKeeper
 	 * Returns true if the given name has an account at this bank.
 	 * The name is quite case sensitive.
 	 *
+	 * @param name the name to look for
 	 * @return true if the account was found
 	 */
 	public boolean isAccountName(String name);

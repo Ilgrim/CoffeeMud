@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -76,7 +76,8 @@ public class AntiVagrant extends ActiveTicker
 	{
 		if(!canFreelyBehaveNormal(observer))
 			return;
-		if(anywhere||(observer.location().domainType()==Room.DOMAIN_OUTDOORS_CITY))
+		if(anywhere
+		||(CMLib.flags().isACityRoom(observer)))
 		{
 			if(target!=null)
 			if(CMLib.flags().isSleeping(target)&&(target!=observer)&&(CMLib.flags().canBeSeenBy(target,observer)))

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -93,8 +93,7 @@ public class Thief_EscapeBonds extends ThiefSkill
 		if(affected instanceof MOB)
 		{
 			final MOB mob=(MOB)affected;
-			if((!CMLib.flags().isAliveAwakeMobile(mob,true))
-			||(!CMLib.flags().isBound(mob)))
+			if(!CMLib.flags().isAliveAwakeMobile(mob,true))
 			{
 				unInvoke();
 				return false;
@@ -105,20 +104,34 @@ public class Thief_EscapeBonds extends ThiefSkill
 				unInvoke();
 				return false;
 			}
-			final int newStrength=mob.charStats().getStat(CharStats.STAT_STRENGTH)
-						   +getXLEVELLevel(mob)
-						   +(mob.charStats().getStat(CharStats.STAT_DEXTERITY)*2);
 			final CMMsg msg=CMClass.getMsg(mob,null,null,CMMsg.MSG_HANDS,L("<S-NAME> slip(s) and wiggle(s) in <S-HIS-HER> bonds."));
-			for(int v=0;v<V.size();v++)
-			{
-				mob.charStats().setStat(CharStats.STAT_STRENGTH,newStrength);
-				final Ability A=V.get(v);
-				if(A.okMessage(mob,msg))
-					A.executeMsg(mob,msg);
-			}
+			strBonus=getXLEVELLevel(mob)+(mob.charStats().getStat(CharStats.STAT_DEXTERITY)*2);
 			mob.recoverCharStats();
+			try
+			{
+				for(int v=0;v<V.size();v++)
+				{
+					final Ability A=V.get(v);
+					if(A.okMessage(mob,msg))
+						A.executeMsg(mob,msg);
+				}
+			}
+			finally
+			{
+				strBonus = 0;
+				mob.recoverCharStats();
+			}
 		}
 		return true;
+	}
+
+	protected volatile int strBonus = 0;
+
+	@Override
+	public void affectCharStats(final MOB affectedMob, final CharStats charStats)
+	{
+		charStats.setStat(CharStats.STAT_STRENGTH, charStats.getStat(CharStats.STAT_STRENGTH)+strBonus);
+		charStats.setStat(CharStats.STAT_DEXTERITY, charStats.getStat(CharStats.STAT_DEXTERITY)+strBonus);
 	}
 
 	@Override
@@ -128,7 +141,7 @@ public class Thief_EscapeBonds extends ThiefSkill
 		super.unInvoke();
 		if((M!=null)&&(!M.amDead())&&(super.canBeUninvoked()))
 		{
-			if(!CMLib.flags().isBound(M))
+			if(CMLib.flags().flaggedAffects(M,Ability.FLAG_BINDING).size()==0)
 				M.tell(L("You slip free of your bonds."));
 			else
 				M.tell(L("You stop trying to slip free of your bonds."));
@@ -142,10 +155,9 @@ public class Thief_EscapeBonds extends ThiefSkill
 		{
 			if(mob.fetchEffect(this.ID())!=null)
 				return Ability.QUALITY_INDIFFERENT;
-			if((!CMLib.flags().isAliveAwakeMobile(mob,true))||(!CMLib.flags().isBound(mob)))
+			if(!CMLib.flags().isAliveAwakeMobile(mob,true))
 				return Ability.QUALITY_INDIFFERENT;
-			final List<Ability> V=CMLib.flags().flaggedAffects(mob,Ability.FLAG_BINDING);
-			if(V.size()==0)
+			if(CMLib.flags().flaggedAffects(mob,Ability.FLAG_BINDING).size()==0)
 				return Ability.QUALITY_INDIFFERENT;
 			return super.castingQuality(mob, target,Ability.QUALITY_BENEFICIAL_SELF);
 		}
@@ -160,18 +172,17 @@ public class Thief_EscapeBonds extends ThiefSkill
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already trying to slip free of <S-HIS-HER> bonds."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already trying to slip free of <S-HIS-HER> bonds."));
 			return false;
 		}
-		if((!CMLib.flags().isAliveAwakeMobile(mob,true))||(!CMLib.flags().isBound(mob)))
+		if(!CMLib.flags().isAliveAwakeMobile(mob,true))
 		{
-			mob.tell(target,null,null,L("<T-NAME> <T-IS-ARE> not bound!"));
+			failureTell(mob,target,auto,L("<T-NAME> <T-IS-ARE> not bound!"));
 			return false;
 		}
-		final List<Ability> V=CMLib.flags().flaggedAffects(mob,Ability.FLAG_BINDING);
-		if(V.size()==0)
+		if(CMLib.flags().flaggedAffects(mob,Ability.FLAG_BINDING).size()==0)
 		{
-			mob.tell(target,null,null,L("<T-NAME> <T-IS-ARE> not bound by anything which can be slipped free of."));
+			failureTell(mob,target,auto,L("<T-NAME> <T-IS-ARE> not bound by anything which can be slipped free of."));
 			return false;
 		}
 

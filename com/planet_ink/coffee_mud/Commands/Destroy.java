@@ -4,6 +4,7 @@ import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.CMClass.CMObjectType;
 import com.planet_ink.coffee_mud.core.CMSecurity.SecFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
+import com.planet_ink.coffee_mud.core.exceptions.MQLException;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -18,13 +19,19 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.Achievement;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.UpdateSet;
+import com.planet_ink.coffee_mud.Libraries.interfaces.HelpLibrary.HelpSection;
+import com.planet_ink.coffee_mud.Libraries.interfaces.IntermudInterface.InterProto;
 import com.planet_ink.coffee_mud.Libraries.interfaces.JournalsLibrary.CommandJournalFlags;
+import com.planet_ink.coffee_mud.Libraries.interfaces.PlayerLibrary.ThinPlayer;
 
 import java.util.*;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,7 +51,7 @@ public class Destroy extends StdCommand
 	{
 	}
 
-	private final String[] access=I(new String[]{"DESTROY","JUNK"});
+	private final String[] access=I(new String[]{"DESTROY","JUNK","TEAR"});
 
 	@Override
 	public String[] getAccessWords()
@@ -56,6 +63,37 @@ public class Destroy extends StdCommand
 	{
 		mob.tell(L("You are not allowed to do that here."));
 		return false;
+	}
+
+	public String listOfThings()
+	{
+		return L("EXIT, ITEM, AREA, USER, MOB, QUEST, FACTION, "
+			+ "SESSION, TICKS, THREAD, HOLIDAY, JOURNAL, SOCIAL, ACHIEVEMENT, CLASS, ABILITY, MANUFACTURER, "
+			+ "LANGUAGE, COMPONENT, RACE, EXPERTISE, TITLE, CLAN, BAN, GOVERNMENT, NOPURGE, BUG, TYPO, IDEA, "
+			+ "WEBSERVER, POLL, DEBUGFLAG, DISABLEFLAG, ENABLEFLAG, CRAFTSKILL, GATHERSKILL, CRON, COMMAND, "
+			+ "TRAP, POISON, TWEAK, WRIGHTSKILL, AWARD, DELETE:, or a ROOM");
+	}
+
+	public void awards(final MOB mob, final List<String> commands)
+	{
+		if((commands.size()<3)
+		||(!CMath.isInteger(commands.get(2)))
+		||(CMath.s_int(commands.get(2))<1))
+		{
+			mob.tell(L("You have failed to specify the proper fields.\n\r"
+					+ "DESTROY AWARD [NUM].\n\r"));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return;
+		}
+		final int num = CMath.s_int(commands.get(2));
+		if(CMLib.awards().modifyAutoProperty(num, null))
+			mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The superstition of the players just decreased!"));
+		else
+		{
+			mob.tell(L("@x1 is not a proper entry.  Try LIST AWARD.\n\r"));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return;
+		}
 	}
 
 	public boolean mobs(final MOB mob, final List<String> commands)
@@ -137,6 +175,56 @@ public class Destroy extends StdCommand
 		}
 	}
 
+	public void cron(final MOB mob, final List<String> commands) throws IOException
+	{
+		if(commands.size()<3)
+		{
+			mob.tell(L("You have failed to specify the proper fields.\n\rThe format is DESTROY CRON [NAME/#]\n\r"));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return;
+		}
+
+		final String cronID=CMParms.combine(commands,2);
+		final List<JournalEntry> jobs = CMLib.database().DBReadJournalMsgsByCreateDate("SYSTEM_CRON", true);
+		JournalEntry killMe=null;
+		if(CMath.isInteger(cronID)
+		&&(CMath.s_int(cronID)>0)
+		&&(CMath.s_int(cronID)<=jobs.size()))
+			killMe=jobs.get(CMath.s_int(cronID)-1);
+		else
+		{
+			for(final JournalEntry E : jobs)
+			{
+				if(E.subj().equalsIgnoreCase(cronID))
+					killMe=E;
+			}
+			if(killMe == null)
+			{
+				for(final JournalEntry E : jobs)
+				{
+					if(E.subj().toUpperCase().indexOf(cronID.toUpperCase())>=0)
+					{
+						killMe=E;
+						break;
+					}
+				}
+			}
+			if(killMe == null)
+			{
+				mob.tell(L("@x1 is not a valid [NAME/#].  Try LIST CRON.\n\r",cronID));
+				mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+				return;
+			}
+		}
+		if(mob.session().confirm(L("This will complete OBLITERATE the cron job '@x1' forever.  "
+				+ "Are you SURE?! (y/N)?",killMe.subj()),"N"))
+		{
+			CMLib.database().DBDeleteJournal("SYSTEM_CRON", killMe.key());
+			Log.sysOut(mob.Name()+" destroyed cron job "+killMe.subj()+".");
+			CMLib.journals().activate();
+		}
+	}
+
 	public void accounts(final MOB mob, final List<String> commands)
 	throws IOException
 	{
@@ -161,7 +249,7 @@ public class Destroy extends StdCommand
 			for(final Enumeration<String> p=theAccount.getPlayers();p.hasMoreElements();)
 			{
 				final MOB deadMOB=CMLib.players().getLoadPlayer(p.nextElement());
-				CMLib.players().obliteratePlayer(deadMOB,true,false);
+				CMLib.players().obliteratePlayer(deadMOB,true,CMSecurity.isDisabled(CMSecurity.DisFlag.DEATHCRY));
 				mob.tell(L("The user '@x1' is no more!\n\r",CMParms.combine(commands,2)));
 				Log.sysOut("Mobs",mob.Name()+" destroyed user "+deadMOB.Name()+".");
 				deadMOB.destroy();
@@ -195,7 +283,7 @@ public class Destroy extends StdCommand
 		if(mob.session().confirm(L("This will complete OBLITERATE the user '@x1' forever.  Are you SURE?! (y/N)?",name),"N"))
 		{
 			final MOB deadMOB=CMLib.players().getLoadPlayer(name);
-			CMLib.players().obliteratePlayer(deadMOB,true,false);
+			CMLib.players().obliteratePlayer(deadMOB,true,CMSecurity.isDisabled(CMSecurity.DisFlag.DEATHCRY));
 			mob.tell(L("The user '@x1' is no more!\n\r",CMParms.combine(commands,2)));
 			Log.sysOut("Mobs",mob.Name()+" destroyed user "+deadMOB.Name()+".");
 			deadMOB.destroy();
@@ -384,10 +472,10 @@ public class Destroy extends StdCommand
 				CMLib.database().DBUpdateExits(GL);
 			}
 			mob.location().getArea().fillInAreaRoom(mob.location());
-			final boolean useShipDirs=(mob.location() instanceof BoardableShip)||(mob.location().getArea() instanceof BoardableShip);
-			final String inDirName=useShipDirs?CMLib.directions().getShipDirectionName(direction):CMLib.directions().getDirectionName(direction);
+			final Directions.DirType dirType = CMLib.flags().getInDirType(mob);
+			final String inDirName=CMLib.directions().getDirectionName(direction, dirType);
 			mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("A wall of inhibition falls @x1.",inDirName));
-			final String dirName=useShipDirs?CMLib.directions().getShipDirectionName(direction):CMLib.directions().getDirectionName(direction);
+			final String dirName=CMLib.directions().getDirectionName(direction, dirType);
 			Log.sysOut("Rooms",mob.Name()+" unlinked direction "+dirName+" from room "+mob.location().roomID()+".");
 		}
 	}
@@ -426,10 +514,38 @@ public class Destroy extends StdCommand
 		mob.location().getArea().fillInAreaRoom(mob.location());
 		if(mob.location() instanceof GridLocale)
 			((GridLocale)mob.location()).buildGrid();
-		final boolean useShipDirs=(mob.location() instanceof BoardableShip)||(mob.location().getArea() instanceof BoardableShip);
+		final Directions.DirType dirType=CMLib.flags().getInDirType(mob);
 		mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("A wall of inhibition falls @x1.",
-				(useShipDirs?CMLib.directions().getShipInDirectionName(direction):CMLib.directions().getInDirectionName(direction))));
+				(CMLib.directions().getInDirectionName(direction, dirType))));
 		Log.sysOut("Exits",mob.location().roomID()+" exits destroyed by "+mob.Name()+".");
+	}
+
+	public boolean helps(final MOB mob, final List<String> commands)
+	{
+		if(commands.size()<3)
+		{
+			mob.tell(L("You have failed to specify the proper fields.\n\rThe format is DESTROY HELP [KEY]\n\r"));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		final boolean preferAHelp = commands.get(1).toUpperCase().startsWith("A");
+		final String helpStr=CMParms.combine(commands,2).toUpperCase().trim().replace(' ','_');
+		final HelpSection section = preferAHelp?HelpSection.ArchonOnly:HelpSection.NormalOnly;
+		final String fileName = CMLib.help().findHelpFile(helpStr, section, true);
+		if(fileName == null)
+		{
+			mob.tell(L("A help file with key '@x1' does not exist!",helpStr));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		if(!CMLib.help().addModifyHelpEntry(mob, fileName, helpStr, true))
+		{
+			mob.tell(L("A help file with key '@x1' could not be destroyed!",helpStr));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The helpfullness of the world just decreased."));
+		return true;
 	}
 
 	private Item getItem(final boolean allFlag, final Room srchRoom, final Item srchContainer, final MOB srchMob, final String itemID)
@@ -440,9 +556,9 @@ public class Destroy extends StdCommand
 			deadItem=(srchMob==null)?null:srchMob.findItem(null,itemID);
 		if(deadItem==null)
 		{
-			Environmental E=CMLib.map().findSpaceObject(itemID,true);
+			Environmental E=CMLib.space().findSpaceObject(itemID,true);
 			if(!(E instanceof Item))
-				E=CMLib.map().findSpaceObject(itemID,false);
+				E=CMLib.space().findSpaceObject(itemID,false);
 			if(E instanceof Item)
 				deadItem=(Item)E;
 		}
@@ -509,7 +625,9 @@ public class Destroy extends StdCommand
 		Item deadItem=getItem(allFlag,srchRoom,srchContainer,srchMob,itemID);
 
 		final int spaceDex=itemID.indexOf(' ');
-		if((deadItem == null)&&(spaceDex>0)&&(CMath.isInteger(itemID.substring(0,spaceDex))))
+		if((deadItem == null)
+		&&(spaceDex>0)
+		&&(CMath.isInteger(itemID.substring(0,spaceDex))))
 		{
 			max=CMath.s_int(itemID.substring(0,spaceDex));
 			itemID=itemID.substring(spaceDex+1).trim();
@@ -539,7 +657,7 @@ public class Destroy extends StdCommand
 			{
 				CMLib.database().DBDeleteItem("SPACE", deadItem);
 				deadItem.destroy();
-				CMLib.map().delObjectInSpace((SpaceObject)deadItem);
+				CMLib.space().delObjectInSpace((SpaceObject)deadItem);
 				deadItem=null;
 			}
 			else
@@ -697,15 +815,83 @@ public class Destroy extends StdCommand
 		return true;
 	}
 
-	public boolean components(final MOB mob, final List<String> commands)
+	public boolean commands(final MOB mob, final List<String> commands)
 	{
 		if(commands.size()<3)
 		{
-			mob.tell(L("You have failed to specify the proper fields.\n\rThe format is DESTROY COMPONENT [SKILL ID]\n\r"));
+			mob.tell(L("You have failed to specify the proper fields.\n\rThe format is DESTROY COMMAND [COMMAND ID]\n\r"));
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
 			return false;
 		}
 
+		final String commandID=CMParms.combine(commands,2);
+		Command C=CMClass.getCommand(commandID);
+		if(C==null)
+		{
+			mob.tell(L("'@x1' is an invalid command id.",commandID));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		if(!(C.isGeneric()))
+		{
+			mob.tell(L("'@x1' is not generic, and may not be deleted.",C.ID()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		CMClass.delClass(CMObjectType.COMMAND, C);
+		final DatabaseEngine.AckRecord rec = CMLib.database().DBDeleteCommand(C.ID());
+		if((rec != null) && (rec.typeClass() != null) && (rec.typeClass().length() > 0))
+		{
+			try
+			{
+				final Class<?> classC = Class.forName(rec.typeClass(), true, CMClass.instance());
+				C = (Command)classC.newInstance();
+				CMClass.addClass(CMObjectType.COMMAND, C);
+				CMClass.reloadCommandWords();
+				mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The power of the world just changed?!"));
+				return true;
+			}
+			catch (final Exception e)
+			{
+			}
+		}
+		mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The power of the world just decreased!"));
+		CMClass.reloadCommandWords();
+		return true;
+	}
+
+	public boolean components(final MOB mob, final List<String> commands)
+	{
+		if(commands.size()<3)
+		{
+			mob.tell(L("You have failed to specify the proper fields.\n\r"
+					+ "The format: DESTROY COMPONENT [SKILL ID]\n\r"
+					+ "The format: DESTROY COMPONENT SOCIAL [SOCIAL ID]\n\r"
+					));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		if(commands.get(2).equalsIgnoreCase("SOCIAL"))
+		{
+			final String classID=CMParms.combine(commands,3);
+			final List<Social> socials=CMLib.ableComponents().getSocialsSet(classID);
+			Social soc=null;
+			if((socials!=null)&&(socials.size()>0))
+			{
+				final Map<String,List<Social>> allsoc = new HashMap<String,List<Social>>();
+				allsoc.put(socials.get(0).baseName(), socials);
+				soc = CMLib.socials().fetchSocialFromSet(allsoc, CMParms.parse(classID), true, true);
+			}
+			if(soc == null)
+			{
+				mob.tell(L("'@x1' does not exist, try LIST COMPONENTS.",classID));
+				mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+				return false;
+			}
+			CMLib.ableComponents().alterAbilityComponentFile(CMStrings.trimCRLF(soc.getEncodedLine()),true);
+			mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The complication of skill usage just decreased!"));
+			return true;
+		}
 		final String classID=CMParms.combine(commands,2);
 		if(CMLib.ableComponents().getAbilityComponentMap().get(classID.toUpperCase())==null)
 		{
@@ -719,6 +905,28 @@ public class Destroy extends StdCommand
 		return true;
 	}
 
+	public boolean plane(final MOB mob, final List<String> commands)
+	{
+		if(commands.size()<3)
+		{
+			mob.tell(L("You have failed to specify the proper fields.\n\rThe format is DESTROY PLANE [PLANE NAME]\n\r"));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+
+		final String planeName=CMParms.combine(commands,2);
+		final PlanarAbility planeSet = (PlanarAbility)CMClass.getAbility("StdPlanarAbility");
+		if((!planeSet.getAllPlaneKeys().contains(planeName.toUpperCase().trim()))
+		||(!planeSet.deletePlane(planeName)))
+		{
+			mob.tell(L("'@x1' does not exist, try LIST COMPONENTS.",planeName));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The planar universe just decreased!"));
+		return true;
+	}
+
 	public boolean expertises(final MOB mob, final List<String> commands)
 	{
 		if(commands.size()<3)
@@ -729,13 +937,14 @@ public class Destroy extends StdCommand
 		}
 
 		final String classID=CMParms.combine(commands,2);
-		final CMFile F=new CMFile(Resources.makeFileResourceName("skills/expertises.txt"),null,CMFile.FLAG_LOGERRORS);
-		final boolean removed=Resources.findRemoveProperty(F, classID);
-		if(removed)
+		if(CMLib.expertises().delDefinition(classID, true))
 		{
-			Resources.removeResource("skills/expertises.txt");
 			mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The power of skill usage just decreased!"));
-			CMLib.expertises().recompileExpertises();
+		}
+		else
+		{
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
 		}
 		return true;
 	}
@@ -753,21 +962,21 @@ public class Destroy extends StdCommand
 		}
 
 		final String classID=CMParms.combine(commands,2);
-		if(!CMLib.titles().isExistingAutoTitle(classID))
+		if(!CMLib.awards().isExistingAutoTitle(classID))
 		{
 			mob.tell(L("'@x1' is not an existing auto-title, try LIST TITLES.",classID));
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
 			return false;
 		}
 
-		final String error = CMLib.titles().deleteTitleAndResave(classID);
+		final String error = CMLib.awards().deleteTitleAndResave(classID); // also does CMLib.titles().reloadAutoTitles();
 		if(error == null)
 		{
 			mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The prestige of players just decreased!"));
 		}
 		else
 		{
-			mob.tell(L(error));
+			mob.tell(error);
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
 			return false;
 		}
@@ -849,6 +1058,197 @@ public class Destroy extends StdCommand
 		return true;
 	}
 
+	public void destroyMQL(final MOB mob, final boolean areaFlag, final List<String> commands)
+	{
+		final StringBuilder lines = new StringBuilder("");
+		try
+		{
+			commands.add(1,".");
+			final String mql = CMParms.combineQuoted(commands, 0);
+			final List<Map<String,Object>> res=CMLib.percolator().doMQLSelectObjects(areaFlag?(mob.location().getArea()):null, mql);
+			if(res.size()==0)
+				mob.tell(L("(empty set)"));
+			else
+			{
+				final List<Environmental> delts = new LinkedList<Environmental>();
+				lines.append("Delete preview:\n\r");
+				for(final Map<String,Object> m : res)
+				{
+					for(final Map.Entry<String,Object> eo : m.entrySet())
+					{
+						if(eo.getValue() instanceof Environmental)
+						{
+							final Environmental E = (Environmental)eo.getValue();
+							lines.append(E.name()+" ("+E.ID()+") @"+CMLib.map().getApproximateExtendedRoomID(CMLib.map().roomLocation(E))+":\n\r");
+							delts.add(E);
+						}
+					}
+				}
+				final Runnable doDelete = new Runnable()
+				{
+					final List<Environmental> todo=delts;
+
+					@Override
+					public void run()
+					{
+						for(final Environmental E : todo)
+						{
+							final Room R=CMLib.map().roomLocation(E);
+							if((R!=null) && R.isSavable() && (R.roomID().length()>0))
+							{
+								Environmental saveE = null;
+								Environmental destroyE = null;
+								String roomID = null;
+								if(E instanceof Ability)
+								{
+									saveE=((Ability)E).affecting();
+									if(saveE != null)
+									{
+										Log.infoOut(mob.name()+" deleted "+E.name()+" from "+saveE.Name()+" in "+R.roomID());
+										((Physical)saveE).delEffect((Ability)E);
+									}
+								}
+								else
+								if(E instanceof Room)
+								{
+									Log.infoOut(mob.name()+" deleted room "+((Room)E).roomID());
+									roomID=((Room)E).roomID();
+									destroyE=E;
+								}
+								else
+								if(E instanceof Area)
+								{
+									Log.infoOut(mob.name()+" deleted area "+((Area)E).Name());
+									destroyE=E;
+								}
+								else
+								if(E instanceof Item)
+								{
+									final Item I=(Item)E;
+									if((I.owner() instanceof Room)
+									&&(I.databaseID().length()>0))
+									{
+										roomID=R.roomID();
+										Log.infoOut(mob.name()+" deleted "+E.name()+" in "+R.roomID());
+										destroyE=I;
+									}
+									else
+									if((I.owner() instanceof MOB)
+									&&(((MOB)I.owner()).databaseID().length()>0)
+									&&(((MOB)I.owner()).getStartRoom()!=null)
+									&&(((MOB)I.owner()).getStartRoom().roomID().length()>0))
+									{
+										roomID=((MOB)I.owner()).getStartRoom().roomID();
+										saveE=(I.owner());
+										Log.infoOut(mob.name()+" deleted "+E.name()+" from "+((MOB)I.owner()).Name()+" in "+R.roomID());
+									}
+								}
+								else
+								if((E instanceof MOB)
+								&&(((MOB)E).databaseID().length()>0))
+								{
+									roomID=R.roomID();
+									Log.infoOut(mob.name()+" deleted "+E.name()+" in "+R.roomID());
+									destroyE=E;
+								}
+								if((saveE != null)
+								&&(saveE.isSavable()))
+								{
+									if(saveE instanceof Item)
+									{
+										final Item I=(Item)saveE;
+										if((I.owner() instanceof Room)
+										&&(I.databaseID().length()>0))
+											CMLib.database().DBUpdateItem(R.roomID(), I);
+										else
+										if((I.owner() instanceof MOB)
+										&&(((MOB)I.owner()).databaseID().length()>0)
+										&&(((MOB)I.owner()).getStartRoom()!=null)
+										&&(((MOB)I.owner()).getStartRoom().roomID().length()>0))
+											CMLib.database().DBUpdateMOB(((MOB)I.owner()).getStartRoom().roomID(), (MOB)I.owner());
+									}
+									else
+									if((saveE instanceof MOB)
+									&&(((MOB)saveE).databaseID().length()>0))
+										CMLib.database().DBUpdateMOB(R.roomID(), (MOB)saveE);
+									else
+									if((saveE instanceof Room)
+									&&(((Room)saveE).roomID().length()>0))
+										CMLib.database().DBUpdateRoom((Room)saveE);
+									else
+									if(saveE instanceof Area)
+										CMLib.database().DBUpdateArea(saveE.Name(), (Area)saveE);
+								}
+								if((destroyE != null)
+								&&(destroyE.isSavable()))
+								{
+									if(destroyE instanceof Item)
+									{
+										if(((Item)destroyE).databaseID().length()>0)
+											CMLib.database().DBDeleteItem(roomID, (Item)destroyE);
+										destroyE.destroy();
+									}
+									else
+									if(destroyE instanceof MOB)
+									{
+										if(((MOB)destroyE).databaseID().length()>0)
+											CMLib.database().DBDeleteMOB(roomID, (MOB)destroyE);
+										destroyE.destroy();
+									}
+									else
+									if((destroyE instanceof Room)
+									&&(((Room)destroyE).roomID().length()>0))
+										CMLib.map().obliterateMapRoom((Room)destroyE);
+									else
+									if(destroyE instanceof Area)
+										CMLib.map().obliterateMapArea((Area)destroyE);
+								}
+							}
+						}
+						mob.tell(L("DELETE: completed."));
+					}
+				};
+				final Session session = mob.session();
+				if(session!=null)
+				{
+					final InputCallback callBack = new InputCallback(InputCallback.Type.CONFIRM,"N",0)
+					{
+						@Override
+						public void showPrompt()
+						{
+							session.promptPrint(L("\n\rSave the above deletions (y/N)? "));
+						}
+
+						@Override
+						public void timedOut()
+						{
+						}
+
+						@Override
+						public void callBack()
+						{
+							if(this.input.equals("Y"))
+							{
+								doDelete.run();
+							}
+						}
+					};
+					session.wraplessPrintln(lines.toString());
+					lines.setLength(0);
+					session.prompt(callBack);
+				}
+			}
+		}
+		catch(final MQLException e)
+		{
+			final ByteArrayOutputStream bout=new ByteArrayOutputStream();
+			final PrintStream pw=new PrintStream(bout);
+			e.printStackTrace(pw);
+			pw.flush();
+			mob.tell(e.getMessage()+"\n\r"+bout.toString());
+		}
+	}
+
 	public boolean achievements(final MOB mob, final List<String> commands)
 	{
 		if(commands.size()<3)
@@ -915,7 +1315,7 @@ public class Destroy extends StdCommand
 		}
 		if(mob.session().confirm(L("Are you sure you want to delete that social (y/N)? "),"N"))
 		{
-			CMLib.socials().remove(soc2.name());
+			CMLib.socials().delSocial(soc2.name());
 			CMLib.socials().save(mob);
 			mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The happiness of all mankind has just decreased!"));
 			Log.sysOut("SysopSocials",mob.Name()+" destroyed social "+soc2.name()+".");
@@ -924,29 +1324,67 @@ public class Destroy extends StdCommand
 			mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The happiness of all mankind has just increased!"));
 	}
 
-	public boolean destroyItem(final MOB mob, final Environmental dropThis, final boolean quiet, final boolean optimize)
+	public boolean destroyItem(final MOB mob, final Physical dropThis, final boolean quiet, final boolean optimize)
 	{
 		String msgstr=null;
 		final int material=(dropThis instanceof Item)?((Item)dropThis).material():-1;
 		if(!quiet)
-		switch(material&RawMaterial.MATERIAL_MASK)
 		{
-		case RawMaterial.MATERIAL_LIQUID:
-			msgstr=L("<S-NAME> pour(s) out <T-NAME>.");
-			break;
-		case RawMaterial.MATERIAL_PAPER:
-			msgstr=L("<S-NAME> tear(s) up <T-NAME>.");
-			break;
-		case RawMaterial.MATERIAL_GLASS:
-			msgstr=L("<S-NAME> smash(es) <T-NAME>.");
-			break;
-		default:
-			return false;
+			switch(material&RawMaterial.MATERIAL_MASK)
+			{
+			case RawMaterial.MATERIAL_LIQUID:
+				msgstr=L("<S-NAME> pour(s) out <T-NAME>.");
+				break;
+			case RawMaterial.MATERIAL_PAPER:
+			case RawMaterial.MATERIAL_CLOTH:
+				msgstr=L("<S-NAME> tear(s) up <T-NAME>.");
+				break;
+			case RawMaterial.MATERIAL_GLASS:
+				msgstr=L("<S-NAME> smash(es) <T-NAME>.");
+				break;
+			default:
+				return false;
+			}
 		}
-		final CMMsg msg=CMClass.getMsg(mob,dropThis,null,CMMsg.MSG_NOISYMOVEMENT,(optimize?CMMsg.MASK_OPTIMIZE:0)|CMMsg.MASK_ALWAYS|CMMsg.MSG_DEATH,CMMsg.MSG_NOISYMOVEMENT,msgstr);
+		final String oldName = dropThis.Name();
+		final int weight = dropThis.phyStats().weight();
+		final ItemPossessor oldOwner = (dropThis instanceof Item)?((Item)dropThis).owner():null;
+		final CMMsg msg;
+		msg=CMClass.getMsg(mob,dropThis,null,CMMsg.MSG_NOISYMOVEMENT,
+				(optimize?CMMsg.MASK_OPTIMIZE:0)|CMMsg.MASK_ALWAYS|CMMsg.MSG_DEATH,
+				CMMsg.MSG_NOISYMOVEMENT,msgstr);
 		if(mob.location().okMessage(mob,msg))
 		{
+			if(dropThis instanceof Container)
+				((Container)dropThis).emptyPlease(false);
 			mob.location().send(mob,msg);
+			if((material&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_CLOTH)
+			{
+				if(dropThis.amDestroyed())
+				{
+					final String matName = RawMaterial.CODES.NAME(material).toLowerCase();
+					final Item bitTemplateI = CMClass.getItem("GenItem");
+					bitTemplateI.setMaterial(material);
+					bitTemplateI.basePhyStats().setWeight(1);
+					bitTemplateI.setName(L("a strip of @x1",matName));
+					bitTemplateI.setDisplayText(L("@x1 has been dropped here.",bitTemplateI.name()));
+					bitTemplateI.setDescription(L("It looks like it used to be part of @x1.",oldName));
+					final Item pkgI;
+					if(weight > 1)
+					{
+						pkgI = CMClass.getItem("GenPackagedStack");
+						((PackagedItems)pkgI).packageMe(bitTemplateI, weight);
+					}
+					else
+						pkgI = bitTemplateI;
+					pkgI.recoverPhyStats();
+					if(oldOwner == null)
+						mob.location().addItem(pkgI, ItemPossessor.Expire.Player_Drop);
+					else
+						oldOwner.addItem(pkgI, ItemPossessor.Expire.Player_Drop);
+					pkgI.recoverPhyStats();
+				}
+			}
 			return true;
 		}
 		if(dropThis instanceof Coins)
@@ -993,11 +1431,23 @@ public class Destroy extends StdCommand
 		if((!CMSecurity.isAllowedAnywhereContainsAny(mob,CMSecurity.SECURITY_CMD_GROUP))
 		&&(!CMSecurity.isAllowedContainsAny(mob,mob.location(),CMSecurity.SECURITY_KILL_GROUP))
 		&&(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.BAN))
-		&&(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.NOPURGE)))
+		&&(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.NOPURGE))
+		&&(!((commands.size()>1)&&(CMSecurity.isJournalAccessAllowed(mob, commands.get(1))))))
 		{
-			commands.remove(0);
+			final char cmd = Character.toUpperCase(commands.size()>0?commands.get(0).charAt(0):'D');
+			if(commands.size()>0)
+				commands.remove(0);
 			if(commands.size()==0)
 			{
+				for(final String a : access) // access is localized, sortof
+				{
+					if(Character.toUpperCase(a.charAt(0)) == cmd)
+					{
+						final String cmdW = CMStrings.capitalizeAndLower(a);
+						mob.tell(L("@x1 what?",cmdW));
+						return false;
+					}
+				}
 				mob.tell(L("Destroy what?"));
 				return false;
 			}
@@ -1029,58 +1479,71 @@ public class Destroy extends StdCommand
 			while(doBugFix || ((allFlag)&&(addendum<=maxToDrop)))
 			{
 				doBugFix=false;
-				Item dropThis=mob.fetchItem(null,Wearable.FILTER_UNWORNONLY,whatToDrop+addendumStr);
-				if((dropThis==null)
+				Item trashI=mob.fetchItem(null,Wearable.FILTER_UNWORNONLY,whatToDrop+addendumStr);
+				if((trashI==null)
 				&&(V.size()==0)
 				&&(addendumStr.length()==0)
 				&&(!allFlag))
+					trashI=mob.fetchItem(null,Wearable.FILTER_WORNONLY,whatToDrop);
+
+				if(trashI!=null)
 				{
-					dropThis=mob.fetchItem(null,Wearable.FILTER_WORNONLY,whatToDrop);
-					if(dropThis!=null)
+					final int matType=trashI.material()&RawMaterial.MATERIAL_MASK;
+					if(matType==RawMaterial.MATERIAL_CLOTH)
 					{
-						final int matType=dropThis.material()&RawMaterial.MATERIAL_MASK;
-						if((matType!=RawMaterial.MATERIAL_GLASS)
-						&&(matType!=RawMaterial.MATERIAL_LIQUID)
-						&&(matType!=RawMaterial.MATERIAL_PAPER))
+						if((trashI instanceof RawMaterial)
+						||(trashI.phyStats().weight()<1))
 						{
-							mob.tell(L("@x1 can not be easily destroyed.",dropThis.Name()));
+							mob.tell(L("@x1 is already in small pieces.",trashI.Name()));
 							return false;
-						}
-						else
-						if((!dropThis.amWearingAt(Wearable.WORN_HELD))&&(!dropThis.amWearingAt(Wearable.WORN_WIELD)))
-						{
-							mob.tell(L("You must remove that first."));
-							return false;
-						}
-						else
-						{
-							final CMMsg newMsg=CMClass.getMsg(mob,dropThis,null,CMMsg.MSG_REMOVE,null);
-							if(mob.location().okMessage(mob,newMsg))
-								mob.location().send(mob,newMsg);
-							else
-								return false;
 						}
 					}
+					else
+					if((matType!=RawMaterial.MATERIAL_GLASS)
+					&&(matType!=RawMaterial.MATERIAL_LIQUID)
+					&&(matType!=RawMaterial.MATERIAL_PAPER))
+					{
+						mob.tell(L("@x1 can not be easily destroyed.",trashI.Name()));
+						return false;
+					}
+					else
+					if((!trashI.amWearingAt(Wearable.WORN_HELD))
+					&&(!trashI.amWearingAt(Wearable.WORN_WIELD))
+					&&(!trashI.amWearingAt(Wearable.IN_INVENTORY)))
+					{
+						mob.tell(L("You must remove that first."));
+						return false;
+					}
+					else
+					if(!trashI.amWearingAt(Wearable.IN_INVENTORY))
+					{
+						final CMMsg newMsg=CMClass.getMsg(mob,trashI,null,CMMsg.MSG_REMOVE,null);
+						if(mob.location().okMessage(mob,newMsg))
+							mob.location().send(mob,newMsg);
+						else
+							return false;
+					}
 				}
-				if(dropThis==null)
+				if(trashI==null)
 					break;
-				if((CMLib.flags().canBeSeenBy(dropThis,mob))
-				&&(!V.contains(dropThis)))
-					V.add(dropThis);
+				if((CMLib.flags().canBeSeenBy(trashI,mob))
+				&&(!V.contains(trashI)))
+					V.add(trashI);
 				addendumStr="."+(++addendum);
 			}
 
 			boolean didAnything=false;
 			for(int i=0;i<V.size();i++)
 			{
-				if(destroyItem(mob,V.get(i),false,true))
+				final Item I = V.get(i);
+				if(destroyItem(mob,I,false,true))
 					didAnything=true;
 				else
-				if(V.get(i) instanceof Coins)
-					((Coins)V.get(i)).putCoinsBack();
+				if(I instanceof Coins)
+					((Coins)I).putCoinsBack();
 				else
-				if(V.get(i) instanceof RawMaterial)
-					((RawMaterial)V.get(i)).rebundle();
+				if(I instanceof RawMaterial)
+					((RawMaterial)I).rebundle();
 			}
 			if(!didAnything)
 			{
@@ -1222,6 +1685,14 @@ public class Destroy extends StdCommand
 			exits(mob,commands);
 		}
 		else
+		if(commandType.equals("HELP")||commandType.equals("AHELP"))
+		{
+			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDHELP))
+				return errorOut(mob);
+			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("^S<S-NAME> wave(s) <S-HIS-HER> arms...^?"));
+			helps(mob,commands);
+		}
+		else
 		if(commandType.equals("ITEM"))
 		{
 			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDITEMS))
@@ -1233,7 +1704,16 @@ public class Destroy extends StdCommand
 		if(commandType.equals("AREA"))
 		{
 			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("^S<S-NAME> wave(s) <S-HIS-HER> arms...^?"));
-			areas(mob,commands);
+			if((commands.size()>2)
+			&&(commands.get(2).equalsIgnoreCase("DELETE:"))
+			&&(CMSecurity.isAllowedEverywhere(mob, CMSecurity.SecFlag.CMDAREAS)))
+			{
+				commands.remove(1);
+				commands.remove(0);
+				destroyMQL(mob, true, commands);
+			}
+			else
+				areas(mob,commands);
 		}
 		else
 		if(commandType.equals("ROOM"))
@@ -1250,6 +1730,14 @@ public class Destroy extends StdCommand
 			races(mob,commands);
 		}
 		else
+		if(commandType.equals("COMMAND"))
+		{
+			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDCOMMANDS))
+				return errorOut(mob);
+			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("^S<S-NAME> wave(s) <S-HIS-HER> arms...^?"));
+			commands(mob,commands);
+		}
+		else
 		if(commandType.equals("CLASS"))
 		{
 			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDCLASSES))
@@ -1258,7 +1746,14 @@ public class Destroy extends StdCommand
 			classes(mob,commands);
 		}
 		else
-		if(commandType.equals("ABILITY")||commandType.equals("LANGUAGE")||commandType.equals("CRAFTSKILL"))
+		if(commandType.equals("ABILITY")
+		||commandType.equals("LANGUAGE")
+		||commandType.equals("CRAFTSKILL")
+		||commandType.equals("GATHERSKILL")
+		||commandType.equals("POISON")
+		||commandType.equals("TWEAK")
+		||commandType.equals("WRIGHTSKILL")
+		||commandType.equals("TRAP"))
 		{
 			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDABILITIES))
 				return errorOut(mob);
@@ -1290,6 +1785,14 @@ public class Destroy extends StdCommand
 			components(mob,commands);
 		}
 		else
+		if(commandType.equals("PLANE"))
+		{
+			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.PLANES))
+				return errorOut(mob);
+			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("^S<S-NAME> wave(s) <S-HIS-HER> arms...^?"));
+			plane(mob,commands);
+		}
+		else
 		if(commandType.equals("EXPERTISE"))
 		{
 			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.EXPERTISES))
@@ -1306,12 +1809,28 @@ public class Destroy extends StdCommand
 			titles(mob,commands);
 		}
 		else
-	if(commandType.equals("USER")||commandType.equals("PLAYER"))
+		if(commandType.equals("AWARD"))
+		{
+			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.AUTOAWARDS))
+				return errorOut(mob);
+			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("^S<S-NAME> wave(s) <S-HIS-HER> arms...^?"));
+			awards(mob,commands);
+		}
+		else
+		if(commandType.equals("USER")||commandType.equals("PLAYER"))
 		{
 			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDPLAYERS))
 				return errorOut(mob);
 			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("^S<S-NAME> wave(s) <S-HIS-HER> arms...^?"));
 			players(mob,commands);
+		}
+		else
+		if(commandType.equals("DELETE:"))
+		{
+			if((!CMSecurity.isASysOp(mob))&&(!CMSecurity.isAllowedEverywhere(mob, CMSecurity.SecFlag.CMDAREAS)))
+				return errorOut(mob);
+			commands.remove(0);
+			destroyMQL(mob, false, commands);
 		}
 		else
 		if((commandType.equals("ACCOUNT"))&&(CMProps.isUsingAccountSystem()))
@@ -1416,25 +1935,12 @@ public class Destroy extends StdCommand
 		{
 			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.NOPURGE))
 				return errorOut(mob);
-			int which=-1;
-			if(commands.size()>2)
-				which=CMath.s_int(commands.get(2));
-			if(which<=0)
-				mob.tell(L("Please enter a valid player number to delete.  Use List nopurge for more information."));
+			final String name = commands.get(2);
+			if(!CMLib.players().noPurge(name))
+				mob.tell(L("Please enter a valid player name to delete.  Use List nopurge for more information."));
 			else
 			{
-				final StringBuffer newNoPurge=new StringBuffer("");
-				final List<String> protectedOnes=Resources.getFileLineVector(Resources.getFileResource("protectedplayers.ini",false));
-				if((protectedOnes!=null)&&(protectedOnes.size()>0))
-				{
-					for(int b=0;b<protectedOnes.size();b++)
-					{
-						final String B=protectedOnes.get(b);
-						if(((b+1)!=which)&&(B.trim().length()>0))
-							newNoPurge.append(B+"\n");
-					}
-				}
-				Resources.updateFileResource("::protectedplayers.ini",newNoPurge);
+				CMLib.players().noPurge("-"+name);
 				mob.tell(L("Ok."));
 			}
 		}
@@ -1556,7 +2062,8 @@ public class Destroy extends StdCommand
 		else
 		if(commandType.equals("JOURNAL"))
 		{
-			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.JOURNALS))
+			if((!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.JOURNALS))
+			&&((!((commands.size()>=3)&&(CMSecurity.isJournalAccessAllowed(mob,CMParms.combine(commands,2)))))))
 				return errorOut(mob);
 			if(commands.size()<3)
 			{
@@ -1593,6 +2100,29 @@ public class Destroy extends StdCommand
 				CMLib.database().DBDeleteJournal(name,null);
 				mob.tell(L("It is done."));
 			}
+		}
+		else
+		if(commandType.equals("GRACES"))
+		{
+			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDRACES))
+				return errorOut(mob);
+			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("^S<S-NAME> wave(s) <S-HIS-HER> arms...^?"));
+			final DatabaseEngine dbE=CMLib.database();
+			final PlayerLibrary pLib=CMLib.players();
+			for(final String name : pLib.getPlayerLists())
+			{
+				final ThinPlayer T = pLib.getThinPlayer(name);
+				if(T!=null)
+					dbE.registerRaceUsed(CMClass.getRace(T.race()));
+			}
+			for(final MOB M : CMLib.database().DBScanFollowers(null))
+			{
+				dbE.registerRaceUsed(M.charStats().getMyRace());
+				M.destroy();
+			}
+			CMLib.database().updateAllRaceDates();
+			final int x = CMLib.database().pruneOldRaces();
+			mob.tell(L("@x1 races pruned.",""+x));
 		}
 		else
 		if(commandType.equals("FACTION"))
@@ -1641,6 +2171,14 @@ public class Destroy extends StdCommand
 			mobs(mob,commands);
 		}
 		else
+		if(commandType.equals("CRON"))
+		{
+			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDCRON))
+				return errorOut(mob);
+			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("^S<S-NAME> wave(s) <S-HIS-HER> arms...^?"));
+			cron(mob,commands);
+		}
+		else
 		if(commandType.equals("MANUFACTURER"))
 		{
 			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDITEMS))
@@ -1671,7 +2209,7 @@ public class Destroy extends StdCommand
 			}
 		}
 		else
-		if(commandType.equals("CM1") || commandType.equals("IMC2") || commandType.equals("I3")|| commandType.equals("SMTP"))
+		if(commandType.equals("SMTP"))
 		{
 			if(!CMSecurity.isASysOp(mob))
 				return errorOut(mob);
@@ -1683,6 +2221,15 @@ public class Destroy extends StdCommand
 			{
 				mob.tell(L("Failure: @x1",e.getMessage()));
 			}
+		}
+		else
+		if(CMath.s_valueOf(InterProto.class,commandType)!=null)
+		{
+			final InterProto proto = (InterProto)CMath.s_valueOf(InterProto.class,commandType);
+			if(!CMSecurity.isASysOp(mob))
+				return errorOut(mob);
+			CMLib.intermud().stopIntermud(proto);
+			mob.tell(L("Done."));
 		}
 		else
 		if(commandType.equals("POLL"))
@@ -1873,7 +2420,7 @@ public class Destroy extends StdCommand
 						execute(mob,commands,metaFlags);
 					}
 					else
-					if((thang=CMLib.map().findSpaceObject(allWord,true))!=null)
+					if((thang=CMLib.space().findSpaceObject(allWord,true))!=null)
 					{
 						commands=new Vector<String>();
 						commands.add("DESTROY");
@@ -1886,11 +2433,16 @@ public class Destroy extends StdCommand
 						execute(mob,commands,metaFlags);
 					}
 					else
-					mob.tell(
-						L("\n\rYou cannot destroy a '@x1'. However, you might try an EXIT, ITEM, AREA, USER, MOB, QUEST, FACTION, "
-								+ "SESSION, TICKS, THREAD, HOLIDAY, JOURNAL, SOCIAL, ACHIEVEMENT, CLASS, ABILITY, MANUFACTURER, "
-								+ "LANGUAGE, COMPONENT, RACE, EXPERTISE, TITLE, CLAN, BAN, GOVERNMENT, NOPURGE, BUG, TYPO, IDEA, "
-								+ "WEBSERVER, POLL, DEBUGFLAG, DISABLEFLAG, ENABLEFLAG, or a ROOM.",commandType));
+					if(allWord.indexOf('@')>=0)
+					{
+						commands.add(1,"ITEM");
+						execute(mob,commands,metaFlags);
+					}
+					else
+					{
+						mob.tell(
+							L("\n\rYou cannot destroy a '@x1'. However, you might try a @x1",commandType,listOfThings()));
+					}
 				}
 			}
 		}

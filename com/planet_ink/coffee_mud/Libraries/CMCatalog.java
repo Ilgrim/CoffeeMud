@@ -7,6 +7,7 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.CatalogLibrary.CataData;
 import com.planet_ink.coffee_mud.Libraries.interfaces.CatalogLibrary.RoomContent;
 import com.planet_ink.coffee_mud.Libraries.interfaces.DatabaseEngine.PlayerData;
+import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary.CompiledZMask;
 import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -24,7 +25,7 @@ import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.*;
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,8 +51,8 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 	protected String				templatePersonalSection	= commonBuilderTemplateKey + "_PERSONAL";
 	protected String				templateSharedSection	= commonBuilderTemplateKey + "_SHARED";
 
-	public DVector					icatalog				= new DVector(2);
-	public DVector					mcatalog				= new DVector(2);
+	public PairList<Item,CataData>	icatalog				= new PairVector<Item,CataData>();
+	public PairList<MOB,CataData>	mcatalog				= new PairVector<MOB,CataData>();
 	public volatile CMFile.CMVFSDir	catalogFileMobsRoot		= null;
 	public volatile CMFile.CMVFSDir	catalogFileItemsRoot	= null;
 
@@ -75,7 +76,7 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 		}
 	}
 
-	protected Object getCatalogObject(final DVector list, final String name, final int dim)
+	protected CataData getCatalogData(final PairList<? extends Physical,CataData> list, final String name)
 	{
 		synchronized(list)
 		{
@@ -88,9 +89,9 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 				while(start<=end)
 				{
 					final int mid=(end+start)/2;
-					final int comp=((Environmental)list.elementAt(mid,1)).Name().compareToIgnoreCase(name);
+					final int comp=((Environmental)list.get(mid).first).Name().compareToIgnoreCase(name);
 					if(comp==0)
-						return list.elementAt(mid,dim);
+						return list.get(mid).second;
 					else
 					if(comp>0)
 						end=mid-1;
@@ -106,7 +107,38 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 		}
 	}
 
-	protected void addCatalogReplace(final DVector DV, final String category, final Physical P)
+	protected Physical getCatalogObject(final PairList<? extends Physical,CataData> list, final String name)
+	{
+		synchronized(list)
+		{
+			try
+			{
+				if(list.size()==0)
+					return null;
+				int start=0;
+				int end=list.size()-1;
+				while(start<=end)
+				{
+					final int mid=(end+start)/2;
+					final int comp=((Environmental)list.get(mid).first).Name().compareToIgnoreCase(name);
+					if(comp==0)
+						return list.get(mid).first;
+					else
+					if(comp>0)
+						end=mid-1;
+					else
+						start=mid+1;
+
+				}
+			}
+			catch(final Exception e)
+			{
+			}
+			return null;
+		}
+	}
+
+	protected void addCatalogReplace(final PairList<? extends Environmental,CataData> DV, final String category, final Physical P)
 	{
 		int start=0;
 		int end=DV.size()-1;
@@ -118,7 +150,7 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 		while(start<=end)
 		{
 			mid=(end+start)/2;
-			comp=((Environmental)DV.elementAt(mid,1)).Name().compareToIgnoreCase(name);
+			comp=((Environmental)DV.get(mid).first).Name().compareToIgnoreCase(name);
 			if(comp==0)
 				break;
 			else
@@ -133,13 +165,15 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 				start=mid+1;
 			}
 		}
+		@SuppressWarnings("unchecked")
+		final PairList<Physical,CataData> PV = (PairList<Physical,CataData>)DV;
 		if(comp==0)
 		{
 			if((P instanceof DBIdentifiable)
-			&&((DBIdentifiable)DV.elementAt(mid,1)).databaseID().length()>0)
-				((DBIdentifiable)P).setDatabaseID(((DBIdentifiable)DV.elementAt(mid,1)).databaseID());
-			((Environmental)DV.elementAt(mid,1)).destroy();
-			DV.setElementAt(mid,1,P);
+			&&((DBIdentifiable)DV.get(mid).first).databaseID().length()>0)
+				((DBIdentifiable)P).setDatabaseID(((DBIdentifiable)DV.get(mid).first).databaseID());
+			((Environmental)DV.get(mid).first).destroy();
+			PV.get(mid).first=P;
 		}
 		else
 		{
@@ -150,35 +184,35 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 			{
 				for(comp=lastStart;comp<=lastEnd;comp++)
 				{
-					if(((Environmental)DV.elementAt(comp,1)).Name().compareToIgnoreCase(name)>0)
+					if(((Environmental)DV.get(comp).first).Name().compareToIgnoreCase(name)>0)
 					{
-						DV.insertElementAt(comp,P,data);
+						PV.add(comp,P,data);
 						return;
 					}
 				}
 			}
-			DV.addElement(P,data);
+			PV.add(P,data);
 		}
 	}
 
-	public String[] makeCatalogNames(final String catName, final DVector catalog)
+	public String[] makeCatalogNames(final String catName, final PairList<? extends Environmental,CataData> catalog)
 	{
 		final List<String> nameList=new ArrayList<String>(catalog.size());
 		for(int x=0;x<catalog.size();x++)
 		{
-			if((catName==null)||(catName.equals(((CataData)catalog.elementAt(x, 2)).category())))
-				nameList.add(((Environmental)catalog.elementAt(x, 1)).Name());
+			if((catName==null)||(catName.equals(catalog.get(x).second.category())))
+				nameList.add(((Environmental)catalog.get(x).first).Name());
 		}
 		return nameList.toArray(new String[0]);
 	}
 
-	public String[] makeCatalogCatagories(final DVector catalog)
+	public String[] makeCatalogCatagories(final PairList<? extends Environmental,CataData> catalog)
 	{
 		final List<String> catalogList=new SortedListWrap<String>(new ArrayList<String>(2));
 		for(int x=0;x<catalog.size();x++)
 		{
-			if(!catalogList.contains(((CataData)catalog.elementAt(x, 2)).category()))
-				catalogList.add(((CataData)catalog.elementAt(x, 2)).category());
+			if(!catalogList.contains(catalog.get(x).second.category()))
+				catalogList.add(catalog.get(x).second.category());
 		}
 		return catalogList.toArray(new String[catalogList.size()]);
 	}
@@ -220,19 +254,15 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 	}
 
 	@Override
-	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public Item[] getCatalogItems()
 	{
-		final List<Item> itemsV=(List)icatalog.getDimensionList(1);
-		return itemsV.toArray(new Item[itemsV.size()]);
+		return icatalog.toArrayFirst(new Item[icatalog.size()]);
 	}
 
 	@Override
-	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public MOB[] getCatalogMobs()
 	{
-		final List<MOB> mobsV=(List)mcatalog.getDimensionList(1);
-		return mobsV.toArray(new MOB[mobsV.size()]);
+		return mcatalog.toArrayFirst(new MOB[mcatalog.size()]);
 	}
 
 	@Override
@@ -257,25 +287,25 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 	@Override
 	public Item getCatalogItem(final String called)
 	{
-		return (Item) getCatalogObject(icatalog, called, 1);
+		return (Item) getCatalogObject(icatalog, called);
 	}
 
 	@Override
 	public MOB getCatalogMob(final String called)
 	{
-		return (MOB) getCatalogObject(mcatalog, called, 1);
+		return (MOB) getCatalogObject(mcatalog, called);
 	}
 
 	@Override
 	public CataData getCatalogItemData(final String called)
 	{
-		return (CataData) getCatalogObject(icatalog, called, 2);
+		return getCatalogData(icatalog, called);
 	}
 
 	@Override
 	public CataData getCatalogMobData(final String called)
 	{
-		return (CataData) getCatalogObject(mcatalog, called, 2);
+		return getCatalogData(mcatalog, called);
 	}
 
 	@Override
@@ -425,7 +455,7 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 		||(!(PA instanceof DBIdentifiable))
 		||(!((DBIdentifiable)PA).canSaveDatabaseID()))
 			return;
-		synchronized(getSync(PA).intern())
+		synchronized(getSync(PA))
 		{
 			changeCatalogFlag(PA,true);
 			final Physical origP=PA;
@@ -464,8 +494,8 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 		||(!(P instanceof DBIdentifiable))
 		||(!((DBIdentifiable)P).canSaveDatabaseID()))
 			return;
-		CMLib.threads().deleteAllTicks(P);
-		synchronized(getSync(P).intern())
+		CMLib.threads().unTickAll(P);
+		synchronized(getSync(P))
 		{
 			if(getCatalogObj(P)!=null)
 				return;
@@ -502,7 +532,7 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 		{
 			synchronized(icatalog)
 			{
-				icatalog.removeElement(P);
+				icatalog.removeElementFirst((Item)P);
 			}
 			CMLib.database().DBDeleteItem("CATALOG_ITEMS",(Item)P);
 			this.catalogFileItemsRoot=null;
@@ -512,7 +542,7 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 		{
 			synchronized(mcatalog)
 			{
-				mcatalog.removeElement(P);
+				mcatalog.removeElementFirst((MOB)P);
 			}
 			CMLib.database().DBDeleteMOB("CATALOG_MOBS",(MOB)P);
 			this.catalogFileMobsRoot=null;
@@ -572,7 +602,7 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 		||(!(modelP instanceof DBIdentifiable))
 		||(!((DBIdentifiable)modelP).canSaveDatabaseID()))
 			return;
-		synchronized(getSync(modelP).intern())
+		synchronized(getSync(modelP))
 		{
 			final CataData data=getCatalogData(modelP);
 			if(data!=null)
@@ -600,7 +630,7 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 		||(!(modelP instanceof DBIdentifiable))
 		||(!((DBIdentifiable)modelP).canSaveDatabaseID()))
 			return;
-		synchronized(getSync(modelP).intern())
+		synchronized(getSync(modelP))
 		{
 			changeCatalogFlag(modelP,false);
 			Physical cataP=(Physical)modelP.copyOf();
@@ -660,16 +690,16 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 			final boolean isMob=(cataP instanceof MOB);
 			if(cataP instanceof MOB)
 			{
-				all.addAll(CMLib.map().findInhabitants(CMLib.map().rooms(),null, srchStr, 50));
-				all.addAll(CMLib.map().findShopStock(CMLib.map().rooms(),null, srchStr, 50));
+				all.addAll(CMLib.hunt().findInhabitants(CMLib.map().rooms(),null, srchStr, 50));
+				all.addAll(CMLib.hunt().findShopStock(CMLib.map().rooms(),null, srchStr, 50));
 			}
 			else
 			{
-				all.addAll(CMLib.map().findRoomItems(CMLib.map().rooms(),null, srchStr, true, 50));
-				all.addAll(CMLib.map().findInventory(CMLib.map().rooms(),null, srchStr, 50));
-				all.addAll(CMLib.map().findInventory(null,null, srchStr, 50));
-				all.addAll(CMLib.map().findShopStockers(CMLib.map().rooms(),null, srchStr, 50));
-				all.addAll(CMLib.map().findShopStockers(null,null, srchStr, 50));
+				all.addAll(CMLib.hunt().findRoomItems(CMLib.map().rooms(),null, srchStr, true, 50));
+				all.addAll(CMLib.hunt().findInventory(CMLib.map().rooms(),null, srchStr, 50));
+				all.addAll(CMLib.hunt().findInventory(null,null, srchStr, 50));
+				all.addAll(CMLib.hunt().findShopStockers(CMLib.map().rooms(),null, srchStr, 50));
+				all.addAll(CMLib.hunt().findShopStockers(null,null, srchStr, 50));
 			}
 			final HashSet<ShopKeeper> doneShops=new HashSet<ShopKeeper>();
 			ShopKeeper SK=null;
@@ -698,7 +728,7 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 	@Override
 	public void newInstance(final Physical P)
 	{
-		synchronized(getSync(P).intern())
+		synchronized(getSync(P))
 		{
 			final PhyStats stats=P.basePhyStats();
 			if((stats!=null)&&(CMath.bset(stats.disposition(),PhyStats.IS_CATALOGED)))
@@ -713,7 +743,7 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 	@Override
 	public void bumpDeathPickup(final Physical P)
 	{
-		synchronized(getSync(P).intern())
+		synchronized(getSync(P))
 		{
 			final PhyStats stats=P.basePhyStats();
 			if((stats!=null)&&(CMath.bset(stats.disposition(),PhyStats.IS_CATALOGED)))
@@ -728,7 +758,7 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 	@Override
 	public void changeCatalogUsage(final Physical P, final boolean toCataloged)
 	{
-		synchronized(getSync(P).intern())
+		synchronized(getSync(P))
 		{
 			if((P!=null)
 			&&(P.basePhyStats()!=null)
@@ -815,7 +845,7 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 	@Override
 	public void updateCatalogIntegrity(final Physical P)
 	{
-		synchronized(getSync(P).intern())
+		synchronized(getSync(P))
 		{
 			if(checkCatalogIntegrity(P)!=null)
 			{
@@ -840,7 +870,7 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 	{
 		if(P==null)
 			return null;
-		synchronized(getSync(P).intern())
+		synchronized(getSync(P))
 		{
 			if(CMLib.flags().isCataloged(P))
 			{
@@ -848,7 +878,7 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 				final Physical cataE=getCatalogObj(P);
 				if((cataE==null)||(data==null))
 				{
-					if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+					if(!CMProps.isState(CMProps.HostState.RUNNING))
 						return null; // if catalog isn't fully loaded, this can be a false correction
 					if(data!=null)
 						data.delReference(P);
@@ -917,15 +947,15 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 			{
 				for(int d=0;d<icatalog.size();d++)
 				{
-					data=(CatalogLibrary.CataData)icatalog.elementAt(d,2);
-					if((data.getRate()>0.0)
-					&&(data.getWhenLive()==live)
+					data=icatalog.get(d).second;
+					if((data.getSpawn()==(live?CataSpawn.LIVE:CataSpawn.DROP))
 					&&(Math.random() <= data.getRate())
-					&&(CMLib.masking().maskCheck(data.getMaskV(),M,true)))
+					&&(CMLib.masking().maskCheck(data.getMaskV(),M,true))
+					&&(data.numReferences()<data.getCap()))
 					{
 						if(selections==null)
 							selections=new ArrayList<Item>();
-						selections.add((Item)icatalog.elementAt(d,1));
+						selections.add(icatalog.get(d).first);
 					}
 				}
 			}
@@ -950,12 +980,55 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 	@Override
 	public boolean activate()
 	{
+		if(!super.activate())
+			return false;
 		if(serviceClient==null)
 		{
 			name="THCatalog"+Thread.currentThread().getThreadGroup().getName().charAt(0);
 			serviceClient=CMLib.threads().startTickDown(this, Tickable.TICKID_SUPPORT|Tickable.TICKID_SOLITARYMASK, MudHost.TIME_SAVETHREAD_SLEEP, 1);
+			this.tick(null, TICKID_SUPPORT);
 		}
 		return true;
+	}
+
+	protected Room getSpawnRoom(final CataData data, final List<Room> choiceCache, final Map<String,List<Room>> cacheSets)
+	{
+		final CMFlagLibrary flags = CMLib.flags();
+		if((data.getMaskV()==null)||(data.getMaskV().empty()))
+		{
+			for(int i=0;i<10;i++)
+			{
+				final Room R = CMLib.map().getRandomRoom();
+				if((R!=null)&&(flags.isHidden(R)))
+					return R;
+			}
+			return null;
+		}
+		final String maskStr = data.getMaskStr().toLowerCase().trim();
+		if(choiceCache.size()==0)
+		{
+			if(cacheSets.containsKey(maskStr)
+			&&(cacheSets.get(maskStr).size()>0))
+				choiceCache.addAll(cacheSets.get(maskStr));
+			else
+			{
+				final CompiledZMask mask = data.getMaskV();
+				final MaskingLibrary masker = CMLib.masking();
+				for(final Enumeration<Room> r=CMLib.map().roomsFilled();r.hasMoreElements();)
+				{
+					final Room R = r.nextElement();
+					if((!flags.isHidden(R))
+					&&(masker.maskCheck(mask, R, true)))
+						choiceCache.add(R);
+				}
+			}
+		}
+		if(choiceCache.size()==0)
+			choiceCache.add(null);
+		if(cacheSets.containsKey(maskStr)
+		&&(cacheSets.get(maskStr).size()==0))
+			cacheSets.put(maskStr, choiceCache);
+		return choiceCache.get(CMLib.dice().roll(1, choiceCache.size(), -1));
 	}
 
 	@Override
@@ -966,19 +1039,102 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 			if(!CMSecurity.isDisabled(CMSecurity.DisFlag.CATALOGTHREAD))
 			{
 				tickStatus=Tickable.STATUS_ALIVE;
-				isDebugging=CMSecurity.isDebugging(DbgFlag.CATALOGTHREAD);
-				setThreadStatus(serviceClient,"checking catalog references.");
+				final Map<String,int[]> cacheSetsPreview = new HashMap<String,int[]>();
 				String[] names = getCatalogItemNames();
 				for (final String name2 : names)
 				{
 					final CataData data=getCatalogItemData(name2);
-					data.cleanHouse();
+					if((data.getSpawn()==CataSpawn.ROOM)
+					&&(data.getCap()>0)
+					&&(data.numReferences()<data.getCap()))
+					{
+						final String mask = data.getMaskStr().toLowerCase().trim();
+						if(!cacheSetsPreview.containsKey(mask))
+							cacheSetsPreview.put(mask,new int[] {1});
+						else
+							cacheSetsPreview.get(mask)[0]++;
+					}
 				}
 				names = getCatalogMobNames();
 				for (final String name2 : names)
 				{
 					final CataData data=getCatalogMobData(name2);
 					data.cleanHouse();
+					if((data.getSpawn()==CataSpawn.ROOM)
+					&&(data.getCap()>0)
+					&&(data.numReferences()<data.getCap()))
+					{
+						final String mask = data.getMaskStr().toLowerCase().trim();
+						if(!cacheSetsPreview.containsKey(mask))
+							cacheSetsPreview.put(mask,new int[] {1});
+						else
+							cacheSetsPreview.get(mask)[0]++;
+					}
+				}
+				final Map<String,List<Room>> cacheSets = new HashMap<String,List<Room>>();
+				for(final String mask : cacheSetsPreview.keySet())
+				{
+					if(cacheSetsPreview.get(mask)[0]>1)
+						cacheSets.put(mask, new ArrayList<Room>());
+				}
+
+				names = getCatalogItemNames();
+				isDebugging=CMSecurity.isDebugging(DbgFlag.CATALOGTHREAD);
+				setThreadStatus(serviceClient,"catalog item references.");
+				for (final String name2 : names)
+				{
+					final CataData data=getCatalogItemData(name2);
+					data.cleanHouse();
+					if((data.getSpawn()==CataSpawn.ROOM)
+					&&(data.getCap()>0)
+					&&(data.numReferences()<data.getCap())
+					&&(Math.random()<data.getRate()))
+					{
+						final List<Room> choiceCache = new ArrayList<Room>();
+						int maxFails = (data.getCap() - data.numReferences()) * 10;
+						while((--maxFails > 0)
+						&&(data.numReferences()<data.getCap()))
+						{
+							final Room R = getSpawnRoom(data, choiceCache, cacheSets);
+							if(R != null)
+							{
+								final Item I = (Item)getCatalogItem(name2).copyOf();
+								I.setSavable(false);
+								R.addItem(I);
+								changeCatalogUsage(I,true);
+								data.addReference(I);
+							}
+						}
+					}
+				}
+				setThreadStatus(serviceClient,"catalog mob references.");
+				names = getCatalogMobNames();
+				for (final String name2 : names)
+				{
+					final CataData data=getCatalogMobData(name2);
+					data.cleanHouse();
+					if((data.getSpawn()==CataSpawn.ROOM)
+					&&(data.getCap()>0)
+					&&(data.numReferences()<data.getCap())
+					&&(Math.random()<data.getRate()))
+					{
+						final List<Room> choiceCache = new ArrayList<Room>();
+						int maxFails = (data.getCap() - data.numReferences()) * 10;
+						while((--maxFails > 0)
+						&&(data.numReferences()<data.getCap()))
+						{
+							final Room R = getSpawnRoom(data, choiceCache, cacheSets);
+							if(R != null)
+							{
+								final MOB M = (MOB)getCatalogMob(name2).copyOf();
+								M.bringToLife(R, true);
+								M.setSavable(false);
+								M.setStartRoom(R);
+								changeCatalogUsage(M,true);
+								data.addReference(M);
+							}
+						}
+					}
 				}
 			}
 		}
@@ -993,8 +1149,8 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 	@Override
 	public boolean shutdown()
 	{
-		icatalog=new DVector(2);
-		mcatalog=new DVector(2);
+		icatalog=new PairVector<Item,CataData>();
+		mcatalog=new PairVector<MOB,CataData>();
 		if(CMLib.threads().isTicking(this, TICKID_SUPPORT|Tickable.TICKID_SOLITARYMASK))
 		{
 			CMLib.threads().deleteTick(this, TICKID_SUPPORT|Tickable.TICKID_SOLITARYMASK);
@@ -1060,8 +1216,9 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 	{
 		public String 		lmaskStr			= null;
 		public String		category			= "";
-		public boolean 		live				= false;
+		public CataSpawn 	spawn				= CataSpawn.NONE;
 		public double 		rate				= 0.0;
+		public int			cap					= 0;
 		public volatile int deathPickup			= 0;
 		public SVector<WeakReference<Physical>>
 							refs				= new SVector<WeakReference<Physical>>(1);
@@ -1234,8 +1391,19 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 				for(int r=0;r<refs.size();r++)
 				{
 					o=refs.elementAt(r).get();
-					if((o!=null)&&(CMLib.flags().isInTheGame(o,true)))
-						return o;
+					if(o != null)
+					{
+						if(CMLib.flags().isInTheGame(o,true))
+							return o;
+						if(o instanceof MOB)
+						{
+							final MOB M = (MOB)o;
+							if(M.amDead()
+							&&(!M.amDestroyed())
+							&&(M.basePhyStats().rejuv()>0))
+								return M;
+						}
+					}
 				}
 			}
 			catch (final Exception e)
@@ -1292,14 +1460,14 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 			}
 		}
 
-		protected CataDataImpl(final String _lmask, final String _rate, final boolean _live)
+		protected CataDataImpl(final String _lmask, final String _rate, final CataSpawn _spawn, final int cap)
 		{
-			this(_lmask,CMath.s_pct(_rate),_live);
+			this(_lmask,CMath.s_pct(_rate),_spawn, cap);
 		}
 
-		protected CataDataImpl(final String _lmask, final double _rate, final boolean _live)
+		protected CataDataImpl(final String _lmask, final double _rate, final CataSpawn _spawn, final int cap)
 		{
-			live=_live;
+			spawn=_spawn;
 			lmaskStr=_lmask;
 			lmaskV=null;
 			if(lmaskStr.length()>0)
@@ -1320,9 +1488,9 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 		}
 
 		@Override
-		public boolean getWhenLive()
+		public CataSpawn getSpawn()
 		{
-			return live;
+			return spawn;
 		}
 
 		@Override
@@ -1342,9 +1510,9 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 		}
 
 		@Override
-		public void setWhenLive(final boolean l)
+		public void setSpawn(final CataSpawn spawn)
 		{
-			live = l;
+			this.spawn = spawn;
 		}
 
 		@Override
@@ -1363,7 +1531,9 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 			buf.append("CATAGORY=\""+CMLib.xml().parseOutAngleBracketsAndQuotes(category)+"\">");
 			buf.append("<RATE>"+CMath.toPct(rate)+"</RATE>");
 			buf.append("<LMASK>"+CMLib.xml().parseOutAngleBrackets(lmaskStr)+"</LMASK>");
-			buf.append("<LIVE>"+live+"</LIVE>");
+			buf.append("<SPAWN>"+spawn.name()+"</SPAWN>");
+			buf.append("<CAP>"+cap+"</CAP>");
+			//buf.append("<LIVE>"+live+"</LIVE>");
 			buf.append("</CATALOGDATA>");
 			return buf.toString();
 		}
@@ -1387,16 +1557,49 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 					lmaskV=null;
 					if(lmaskStr.length()>0)
 						lmaskV=CMLib.masking().maskCompile(lmaskStr);
-					live=CMath.s_bool(piece.getValFromPieces("LIVE"));
+					if(piece.getValFromPieces("LIVE").length()>0)
+					{
+						if(rate == 0.0)
+						{
+							spawn = CataSpawn.NONE;
+							cap=0;
+						}
+						else
+						{
+							final boolean live = CMath.s_bool(piece.getValFromPieces("LIVE"));
+							spawn = live?CataSpawn.LIVE:CataSpawn.DROP;
+							cap=9999;
+						}
+					}
+					else
+					{
+						cap=piece.getIntFromPieces("CAP");
+						spawn = (CataSpawn)CMath.s_valueOf(CataSpawn.class, piece.getValFromPieces("SPAWN"));
+						if(spawn == null)
+							spawn = CataSpawn.NONE;
+					}
 				}
 			}
 			else
 			{
 				lmaskV=null;
 				lmaskStr="";
-				live=false;
+				spawn=CataSpawn.NONE;
 				rate=0.0;
+				cap=0;
 			}
+		}
+
+		@Override
+		public void setCap(final int max)
+		{
+			cap = max;
+		}
+
+		@Override
+		public int getCap()
+		{
+			return cap;
 		}
 	}
 
@@ -1463,7 +1666,7 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 		};
 	}
 
-	protected CMFile.CMVFSDir getCatalogRoot(final DVector catalog, final String rootName, final CMFile.CMVFSDir rootRoot)
+	protected CMFile.CMVFSDir getCatalogRoot(final PairList<? extends Physical,CataData> catalog, final String rootName, final CMFile.CMVFSDir rootRoot)
 	{
 		if(catalog.size()==0)
 			return null;
@@ -1472,8 +1675,8 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 		final HashMap<String,List<Physical>> usedCats=new HashMap<String,List<Physical>>();
 		for(int i=0;i<catalog.size();i++)
 		{
-			final Physical obj=(Physical)catalog.elementAt(i, 1);
-			final CataData data=(CataData)catalog.elementAt(i, 2);
+			final Physical obj=catalog.get(i).first;
+			final CataData data=catalog.get(i).second;
 
 			catalogFileRoot.add(new CMFile.CMVFSFile(catalogFileRoot.getPath()+obj.Name().replace(' ','_')+".cmare",48,System.currentTimeMillis(),"SYS")
 			{
@@ -1500,11 +1703,11 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 			@Override
 			public Object readData()
 			{
-				final String tagName=(catalog.elementAt(0,1) instanceof MOB)?"MOBS":"ITEMS";
+				final String tagName=(catalog.get(0).first instanceof MOB)?"MOBS":"ITEMS";
 				final StringBuilder str=new StringBuilder("<"+tagName+">");
 				for(int i=0;i<catalog.size();i++)
 				{
-					final Physical obj=(Physical)catalog.elementAt(i, 1);
+					final Physical obj=catalog.get(i).first;
 					if(obj instanceof MOB)
 						str.append(CMLib.coffeeMaker().getMobXML((MOB)obj));
 					else
@@ -1571,39 +1774,42 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 		}
 		return catalogFileRoot;
 	}
-	
+
 	@Override
 	public String makeValidNewBuilderTemplateID(final String ID)
 	{
 		if((ID==null)||(ID.trim().length()==0)||(ID.indexOf(' ')>=0))
 			return null;
-		int x=ID.indexOf('_');
+		final int x=ID.indexOf('_');
 		if(x<0)
 			return ID.toUpperCase().trim();
 		if(x==0)
 			return null;
-		String possPlayer = ID.substring(0,x);
+		final String possPlayer = ID.substring(0,x);
 		if(CMLib.players().playerExists(possPlayer)||CMLib.players().accountExists(possPlayer))
 			return null;
 		return ID.toUpperCase().trim();
 	}
-	
-	public Map<String,PlayerData> getBuilderTemplates(final String playerName)
+
+	public Map<String,PlayerData> getBuilderTemplates(final String playerName, final boolean extend)
 	{
 		final Map<String, PlayerData> allMyTemplates=new Hashtable<String, PlayerData>();
 		if((playerName==null)
 		||(playerName.length()==0))
 			return allMyTemplates;
-		List<PlayerData> pDat = CMLib.database().DBReadPlayerData(playerName, templatePersonalSection);
-		List<PlayerData> sDat = CMLib.database().DBReadPlayerSectionData(templateSharedSection);
+		final List<PlayerData> pDat = CMLib.database().DBReadPlayerData(playerName, templatePersonalSection);
+		final List<PlayerData> sDat = CMLib.database().DBReadPlayerSectionData(templateSharedSection);
 		for(final PlayerData PD : pDat)
 			allMyTemplates.put(PD.key().substring(commonBuilderTemplateKey.length()+1+PD.who().length()+1).toUpperCase().trim(), PD);
 		for(final PlayerData PD : sDat)
 		{
 			if(PD.who().equalsIgnoreCase(playerName))
+			{
 				allMyTemplates.put(PD.key().substring(commonBuilderTemplateKey.length()+1+PD.who().length()+1).toUpperCase().trim().trim(), PD);
-			else
-				allMyTemplates.put(PD.key().substring(commonBuilderTemplateKey.length()+1).toUpperCase().trim(), PD);
+				if(!extend)
+					continue;
+			}
+			allMyTemplates.put(PD.key().substring(commonBuilderTemplateKey.length()+1).toUpperCase().trim(), PD);
 		}
 		return allMyTemplates;
 	}
@@ -1611,8 +1817,8 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 	@Override
 	public List<Triad<String, String, String>> getBuilderTemplateList(final String playerName)
 	{
-		List<Triad<String, String, String>> list = new Vector<Triad<String, String, String>>();
-		final Map<String, PlayerData> PDs=getBuilderTemplates(playerName);
+		final List<Triad<String, String, String>> list = new Vector<Triad<String, String, String>>();
+		final Map<String, PlayerData> PDs=getBuilderTemplates(playerName,false);
 		if((PDs!=null)&&(PDs.size()>0))
 		{
 			for(final String ID : PDs.keySet())
@@ -1635,28 +1841,28 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 		}
 		return list;
 	}
-	
+
 	@Override
 	public Environmental getBuilderTemplateObject(final String playerName, final String ID)
 	{
 		if((ID==null)||(ID.length()==0))
 			return null;
-		final PlayerData PD=getBuilderTemplates(playerName).get(ID.toUpperCase().trim());
+		final PlayerData PD=getBuilderTemplates(playerName,true).get(ID.toUpperCase().trim());
 		if(PD==null)
 			return null;
-		return CMLib.coffeeMaker().getUnknownFromXML(PD.xml());
+		return CMLib.coffeeMaker().unpackUnknownFromXML(PD.xml());
 	}
-	
+
 	@Override
 	public boolean addNewBuilderTemplateObject(final String playerName, final String ID, final Environmental E)
 	{
-		final StringBuffer xml=CMLib.coffeeMaker().getUnknownXML(E);
+		final String xml=CMLib.coffeeMaker().getUnknownXML(E);
 		if(xml==null)
 			return false;
 		CMLib.database().DBCreatePlayerData(playerName, templatePersonalSection, commonBuilderTemplateKey+"_"+playerName.toUpperCase().trim()+"_"+ID.toUpperCase().trim(), xml.toString());
 		return true;
 	}
-	
+
 	@Override
 	public boolean deleteBuilderTemplateObject(final String playerName, final String ID)
 	{
@@ -1664,13 +1870,13 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 		CMLib.database().DBDeletePlayerData(playerName, templateSharedSection, commonBuilderTemplateKey+"_"+playerName.toUpperCase().trim()+"_"+ID.toUpperCase().trim());
 		return true;
 	}
-	
+
 	@Override
 	public boolean toggleBuilderTemplateObject(final String playerName, final String ID)
 	{
 		if((ID==null)||(ID.length()==0))
 			return false;
-		final PlayerData PD=getBuilderTemplates(playerName).get(ID.toUpperCase().trim());
+		final PlayerData PD=getBuilderTemplates(playerName,false).get(ID.toUpperCase().trim());
 		if(PD==null)
 			return false;
 		if(!PD.who().equalsIgnoreCase(playerName))
@@ -1691,4 +1897,84 @@ public class CMCatalog extends StdLibrary implements CatalogLibrary
 		else
 			return false;
 	}
+
+	protected String unpackErr(final String where, final String msg)
+	{
+		Log.errOut("CoffeeMaker","unpack"+where+"FromXML: "+msg);
+		return msg;
+	}
+
+	@Override
+	public String addCataDataFromXML(final String xmlBuffer, final List<CataData> addHere, final List<? extends Physical> nameMatchers, final Session S)
+	{
+		final List<XMLLibrary.XMLTag> xml=CMLib.xml().parseAllXML(xmlBuffer);
+		if(xml==null)
+			return unpackErr("CataDats","null 'xml'");
+		final List<Map<String,CataData>> sets = new ArrayList<Map<String,CataData>>();
+		for(final Iterator<XMLLibrary.XMLTag> t= xml.iterator();t.hasNext();)
+		{
+			final XMLLibrary.XMLTag tag = t.next();
+			if(tag.tag().equalsIgnoreCase("CATADATAS"))
+			{
+				final Map<String,CataData> set = new TreeMap<String,CataData>();
+				sets.add(set);
+				for(final Iterator<XMLLibrary.XMLTag> t2= tag.contents().iterator();t2.hasNext();)
+				{
+					final XMLLibrary.XMLTag cataDataTag = t2.next();
+					if(cataDataTag.tag().equalsIgnoreCase("CATALOGDATA"))
+					{
+						final CataData catDat = sampleCataData(cataDataTag.toString());
+						if(cataDataTag.parms().containsKey("NAME"))
+							set.put(CMLib.xml().restoreAngleBrackets(cataDataTag.parms().get("NAME")), catDat);
+						else
+							return unpackErr("CataDats","null 'NAME'");
+					}
+				}
+			}
+		}
+		if(nameMatchers == null)
+		{
+			for(final Map<String,CataData> chk : sets)
+			{
+				for(final CataData dat : chk.values())
+					addHere.add(dat);
+			}
+		}
+		else
+		{
+			int bestMatch = -1;
+			Map<String,CataData> bestSet = null;
+			for(final Map<String,CataData> chk : sets)
+			{
+				int ct = 0;
+				for(final Physical P : nameMatchers)
+				{
+					if(chk.containsKey(P.Name()))
+						ct++;
+				}
+				if((ct > bestMatch)&&(ct>0))
+				{
+					bestMatch=ct;
+					bestSet=chk;
+				}
+			}
+			if(bestSet != null)
+			{
+				for(final Physical P : nameMatchers)
+				{
+					if(bestSet.containsKey(P.Name()))
+						addHere.add(bestSet.get(P.Name()));
+					else
+					{
+						addHere.clear();
+						break;
+					}
+				}
+			}
+		}
+		if(addHere.size() == 0)
+			return unpackErr("CataDats","nothing found");
+		return "";
+	}
+
 }

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -75,8 +75,8 @@ public class Chant_Feralness extends Chant
 		super.affectPhyStats(affected,affectableStats);
 		if((affected instanceof MOB)&&(((MOB)affected).charStats().getMyRace()!=((MOB)affected).baseCharStats().getMyRace()))
 		{
-			final int adjLvl=adjustedLevel(invoker(),0);
-			final int xlvl=getXLEVELLevel(invoker());
+			final int adjLvl=adjustedLevel((MOB)affected,0);
+			final int xlvl=getXLEVELLevel((MOB)affected);
 			final double bonus=CMath.mul(0.1,xlvl);
 			if((((MOB)affected).fetchWieldedItem()==null))
 			{
@@ -150,7 +150,7 @@ public class Chant_Feralness extends Chant
 
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already feral."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already feral."));
 			return false;
 		}
 

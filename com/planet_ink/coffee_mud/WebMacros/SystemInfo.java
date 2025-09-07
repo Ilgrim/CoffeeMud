@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -56,9 +56,9 @@ public class SystemInfo extends StdWebMacro
 		{
 			if(key.length()>0)
 			{
-				String answer=CMLib.threads().tickInfo(key);
+				String answer=CMLib.threads().getTickInfoReport(key);
 				if(answer.length()==0)
-					answer=CMLib.threads().systemReport(key);
+					answer=CMLib.threads().getSystemReport(key);
 				str.append(answer+", ");
 			}
 		}

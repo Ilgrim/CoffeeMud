@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -125,7 +125,7 @@ public class Fighter_BodyToss extends MonkSkill
 			mob.tell(L("You must get closer to @x1 first!",target.charStats().himher()));
 			return false;
 		}
-		if(CMLib.flags().isSitting(mob))
+		if((!auto)&&(!CMLib.flags().isStanding(mob))&&(mob!=target))
 		{
 			mob.tell(L("You need to stand up!"));
 			return false;
@@ -153,14 +153,18 @@ public class Fighter_BodyToss extends MonkSkill
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
+				if(msg.value()>0)
+					return maliciousFizzle(mob,target,L("<T-NAME> fight(s) off <S-YOUPOSS> body toss."));
 				int dist=2+getXLEVELLevel(mob);
 				if(mob.location().maxRange()<2)
 					dist=mob.location().maxRange();
 				mob.setRangeToTarget(dist);
 				target.setRangeToTarget(dist);
 				CMLib.combat().postDamage(mob,target,this,CMLib.dice().roll(1,12,0),CMMsg.MASK_ALWAYS|CMMsg.TYP_JUSTICE,Weapon.TYPE_BASHING,L("The hard landing <DAMAGE> <T-NAME>!"));
-				if(mob.getVictim()==null) mob.setVictim(null); // correct range
-				if(target.getVictim()==null) target.setVictim(null); // correct range
+				if(mob.getVictim()==null) 
+					mob.setVictim(null); // correct range
+				if(target.getVictim()==null) 
+					target.setVictim(null); // correct range
 			}
 		}
 		else

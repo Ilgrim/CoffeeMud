@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@ public class Skill_HardToStern extends StdSkill
 	@Override
 	protected int overrideMana()
 	{
-		return 100;
+		return 200;
 	}
 
 	@Override
@@ -94,17 +94,18 @@ public class Skill_HardToStern extends StdSkill
 		return USAGE_MOVEMENT;
 	}
 
+	@Override
 	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(!super.okMessage(myHost, msg))
 			return false;
-		if(affected instanceof SailingShip)
+		if(affected instanceof NavigableItem)
 		{
-			final SailingShip ship=(SailingShip)affected;
+			final NavigableItem ship=(NavigableItem)affected;
 			if((msg.target()==ship)
 			&&(msg.targetMinor()==CMMsg.TYP_WEAPONATTACK)
 			&&(msg.value()>0)
-			&&(CMLib.dice().rollPercentage()<=(25+super.getXLEVELLevel(invoker()))))
+			&&(CMLib.dice().rollPercentage()<=(12+super.getXLEVELLevel(invoker()))))
 			{
 				msg.setValue(0);
 			}
@@ -120,15 +121,16 @@ public class Skill_HardToStern extends StdSkill
 		final Room R=mob.location();
 		if(R==null)
 			return false;
-		if((!(R.getArea() instanceof BoardableShip))
-		||(!(((BoardableShip)R.getArea()).getShipItem() instanceof SailingShip)))
+		if((!(R.getArea() instanceof Boardable))
+		||(!(((Boardable)R.getArea()).getBoardableItem() instanceof NavigableItem))
+		||(((NavigableItem)(((Boardable)R.getArea()).getBoardableItem())).navBasis() != Rideable.Basis.WATER_BASED))
 		{
 			mob.tell(L("You must be on a sailing ship."));
 			return false;
 		}
-		final BoardableShip myShip=(BoardableShip)R.getArea();
-		final SailingShip myShipItem=(SailingShip)myShip.getShipItem();
-		final Area myShipArea=myShip.getShipArea();
+		final Boardable myShip=(Boardable)R.getArea();
+		final NavigableItem myShipItem=(NavigableItem)myShip.getBoardableItem();
+		final Area myShipArea=myShip.getArea();
 		final Room myShipRoom = CMLib.map().roomLocation(myShipItem);
 		if((myShipItem==null)
 		||(myShipArea==null)
@@ -158,7 +160,8 @@ public class Skill_HardToStern extends StdSkill
 		}
 
 		if(((System.currentTimeMillis()-lastUse)<(3 * 60 * 1000))
-		||(myShipItem.fetchEffect("Skill_HardToPort")!=null))
+		||(myShipItem.fetchEffect("Skill_HardToPort")!=null)
+		||(myShipItem.fetchEffect("Skill_HardToStarboard")!=null))
 		{
 			mob.tell(L("You can't put your ship through another hard turn to stern attempt right now.  Wait a bit."));
 			return false;
@@ -177,6 +180,7 @@ public class Skill_HardToStern extends StdSkill
 			{
 				R.send(mob,msg);
 				CMLib.commands().forceStandardCommand(mob, "Yell", new XVector<String>("YELL",L("HARD TO STERN!")));
+				for(int i=0;i<2;i++)
 				{
 					int newDirection = -1;
 					switch(myShipItem.getDirectionFacing())
@@ -217,10 +221,12 @@ public class Skill_HardToStern extends StdSkill
 						try
 						{
 							smob.setRiding(myShipItem);
-							if(myShipItem instanceof PrivateProperty)
+							if((myShipItem instanceof PrivateProperty)
+							&&(((PrivateProperty)myShipItem).isProperlyOwned()))
 							{
-								if(((PrivateProperty)myShipItem).getOwnerObject() instanceof Clan)
-									smob.setClan(((PrivateProperty)myShipItem).getOwnerObject().name(), ((Clan)((PrivateProperty)myShipItem).getOwnerObject()).getAutoPosition());
+								final Clan clan = CMLib.clans().fetchClanAnyHost(((PrivateProperty)myShipItem).getOwnerName());
+								if(clan != null)
+									smob.setClan(clan.name(), clan.getAutoPosition());
 							}
 							smob.basePhyStats().setDisposition(smob.basePhyStats().disposition()|PhyStats.IS_SWIMMING);
 							smob.phyStats().setDisposition(smob.phyStats().disposition()|PhyStats.IS_SWIMMING);
@@ -235,7 +241,8 @@ public class Skill_HardToStern extends StdSkill
 								thisRoom.send(smob, maneuverMsg);
 								myShipItem.setDirectionFacing(newDirection);
 								this.lastUse=System.currentTimeMillis();
-								super.beneficialAffect(mob, myShipItem, asLevel, 6);
+								if(i == 0)
+									super.beneficialAffect(mob, myShipItem, asLevel, 6);
 							}
 						}
 						finally

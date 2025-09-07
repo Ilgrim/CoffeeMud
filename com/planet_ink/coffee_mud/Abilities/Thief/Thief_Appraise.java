@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -121,7 +121,7 @@ public class Thief_Appraise extends ThiefSkill
 		}
 		final StringBuffer str=new StringBuffer("");
 		str.append(L("@x1 is made of @x2",target.name(mob),RawMaterial.CODES.NAME(materialCode)));
-		str.append(L(" is worth about @x1.",CMLib.beanCounter().nameCurrencyShort(mob,realValue)));
+		str.append(L(" and worth about @x1.",CMLib.beanCounter().nameCurrencyShort(mob,realValue)));
 		if(target instanceof Armor)
 			str.append(L("\n\r@x1 is a size @x2.",target.name(mob),""+height));
 		if(weight!=allWeight)
@@ -180,7 +180,7 @@ public class Thief_Appraise extends ThiefSkill
 			mob.tell(L("What would you like to appraise?"));
 			return false;
 		}
-		final Item target=mob.fetchItem(null,Wearable.FILTER_UNWORNONLY,commands.get(0));
+		final Item target=mob.fetchItem(null,Wearable.FILTER_ANY,commands.get(0));
 		if((target==null)||(!CMLib.flags().canBeSeenBy(target,mob)))
 		{
 			mob.tell(L("You don't see '@x1' here.",(commands.get(0))));

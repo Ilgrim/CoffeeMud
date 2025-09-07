@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ public class Dance_Square extends Dance
 	@Override
 	protected String danceOf()
 	{
-		return name()+" Dance";
+		return L("@x1 Dance",name());
 	}
 
 	@Override
@@ -96,18 +96,23 @@ public class Dance_Square extends Dance
 			if(cmd!=null)
 			{
 				final MOB M=(MOB)affected;
-				final CMMsg omsg=CMClass.getMsg(invoker(),affected,null,CMMsg.MSG_ORDER,null);
-				if(CMLib.flags().canBeHeardMovingBy(invoker(),M)
-				&&CMLib.flags().canBeSeenBy(invoker(),M)
-				&&(M.location()==invoker().location())
-				&&(M.location().okMessage(M, omsg)))
+				final double pct = super.statBonusPct();
+				final int ilevel = (int)Math.round(CMath.mul(invoker().phyStats().level(),pct));
+				final int chance = ((M.phyStats().level()-(ilevel+getXLEVELLevel(invoker()))*10));
+				if(CMLib.dice().rollPercentage()>chance)
 				{
-					M.location().send(M, omsg);
-					if(omsg.sourceMinor()==CMMsg.TYP_ORDER)
+					final CMMsg omsg=CMClass.getMsg(invoker(),affected,null,CMMsg.MSG_ORDER,null);
+					if(CMLib.flags().canBeHeardMovingBy(invoker(),M)
+					&&CMLib.flags().canBeSeenBy(invoker(),M)
+					&&(M.location().okMessage(M, omsg)))
 					{
-						final CMObject O=CMLib.english().findCommand(M,CMParms.parse(cmd));
-						if((O!=null)&&((!(O instanceof Command))||(((Command)O).canBeOrdered())))
-							M.enqueCommand(CMParms.parse(cmd),MUDCmdProcessor.METAFLAG_FORCED|MUDCmdProcessor.METAFLAG_ORDER,0);
+						M.location().send(M, omsg);
+						if(omsg.sourceMinor()==CMMsg.TYP_ORDER)
+						{
+							final CMObject O=CMLib.english().findCommand(M,CMParms.parse(cmd));
+							if((O!=null)&&((!(O instanceof Command))||(((Command)O).canBeOrdered())))
+								M.enqueCommand(CMParms.parse(cmd),MUDCmdProcessor.METAFLAG_FORCED|MUDCmdProcessor.METAFLAG_ORDER,0);
+						}
 					}
 				}
 			}
@@ -151,7 +156,7 @@ public class Dance_Square extends Dance
 			{
 				final Room R=commonRoomSet.get(v);
 				final String msgStr=getCorrectMsgString(R,str,v);
-				final CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),msgStr);
+				final CMMsg msg=CMClass.getMsg(mob,null,this,somaticCastCode(mob,null,auto),msgStr);
 				if(R.okMessage(mob,msg))
 				{
 					R.send(mob,msg);

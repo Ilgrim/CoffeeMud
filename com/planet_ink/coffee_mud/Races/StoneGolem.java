@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -142,6 +142,21 @@ public class StoneGolem extends StdRace
 	}
 
 	@Override
+	public Weapon[] getNaturalWeapons()
+	{
+		if(naturalWeaponChoices.length==0)
+		{
+			final Weapon naturalWeapon=CMClass.getWeapon("GenWeapon");
+			naturalWeapon.setName(L("a stone limb"));
+			naturalWeapon.setMaterial(RawMaterial.RESOURCE_BONE);
+			naturalWeapon.setUsesRemaining(1000);
+			naturalWeapon.setWeaponDamageType(Weapon.TYPE_NATURAL);
+			this.naturalWeaponChoices = new Weapon[] { naturalWeapon };
+		}
+		return super.getNaturalWeapons();
+	}
+
+	@Override
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
 		affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_GOLEM);
@@ -152,6 +167,8 @@ public class StoneGolem extends StdRace
 	public void affectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
 		super.affectCharStats(affectedMOB, affectableStats);
+		affectableStats.adjStat(CharStats.STAT_WISDOM,-9);
+		affectableStats.adjStat(CharStats.STAT_CHARISMA,-5);
 		affectableStats.setStat(CharStats.STAT_SAVE_POISON,affectableStats.getStat(CharStats.STAT_SAVE_POISON)+100);
 		affectableStats.setStat(CharStats.STAT_SAVE_MIND,affectableStats.getStat(CharStats.STAT_SAVE_MIND)+100);
 		affectableStats.setStat(CharStats.STAT_SAVE_GAS,affectableStats.getStat(CharStats.STAT_SAVE_GAS)+100);
@@ -159,6 +176,21 @@ public class StoneGolem extends StdRace
 		affectableStats.setStat(CharStats.STAT_SAVE_UNDEAD,affectableStats.getStat(CharStats.STAT_SAVE_UNDEAD)+100);
 		affectableStats.setStat(CharStats.STAT_SAVE_DISEASE,affectableStats.getStat(CharStats.STAT_SAVE_DISEASE)+100);
 		affectableStats.setStat(CharStats.STAT_SAVE_FIRE,affectableStats.getStat(CharStats.STAT_SAVE_FIRE)+100);
+	}
+
+	@Override
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
+	{
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.adjStat(CharStats.STAT_WISDOM,+9);
+		affectableStats.adjStat(CharStats.STAT_CHARISMA,+5);
+		affectableStats.setStat(CharStats.STAT_SAVE_POISON,affectableStats.getStat(CharStats.STAT_SAVE_POISON)-100);
+		affectableStats.setStat(CharStats.STAT_SAVE_MIND,affectableStats.getStat(CharStats.STAT_SAVE_MIND)-100);
+		affectableStats.setStat(CharStats.STAT_SAVE_GAS,affectableStats.getStat(CharStats.STAT_SAVE_GAS)-100);
+		affectableStats.setStat(CharStats.STAT_SAVE_PARALYSIS,affectableStats.getStat(CharStats.STAT_SAVE_PARALYSIS)-100);
+		affectableStats.setStat(CharStats.STAT_SAVE_UNDEAD,affectableStats.getStat(CharStats.STAT_SAVE_UNDEAD)-100);
+		affectableStats.setStat(CharStats.STAT_SAVE_DISEASE,affectableStats.getStat(CharStats.STAT_SAVE_DISEASE)-100);
+		affectableStats.setStat(CharStats.STAT_SAVE_FIRE,affectableStats.getStat(CharStats.STAT_SAVE_FIRE)-100);
 	}
 
 	@Override
@@ -227,6 +259,8 @@ public class StoneGolem extends StdRace
 					(L("a pound of stone"),RawMaterial.RESOURCE_STONE));
 				resources.addElement(makeResource
 					(L("essence of golem"),RawMaterial.RESOURCE_BLOOD));
+				resources.addElement(makeResource
+					(L("a pound of stone"),RawMaterial.RESOURCE_STONE));
 			}
 		}
 		return resources;

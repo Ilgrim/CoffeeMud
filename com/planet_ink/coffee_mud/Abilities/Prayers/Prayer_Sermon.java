@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -192,7 +192,8 @@ public class Prayer_Sermon extends Prayer
 
 		if(success)
 		{
-			if(mob.location().show(mob,null,this,verbalCastCode(mob,null,auto),auto?"":L("^S<S-NAME> begin(s) sermonizing on the wonders of @x1.^?",hisHerDiety(mob))))
+			if(mob.location().show(mob,null,this,verbalCastCode(mob,null,auto),
+					auto?"":L("^S<S-NAME> begin(s) sermonizing on the wonders of @x1.^?",hisHerDiety(mob))))
 			for(final Enumeration<MOB> f=h.elements();f.hasMoreElements();)
 			{
 				final MOB target=f.nextElement();

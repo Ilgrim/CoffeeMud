@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -77,6 +77,40 @@ public class Spell_MageArmor extends Spell
 
 	Armor theArmor=null;
 
+	protected void applyArmor(final MOB mob)
+	{
+		if(mob == null)
+			return;
+		if(theArmor != null)
+			theArmor.destroy();
+		theArmor=CMClass.getArmor("GlowingMageArmor");
+		theArmor.basePhyStats().setArmor(theArmor.basePhyStats().armor()+super.getXLEVELLevel(mob));
+		theArmor.setLayerAttributes(Armor.LAYERMASK_SEETHROUGH);
+		mob.addItem(theArmor);
+		theArmor.wearAt(Wearable.WORN_TORSO);
+		theArmor.recoverPhyStats();
+		final Room R = mob.location();
+		if(R!=null)
+			R.recoverRoomStats();
+		else
+			mob.recoverPhyStats();
+	}
+
+	@Override
+	public boolean tick(final Tickable ticking, final int tickID)
+	{
+		if(!super.tick(ticking, tickID))
+			return false;
+		if(((theArmor == null)
+			||(theArmor.amDestroyed())
+			||(theArmor.owner()!=affected))
+		&&(!super.canBeUninvoked)
+		&&(affected instanceof MOB))
+			applyArmor((MOB)affected);
+		return true;
+	}
+
+
 	@Override
 	public void unInvoke()
 	{
@@ -118,7 +152,7 @@ public class Spell_MageArmor extends Spell
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already wearing mage armor."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already wearing mage armor."));
 			return false;
 		}
 
@@ -140,14 +174,10 @@ public class Spell_MageArmor extends Spell
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				theArmor=CMClass.getArmor("GlowingMageArmor");
-				theArmor.basePhyStats().setArmor(theArmor.basePhyStats().armor()+super.getXLEVELLevel(mob));
-				theArmor.setLayerAttributes(Armor.LAYERMASK_SEETHROUGH);
-				mob.addItem(theArmor);
-				theArmor.wearAt(Wearable.WORN_TORSO);
-				theArmor.recoverPhyStats();
-				success=beneficialAffect(mob,target,asLevel,0)!=null;
-				mob.location().recoverRoomStats();
+				final Spell_MageArmor A = (Spell_MageArmor)beneficialAffect(mob,target,asLevel,0);
+				success = A != null;
+				if(success && (A!=null))
+					A.applyArmor(mob);
 			}
 		}
 		else

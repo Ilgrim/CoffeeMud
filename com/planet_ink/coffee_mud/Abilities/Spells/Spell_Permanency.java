@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -112,7 +112,8 @@ public class Spell_Permanency extends Spell
 					 &&(!A.isAutoInvoked())
 					 &&(A.canBeUninvoked())
 					 &&(A instanceof StdAbility)
-					 &&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SPELL))
+					 &&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SPELL)
+					 &&(CMLib.ableMapper().lowestQualifyingLevel(A.ID())<25))
 					{
 						theOne=(StdAbility)A;
 						break;
@@ -133,6 +134,7 @@ public class Spell_Permanency extends Spell
 				}
 				else
 				{
+					theOne.setInvoker(null);
 					theOne.makeNonUninvokable();
 					theOne.setSavable(true);
 					mob.baseState().setMana(mob.baseState().getMana()-100);

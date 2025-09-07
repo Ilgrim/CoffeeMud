@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -92,15 +92,16 @@ public class Thief_RideTheRigging extends ThiefSkill
 		final Room R=mob.location();
 		if(R==null)
 			return false;
-		if((!(R.getArea() instanceof BoardableShip))
-		||(!(((BoardableShip)R.getArea()).getShipItem() instanceof SailingShip))
+		if((!(R.getArea() instanceof Boardable))
+		||(!(((Boardable)R.getArea()).getBoardableItem() instanceof NavigableItem))
+		||(((NavigableItem)(((Boardable)R.getArea()).getBoardableItem())).navBasis() != Rideable.Basis.WATER_BASED)
 		||((R.domainType()&Room.INDOORS)!=0))
 		{
 			mob.tell(L("You must be on the deck of a ship to ride the rigging to another ship."));
 			return false;
 		}
-		final BoardableShip myShip=(BoardableShip)R.getArea();
-		final SailingShip myShipItem=(SailingShip)myShip.getShipItem();
+		final Boardable myShip=(Boardable)R.getArea();
+		final NavigableItem myShipItem=(NavigableItem)myShip.getBoardableItem();
 		if((myShipItem==null)
 		||(!(myShipItem.owner() instanceof Room))
 		||(!CMLib.flags().isWateryRoom((Room)myShipItem.owner())))
@@ -110,7 +111,7 @@ public class Thief_RideTheRigging extends ThiefSkill
 		}
 		final Room fightR=(Room)myShipItem.owner();
 		final PhysicalAgent targetShipItem=myShipItem.getCombatant();
-		if(!(targetShipItem instanceof SailingShip))
+		if(!(targetShipItem instanceof NavigableItem))
 		{
 			mob.tell(L("Your ship must be targeting another ship to ride the rigging to it."));
 			return false;
@@ -128,7 +129,7 @@ public class Thief_RideTheRigging extends ThiefSkill
 		}
 		final Physical target=targetShipItem;
 
-		final Area targetArea=((BoardableShip)targetShipItem).getShipArea();
+		final Area targetArea=((Boardable)targetShipItem).getArea();
 		final List<Room> choices=new ArrayList<Room>();
 		for(final Enumeration<Room> r=targetArea.getProperMap();r.hasMoreElements();)
 		{

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -69,6 +69,11 @@ public class Enter extends Go
 			{
 				if(enterThis instanceof Rideable)
 				{
+					if(CMLib.flags().isSitting(mob))
+					{
+						CMLib.commands().postCommandFail(mob,origCmds,L("You need to stand up!"));
+						return false;
+					}
 					final Command C=CMClass.getCommand("Sit");
 					if(C!=null)
 						return C.execute(mob,commands,metaFlags);
@@ -82,6 +87,8 @@ public class Enter extends Go
 					final CMMsg msg=CMClass.getMsg(mob,enterThis,null,CMMsg.MSG_SIT,enterStr);
 					if(mob.location().okMessage(mob,msg))
 						mob.location().send(mob,msg);
+					else
+						CMLib.commands().postCommandRejection(msg.source(),msg.target(),msg.tool(),origCmds);
 					return true;
 				}
 			}

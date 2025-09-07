@@ -1,5 +1,7 @@
 package com.planet_ink.coffee_mud.Locales;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.Event;
+import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.interfaces.EachApplicable.ApplyAffectPhyStats;
 import com.planet_ink.coffee_mud.core.interfaces.ItemPossessor.Expire;
@@ -20,8 +22,9 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -42,9 +45,11 @@ public class StdRoom implements Room
 		return "StdRoom";
 	}
 
-	protected String			myID				= "";
+	private static final String DEFAULT_DISPLAY_TEXT=CMLib.lang().L("Standard Room");
+
+	protected String			_roomID				= "";
 	protected String			name				= "the room";
-	protected String			displayText			= L("Standard Room");
+	protected String			displayText			= DEFAULT_DISPLAY_TEXT;
 	protected String			rawImageName		= null;
 	protected String			cachedImageName		= null;
 	protected Object			description			= null;
@@ -65,14 +70,14 @@ public class StdRoom implements Room
 	protected boolean			amDestroyed			= false;
 	protected boolean			skyedYet			= false;
 	protected volatile short	combatTurnMobIndex	= 0;
-	protected final short[]		roomRecoverMarker	= new short[1];
 
-	protected SVector<Ability>			affects		= null;
-	protected SVector<Behavior>			behaviors	= null;
-	protected SVector<ScriptingEngine>	scripts		= null;
-	protected SVector<MOB>				inhabitants	= new SVector<MOB>(1);
-	protected SVector<Item>				contents	= new SVector<Item>(1);
-	protected Room						me			= this;
+	protected final AtomicInteger		roomRecoverMarker	= new AtomicInteger();
+	protected SVector<Ability>			affects				= null;
+	protected SVector<Behavior>			behaviors			= null;
+	protected SVector<ScriptingEngine>	scripts				= null;
+	protected SVector<MOB>				inhabitants			= new SVector<MOB>(1);
+	protected SVector<Item>				contents			= new SVector<Item>(1);
+	protected Room						me					= this;
 
 	@SuppressWarnings("rawtypes")
 	protected ApplyAffectPhyStats affectPhyStats 	= new ApplyAffectPhyStats<Physical>(this);
@@ -83,7 +88,8 @@ public class StdRoom implements Room
 		super();
 		//CMClass.bumpCounter(this,CMClass.CMObjectType.LOCALE);//removed for mem & perf
 		xtraValues=CMProps.getExtraStatCodesHolder(this);
-		basePhyStats.setWeight(2);
+		setMovementCost(2); // movement consumption
+		setRoomSize(((domainType()&Room.INDOORS)>0)?1:10);
 		recoverPhyStats();
 	}
 
@@ -104,7 +110,7 @@ public class StdRoom implements Room
 	{
 		try
 		{
-			return this.getClass().newInstance();
+			return this.getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -116,7 +122,7 @@ public class StdRoom implements Room
 	@Override
 	public String roomID()
 	{
-		return myID	;
+		return _roomID	;
 	}
 
 	@Override
@@ -143,6 +149,39 @@ public class StdRoom implements Room
 	public String name(final MOB viewerMob)
 	{
 		return name();
+	}
+
+	@Override
+	public String genericName()
+	{
+		final String domainName;
+		if((domainType()&Room.INDOORS)==0)
+			domainName=CMLib.english().startWithAorAn(Room.DOMAIN_OUTDOOR_DESCS[domainType()].toLowerCase());
+		else
+			domainName=CMLib.english().startWithAorAn(Room.DOMAIN_INDOORS_DESCS[CMath.unsetb(domainType(),Room.INDOORS)].toLowerCase());
+		return L("@x1 place",domainName);
+	}
+
+	protected void setMovementCost(final int newCost)
+	{
+		basePhyStats().setWeight(newCost); // movement consumption
+		recoverPhyStats();
+	}
+
+	protected int getMovementCost()
+	{
+		return phyStats().weight(); // movement consumption
+	}
+
+	protected void setRoomSize(final int newSize)
+	{
+		basePhyStats().setHeight(newSize);
+		recoverPhyStats();
+	}
+
+	protected int getRoomSize()
+	{
+		return phyStats().height();
 	}
 
 	@Override
@@ -225,7 +264,7 @@ public class StdRoom implements Room
 		Arrays.fill(exits, null);
 		doors=new Room[doors.length];
 		Arrays.fill(doors, null);
-		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+		for(int d=R.rawDoors().length-1;d>=0;d--)
 		{
 			if(R.getRawExit(d)!=null)
 				exits[d]=(Exit)R.getRawExit(d).copyOf();
@@ -431,7 +470,7 @@ public class StdRoom implements Room
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this,true);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,true);
 	}
 
 	@Override
@@ -444,15 +483,15 @@ public class StdRoom implements Room
 	public void setMiscText(final String newMiscText)
 	{
 		if(newMiscText.trim().length()>0)
-			CMLib.coffeeMaker().setPropertiesStr(this,newMiscText,true);
+			CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this,newMiscText,true);
 	}
 
 	@Override
 	public void setRoomID(final String newID)
 	{
-		if((myID!=null)&&(!myID.equals(newID)))
+		if((_roomID!=null)&&(!_roomID.equals(newID)))
 		{
-			myID=newID;
+			_roomID=newID;
 			if(myArea!=null)
 			{
 				// force the re-sort
@@ -461,7 +500,7 @@ public class StdRoom implements Room
 			}
 		}
 		else
-			myID=newID;
+			_roomID=newID;
 	}
 
 	@Override
@@ -514,34 +553,35 @@ public class StdRoom implements Room
 		&&(getGridParent().roomID().length()==0))
 			return;
 
-		if((rawDoors()[Directions.UP]==null)
+		if((doors[Directions.UP]==null)
 		&&((domainType()&Room.INDOORS)==0)
 		&&(domainType()!=Room.DOMAIN_OUTDOORS_UNDERWATER)
-		&&(domainType()!=Room.DOMAIN_OUTDOORS_AIR)
+		&&(domainType()!=Room.DOMAIN_OUTDOORS_AIR) // prevents InTheAir from having a sky
 		&&(CMProps.getIntVar(CMProps.Int.SKYSIZE)!=0))
 		{
 			Exit upE=null;
 			final Exit dnE=CMClass.getExit("StdOpenDoorway");
 			if(CMProps.getIntVar(CMProps.Int.SKYSIZE)>0)
-				upE=dnE;
+				upE=CMClass.getExit("Skyway");
 			else
 				upE=CMClass.getExit("UnseenWalkway");
 
 			final GridLocale sky=(GridLocale)CMClass.getLocale("EndlessThinSky");
 			sky.setRoomID("");
 			sky.setArea(getArea());
-			rawDoors()[Directions.UP]=sky;
+			doors[Directions.UP]=sky;
 			setRawExit(Directions.UP,upE);
 			sky.rawDoors()[Directions.DOWN]=this;
 			sky.setRawExit(Directions.DOWN,dnE);
 
-			if(!(getArea() instanceof BoardableShip))
+			if(!(getArea() instanceof Boardable))
 			{
-				for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+				for(int d=doors.length-1;d>=0;d--)
 				{
-					if((d!=Directions.UP)&&(d!=Directions.DOWN))
+					if((d!=Directions.UP)
+					&&(d!=Directions.DOWN))
 					{
-						Room thatRoom=rawDoors()[d];
+						Room thatRoom=doors[d];
 						if((thatRoom!=null)&&(getRawExit(d)!=null))
 						{
 							thatRoom=CMLib.map().getRoom(thatRoom);
@@ -587,7 +627,7 @@ public class StdRoom implements Room
 		final List<Room> skys = new Vector<Room>(1);
 		if(!skyedYet)
 			return skys;
-		final Room skyGridRoom=rawDoors()[Directions.UP];
+		final Room skyGridRoom=doors[Directions.UP];
 		if(skyGridRoom!=null)
 		{
 			if(((skyGridRoom.roomID()==null)||(skyGridRoom.roomID().length()==0))
@@ -602,16 +642,16 @@ public class StdRoom implements Room
 	{
 		if(!skyedYet)
 			return;
-		final Room skyGridRoom=rawDoors()[Directions.UP];
+		final Room skyGridRoom=doors[Directions.UP];
 		if(skyGridRoom!=null)
 		{
 			if(((skyGridRoom.roomID()==null)||(skyGridRoom.roomID().length()==0))
 			&&((skyGridRoom instanceof EndlessSky)||(skyGridRoom instanceof EndlessThinSky)))
 			{
 				((GridLocale)skyGridRoom).clearGrid(null);
-				rawDoors()[Directions.UP]=null;
+				doors[Directions.UP]=null;
 				setRawExit(Directions.UP,null);
-				for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
+				for(int d=0;d<skyGridRoom.rawDoors().length;d++)
 				{
 					final Room thatSky=skyGridRoom.rawDoors()[d];
 					final int opDir=Directions.getOpDirectionCode(d);
@@ -662,7 +702,7 @@ public class StdRoom implements Room
 				final List<Integer> preferredChoices=new ArrayList<Integer>();
 				for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
 				{
-					final Room R=rawDoors()[d];
+					final Room R=doors[d];
 					if((R!=null)
 					&&(R.ID().equals(ID()))
 					&&(R.resourceChoices()==resourceChoices())
@@ -670,34 +710,29 @@ public class StdRoom implements Room
 					&&(((StdRoom)R).myResource>0))
 						preferredChoices.add(Integer.valueOf(((StdRoom)R).myResource));
 				}
-				while(preferredChoices.size()>0)
-				{
-					final Integer choice=preferredChoices.remove(CMLib.dice().roll(1, preferredChoices.size(), -1));
-					if(CMLib.dice().rollPercentage()<25)
-					{
-						myResource = choice.intValue();
-						return myResource;
-					}
-				}
-				int totalChance=0;
+				final IntegerRangeMap<Integer> map = new IntegerRangeMap<Integer>();
+				int curTotal=0;
 				for(int i=0;i<resourceChoices().size();i++)
 				{
-					final int resource=resourceChoices().get(i).intValue();
-					totalChance+=RawMaterial.CODES.FREQUENCY(resource);
+					final Integer resource=resourceChoices().get(i);
+					final int min = curTotal;
+					final int max = min + RawMaterial.CODES.FREQUENCY(resource.intValue());
+					map.put(new int[] {min, max}, resource);
+					curTotal = max + 1;
+				}
+				if(preferredChoices.size()>0)
+				{
+					final int prefAmt = map.getMax() / 4 / preferredChoices.size();
+					for(final Integer I : preferredChoices)
+					{
+						map.put(new int[] {curTotal, curTotal + prefAmt},I);
+						curTotal += prefAmt + 1;
+					}
 				}
 				setResource(-1);
-				final int theRoll=CMLib.dice().roll(1,totalChance,0);
-				totalChance=0;
-				for(int i=0;i<resourceChoices().size();i++)
-				{
-					final int resource=resourceChoices().get(i).intValue();
-					totalChance+=RawMaterial.CODES.FREQUENCY(resource);
-					if(theRoll<=totalChance)
-					{
-						setResource(resource);
-						break;
-					}
-				}
+				final int theRoll=CMLib.dice().roll(1,map.getMax(),0);
+				final Integer resource = map.get(new int[] {theRoll,theRoll});
+				setResource(resource.intValue());
 			}
 		}
 		return myResource;
@@ -734,7 +769,7 @@ public class StdRoom implements Room
 					return false;
 				for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 				{
-					final Room R2=rawDoors()[d];
+					final Room R2=doors[d];
 					if((R2!=null)&&(!CMLib.map().isClearableRoom(R2)))
 						return false;
 				}
@@ -752,7 +787,10 @@ public class StdRoom implements Room
 				{
 					final Room R=mob.location();
 					if((R!=null)&&(R.getArea()!=getArea()))
+					{
 						CMLib.factions().updatePlayerFactions(mob,this,false);
+						CMLib.achievements().possiblyBumpAchievement(mob, Event.AREAVISIT, 1, new Object[] {getArea(), this});
+					}
 					giveASky(0);
 				}
 				break;
@@ -898,10 +936,11 @@ public class StdRoom implements Room
 			{
 				if(!CMath.bset(msg.targetMajor(),CMMsg.MASK_OPTIMIZE))
 					recoverRoomStats();
-				if((msg.source().playerStats()!=null)&&(msg.source().soulMate()==null))
+				if((msg.source().playerStats()!=null)
+				&&(msg.source().soulMate()==null))
 				{
 					if(msg.source().playerStats().addRoomVisit(this))
-						CMLib.players().bumpPrideStat(msg.source(),AccountStats.PrideStat.ROOMS_EXPLORED, 1);
+						CMLib.players().bumpPrideStat(msg.source(),PrideStats.PrideStat.ROOMS_EXPLORED, 1);
 				}
 				break;
 			}
@@ -936,6 +975,7 @@ public class StdRoom implements Room
 			}
 		}
 
+		// should this really be here?  maybe in space ship area?
 		if((msg.othersMinor() == CMMsg.TYP_GRAVITY)
 		&&(msg.targetMinor() == CMMsg.NO_EFFECT)
 		&&(numInhabitants()>0))
@@ -1054,9 +1094,10 @@ public class StdRoom implements Room
 			}
 		}
 
-		if(msg.amITarget(this)&&(msg.targetMinor()==CMMsg.TYP_EXPIRE))
+		if(msg.amITarget(this)
+		&&(msg.targetMinor()==CMMsg.TYP_EXPIRE))
 		{
-			synchronized(("SYNC"+roomID()).intern())
+			synchronized(CMClass.getSync(("SYNC"+roomID())))
 			{
 				final LinkedList<DeadBody> deadBodies=new LinkedList<DeadBody>();
 				eachItem(new EachApplicable<Item>()
@@ -1094,6 +1135,8 @@ public class StdRoom implements Room
 					final ArrayList<Item> bodies=new ArrayList<Item>(1);
 					if(CMSecurity.isSaveFlag(CMSecurity.SaveFlag.ROOMMOBS))
 					{
+						if(CMProps.isState(CMProps.HostState.SHUTTINGDOWN))
+							CMLib.threads().rejuv(this,Tickable.TICKID_MOB);
 						eachInhabitant(new EachApplicable<MOB>()
 						{
 							@Override
@@ -1111,6 +1154,8 @@ public class StdRoom implements Room
 					else
 					if(CMSecurity.isSaveFlag(CMSecurity.SaveFlag.ROOMSHOPS))
 					{
+						if(CMProps.isState(CMProps.HostState.SHUTTINGDOWN))
+							CMLib.threads().rejuv(this,Tickable.TICKID_MOB);
 						eachInhabitant(new EachApplicable<MOB>()
 						{
 							@Override
@@ -1125,8 +1170,11 @@ public class StdRoom implements Room
 						if(!shopmobs.isEmpty())
 							CMLib.database().DBUpdateTheseMOBs(this,shopmobs);
 					}
+					// never else
 					if(CMSecurity.isSaveFlag(CMSecurity.SaveFlag.ROOMITEMS))
 					{
+						if(CMProps.isState(CMProps.HostState.SHUTTINGDOWN))
+							CMLib.threads().rejuv(this,Tickable.TICKID_ROOM_ITEM_REJUV);
 						eachItem(new EachApplicable<Item>()
 						{
 							@Override public final void apply(final Item I)
@@ -1143,7 +1191,7 @@ public class StdRoom implements Room
 				final Area A=getArea();
 				final String roomID=roomID();
 				setGridParent(null);
-				if(!CMProps.getBoolVar(CMProps.Bool.MUDSHUTTINGDOWN))
+				if(!CMProps.isState(CMProps.HostState.SHUTTINGDOWN))
 				{
 					CMLib.map().emptyRoom(this,null,true);
 					destroy();
@@ -1287,24 +1335,17 @@ public class StdRoom implements Room
 	@Override
 	public void recoverRoomStats()
 	{
-		synchronized(roomRecoverMarker)
+		if(roomRecoverMarker.addAndGet(1)!=1)
+			return;
+		try
 		{
-			roomRecoverMarker[0]++;
-			if(roomRecoverMarker[0]!=1)
-			{
-				return;
-			}
-			try
-			{
+			reallyRecoverRoomStats();
+			if(roomRecoverMarker.addAndGet(-1)>0)
 				reallyRecoverRoomStats();
-				roomRecoverMarker[0]--;
-				if(roomRecoverMarker[0]>0)
-					reallyRecoverRoomStats();
-			}
-			finally
-			{
-				roomRecoverMarker[0]=0;
-			}
+		}
+		finally
+		{
+			roomRecoverMarker.set(0);
 		}
 	}
 
@@ -1539,16 +1580,19 @@ public class StdRoom implements Room
 			}
 		}
 
-		if(o instanceof Room)
-			((Room)o).recoverRoomStats();
-		else
-		if(o instanceof MOB)
+		if(!CMParms.contains(moveFlags, Move.Optimize))
 		{
-			((MOB)o).recoverCharStats();
-			((MOB)o).recoverPhyStats();
-			((MOB)o).recoverMaxState();
+			if(o instanceof Room)
+				((Room)o).recoverRoomStats();
+			else
+			if(o instanceof MOB)
+			{
+				((MOB)o).recoverCharStats();
+				o.recoverPhyStats();
+				((MOB)o).recoverMaxState();
+			}
+			recoverRoomStats();
 		}
-		recoverRoomStats();
 	}
 
 	@Override
@@ -1626,7 +1670,7 @@ public class StdRoom implements Room
 	{
 		if((direction<0)||(direction>=doors.length)||(amDestroyed))
 			return null;
-		Room nextRoom=rawDoors()[direction];
+		Room nextRoom=doors[direction];
 		if(gridParent!=null)
 			nextRoom=gridParent.prepareGridLocale(this,nextRoom,direction);
 		if(nextRoom!=null)
@@ -1683,9 +1727,11 @@ public class StdRoom implements Room
 					}
 				}
 			}
-			if(msg.trailerRunnables()!=null)
+			final List<Runnable> trails=msg.trailerRunnables();
+			if((trails!=null)
+			&&(trails.size()>0))
 			{
-				for(final Runnable r : msg.trailerRunnables())
+				for(final Runnable r : trails)
 					CMLib.threads().executeRunnable(r);
 			}
 		}
@@ -1870,6 +1916,21 @@ public class StdRoom implements Room
 	}
 
 	@Override
+	public Room getRawDoor(final int direction)
+	{
+		if(direction<doors.length)
+			return doors[direction];
+		return null;
+	}
+
+	@Override
+	public void setRawDoor(final int direction, final Room R)
+	{
+		if(direction<doors.length)
+			doors[direction] = R;
+	}
+
+	@Override
 	public boolean isSavable()
 	{
 		return ((roomID().length()>0)
@@ -1899,15 +1960,15 @@ public class StdRoom implements Room
 		if(this instanceof GridLocale)
 			((GridLocale)this).clearGrid(null);
 		clearSky();
-		if((roomID().length()==0)&&(rawDoors()!=null))
+		if((roomID().length()==0)&&(doors!=null))
 		{
 			Room roomDir=null;
-			for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+			for(int d=doors.length-1;d>=0;d--)
 			{
-				roomDir=rawDoors()[d];
+				roomDir=doors[d];
 				if((roomDir!=null)&&(roomDir.rawDoors()!=null))
 				{
-					for(int d2=Directions.NUM_DIRECTIONS()-1;d2>=0;d2--)
+					for(int d2=roomDir.rawDoors().length-1;d2>=0;d2--)
 					{
 						if(roomDir.rawDoors()[d2]==this)
 						{
@@ -2081,7 +2142,7 @@ public class StdRoom implements Room
 		{
 			return inhabitants.elementAt(i);
 		}
-		catch(final java.lang.ArrayIndexOutOfBoundsException x)
+		catch(final IndexOutOfBoundsException x)
 		{
 		}
 		return null;
@@ -2125,8 +2186,11 @@ public class StdRoom implements Room
 				if(M!=null)
 				{
 					if(destroy || (M.location()==this))
+					{
 						M.setLocation(null);
-					M.destroy();
+						if(destroy && (!M.isPlayer()))
+							M.destroy();
+					}
 				}
 			}
 			inhabitants.clear();
@@ -2174,13 +2238,12 @@ public class StdRoom implements Room
 		return contents.elements();
 	}
 
-	@SuppressWarnings("unchecked")
 	@Override
 	public Enumeration<Item> itemsRecursive()
 	{
-		return new MultiEnumeration<Item>(
-			items(),
-			new Enumeration<Item>()
+		return new MultiEnumeration<Item>()
+			.addEnumeration(items())
+			.addEnumeration(new Enumeration<Item>()
 			{
 				private final Enumeration<MOB> curMobEnumeration = inhabitants();
 				private volatile Enumeration<Item> curItemEnumeration;
@@ -2206,8 +2269,7 @@ public class StdRoom implements Room
 						throw new NoSuchElementException();
 					return curItemEnumeration.nextElement();
 				}
-			}
-		);
+			});
 	}
 
 
@@ -2249,40 +2311,28 @@ public class StdRoom implements Room
 	public void addItem(final Item item, Expire expire)
 	{
 		if(expire == null)
-		{
 			expire=Expire.Never;
-		}
-		int numMins = 0;
 		switch(expire)
 		{
-		case Monster_EQ:
-			addItem(item);
-			numMins = CMProps.getIntVar(CMProps.Int.EXPIRE_MONSTER_EQ);
-			break;
 		case Monster_Body:
-			insertItemUpTop(item);
-			numMins = CMProps.getIntVar(CMProps.Int.EXPIRE_MONSTER_BODY);
-			break;
 		case Player_Body:
 			insertItemUpTop(item);
-			numMins = CMProps.getIntVar(CMProps.Int.EXPIRE_PLAYER_BODY);
-			break;
-		case Player_Drop:
-			addItem(item);
-			numMins = CMProps.getIntVar(CMProps.Int.EXPIRE_PLAYER_DROP);
 			break;
 		case Resource:
-			addItem(item);
-			numMins = CMProps.getIntVar(CMProps.Int.EXPIRE_RESOURCE);
-			break;
+		case Monster_EQ:
+		case Player_Drop:
 		case Never:
 			addItem(item);
 			break;
+		case Inheret:
+			addItem(item);
+			return;
 		}
-		if(numMins==0)
+		final long expireMs = expire.getExpirationMilliseconds();
+		if(expireMs<=0)
 			item.setExpirationDate(0);
 		else
-			item.setExpirationDate(System.currentTimeMillis()+(numMins * TimeManager.MILI_MINUTE));
+			item.setExpirationDate(System.currentTimeMillis()+expireMs);
 	}
 
 	protected void insertItemUpTop(final Item item)
@@ -2357,7 +2407,7 @@ public class StdRoom implements Room
 		{
 			return contents.elementAt(i);
 		}
-		catch(final java.lang.ArrayIndexOutOfBoundsException x)
+		catch(final IndexOutOfBoundsException x)
 		{
 		}
 		return null;
@@ -2400,12 +2450,7 @@ public class StdRoom implements Room
 			for(int e=0;e<exits.length;e++)
 			{
 				if(exits[e]==E)
-				{
-					if((this instanceof BoardableShip)||(this.getArea() instanceof BoardableShip))
-						return CMLib.directions().getShipDirectionName(e);
-					else
-						return CMLib.directions().getDirectionName(e);
-				}
+					return CMLib.directions().getDirectionName(e, CMLib.flags().getDirType(this));
 			}
 			return E.Name();
 		}
@@ -2430,13 +2475,22 @@ public class StdRoom implements Room
 	}
 
 	@Override
-	public PhysicalAgent fetchFromMOBRoomItemExit(final MOB mob, final Item goodLocation, String thingName, final Filterer<Environmental> filter)
+	public PhysicalAgent fetchFromMOBRoomItemExit(MOB mob, final Item goodLocation, String thingName, final Filterer<Environmental> filter)
 	{
 		PhysicalAgent found=null;
+		if(CMStrings.startsWithIgnoreCase(thingName,"room.")
+		||CMStrings.startsWithIgnoreCase(thingName,CMLib.english().removeArticleLead(genericName())+"."))
+		{
+			thingName = thingName.substring(5);
+			mob=null;
+		}
 		String newThingName=CMLib.lang().preItemParser(thingName);
 		if(newThingName!=null)
 			thingName=newThingName;
-		final boolean mineOnly=(mob!=null)&&(thingName.toUpperCase().trim().startsWith("MY "));
+		final boolean mineOnly=(mob!=null)
+				&&(CMStrings.startsWithIgnoreCase(thingName, "my"))
+				&&(thingName.length()>3)
+				&&((thingName.charAt(2)==' ')||(thingName.charAt(2)=='.'));
 		if(mineOnly)
 			thingName=thingName.trim().substring(3).trim();
 		if((mob!=null)&&((filter!=Wearable.FILTER_WORNONLY)))
@@ -2626,13 +2680,22 @@ public class StdRoom implements Room
 		return fetchFromMOBRoom(mob,goodLocation,thingName,filter,false);
 	}
 
-	private PhysicalAgent fetchFromMOBRoom(final MOB mob, final Item goodLocation, String thingName, final Filterer<Environmental> filter, final boolean favorItems)
+	protected PhysicalAgent fetchFromMOBRoom(MOB mob, final Item goodLocation, String thingName, final Filterer<Environmental> filter, final boolean favorItems)
 	{
 		PhysicalAgent found=null;
+		if(CMStrings.startsWithIgnoreCase(thingName,"room.")
+		||CMStrings.startsWithIgnoreCase(thingName,CMLib.english().removeArticleLead(genericName())+"."))
+		{
+			thingName = thingName.substring(5);
+			mob=null;
+		}
 		String newThingName=CMLib.lang().preItemParser(thingName);
 		if(newThingName!=null)
 			thingName=newThingName;
-		final boolean mineOnly=(mob!=null)&&(thingName.toUpperCase().trim().startsWith("MY "));
+		final boolean mineOnly=(mob!=null)
+				&&(CMStrings.startsWithIgnoreCase(thingName, "my"))
+				&&(thingName.length()>3)
+				&&((thingName.charAt(2)==' ')||(thingName.charAt(2)=='.'));
 		if(mineOnly)
 			thingName=thingName.trim().substring(3).trim();
 		if((mob!=null)&&(favorItems)&&(filter!=Wearable.FILTER_WORNONLY))
@@ -2646,26 +2709,30 @@ public class StdRoom implements Room
 				}
 			};
 			found=mob.fetchItem(goodLocation, mobCheckFilter, thingName);
-			if(found == null)
+			if(found == null) // smurfy well exception -- see below -- this is under favorItems and !wornonly
 			{
 				// this ugliness allows you do use dot syntax on things on the ground when you have SOME stuff in inventory, but not much
 				final int dotNumber=CMLib.english().getContextDotNumber(thingName);
 				if(dotNumber > 1)
 				{
-					thingName =  CMLib.english().bumpDotContextNumber(thingName, -(dotNumber-1));
+					String testThingName =  CMLib.english().bumpDotContextNumber(thingName, -(dotNumber-1));
 					int numMobHas = 0;
 					for(int i=1;i<=dotNumber;i++)
 					{
-						if(mob.fetchItem(goodLocation, mobCheckFilter, thingName)==null)
+						if(mob.fetchItem(goodLocation, mobCheckFilter, testThingName)==null)
 							break;
 						numMobHas++;
-						thingName =  CMLib.english().bumpDotContextNumber(thingName, 1);
+						testThingName =  CMLib.english().bumpDotContextNumber(testThingName, 1);
 					}
 					if(dotNumber > numMobHas)
 					{
 						final int curDotNumber=numMobHas+1;
 						final int delta = -(curDotNumber-1) + (dotNumber-numMobHas-1);
-						thingName =  CMLib.english().bumpDotContextNumber(thingName, delta);
+						testThingName =  CMLib.english().bumpDotContextNumber(testThingName, delta);
+						found = fetchFromRoomFavorItems(goodLocation, testThingName);
+						if((found != null)
+						&&((filter==null)||(filter.passesFilter(found))))
+							return found;
 					}
 				}
 			}
@@ -2676,7 +2743,8 @@ public class StdRoom implements Room
 				found=fetchFromRoomFavorItems(goodLocation, thingName);
 			else
 				found=fetchFromRoomFavorMOBs(goodLocation, thingName);
-			if((found!=null)&&(CMLib.flags().canBeSeenBy(found,mob)))
+			if((found!=null)
+			&&(CMLib.flags().canBeSeenBy(found,mob)))
 				return found;
 			while((found!=null)&&(!CMLib.flags().canBeSeenBy(found,mob)))
 			{
@@ -2693,7 +2761,10 @@ public class StdRoom implements Room
 					found=null;
 			}
 		}
-		if((mob!=null)&&(!favorItems)&&(filter!=Wearable.FILTER_WORNONLY))
+		if((found==null)
+		&&(mob!=null)
+		&&(!favorItems)
+		&&(filter!=Wearable.FILTER_WORNONLY))
 		{
 			found=mob.fetchItem(goodLocation, new Filterer<Environmental>()
 			{
@@ -2704,7 +2775,9 @@ public class StdRoom implements Room
 				}
 			}, thingName);
 		}
-		if((mob!=null)&&(found==null)&&(filter!=Wearable.FILTER_UNWORNONLY))
+		if((mob!=null)
+		&&(found==null)
+		&&(filter!=Wearable.FILTER_UNWORNONLY))
 		{
 			found=mob.fetchItem(null, new Filterer<Environmental>()
 			{
@@ -2719,11 +2792,11 @@ public class StdRoom implements Room
 			found=mob.fetchItem(goodLocation,filter,thingName);
 		if(found==null)
 		{
-			final boolean inShip=(this instanceof BoardableShip)||(this.getArea() instanceof BoardableShip);
+			final Directions.DirType dirType=CMLib.flags().getDirType(this);
 			for(int d=0;d<exits.length;d++)
 			{
 				if((exits[d]!=null)
-				&&(thingName.equalsIgnoreCase(inShip?CMLib.directions().getShipDirectionName(d):CMLib.directions().getDirectionName(d))))
+				&&(thingName.equalsIgnoreCase(CMLib.directions().getDirectionName(d,dirType))))
 					return getExitInDir(d);
 			}
 		}
@@ -2739,7 +2812,7 @@ public class StdRoom implements Room
 	@Override
 	public int pointsPerMove()
 	{
-		return getArea().getClimateObj().adjustMovement(phyStats().weight(),this);
+		return getArea().getClimateObj().adjustMovement(getMovementCost(),this);
 	}
 
 	protected int baseThirst()
@@ -2774,7 +2847,7 @@ public class StdRoom implements Room
 	@Override
 	public int maxRange()
 	{
-		return((domainType()&Room.INDOORS)>0)?1:10;
+		return phyStats().height();
 	}
 
 	@Override
@@ -2882,7 +2955,7 @@ public class StdRoom implements Room
 		{
 			return affects.elementAt(index);
 		}
-		catch(final java.lang.ArrayIndexOutOfBoundsException x)
+		catch(final IndexOutOfBoundsException x)
 		{
 		}
 		return null;
@@ -2973,7 +3046,7 @@ public class StdRoom implements Room
 		{
 			return behaviors.elementAt(index);
 		}
-		catch(final java.lang.ArrayIndexOutOfBoundsException x)
+		catch(final IndexOutOfBoundsException x)
 		{
 		}
 		return null;
@@ -3108,7 +3181,7 @@ public class StdRoom implements Room
 	@Override
 	public String L(final String str, final String... xs)
 	{
-		return CMLib.lang().fullSessionTranslation(str, xs);
+		return CMLib.lang().fullSessionTranslation(getClass(), str, xs);
 	}
 
 	@Override
@@ -3153,7 +3226,7 @@ public class StdRoom implements Room
 		case 3:
 			return text();
 		case 4:
-			return CMLib.coffeeMaker().getExtraEnvPropertiesStr(this);
+			return CMLib.coffeeMaker().getExtraEnvironmentalXML(this);
 		case 5:
 			return rawImage();
 		case 6:
@@ -3187,7 +3260,7 @@ public class StdRoom implements Room
 		{
 			delAllEffects(true);
 			delAllBehaviors();
-			CMLib.coffeeMaker().setExtraEnvProperties(this, CMLib.xml().parseAllXML(val));
+			CMLib.coffeeMaker().unpackExtraEnvironmentalXML(this, CMLib.xml().parseAllXML(val));
 			break;
 		}
 		case 5:

@@ -19,7 +19,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ public class Chant_Flippers extends Chant
 				noRecurse.set(true);
 				final Room targetRoom = (Room)msg.target();
 				final int dir = CMLib.map().getRoomDir(msg.source().location(), (Room)msg.target());
-				final int level = this.adjustedLevel(invoker(), 0);
+				final int level = this.adjustedLevel((MOB)affected, 0);
 				final int numRooms = level / 10;
 				Room finalRoom = targetRoom;
 				for(int i=0;i<numRooms;i++)

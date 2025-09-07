@@ -1,11 +1,11 @@
 package com.planet_ink.coffee_mud.Abilities.Skills;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMath.CompiledFormula;
 import com.planet_ink.coffee_mud.core.collections.*;
-import com.planet_ink.coffee_mud.Abilities.PlanarAbility;
-import com.planet_ink.coffee_mud.Abilities.PlanarAbility.PlanarSpecFlag;
-import com.planet_ink.coffee_mud.Abilities.PlanarAbility.PlanarVar;
+import com.planet_ink.coffee_mud.Abilities.StdPlanarAbility;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.PlanarAbility.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -106,9 +106,7 @@ public class Skill_PlanarLore extends StdSkill
 		final Area A=R.getArea();
 		if(A==null)
 			return false;
-		String currPlane = A.getBlurbFlag("PLANEOFEXISTENCE");
-		if((currPlane != null)&&(currPlane.startsWith("{"))&&(currPlane.endsWith("}")))
-			currPlane=currPlane.substring(1,currPlane.length()-1);
+		String currPlane = CMLib.flags().getPlaneOfExistence(A);
 		if(currPlane != null)
 		{
 			currPlane = CMStrings.capitalizeAllFirstLettersAndLower(currPlane);
@@ -120,7 +118,7 @@ public class Skill_PlanarLore extends StdSkill
 			mob.tell(L("\n\rYou are clearly on the Prime Material plane."));
 		}
 
-		final Map<String,Map<String,String>> pmap = PlanarAbility.getPlaneMap();
+		final Map<String,Map<String,String>> pmap = StdPlanarAbility.getAllPlanesMap();
 		if((commands.size()==0)
 		||((commands.size()==1)&&(commands.get(0).equalsIgnoreCase("LIST"))))
 		{
@@ -347,14 +345,29 @@ public class Skill_PlanarLore extends StdSkill
 			}
 			if(expertise > 3)
 			{
-				final String lvlSize = planeVars.get(PlanarVar.LEVELADJ.toString());
-				if(lvlSize != null)
+				final String levelFormulaStr = planeVars.get(PlanarVar.LEVELADJ.toString());
+				if((levelFormulaStr != null)&&(levelFormulaStr.trim().length()>0))
 				{
-					if(CMath.s_int(lvlSize)<0)
-						tidbits.add(L("Everything there is @x1 level(s) less powerful than you are.",""+lvlSize.substring(1)));
+					int amt;
+					if(CMath.isInteger(levelFormulaStr.trim()))
+						amt = CMath.s_int(levelFormulaStr.trim());
 					else
-						tidbits.add(L("Everything there is @x1 level(s) more powerful than you are.",""+lvlSize));
+					{
+						final CompiledFormula levelFormula = CMath.compileMathExpression(levelFormulaStr);
+						final double[] ivars=new double[] {50.0, 50.0, 50.0 } ;
+						final int newILevel = (int)CMath.round(CMath.parseMathExpression(levelFormula, ivars, 0.0));
+						amt = newILevel-50;
+					}
+					if(amt<0)
+						tidbits.add(L("Everything there averages @x1 level(s) less powerful than you.",""+CMath.abs(amt)));
+					else
+					if(amt>50)
+						tidbits.add(L("Everything there averages @x1 level(s) more powerful than you.",""+amt));
 				}
+
+				final String helpStr = planeVars.get(PlanarVar.DESCRIPTION.toString());
+				if((helpStr != null)&&(helpStr.length()>0))
+					tidbits.add(helpStr);
 			}
 			if(expertise > 4)
 			{
@@ -364,11 +377,14 @@ public class Skill_PlanarLore extends StdSkill
 					final List<Pair<String,String>> enableAs=CMParms.parseSpaceParenList(enables);
 					for(final Pair<String,String> P : enableAs)
 					{
-						final Ability A1=CMClass.getAbility(P.first);
-						if(A1!=null)
-							tidbits.add(L("You'll need to worry about creatures using @x1 there.",A1.name()));
-						else
-							tidbits.add(L("You'll need to worry about creatures using their @x1 powers against you there.",P.first.toLowerCase()));
+						if(!P.first.equalsIgnoreCase("Number"))
+						{
+							final Ability A1=CMClass.getAbility(P.first);
+							if(A1!=null)
+								tidbits.add(L("You'll need to worry about creatures using @x1 there.",A1.name()));
+							else
+								tidbits.add(L("You'll need to worry about creatures using their @x1 powers against you there.",P.first.toLowerCase()));
+						}
 					}
 				}
 				final String bonusDamageStat = planeVars.get(PlanarVar.BONUSDAMAGESTAT.toString());

@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -104,15 +104,15 @@ public class Prop_PrivateProperty extends Property implements PrivateProperty
 	}
 
 	@Override
-	public CMObject getOwnerObject()
+	public boolean isProperlyOwned()
 	{
 		final String owner=getOwnerName();
 		if(owner.length()==0)
-			return null;
-		final Clan C=CMLib.clans().getClanExact(owner);
+			return false;
+		final Clan C=CMLib.clans().fetchClanAnyHost(owner);
 		if(C!=null)
-			return C;
-		return CMLib.players().getLoadPlayer(owner);
+			return true;
+		return CMLib.players().playerExistsAllHosts(owner);
 	}
 
 	@Override
@@ -156,7 +156,7 @@ public class Prop_PrivateProperty extends Property implements PrivateProperty
 				}
 				else
 				if((this.getOwnerName().length()>0)
-				&&(CMLib.law().doesOwnThisProperty(this.getOwnerName(), R)))
+				&&(CMLib.law().isPropertyOwnersName(this.getOwnerName(), R)))
 				{
 					if(expiresec<=0)
 					{

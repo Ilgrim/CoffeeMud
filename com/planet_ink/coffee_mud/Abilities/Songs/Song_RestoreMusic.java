@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -61,21 +61,25 @@ public class Song_RestoreMusic extends Song
 		return CAN_ITEMS;
 	}
 
+	@Override
 	protected boolean skipStandardSongInvoke()
 	{
 		return true;
 	}
 
+	@Override
 	protected boolean mindAttack()
 	{
 		return abstractQuality() == Ability.QUALITY_MALICIOUS;
 	}
 
+	@Override
 	protected boolean skipStandardSongTick()
 	{
 		return true;
 	}
 
+	@Override
 	protected boolean skipSimpleStandardSongTickToo()
 	{
 		return true;
@@ -148,7 +152,11 @@ public class Song_RestoreMusic extends Song
 			{
 				mob.location().send(mob,msg);
 				mob.location().show(mob,target,CMMsg.MSG_OK_VISUAL,L("The music notations on <T-NAME> become more definite!"));
-				((Scroll)target).setUsesRemaining(((Scroll)target).usesRemaining()+1);
+				final double pct = CMath.div(mob.charStats().getStat(CharStats.STAT_CHARISMA), CMProps.getIntVar(CMProps.Int.BASEMAXSTAT));
+				final int rechargeAmount = (int)Math.round(CMath.mul(2, pct));
+				((Scroll)target).setUsesRemaining(((Scroll)target).usesRemaining()+rechargeAmount);
+				if(((Scroll)target).usesRemaining()>((Scroll)target).getSpells().size())
+					((Scroll)target).setUsesRemaining(((Scroll)target).getSpells().size());
 			}
 
 		}

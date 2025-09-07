@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -58,7 +58,9 @@ public class Dance_Tango extends Dance
 	public void affectCharStats(final MOB affectedMob, final CharStats affectableStats)
 	{
 		super.affectCharStats(affectedMob,affectableStats);
-		affectableStats.setStat(CharStats.STAT_CHARISMA,affectableStats.getStat(CharStats.STAT_CHARISMA)+10+getXLEVELLevel(invoker()));
+		final double pct = super.statBonusPct();
+		final int chaBonus = (int)Math.round(CMath.mul(10,pct));
+		affectableStats.setStat(CharStats.STAT_CHARISMA,affectableStats.getStat(CharStats.STAT_CHARISMA)+chaBonus+getXLEVELLevel(invoker()));
 	}
 
 	@Override

@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -107,7 +107,9 @@ public class ClanVote extends StdCommand
 						final int votesCast=(CV.votes!=null)?CV.votes.size():0;
 						msg.append((ivoted?"*":" ")
 								  +CMStrings.padRight(""+(v+1),3)
-								  +CMStrings.padRight(((CV.voteStatus==Clan.VSTAT_STARTED)?(votesCast+" votes cast"):(Clan.VSTAT_DESCS[CV.voteStatus])),15)
+								  +CMStrings.padRight(((CV.voteStatus==Clan.VSTAT_STARTED)?
+										  L("@x1 votes cast",""+votesCast):
+										  (Clan.VSTAT_DESCS[CV.voteStatus])),15)
 								  +CMStrings.padRight(CV.matter,55)+"\n\r");
 					}
 					msg.append(L("\n\rEnter CLANVOTE [#] to see details or place your vote."));
@@ -208,8 +210,8 @@ public class ClanVote extends StdCommand
 								break;
 							}
 						}
-						final int numVotes=C.getNumVoters(Function.values()[CV.function]);
-						if(numVotes<=(yeas+nays))
+						final int totalVoters=C.getNumVoters(Function.values()[CV.function]);
+						if(totalVoters<=(yeas+nays))
 						{
 							updateVote=true;
 							if(yeas<=nays)

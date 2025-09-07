@@ -1,5 +1,7 @@
 package com.planet_ink.coffee_mud.core;
+import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -8,7 +10,7 @@ import com.planet_ink.coffee_mud.core.interfaces.CMObject;
 import com.planet_ink.coffee_mud.core.interfaces.Environmental;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,11 +47,21 @@ public class CMParms
 	}
 
 	public static boolean[] PUNCTUATION_TABLE=null;
+	private final static Set<Character> badLastCs=new XHashSet<Character>(new Character[]
+	{
+		Character.valueOf('+'),
+		Character.valueOf('-'),
+		Character.valueOf('=')
+	});
+	private final static Map<String[],Triad<Map<Character,List<String>>,Map<String,String>,Map<String,Map<String,String>>>> parsedLooses =
+			new LimitedTreeMap<String[],Triad<Map<Character,List<String>>,Map<String,String>,Map<String,Map<String,String>>>>(30000,500,false);
 
 	/**
 	 * Example delimeter checker for spaces
 	 */
 	public static final DelimiterChecker spaceDelimiter=new DelimiterChecker();
+
+	private static final int[] emptyIntArray = new int[0];
 
 	/**
 	 * An overrideable class for supplying a delimiter determination tool
@@ -90,70 +102,92 @@ public class CMParms
 	}
 
 	/**
-	 * Combine two string arrays into a single one.
-	 * @param strs1 the first array
-	 * @param strs2 the second array
-	 * @return the combined array
-	 */
-	public final static String[] combine(final String[] strs1, final String[] strs2)
-	{
-		final int strs1Len = strs1.length;
-		final int strs2Len = strs2.length;
-		final String[] array= new String[strs1Len+strs2Len];
-		System.arraycopy(strs1, 0, array, 0, strs1Len);
-		System.arraycopy(strs2, 0, array, strs1Len, strs2Len);
-		return array;
-	}
-
-	/**
 	 * Combine object arrays into a single one.
 	 * @param objs the arrays
+	 * @param <T> the type of array
 	 * @return the combined array
 	 */
-	public final static Object[] combine(final Object[]... objs)
+	@SuppressWarnings("unchecked")
+	public final static <T> T[] combine(final T[]... objs)
 	{
+		if(objs.length == 0)
+			return (T[])new Object[0];
 		int len=0;
-		for(final Object[] obj : objs)
+		for(final T[] obj : objs)
 			len+=obj.length;
-		final Object[] array= new Object[len];
-		int x=0;
-		for(final Object[] obj : objs)
+		final T[] array = Arrays.copyOf(objs[0],len);
+		int x=objs[0].length;
+		for(int y=1;y<objs.length;y++)
 		{
-			System.arraycopy(obj, 0, array, x, obj.length);
-			x+=obj.length;
+			System.arraycopy(objs[y], 0, array, x, objs[y].length);
+			x+=objs[y].length;
 		}
 		return array;
 	}
 
 	/**
-	 * Combine two int arrays into a single one.
-	 * @param strs1 the first array
-	 * @param strs2 the second array
+	 * Combine multiple int arrays into a single one.
+	 * @param ints the arrays
 	 * @return the combined array
 	 */
-	public final static int[] combine(final int[] strs1, final int[] strs2)
+	public final static int[] combine(final int[]... ints)
 	{
-		final int strs1Len = strs1.length;
-		final int strs2Len = strs2.length;
-		final int[] array= new int[strs1Len+strs2Len];
-		System.arraycopy(strs1, 0, array, 0, strs1Len);
-		System.arraycopy(strs2, 0, array, strs1Len, strs2Len);
+		if(ints.length==0)
+			return new int[0];
+		int len=0;
+		for(final int[] obj : ints)
+			len+=obj.length;
+		final int[] array= Arrays.copyOf(ints[0], len);
+		int x=ints[0].length;
+		for(int y=1;y<ints.length;y++)
+		{
+			System.arraycopy(ints[y], 0, array, x, ints[y].length);
+			x+=ints[y].length;
+		}
 		return array;
 	}
 
 	/**
-	 * Combine two boolean arrays into a single one.
-	 * @param strs1 the first array
-	 * @param strs2 the second array
+	 * Combine multiple long arrays into a single one.
+	 * @param longs the arrays
 	 * @return the combined array
 	 */
-	public final static boolean[] combine(final boolean[] strs1, final boolean[] strs2)
+	public final static long[] combine(final long[]... longs)
 	{
-		final int strs1Len = strs1.length;
-		final int strs2Len = strs2.length;
-		final boolean[] array= new boolean[strs1Len+strs2Len];
-		System.arraycopy(strs1, 0, array, 0, strs1Len);
-		System.arraycopy(strs2, 0, array, strs1Len, strs2Len);
+		if(longs.length==0)
+			return new long[0];
+		int len=0;
+		for(final long[] obj : longs)
+			len+=obj.length;
+		final long[] array= Arrays.copyOf(longs[0], len);
+		int x=longs[0].length;
+		for(int y=1;y<longs.length;y++)
+		{
+			System.arraycopy(longs[y], 0, array, x, longs[y].length);
+			x+=longs[y].length;
+		}
+		return array;
+	}
+
+	/**
+	 * Combine multiple boolean arrays into a single one.
+	 * @param booleans the arrays
+	 * @return the combined array
+	 */
+	public final static boolean[] combine(final boolean[]... booleans)
+	{
+		if(booleans.length==0)
+			return new boolean[0];
+		int len=0;
+		for(final boolean[] obj : booleans)
+			len+=obj.length;
+		final boolean[] array= Arrays.copyOf(booleans[0], len);
+		int x=booleans[0].length;
+		for(int y=1;y<booleans.length;y++)
+		{
+			System.arraycopy(booleans[y], 0, array, x, booleans[y].length);
+			x+=booleans[y].length;
+		}
 		return array;
 	}
 
@@ -225,6 +259,81 @@ public class CMParms
 	}
 
 	/**
+	 * Returns a string containing the remainder of a string after the
+	 * given number of parts have been parsed out.
+	 *
+	 * @param commands the full string
+	 * @param startAt the index in the list to start at.
+	 * @return the remaining string
+	 */
+	public final static String rest(final String commands, final int startAt)
+	{
+		if(startAt<=0)
+			return commands;
+		final StringBuilder s=new StringBuilder();
+		final char[] cs=commands.toCharArray();
+		int state=0;
+		int index=0;
+		for(int i=0;i<cs.length;i++)
+		{
+			final char c=cs[i];
+			if((c=='\\')&&(i<cs.length-1))
+			{
+				s.append(cs[++i]);
+				state=(state==0)?1:state;
+			}
+			else
+			switch(state)
+			{
+			case 0:
+			{
+				if(c=='\"')
+					state=2;
+				else
+				if(!Character.isWhitespace(c))
+				{
+					s.append(c);
+					state=1;
+				}
+				break;
+			}
+			case 1:
+			{
+				if(Character.isWhitespace(c))
+				{
+					if(s.length()>0)
+					{
+						index++;
+						if(index == startAt)
+							return new String(cs,i+1,cs.length-(i+1));
+					}
+					s.setLength(0);
+					state=0;
+				}
+				else
+					s.append(c);
+				break;
+			}
+			case 2:
+			{
+				if(c=='\"')
+				{
+					index++;
+					if(index == startAt)
+						return new String(cs,i+1,cs.length-(i+1));
+					s.setLength(0);
+					state=0;
+				}
+				else
+					s.append(c);
+				break;
+			}
+			}
+		}
+		return "";
+	}
+
+	/**
 	 * Returns a string containing the given objects, with toString()
 	 * called, and now space delimited.
 	 * @param commands the objects to combine into a single string
@@ -239,6 +348,41 @@ public class CMParms
 		{
 			for(int commandIndex=startAt;commandIndex<endAt;commandIndex++)
 				combined.append(commands.get(commandIndex).toString()+" ");
+		}
+		return combined.toString().trim();
+	}
+
+	/**
+	 * Returns a string containing the given Strings, and now space delimited.
+	 * @param args the Strings to combine into a single string
+	 * @param startAt the index in the list to start at.
+	 * @param endAt the index in the list to end with
+	 * @return the single string
+	 */
+	public final static String combine(final String[] args, final int startAt, final int endAt)
+	{
+		final StringBuilder combined=new StringBuilder("");
+		if(args!=null)
+		{
+			for(int commandIndex=startAt;commandIndex<endAt;commandIndex++)
+				combined.append(args[commandIndex].toString()+" ");
+		}
+		return combined.toString().trim();
+	}
+
+	/**
+	 * Returns a string containing the given Strings, and now space delimited.
+	 * @param args the Strings to combine into a single string
+	 * @param startAt the index in the list to start at.
+	 * @return the single string
+	 */
+	public final static String combine(final String[] args, final int startAt)
+	{
+		final StringBuilder combined=new StringBuilder("");
+		if(args!=null)
+		{
+			for(int commandIndex=startAt;commandIndex<args.length;commandIndex++)
+				combined.append(args[commandIndex].toString()+" ");
 		}
 		return combined.toString().trim();
 	}
@@ -274,13 +418,10 @@ public class CMParms
 	public final static String combineWith(final List<?> commands, final char withChar)
 	{
 		final StringBuilder combined=new StringBuilder("");
-		if(commands!=null)
-		{
-			for(final Object o : commands)
-				combined.append(withChar).append(o.toString());
-		}
-		if(combined.length()==0)
+		if((commands==null)||(commands.size()==0))
 			return "";
+		for(final Object o : commands)
+			combined.append(withChar).append(o.toString());
 		return combined.substring(1);
 	}
 
@@ -323,8 +464,16 @@ public class CMParms
 			for(int commandIndex=startAt;commandIndex<endAt;commandIndex++)
 			{
 				s=commands.get(commandIndex).toString();
+				int x=s.indexOf("\"");
+				while(x>=0)
+				{
+					s=s.substring(0,x)+"\\"+s.substring(x);
+					x=s.indexOf("\"",x+2);
+				}
 				if(s.indexOf(' ')>=0)
+				{
 					combined.append('\"').append(s).append("\" ");
+				}
 				else
 					combined.append(s).append(" ");
 			}
@@ -387,6 +536,12 @@ public class CMParms
 			for(int commandIndex=startAt;commandIndex<commands.size();commandIndex++)
 			{
 				s=commands.get(commandIndex).toString();
+				int x=s.indexOf("\"");
+				while(x>=0)
+				{
+					s=s.substring(0,x)+"\\"+s.substring(x);
+					x=s.indexOf("\"",x+2);
+				}
 				if(s.indexOf(' ')>=0)
 					combined.append('\"').append(s).append("\" ");
 				else
@@ -516,6 +671,95 @@ public class CMParms
 	}
 
 	/**
+	 * Does a cleanParamatersList-like parse to generate a parm=val string, which
+	 * is then parsed into a map.  Multiple values for each key are
+	 * allowed.  Remaining chars and strings are put into an empty-key
+	 * value.
+	 * @param args the unparsed args
+	 * @return the map of args
+	 */
+	public static Map<String,String[]> parseCommandLineArgs(final String[] args)
+	{
+		final Map<String,String[]> parms = new Hashtable<String,String[]>();
+		final List<String> vargs = new XArrayList<String>(args);
+		for(int v=0;v<vargs.size();v++)
+		{
+			final String a = vargs.get(v);
+			if(a.startsWith("=")&&(a.length()>1)&&(v>0))
+			{
+				final String parm=vargs.get(v-1).trim().toUpperCase();
+				final String value = a.substring(1);
+				if(parm.length()>0)
+				{
+					String[] vals = new String[1];
+					if(parms.containsKey(parm))
+						vals = Arrays.copyOf(parms.get(parm), parms.get(parm).length+1);
+					vals[vals.length-1] = value;
+					parms.put(parm, vals);
+				}
+				vargs.remove(v);
+				v--;
+				vargs.remove(v);
+				v--;
+				continue;
+			}
+			if(a.endsWith("=")&&(a.length()>1)&&(v<(vargs.size()-1)))
+			{
+				final String parm=a.substring(0,a.length()-1).trim().toUpperCase();
+				final String value="";
+				if(parm.length()>0)
+				{
+					String[] vals = new String[1];
+					if(parms.containsKey(parm))
+						vals = Arrays.copyOf(parms.get(parm), parms.get(parm).length+1);
+					vals[vals.length-1] = value;
+					parms.put(parm, vals);
+				}
+				vargs.remove(v);
+				v--;
+				continue;
+			}
+			if(a.equals("=")&&((v>0)&&(v<(vargs.size()-1))))
+			{
+				final String parm=vargs.get(v-1).toUpperCase().trim();
+				final String value=vargs.get(v+1);
+				if(parm.length()>0)
+				{
+					String[] vals = new String[1];
+					if(parms.containsKey(parm))
+						vals = Arrays.copyOf(parms.get(parm), parms.get(parm).length+1);
+					vals[vals.length-1] = value;
+					parms.put(parm, vals);
+				}
+				vargs.remove(v-1);
+				vargs.remove(v-1);
+				vargs.remove(v-1);
+				v-=2;
+				continue;
+			}
+			final int x = a.indexOf('=');
+			if(x>0)
+			{
+				final String parm = a.substring(0,x).trim().toUpperCase();
+				if(parm.length()>0)
+				{
+					String[] vals = new String[1];
+					if(parms.containsKey(parm))
+						vals = Arrays.copyOf(parms.get(parm), parms.get(parm).length+1);
+					vals[vals.length-1] = a.substring(x+1);
+					parms.put(parm, vals);
+					vargs.remove(v);
+					v--;
+				}
+			}
+		}
+		final String xtra=CMParms.combine(vargs,0);
+		if(xtra.length()>0)
+			parms.put("", new String[] { xtra.toString()});
+		return parms;
+	}
+
+	/**
 	 * Parses the given string space-delimited, with respect for quoted
 	 * strings.
 	 * @param str the string to parse
@@ -529,8 +773,15 @@ public class CMParms
 		final StringBuilder s=new StringBuilder();
 		final char[] cs=str.toCharArray();
 		int state=0;
-		for(final char c : cs)
+		for(int i=0;i<cs.length;i++)
 		{
+			final char c=cs[i];
+			if((c=='\\')&&(i<cs.length-1))
+			{
+				s.append(cs[++i]);
+				state=(state==0)?1:state;
+			}
+			else
 			switch(state)
 			{
 			case 0:
@@ -589,6 +840,17 @@ public class CMParms
 	}
 
 	/**
+	 * Parses the given string comma-delimited, handling escaped commas.
+	 * @param s the string to parse
+	 * @param ignoreNulls don't include any of the empty entries (,,)
+	 * @return the list of parsed strings
+	 */
+	public final static List<String> parseCommasSafe(final String s, final boolean ignoreNulls)
+	{
+		return parseAny(s,',',ignoreNulls);
+	}
+
+	/**
 	 * Returns a list of those flag strings that appear in the given string.
 	 * @param s the string to search
 	 * @param flags the set of flags to look for
@@ -618,7 +880,7 @@ public class CMParms
 	 */
 	public final static List<String> parseTabs(final String s, final boolean ignoreNulls)
 	{
-		return parseAny(s,'\t',ignoreNulls);
+		return parseAny(s,'\t',ignoreNulls,true);
 	}
 
 	/**
@@ -704,29 +966,53 @@ public class CMParms
 	 * @param s the string to parse
 	 * @param delimiter the delimiter to use
 	 * @param ignoreNulls don't include any of the empty entries (-delim-delim)
+	 * @param safe handle escaped delimiters
 	 * @return the list of parsed strings
 	 */
-	public final static List<String> parseAny(final String s, final char delimiter, final boolean ignoreNulls)
+	public final static List<String> parseAny(final String s, final char delimiter, final boolean ignoreNulls, final boolean safe)
 	{
 		final Vector<String> V=new Vector<String>(1);
 		if((s==null)||(s.isEmpty()))
 			return V;
 		int last=0;
 		String sub;
-		for(int i=0;i<s.length();i++)
+		char c;
+		final StringBuilder str=new StringBuilder(s);
+		for(int i=0;i<str.length();i++)
 		{
-			if(s.charAt(i)==delimiter)
+			c=str.charAt(i);
+			if(c==delimiter)
 			{
-				sub=s.substring(last,i).trim();
-				last=i+1;
-				if(!ignoreNulls||(sub.length()>0))
-					V.add(sub);
+				if(safe&&(i>0)&&(str.charAt(i-1)=='\\'))
+				{
+					str.deleteCharAt(i-1);
+					i--;
+				}
+				else
+				{
+					sub=str.substring(last,i).trim();
+					last=i+1;
+					if(!ignoreNulls||(sub.length()>0))
+						V.add(sub);
+				}
 			}
 		}
-		sub = (last>=s.length())?"":s.substring(last,s.length()).trim();
+		sub = (last>=str.length())?"":str.substring(last,str.length()).trim();
 		if(!ignoreNulls||(sub.length()>0))
 			V.add(sub);
 		return V;
+	}
+
+	/**
+	 * Parses the given string by the given delimiter.
+	 * @param s the string to parse
+	 * @param delimiter the delimiter to use
+	 * @param ignoreNulls don't include any of the empty entries (-delim-delim)
+	 * @return the list of parsed strings
+	 */
+	public final static List<String> parseAny(final String s, final char delimiter, final boolean ignoreNulls)
+	{
+		return parseAny(s,delimiter,ignoreNulls,false);
 	}
 
 	/**
@@ -841,7 +1127,7 @@ public class CMParms
 			}
 		}
 		sub = (last>=s.length())?"":s.substring(last,s.length()).trim();
-		if(sub.isEmpty())
+		if(!sub.isEmpty())
 			V.add(sub);
 		return V;
 	}
@@ -1051,6 +1337,64 @@ public class CMParms
 		}
 	}
 
+
+	/**
+	 * Return an entire line of MOBPROG bits
+	 * @param s string to parse
+	 * @return the cleaned bits
+	 */
+	public final static String[] getCleanBits(final String s)
+	{
+		int start=-1;
+		char q=' ';
+		final char[] cs=s.toCharArray();
+		final List<String> bits=new ArrayList<String>();
+		for(int c=0;c<cs.length;c++)
+			switch(start)
+			{
+			case -1:
+				switch(cs[c])
+				{
+				case ' ':
+				case '\t':
+				case '\n':
+				case '\r':
+					break;
+				case '\'':
+				case '`':
+					q=cs[c];
+					start=c;
+					break;
+				default:
+					q=' ';
+					start=c;
+					break;
+				}
+				break;
+			default:
+				if((cs[c]==q)||(q==' ' && cs[c]=='\t'))
+				{
+					if((q!=' ')
+					&&(c<cs.length-1)
+					&&(!Character.isWhitespace(cs[c+1])))
+						break;
+					if(q==' ')
+						bits.add(new String(cs,start,c-start));
+					else
+						bits.add(new String(cs,start,c-start+1));
+					start=-1;
+				}
+				break;
+			}
+		if(start>=0)
+		{
+			final String finalBit=new String(cs,start,cs.length-start);
+			if(finalBit.trim().length()>0)
+				bits.add(finalBit.trim());
+		}
+		return bits.toArray(new String[0]);
+	}
+
 	private static boolean[] PUNCTUATION_TABLE()
 	{
 		if(PUNCTUATION_TABLE==null)
@@ -1138,7 +1482,7 @@ public class CMParms
 	 * The value ends when either an end quote is encountered, or a whitespace, semicolon, or
 	 * comma.
 	 * @param text the string to search
-	 * @param key the key to search for, case insensitive
+	 * @param key the key to search for, case insensitive, starts_with rules
 	 * @param defaultVal the value to return if the key is not found
 	 * @return the value
 	 */
@@ -1164,7 +1508,9 @@ public class CMParms
 						continue;
 					}
 					boolean endWithQuote=false;
-					while((x<text.length())&&(!Character.isLetterOrDigit(text.charAt(x))))
+					while((x<text.length())
+					&&(!Character.isLetterOrDigit(text.charAt(x)))
+					&&(text.charAt(x)!='*'))
 					{
 						if(text.charAt(x)=='\"')
 						{
@@ -1212,6 +1558,123 @@ public class CMParms
 				x=text.toUpperCase().indexOf(key.toUpperCase(),x+1);
 		}
 		return defaultVal;
+	}
+
+
+	/**
+	 * This method is a sloppy, forgiving method doing KEY=VALUE value searches in a string.
+	 * Returns the value of the given key when the parameter is formatted in the given text
+	 * in the format [KEY]=[VALUE] or [KEY]="[VALUE]".  If the key is not found, it will
+	 * return the given defaultVal.  The key is case insensitive, and start-partial.  For
+	 * example, a key of NAME will match NAMEY or NAME12.
+	 * No assumptions are made about the given text.  It could have other garbage data of
+	 * any format around it.  For example, if BOB is the key, then a text string like:
+	 * 'joe larry bibob=hoo moe="uiuiui bob=goo lou", bob="yoo"' will still return "goo".
+	 * If the key is found, but followed by a + or -, the default value is always returned.
+	 * The value ends when either an end quote is encountered, or a whitespace, semicolon, or
+	 * comma.
+	 * @param text the string to search
+	 * @param key the key to search for, case insensitive, starts_with rules
+	 * @param defaultVal the value to return if the key is not found
+	 * @return the values, or String[1] { defaultVal }
+	 */
+	public final static String[] getParmStrs(final String text, final String key, final String defaultVal)
+	{
+		final List<String> vals = new ArrayList<String>(3);
+		int x=text.toUpperCase().indexOf(key.toUpperCase());
+		while(x>=0)
+		{
+			final int startx=x;
+			if((x==0)||(!Character.isLetter(text.charAt(x-1))))
+			{
+				while((x<text.length())&&(text.charAt(x)!='='))
+				{
+					if((text.charAt(x)=='+')||(text.charAt(x)=='-'))
+					{
+						vals.add(defaultVal);
+						continue;
+					}
+					x++;
+				}
+				if(x<text.length())
+				{
+					if(hasPunctuation(text.substring(startx, x)))
+					{
+						x=text.toUpperCase().indexOf(key.toUpperCase(),startx+1);
+						continue;
+					}
+					boolean endWithQuote=false;
+					while((x<text.length())
+					&&(!Character.isLetterOrDigit(text.charAt(x)))
+					&&(text.charAt(x)!='*'))
+					{
+						if(text.charAt(x)=='\"')
+						{
+							endWithQuote=true;
+							x++;
+							break;
+						}
+						x++;
+					}
+					if(x<text.length())
+					{
+						final int valStart=x;
+						if(endWithQuote)
+						{
+							while(x<text.length())
+							{
+								if((text.charAt(x)=='\"')&&(text.charAt(x-1)!='\\'))
+								{
+									vals.add(text.substring(valStart,x));
+									x++;
+									break;
+								}
+								x++;
+							}
+							x=text.toUpperCase().indexOf(key.toUpperCase(),x);
+							continue;
+						}
+						else
+						{
+							final int sz = vals.size();
+							while(x<text.length())
+							{
+								switch(text.charAt(x))
+								{
+								case ' ':
+								case '\n':
+								case '\r':
+								case '\t':
+								case ':':
+								case ';':
+								{
+									vals.add(text.substring(valStart,x));
+									x++;
+									break;
+								}
+								}
+								if(sz < vals.size())
+									break;
+								x++;
+							}
+							if(x<text.length())
+							{
+								x=text.toUpperCase().indexOf(key.toUpperCase(),x);
+								continue;
+							}
+						}
+						vals.add(text.substring(valStart));
+						break;
+					}
+				}
+				x=-1;
+			}
+			else
+				x=text.toUpperCase().indexOf(key.toUpperCase(),x+1);
+		}
+		if(vals.size()==0)
+			vals.add(defaultVal);
+		return vals.toArray(new String[vals.size()]);
 	}
 
 	/**
@@ -1415,7 +1878,8 @@ public class CMParms
 					&&(str.substring(x,x+element.length()).equalsIgnoreCase(element)))
 					{
 						int chkX=x+element.length();
-						while((chkX<str.length())&&(Character.isWhitespace(str.charAt(chkX))))
+						while((chkX<str.length())
+						&&(Character.isWhitespace(str.charAt(chkX))||Character.isLetter(str.charAt(chkX))))
 							chkX++;
 						if((chkX<str.length())&&(str.charAt(chkX)=='='))
 						{
@@ -1445,12 +1909,224 @@ public class CMParms
 		return h;
 	}
 
+
+	private final static String cleanArgVal(String val, final char eqParm, final List<String> errors)
+	{
+		if(eqParm!='=')
+		{
+			final int spx=val.indexOf(' ');
+			if(spx>0)
+			{
+				final String trimmed =val.substring(0,spx).trim();
+				if(!trimmed.startsWith(eqParm+"")
+				||(CMath.isMathExpression(trimmed.substring(1))))
+					val=trimmed;
+			}
+			if(val.endsWith(";"))
+				val=val.substring(0,val.length()-1).trim();
+			if(val.length()>2)
+			{
+				for(final char c : "\"'`".toCharArray())
+				{
+					if((val.charAt(0)==eqParm)
+					&&(val.charAt(1)==c)
+					&&(val.charAt(val.length()-1)==c))
+						return eqParm + val.substring(2,val.length()-1).trim();
+				}
+			}
+		}
+		if(val.length()>1)
+		{
+			for(final char c : "\"'`".toCharArray())
+			{
+				if((val.charAt(0)==c)&&(val.charAt(val.length()-1)==c))
+					return val.substring(0,val.length()-1).trim();
+			}
+		}
+		return val;
+	}
+
+	/**
+	 * Parses the given string for [PARAM]=[VALUE] or [PARAM]="[VALUE]" formatted key/pair
+	 * values, or + or - separated, relying on the given parmList to provide possible [PARAM] values.
+	 * Returns a map of the found parameters and their values.
+	 * This method is a sloppy, forgiving method doing KEY=VALUE value searches in a string.
+	 * The key is case insensitive, and start-partial.  For example, a key of NAME will match NAMEY or NAME12.
+	 * The value ends when the next parameter is encountered.  If it's not on the parmList, it
+	 * is a value.
+	 * @param str the unparsed string
+	 * @param parmList exhaustive list of all parameters
+	 * @param errors an empty list to put errors in, or null
+	 * @return the map of parameters
+	 */
+	public final static Map<String,String> parseLooseParms(final String str, final String[] parmList, final List<String> errors)
+	{
+		final Hashtable<String,String> h=new Hashtable<String,String>();
+		if((str==null)||(str.length()==0))
+			return h;
+		Character C;
+		final Map<Character,List<String>> chkMap;
+		final Map<String,String> uMap;
+		Triad<Map<Character,List<String>>,Map<String,String>,Map<String,Map<String,String>>> cache;
+		if(parsedLooses.containsKey(parmList))
+		{
+			cache=parsedLooses.get(parmList);
+			if(cache.third.containsKey(str))
+				return cache.third.get(str);
+			chkMap=cache.first;
+			uMap=cache.second;
+		}
+		else
+		{
+			chkMap=new HashMap<Character,List<String>>();
+			uMap=new TreeMap<String,String>();
+			final LimitedTreeMap<String,Map<String,String>> subCache=new LimitedTreeMap<String,Map<String,String>>(30000,500,false);
+			cache=new Triad<Map<Character,List<String>>,Map<String,String>,Map<String,Map<String,String>>>(chkMap,uMap,subCache);
+			for (final String element : parmList)
+			{
+				C=Character.valueOf(Character.toUpperCase(element.charAt(0)));
+				final List<String> elems;
+				if(!chkMap.containsKey(C))
+				{
+					elems=new LinkedList<String>();
+					chkMap.put(C, elems);
+				}
+				else
+					elems=chkMap.get(C);
+				elems.add(element.toUpperCase());
+				uMap.put(element.toUpperCase(), element);
+			}
+			parsedLooses.put(parmList, cache);
+		}
+		String lastParm=null;
+		int lastEQ=-1;
+		char lastEQChar='=';
+		for(int x=1;x<str.length();x++)
+		{
+			if((x>2)
+			&&((str.charAt(x)=='`')||(str.charAt(x)=='\''))
+			&&(lastParm!=null)
+			&&(lastEQ>0))
+			{
+				int y=x+1;
+				for(;y<str.length();y++)
+					if(str.charAt(y)==str.charAt(x))
+						break;
+				if(y<str.length())
+				{
+					x=y;
+					continue;
+				}
+			}
+			if("+-=".indexOf(str.charAt(x))>=0)
+			{
+				int startParm=x-1;
+				while((startParm>0)&&Character.isWhitespace(str.charAt(startParm)))
+					startParm--;
+				if((startParm>0)&&(!Character.isLetterOrDigit(str.charAt(startParm))))
+					continue;
+				while((startParm>0)&&Character.isLetterOrDigit(str.charAt(startParm-1)))
+					startParm--;
+
+				String possParm=str.substring(startParm,x).toUpperCase().trim();
+				C=Character.valueOf(possParm.charAt(0));
+				if((!Character.isLetter(C.charValue()))
+				||(!chkMap.containsKey(C))
+				||(badLastCs.contains(C)))
+					continue;
+
+				boolean found=uMap.containsKey(possParm);
+				if(!found)
+				{
+					for (final String element : chkMap.get(C))
+					{
+						if(possParm.equals(element))
+						{
+							possParm=element;
+							found=true;
+							break;
+						}
+					}
+				}
+				if(!found)
+				{
+					for (final String element : chkMap.get(C))
+					{
+						if(element.startsWith(possParm))
+						{
+							possParm=element;
+							found=true;
+							break;
+						}
+					}
+				}
+				if(!found)
+				{
+					for (final String element : chkMap.get(C))
+					{
+						if(possParm.startsWith(element))
+						{
+							possParm=element;
+							found=true;
+							break;
+						}
+					}
+				}
+				if(found)
+				{
+					if((lastParm!=null)&&(lastEQ>0))
+					{
+						final String midBit=str.substring(lastEQ+1,startParm).trim();
+						final String val=cleanArgVal(midBit,lastEQChar,errors);
+						final String uKey = uMap.get(lastParm);
+						if(h.containsKey(uKey))
+						{
+							int i=2;
+							for(;h.containsKey(uKey+i);i++)
+							{}
+							h.put(uKey+i, val);
+						}
+						else
+							h.put(uKey,val);
+					}
+					lastParm=possParm;
+					lastEQChar=str.charAt(x);
+					if(lastEQChar=='=')
+						lastEQ=x;
+					else
+						lastEQ=x-1;
+				}
+				else
+				if(errors != null)
+					errors.add("Illegal parameter starts at: "+str.substring(startParm));
+			}
+		}
+		if((lastParm!=null)&&(lastEQ>0))
+		{
+			final String val=cleanArgVal(str.substring(lastEQ+1).trim(),lastEQChar,errors);
+			final String uKey = uMap.get(lastParm);
+			if(h.containsKey(uKey))
+			{
+				int i=2;
+				for(;h.containsKey(uKey+i);i++)
+				{}
+				h.put(uKey+i, val);
+			}
+			else
+				h.put(uKey,val);
+		}
+		@SuppressWarnings("unchecked")
+		final Map<String,String> hCopy=(Map<String,String>)h.clone();
+		cache.third.put(str, hCopy);
+		return h;
+	}
+
 	/**
 	 * Parses the given string for[PAREM1] [PARAM2]=[VALUE] or [PARAM]="[VALUE]" formatted key/pair
 	 * values. Returns a map of the found parameters and their values.
 	 * This method is a strict, unforgiving method doing KEY=VALUE value searches in a string.
 	 * The key is case insensitive, returned as uppercase.  Values may be put in quotes, with
-	 * escapped quotes and escapped escapes.
+	 * escaped quotes and escaped escapes.
 	 * @param str the unparsed string
 	 * @return the map of parameters
 	 */
@@ -1562,6 +2238,27 @@ public class CMParms
 	}
 
 	/**
+	 * Given a String array, and another array to insert into the first, and where to insert it,
+	 * this will insert the second array into the first at the where.
+	 *
+	 * @param oldS the array to insert into
+	 * @param inS the array to insert into oldS
+	 * @param where where to insert inS into oldS
+	 * @return the combined array
+	 */
+	public static final  String[] insertStringArray(final String[] oldS, final String[] inS, final int where)
+	{
+		final String[] newLine=new String[oldS.length+inS.length-1];
+		for(int i=0;i<where;i++)
+			newLine[i]=oldS[i];
+		for(int i=0;i<inS.length;i++)
+			newLine[where+i]=inS[i];
+		for(int i=where+1;i<oldS.length;i++)
+			newLine[inS.length+i-1]=oldS[i];
+		return newLine;
+	}
+
+	/**
 	 * Given a key/value parameter map, returns a string that is reparseable in a given
 	 * delimited way as KEY=VLUE, adding double quotes if any value has the delimiter.
 	 * @param parms the key/value pairs
@@ -1599,6 +2296,43 @@ public class CMParms
 
 	/**
 	 * Parses the given string for [PARAM]=[VALUE] or [PARAM]="[VALUE]" formatted key/pair
+	 * values in space-delimited fashion, respecting quotes value.
+	 * Returns a map of the found parameters and their values, with keys not normalized.
+	 * @param parms the string to parse
+	 * @return the map of key/value pairs found.
+	 */
+	public final static Map<String,String> parseEQParmsLow(final String parms)
+	{
+		return parseEQParms(parms,spaceDelimiter,false);
+	}
+
+	/**
+	 * Parses the given string for [PARAM]=[VALUE] or [PARAM]="[VALUE]" formatted key/pair
+	 * values in space-delimited fashion, respecting quotes value.
+	 * Returns a list of the found parameters and their values, with keys normalized to
+	 * uppercase.
+	 * @param parms the string to parse
+	 * @return the map of key/value pairs found.
+	 */
+	public final static PairList<String,String> parseEQParmsList(final String parms)
+	{
+		return parseEQParmsList(parms,spaceDelimiter,true);
+	}
+
+	/**
+	 * Parses the given string for [PARAM]=[VALUE] or [PARAM]="[VALUE]" formatted key/pair
+	 * values in space-delimited fashion, respecting quotes value.
+	 * Returns a list of the found parameters and their values, with keys not normalized.
+	 * @param parms the string to parse
+	 * @return the map of key/value pairs found.
+	 */
+	public final static PairList<String,String> parseEQParmsLowList(final String parms)
+	{
+		return parseEQParmsList(parms,spaceDelimiter,false);
+	}
+
+	/**
+	 * Parses the given string for [PARAM]=[VALUE] or [PARAM]="[VALUE]" formatted key/pair
 	 * values in given-delimited fashion, respecting quotes value.
 	 * Returns a map of the found parameters and their values, with keys normalized to
 	 * uppercase.
@@ -1610,11 +2344,30 @@ public class CMParms
 	public final static Map<String,String> parseEQParms(final String parms, final DelimiterChecker delimiterCheck, final boolean upperCase)
 	{
 		final Map<String,String> h=new Hashtable<String,String>();
+		for(final Pair<String,String> p : parseEQParmsList(parms, delimiterCheck, upperCase))
+			h.put(p.first, p.second);
+		return h;
+	}
+
+	/**
+	 * Parses the given string for [PARAM]=[VALUE] or [PARAM]="[VALUE]" formatted key/pair
+	 * values in given-delimited fashion, respecting quotes value.
+	 * Returns a pairlist of the found parameters and their values, with keys normalized to
+	 * uppercase optionally.
+	 * @param parms the string to parse
+	 * @param delimiterCheck the checker to determine if a character is the given delimiter
+	 * @param upperCase make the keys uppercase
+	 * @return the map of key/value pairs found.
+	 */
+	public final static PairList<String,String> parseEQParmsList(final String parms, final DelimiterChecker delimiterCheck, final boolean upperCase)
+	{
+		final PairList<String,String> h=new PairVector<String,String>();
 		int state=0;
 		int start=-1;
 		String parmName=null;
 		int lastPossibleStart=-1;
 		boolean lastWasWhitespace=false;
+		char lastC=' ';
 		final StringBuilder str=new StringBuilder(parms);
 		for(int x=0;x<=str.length();x++)
 		{
@@ -1633,7 +2386,7 @@ public class CMParms
 				if((c=='_')||(Character.isLetter(c)))
 				{
 					if((parmName!=null)&&(parmName.length()>0))
-						h.put(parmName, "");
+						h.add(parmName, "");
 					start=x;
 					state=1;
 					parmName=null;
@@ -1652,7 +2405,7 @@ public class CMParms
 					state=2;
 				}
 				else
-				if(delimiterCheck.isDelimiter(c))
+				if(delimiterCheck.isDelimiter(c)&&(lastC!='\\'))
 				{
 					if((!Character.isWhitespace(c))&&(x<str.length()))
 						str.setCharAt(x,' '); // has to be trimmable
@@ -1660,6 +2413,11 @@ public class CMParms
 						parmName=str.substring(start,x).toUpperCase().trim();
 					else
 						parmName=str.substring(start,x).trim();
+					if(c == '\n')
+					{
+						if(parmName.length()>0)
+							h.add(parmName, "");
+					}
 					state=5;
 					start=x;
 				}
@@ -1694,7 +2452,7 @@ public class CMParms
 				if(c=='\"')
 				{
 					state=0;
-					h.put(parmName,str.substring(start,x));
+					h.add(parmName,str.substring(start,x));
 					parmName=null;
 				}
 				break;
@@ -1709,7 +2467,7 @@ public class CMParms
 						state=2;
 					else
 					{
-						h.put(parmName,str.substring(start,lastPossibleStart).trim());
+						h.add(parmName,str.substring(start,lastPossibleStart).trim());
 						if(upperCase)
 							parmName=str.substring(lastPossibleStart,x).toUpperCase().trim();
 						else
@@ -1721,7 +2479,7 @@ public class CMParms
 				if(c=='\n')
 				{
 					state=0;
-					h.put(parmName,str.substring(start,x));
+					h.add(parmName,str.substring(start,x));
 					parmName=null;
 				}
 				else
@@ -1739,6 +2497,7 @@ public class CMParms
 				}
 				break;
 			}
+			lastC=c;
 		}
 		return h;
 	}
@@ -1842,21 +2601,74 @@ public class CMParms
 
 	/**
 	 * This method is for parsing space-delimited lists of ids, with optional parameters
-	 * in parenthis after the id.  For example ID1(parm1) ID2 ID3 ID4(parm2)
+	 * in parenthesis after the id.  For example ID1(parm1) ID2 ID3 ID4(parm2)
+	 * Keys are set to uppercase
 	 * @param list the list of things to parse
 	 * @return the parsed list.
 	 */
 	public static final List<Pair<String,String>> parseSpaceParenList(final String list)
 	{
+		return parseDelimitedParenList(list,' ',true);
+	}
+
+	/**
+	 * This method is for parsing space-delimited lists of ids, with optional parameters
+	 * in parenthesis after the id.  For example ID1(parm1) ID2 ID3 ID4(parm2)
+	 * Keys are not set to uppercase
+	 * @param list the list of things to parse
+	 * @return the parsed list.
+	 */
+	public static final List<Pair<String,String>> parseSpaceParenListLow(final String list)
+	{
+		return parseDelimitedParenList(list,' ',false);
+	}
+
+	/**
+	 * This method is for parsing comma-delimited lists of ids, with optional parameters
+	 * in parenthesis after the id.  For example ID1(parm1) ID2 ID3 ID4(parm2)
+	 * Keys are set to uppercase
+	 * @param list the list of things to parse
+	 * @return the parsed list.
+	 */
+	public static final List<Pair<String,String>> parseCommaParenList(final String list)
+	{
+		return parseDelimitedParenList(list,',',true);
+	}
+
+	/**
+	 * This method is for parsing comma-delimited lists of ids, with optional parameters
+	 * in parenthesis after the id.  For example ID1(parm1) ID2 ID3 ID4(parm2)
+	 * Keys are not set to uppercase
+	 * @param list the list of things to parse
+	 * @return the parsed list.
+	 */
+	public static final List<Pair<String,String>> parseCommaParenListLow(final String list)
+	{
+		return parseDelimitedParenList(list,',',false);
+	}
+
+	/**
+	 * This method is for parsing given-delimited lists of ids, with optional parameters
+	 * in parenthis after the id.  For example ID1(parm1) ID2 ID3 ID4(parm2)
+	 * @param list the list of things to parse
+	 * @param delim the delimited
+	 * @param upKey true to uppercase the keys, false to leave as-is
+	 * @return the parsed list.
+	 */
+	public static final List<Pair<String,String>> parseDelimitedParenList(final String list, final char delim, final boolean upKey)
+	{
 		int state=0; //0=waitingfor id start,1=waiting for parenstart,2=waitingforparenend
 		final StringBuilder id=new StringBuilder("");
 		final StringBuilder parms=new StringBuilder("");
 		final List<Pair<String,String>> pairList = new PairVector<String,String>();
+		int depth=0;
 		for(int i=0;i<list.length();i++)
 		{
 			switch(state)
 			{
 			case 0:
+				if(list.charAt(i)==delim)
+					break;
 				if(!Character.isWhitespace(list.charAt(i)))
 				{
 					id.append(list.charAt(i));
@@ -1865,14 +2677,12 @@ public class CMParms
 				break;
 			case 1:
 				if(list.charAt(i)=='(')
-				{
 					state=2;
-				}
 				else
-				if(Character.isWhitespace(list.charAt(i)))
+				if(list.charAt(i)==delim)
 				{
 					if(id.length()>0)
-						pairList.add(new Pair<String,String>(id.toString().toUpperCase(),parms.toString().trim()));
+						pairList.add(new Pair<String,String>(upKey?id.toString().toUpperCase():id.toString(),parms.toString().trim()));
 					id.setLength(0);
 					parms.setLength(0);
 					state=0;
@@ -1883,11 +2693,25 @@ public class CMParms
 			case 2:
 				if(list.charAt(i)==')')
 				{
-					if(id.length()>0)
-						pairList.add(new Pair<String,String>(id.toString().toUpperCase(),parms.toString().trim()));
-					id.setLength(0);
-					parms.setLength(0);
-					state=0;
+					if(depth==0)
+					{
+						if(id.length()>0)
+							pairList.add(new Pair<String,String>(upKey?id.toString().toUpperCase():id.toString(),parms.toString().trim()));
+						id.setLength(0);
+						parms.setLength(0);
+						state=0;
+					}
+					else
+					{
+						parms.append(list.charAt(i));
+						depth--;
+					}
+				}
+				else
+				if(list.charAt(i)=='(')
+				{
+					parms.append(list.charAt(i));
+					depth++;
 				}
 				else
 					parms.append(list.charAt(i));
@@ -1896,7 +2720,7 @@ public class CMParms
 		}
 		if(id.length()>0)
 		{
-			pairList.add(new Pair<String,String>(id.toString().toUpperCase(),parms.toString().trim()));
+			pairList.add(new Pair<String,String>(upKey?id.toString().toUpperCase():id.toString(),parms.toString().trim()));
 		}
 		return pairList;
 	}
@@ -1911,7 +2735,7 @@ public class CMParms
 	 * 'joe larry bibob+5 moe="uiuiui bob-2 lou", bob+2' will still return -2.
 	 * If the key is found, but followed by a =, 0 is returned.
 	 * @param text the string to search
-	 * @param key the key to search for, case insensitive
+	 * @param key the key to search for, case insensitive, starts_with rules
 	 * @return the value
 	 */
 	public final static int getParmPlus(String text, final String key)
@@ -1967,7 +2791,7 @@ public class CMParms
 	 * 'joe larry bibob+5.2 moe="uiuiui bob-2.1 lou", bob+3.9' will still return -2.1
 	 * If the key is found, but followed by a =, 0.0 is returned.
 	 * @param text the string to search
-	 * @param key the key to search for, case insensitive
+	 * @param key the key to search for, case insensitive, starts_with rules
 	 * @return the value
 	 */
 	public final static double getParmDoublePlus(String text, final String key)
@@ -2035,7 +2859,7 @@ public class CMParms
 	 * The value ends when either an end quote is encountered, or a whitespace, semicolon, or
 	 * comma.
 	 * @param text the string to search
-	 * @param key the key to search for, case insensitive
+	 * @param key the key to search for, case insensitive, starts_with rules
 	 * @param defaultValue the value to return if the key is not found
 	 * @return the value
 	 */
@@ -2101,7 +2925,7 @@ public class CMParms
 	 * The value ends when either an end quote is encountered, or a whitespace, semicolon, or
 	 * comma.
 	 * @param text the string to search
-	 * @param key the key to search for, case insensitive
+	 * @param key the key to search for, case insensitive, starts_with rules
 	 * @param defaultValue the value to return if the key is not found
 	 * @return the value
 	 */
@@ -2123,7 +2947,7 @@ public class CMParms
 	 * The value ends when either an end quote is encountered, or a whitespace, semicolon, or
 	 * comma.
 	 * @param text the string to search
-	 * @param key the key to search for, case insensitive
+	 * @param key the key to search for, case insensitive, starts_with rules
 	 * @param defaultValue the value to return if the key is not found
 	 * @return the value
 	 */
@@ -2241,7 +3065,7 @@ public class CMParms
 	 * The value ends when either an end quote is encountered, or a whitespace, semicolon, or
 	 * comma.
 	 * @param text the string to search
-	 * @param key the key to search for, case insensitive
+	 * @param key the key to search for, case insensitive, starts_with rules
 	 * @param defaultValue the value to return if the key is not found
 	 * @return the value
 	 */
@@ -2432,10 +3256,7 @@ public class CMParms
 	public final static int[] toIntArray(final List<?> V)
 	{
 		if((V==null)||(V.size()==0))
-		{
-			final int[] s=new int[0];
-			return s;
-		}
+			return emptyIntArray;
 		final int[] s=new int[V.size()];
 		for(int v=0;v<V.size();v++)
 			s[v]=CMath.s_int(V.get(v).toString());
@@ -2502,6 +3323,35 @@ public class CMParms
 		final StringBuilder str=new StringBuilder(""+bytes.nextElement());
 		for(;bytes.hasMoreElements();)
 			str.append(";").append(""+bytes.nextElement());
+		return str.toString();
+	}
+
+	/**
+	 * Converts the given pair objects to their string values
+	 * and returns them, semicolon delimited.  Pair values are
+	 * space delimited.
+	 * @param bytes the objects as strings to return
+	 * @param firstFirst true to put pair first entry first
+	 * @return the semicolon delimited list
+	 */
+	public final static String toSemicolonPairListString(final Enumeration<Pair<Integer,String>> bytes, final boolean firstFirst)
+	{
+		if((bytes==null)||(!bytes.hasMoreElements()))
+			return "";
+		Pair<Integer,String> p=bytes.nextElement();
+		final StringBuilder str=new StringBuilder();
+		if(firstFirst)
+			str.append(""+p.first.toString()).append(" ").append(p.second.toString());
+		else
+			str.append(""+p.second.toString()).append(" ").append(p.first.toString());
+		for(;bytes.hasMoreElements();)
+		{
+			p = bytes.nextElement();
+			if(firstFirst)
+				str.append(";").append(""+p.first.toString()).append(" ").append(p.second.toString());
+			else
+				str.append(";").append(""+p.second.toString()).append(" ").append(p.first.toString());
+		}
 		return str.toString();
 	}
 
@@ -3236,6 +4086,34 @@ public class CMParms
 	}
 
 	/**
+	 * Append items from an enumerator to a list
+	 * @param <K> anything you want
+	 * @param lst the list to add to
+	 * @param e the enumerator to add from
+	 */
+	public final static <K> void appendToList(final List<K> lst, final Enumeration<K> e)
+	{
+		if((lst==null)||(e==null))
+			return;
+		for(;e.hasMoreElements();)
+			lst.add(e.nextElement());
+	}
+
+	/**
+	 * Append items from an iterator to a list
+	 * @param <K> anything you want
+	 * @param lst the list to add to
+	 * @param e the iterator to add from
+	 */
+	public final static <K> void appendToList(final List<K> lst, final Iterator<K> e)
+	{
+		if((lst==null)||(e==null))
+			return;
+		for(;e.hasNext();)
+			lst.add(e.next());
+	}
+
+	/**
 	 * Parses the given string of the form KEY=VALUE/KEY=VALUE/etc into a new
 	 * String key/value map.
 	 * @param s the slash-keyvalue pairs
@@ -3266,6 +4144,18 @@ public class CMParms
 	 */
 	public final static String toEqListString(final Map<?,?> V)
 	{
+		return toEqListString(V,' ');
+	}
+
+	/**
+	 * Returns the key/value pairs in the given map as a single string of the form
+	 * KEY=VALUE KEY="VALUE" etc... by calling toString() on the objects.
+	 * @param V the map of key/value pairs
+	 * @param delimiter the thing separating each key pair combo
+	 * @return a single string list of all the key=value pairs
+	 */
+	public final static String toEqListString(final Map<?,?> V, final char delimiter)
+	{
 		if((V==null)||(V.size()==0))
 		{
 			return "";
@@ -3276,7 +4166,7 @@ public class CMParms
 			String val = V.get(KEY).toString();
 			if(val.indexOf(' ')>0)
 				val="\""+val+"\"";
-			s.append(KEY.toString()+"="+val+" ");
+			s.append(KEY.toString()+"="+val+delimiter);
 		}
 		return s.toString().trim();
 	}
@@ -3321,6 +4211,22 @@ public class CMParms
 				return i;
 		}
 		return -1;
+	}
+
+	/**
+	 * Returns the index of the given string in the given string array.
+	 * The search is case sensitive.
+	 * @param stringList the string array
+	 * @param str the string to search for
+	 * @return the index of the string in the list, or -1 if not found
+	 */
+	public final static int indexOf(final List<String> stringList, final String str)
+	{
+		if(stringList==null)
+			return -1;
+		if(str==null)
+			return -1;
+		return stringList.indexOf(str);
 	}
 
 	/**
@@ -3386,6 +4292,69 @@ public class CMParms
 	}
 
 	/**
+	 * Returns the index of the string in the given string list that starts
+	 * with the given one. The search is case sensitive.
+	 * @param stringList the string list
+	 * @param str the string to search for a starter of
+	 * @return the index of the string in the list that starts, or -1 if not found
+	 */
+	public final static int indexOfStartsWith(final List<String> stringList, final String str)
+	{
+		if(stringList==null)
+			return -1;
+		if(str==null)
+			return -1;
+		for(int i=0;i<stringList.size();i++)
+		{
+			if(stringList.get(i).startsWith(str))
+				return i;
+		}
+		return -1;
+	}
+
+	/**
+	 * Returns the index of the string in the given string array that the given string
+	 * starts with. The search is case sensitive.
+	 * @param stringList the string array
+	 * @param str the string to find a starter for
+	 * @return the index of the string in the list that str starts with, or -1 if not found
+	 */
+	public final static int indexOfStartsWith2(final String[] stringList, final String str)
+	{
+		if(stringList==null)
+			return -1;
+		if(str==null)
+			return -1;
+		for(int i=0;i<stringList.length;i++)
+		{
+			if(str.startsWith(stringList[i]))
+				return i;
+		}
+		return -1;
+	}
+
+	/**
+	 * Returns the index of the string in the given string list that the given string
+	 * starts with. The search is case sensitive.
+	 * @param stringList the string list
+	 * @param str the string to find a starter for
+	 * @return the index of the string in the list that str starts with, or -1 if not found
+	 */
+	public final static int indexOfStartsWith2(final List<String> stringList, final String str)
+	{
+		if(stringList==null)
+			return -1;
+		if(str==null)
+			return -1;
+		for(int i=0;i<stringList.size();i++)
+		{
+			if(str.startsWith(stringList.get(i)))
+				return i;
+		}
+		return -1;
+	}
+
+	/**
 	 * Returns the index of the string in the given string array that ends
 	 * with the given one. The search is case sensitive.
 	 * @param stringList the string array
@@ -3393,6 +4362,27 @@ public class CMParms
 	 * @return the index of the string in the list that ends, or -1 if not found
 	 */
 	public final static int indexOfEndsWith(final String[] stringList, final String str)
+	{
+		if(stringList==null)
+			return -1;
+		if(str==null)
+			return -1;
+		for(int i=0;i<stringList.length;i++)
+		{
+			if(stringList[i].endsWith(str))
+				return i;
+		}
+		return -1;
+	}
+
+	/**
+	 * Returns the index of the string in the given string array that the given string
+	 * ends with. The search is case sensitive.
+	 * @param stringList the string array
+	 * @param str the string to find an ender for
+	 * @return the index of the string in the list that str ends with, or -1 if not found
+	 */
+	public final static int indexOfEndsWith2(final String[] stringList, final String str)
 	{
 		if(stringList==null)
 			return -1;
@@ -3756,6 +4746,12 @@ public class CMParms
 		{
 			for(final Object y : objs)
 			{
+				if(theList[i]==null)
+				{
+					if(y==null)
+						return i;
+				}
+				else
 				if(theList[i].equals(y))
 					return i;
 			}
@@ -3962,6 +4958,32 @@ public class CMParms
 	}
 
 	/**
+	 * Returns whether the given string appears in the given list.
+	 * It is case sensitive.
+	 * @param theList the list
+	 * @param str the string to search for
+	 * @return true if the string is in the list, false otherwise
+	 */
+	public final static boolean contains(final List<String> theList, final String str)
+	{
+		return theList.contains(str);
+	}
+
+	/**
+	 * Returns whether the given string appears in the given list.
+	 * It is case sensitive.
+	 * @param theList the list
+	 * @param str the string to search for
+	 * @return true if the string is in the list, false otherwise
+	 */
+	public final static boolean contains(final String theList, final String str)
+	{
+		if((theList == null)||(str == null)||(str.length()==0))
+			return false;
+		return theList.indexOf(str)>=0;
+	}
+
+	/**
 	 * Returns whether the given string appears in the given enumeration of strings.
 	 * It is case sensitive.
 	 * @param e the enumeration
@@ -4066,6 +5088,24 @@ public class CMParms
 	public final static boolean contains(final Object[] theList, final Object[] objs)
 	{
 		return indexOfFirst(theList,objs)>=0;
+	}
+
+
+	/**
+	 * Returns whether the given Object appears in the given enumeration of Objects.
+	 * It is equals sensitive.
+	 * @param e the enumeration
+	 * @param obj the Object to search for
+	 * @return true if the obj is in the list, false otherwise
+	 */
+	public final static boolean contains(final Enumeration<? extends Object> e, final Object obj)
+	{
+		for(;e.hasMoreElements();)
+		{
+			if(e.nextElement().equals(obj))
+				return true;
+		}
+		return false;
 	}
 
 	/**
@@ -4215,6 +5255,29 @@ public class CMParms
 	}
 
 	/**
+	 * Returns the indexes of the string in the string array that ends with
+	 * the given string.  The search is case sensitive
+	 * @param theList the list of strings
+	 * @param str the string to look for
+	 * @return indexes of entry in the list that ends with the string, or []
+	 */
+	public final static int[] endsWiths(final String[] theList, final String str)
+	{
+		if(theList==null)
+			return emptyIntArray;
+		if(str==null)
+			return emptyIntArray;
+		final int[] found = new int[theList.length];
+		int fdex = 0;
+		for(int i=0;i<theList.length;i++)
+		{
+			if(theList[i].endsWith(str))
+				found[fdex++]=i;
+		}
+		return Arrays.copyOf(found, fdex);
+	}
+
+	/**
 	 * Returns the index of the string in the string array that ends with
 	 * the given string.  The search is case insensitive
 	 * @param theList the list of strings
@@ -4257,6 +5320,79 @@ public class CMParms
 	public final static boolean endsAnyWithIgnoreCase(final String[] theList, final String str)
 	{
 		return endsWithIgnoreCase(theList,str)>=0;
+	}
+
+	/**
+	 * Casts the given string as the given class, if it can.
+	 *
+	 * @param <T> the class to cast to (C)
+	 * @param str the string to cast
+	 * @param C the class to cast to
+	 * @return the object, cast, or null
+	 */
+	public static <T> T castString(final String str, final Class<T> C)
+	{
+		if (str == null || C == null)
+			return null;
+		try
+		{
+			if(C == String.class)
+				return C.cast(str);
+			else
+			if((C == Integer.class) || (C == int.class))
+				return C.cast(Integer.valueOf(str));
+			else
+			if((C == Double.class) || (C == double.class))
+				return C.cast(Double.valueOf(str));
+			else
+			if((C == Boolean.class) || (C == boolean.class))
+			{
+				if(str.equalsIgnoreCase("true")||str.equalsIgnoreCase("false"))
+					return C.cast(Boolean.valueOf(str));
+				return null;
+			}
+			else
+			if((C == Long.class) || (C == long.class))
+				return C.cast(Long.valueOf(str));
+			else
+			if((C == Float.class) || (C == float.class))
+				return C.cast(Float.valueOf(str));
+			else
+			if((C == Short.class) || (C == short.class))
+				return C.cast(Short.valueOf(str));
+			else
+			if((C == Byte.class) || (C == byte.class))
+				return C.cast(Byte.valueOf(str));
+			else
+			if((C == Character.class) || (C == char.class))
+			{
+				if (str.length() == 0)
+					return null;
+				return C.cast(Character.valueOf(str.charAt(0)));
+			}
+			else
+			if(C == List.class) // assume list of string
+				return C.cast(CMParms.parse(str));
+			else
+			if(C == Map.class) // assume string->string
+				return C.cast(CMParms.parseEQParms(str));
+			else
+			if(C == Duration.class)
+			{
+				try
+				{
+					return C.cast(Duration.parse(str));
+				}
+				catch (final Exception e)
+				{
+					return C.cast(Duration.ofSeconds(Long.parseLong(str)));
+				}
+			}
+		}
+		catch (final Exception e)
+		{
+		}
+		return null;
 	}
 
 	/** constant value representing an undefined/unimplemented miscText/parms format.*/

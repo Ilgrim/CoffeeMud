@@ -1,5 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Properties;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.ItemPossessor.Expire;
+import com.planet_ink.coffee_mud.core.interfaces.ItemPossessor.Move;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.DatabaseEngine.PlayerData;
 import com.planet_ink.coffee_mud.core.*;
@@ -19,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -47,16 +49,21 @@ public class Prop_RoomForSale extends Property implements LandTitle
 		return "Putting a room up for sale";
 	}
 
+	protected static String	INDOORSTR	= null;
+	protected static String	OUTDOORSTR	= null;
+	protected static String	SALESTR		= null;
+	protected static String	RENTSTR		= null;
+
+	protected int		lastItemNums	= -1;
+	protected int		lastDayDone		= -1;
+	protected int		daysWithNoChange= 0;
+	protected boolean	scheduleReset	= false;
+
 	@Override
 	protected int canAffectCode()
 	{
 		return Ability.CAN_ROOMS;
 	}
-
-	protected int	lastItemNums	= -1;
-	protected int	lastDayDone		= -1;
-	protected int	daysWithNoChange= 0;
-	protected boolean	scheduleReset	= false;
 
 	@Override
 	public String accountForYourself()
@@ -97,16 +104,38 @@ public class Prop_RoomForSale extends Property implements LandTitle
 	}
 
 	@Override
-	public List<Room> getConnectedPropertyRooms()
+	public Room getAConnectedPropertyRoom()
 	{
-		return getAllTitledRooms();
+		if(affected instanceof Room)
+			return (Room)affected;
+		return CMLib.map().getRoom(landPropertyID());
 	}
 
-	protected void saveData(final String owner, final int price, final boolean rental, final int backTaxes, final boolean grid)
+	@Override
+	public int getNumConnectedPropertyRooms()
+	{
+		return (getAConnectedPropertyRoom()!=null)?1:0;
+	}
+
+	@Override
+	public void initializeClass()
+	{
+		if(INDOORSTR == null)
+		{
+			final String[] markers = CMProps.getListFileStringList(CMProps.ListFile.REALESTATE_MARKERS);
+			INDOORSTR=" "+((markers.length>0)?markers[0].trim():"");
+			OUTDOORSTR=" "+((markers.length>1)?markers[1].trim():"");
+			SALESTR=" "+((markers.length>2)?markers[2].trim():"");
+			RENTSTR=" "+((markers.length>3)?markers[3].trim():"");
+		}
+	}
+
+	protected void saveData(final String owner, final int price, final boolean rental, final int backTaxes, final boolean grid, final boolean allowTheft)
 	{
 		setMiscText(owner+"/"
 				+(rental?"RENTAL ":"")
 				+(grid?"GRID ":"")
+				+(allowTheft?"ALLOWTHEFT ":"")
 				+((backTaxes>0)?"TAX"+backTaxes+"X ":"")
 				+price);
 	}
@@ -114,7 +143,7 @@ public class Prop_RoomForSale extends Property implements LandTitle
 	@Override
 	public void setPrice(final int price)
 	{
-		saveData(getOwnerName(), price, rentalProperty(), backTaxes(), gridLayout());
+		saveData(getOwnerName(), price, rentalProperty(), backTaxes(), gridLayout(), allowTheft());
 	}
 
 	@Override
@@ -127,15 +156,15 @@ public class Prop_RoomForSale extends Property implements LandTitle
 	}
 
 	@Override
-	public CMObject getOwnerObject()
+	public boolean isProperlyOwned()
 	{
 		final String owner=getOwnerName();
 		if(owner.length()==0)
-			return null;
-		final Clan C=CMLib.clans().getClanExact(owner);
+			return false;
+		final Clan C=CMLib.clans().fetchClanAnyHost(owner);
 		if(C!=null)
-			return C;
-		return CMLib.players().getLoadPlayer(owner);
+			return true;
+		return CMLib.players().playerExistsAllHosts(owner);
 	}
 
 	@Override
@@ -143,7 +172,7 @@ public class Prop_RoomForSale extends Property implements LandTitle
 	{
 		if((owner.length()==0)&&(getOwnerName().length()>0))
 			scheduleReset=true;
-		saveData(owner, getPrice(), rentalProperty(), backTaxes(), gridLayout());
+		saveData(owner, getPrice(), rentalProperty(), backTaxes(), gridLayout(), allowTheft());
 	}
 
 	@Override
@@ -162,7 +191,7 @@ public class Prop_RoomForSale extends Property implements LandTitle
 	@Override
 	public void setBackTaxes(final int tax)
 	{
-		saveData(getOwnerName(), getPrice(), rentalProperty(), tax, gridLayout());
+		saveData(getOwnerName(), getPrice(), rentalProperty(), tax, gridLayout(), allowTheft());
 	}
 
 	@Override
@@ -178,7 +207,7 @@ public class Prop_RoomForSale extends Property implements LandTitle
 	@Override
 	public void setRentalProperty(final boolean truefalse)
 	{
-		saveData(getOwnerName(), getPrice(), truefalse, backTaxes(), gridLayout());
+		saveData(getOwnerName(), getPrice(), truefalse, backTaxes(), gridLayout(), allowTheft());
 	}
 
 	@Override
@@ -194,7 +223,23 @@ public class Prop_RoomForSale extends Property implements LandTitle
 	@Override
 	public void setGridLayout(final boolean layout)
 	{
-		saveData(getOwnerName(), getPrice(), rentalProperty(), backTaxes(), layout);
+		saveData(getOwnerName(), getPrice(), rentalProperty(), backTaxes(), layout, allowTheft());
+	}
+
+	@Override
+	public boolean allowTheft()
+	{
+		final String upperText=text().toUpperCase();
+		final int dex=upperText.indexOf('/');
+		if(dex<0)
+			return upperText.indexOf("ALLOWTHEFT")>=0;
+		return upperText.indexOf("ALLOWTHEFT",dex)>=0;
+	}
+
+	@Override
+	public void setAllowTheft(final boolean allow)
+	{
+		saveData(getOwnerName(), getPrice(), rentalProperty(), backTaxes(), gridLayout(), allow);
 	}
 
 	// update title, since it may affect clusters, worries about ALL involved
@@ -234,7 +279,7 @@ public class Prop_RoomForSale extends Property implements LandTitle
 	@Override
 	public String landPropertyID()
 	{
-		if((affected!=null)&&(affected instanceof Room))
+		if((affected instanceof Room))
 			return CMLib.map().getExtendedRoomID(((Room)affected));
 		return "";
 	}
@@ -258,7 +303,8 @@ public class Prop_RoomForSale extends Property implements LandTitle
 	{
 		super.executeMsg(myHost,msg);
 		if(((msg.sourceMinor()==CMMsg.TYP_SHUTDOWN)
-			||((msg.targetMinor()==CMMsg.TYP_EXPIRE)&&(msg.target()==affected))
+			||((msg.targetMinor()==CMMsg.TYP_EXPIRE)
+				&&(msg.target()==affected))
 			||(msg.sourceMinor()==CMMsg.TYP_ROOMRESET))
 		&&(affected instanceof Room))
 		{
@@ -267,7 +313,7 @@ public class Prop_RoomForSale extends Property implements LandTitle
 			Room R=(Room)affected;
 			if(R!=null)
 			{
-				synchronized(("SYNC"+R.roomID()).intern())
+				synchronized(CMClass.getSync("SYNC"+R.roomID()))
 				{
 					R=CMLib.map().getRoom(R);
 					for(int m=0;m<R.numInhabitants();m++)
@@ -300,20 +346,178 @@ public class Prop_RoomForSale extends Property implements LandTitle
 	}
 
 	@Override
-	public List<Room> getAllTitledRooms()
+	public Room getATitledRoom()
 	{
-		final List<Room> V=new Vector<Room>();
 		if(affected instanceof Room)
-			V.add((Room)affected);
+			return (Room)affected;
 		else
-		{
-			final Room R=CMLib.map().getRoom(landPropertyID());
-			if(R!=null)
-				V.add(R);
-		}
-		return V;
+			return CMLib.map().getRoom(landPropertyID());
 	}
 
+	protected void fillCluster(final Room startR, final List<Room> roomList, final String owner, final boolean forceCache)
+	{
+		roomList.add(startR);
+		int start =0;
+		final Area baseA =startR.getArea();
+		boolean foundEntrance=false;
+		final boolean dontCache = CMath.bset(baseA.flags(), Area.FLAG_THIN) && (!CMath.bset(baseA.flags(), Area.FLAG_INSTANCE_CHILD));
+		final Set<String> roomIDs = new TreeSet<String>();
+		roomIDs.add(startR.roomID());
+		final DatabaseEngine db = CMLib.database();
+		Exit openE = null;
+		while(start < roomList.size())
+		{
+			final Room dR = roomList.get(start++);
+			for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+			{
+				final Room nR=(dontCache?dR.rawDoors()[d]:dR.getRoomInDir(d));
+				if((nR!=null)
+				&&(nR.roomID().length()>0)
+				&&(!roomIDs.contains(nR.roomID())))
+				{
+					roomIDs.add(nR.roomID());
+					final Area nRarea=nR.getArea();
+					Ability lotA=null;
+					if(nR.ID().equals("ThinRoom")
+					&&(nRarea == baseA))
+					{
+						if(!forceCache)
+							continue;
+						final Room nAR=db.DBReadRoomObject(nR.roomID(), true, false); // wont have an area!
+						if(nAR==null)
+							continue;
+						lotA=nAR.fetchEffect(ID());
+						final Pair<String,String>[] exits = db.DBReadRoomExitIDs(nR.roomID());
+						for(int nd=0;nd<exits.length;nd++)
+						{
+							final Pair<String,String> p = exits[nd];
+							if(p != null)
+							{
+								final String exitId = p.second;
+								if((p.first!=null)
+								&&(p.first.length()>0))
+								{
+									if(openE == null)
+										openE = CMClass.getExit("Open");
+									nR.setRawExit(nd, openE); // this makes the thin room modifiable
+								}
+								else
+									nR.setRawExit(nd, null); // this makes the thin room modifiable
+								final Room nnR = CMLib.map().getCachedRoom(exitId);
+								if(nnR != null)
+									nR.rawDoors()[nd]=nnR;
+								else
+								{
+									final Area A = CMLib.map().findRoomIDArea(exitId);
+									final Room tR = CMClass.getLocale("ThinRoom");
+									tR.setRoomID(exitId);
+									tR.setArea(A);
+									nR.rawDoors()[nd]=tR;
+								}
+							}
+						}
+					}
+					else
+						lotA=nR.fetchEffect(ID());
+					if(((nRarea==baseA)
+					&&(lotA!=null)
+					&&((owner==null)||((LandTitle)lotA).getOwnerName().equals(owner))))
+						roomList.add(nR); // this will keep the list growing, as well as grow the list
+					else
+					if(!foundEntrance)
+					{
+						foundEntrance=true;
+						roomList.remove(dR);// purpose here is to put the "front" door up front.
+						roomList.add(0,dR);// purpose here is to put the "front" door up front.
+					}
+				}
+			}
+		}
+	}
+
+	@Override
+	public List<Room> getTitledRooms()
+	{
+		final Room R = getATitledRoom();
+		if(R!=null)
+			return new XVector<Room>(R);
+		return new Vector<Room>(1);
+	}
+
+	@Override
+	public int getNumTitledRooms()
+	{
+		return getATitledRoom() != null ? 1 : 0;
+	}
+
+
+	protected static PairList<Physical, Room> gatherGridItems(final Room R)
+	{
+		final PairList<Physical, Room> gridItems = new PairArrayList<Physical, Room>();
+		if (R instanceof GridLocale)
+		{
+			for (final Room sR : ((GridLocale) R).getAllRooms())
+			{
+				for (final Enumeration<Item> i = sR.items(); i.hasMoreElements();)
+				{
+					final Item I = i.nextElement();
+					if ((I != null) && (I.isSavable()) &&(sR.isContent(I)) && (I.container()==null))
+					{
+						gridItems.add(new Pair<Physical, Room>(I, sR));
+						R.moveItemTo(I,Expire.Never,Move.Followers);
+					}
+				}
+				for (final Enumeration<MOB> m = sR.inhabitants(); m.hasMoreElements();)
+				{
+					final MOB M = m.nextElement();
+					if ((M != null) && (M.isMonster()) && (M.isSavable()))
+					{
+						gridItems.add(new Pair<Physical, Room>(M, sR));
+						R.bringMobHere(M, true);
+					}
+				}
+			}
+		}
+		return gridItems;
+	}
+
+	protected static void restoreGridItems(final PairList<Physical, Room> gridItems)
+	{
+		for(final Pair<Physical, Room> thing : gridItems)
+		{
+			if(thing.first instanceof Item)
+			{
+				final Item I=(Item)thing.first;
+				final Room R=thing.second;
+				if((I!=null)&&(R!=null))
+					R.moveItemTo(I,Expire.Player_Drop,Move.Followers);
+			}
+			else
+			if (thing.first instanceof MOB)
+			{
+				final MOB M = (MOB) thing.first;
+				final Room R = thing.second;
+				if ((M != null) && (R != null))
+					R.bringMobHere(M, true);
+			}
+		}
+	}
+
+	/**
+	 * Updates a room with the provided land title and various options. This method handles updating items, exits,
+	 * and the room itself based on the given parameters.
+	 *
+	 * @param R The room to be updated.
+	 * @param T The land title associated with the room.
+	 * @param resetRoomName Whether to reset the room's name.
+	 * @param clearAllItems Whether to clear all items from the room.
+	 * @param optPlayerList A set of optional player names for additional checks or updates.
+	 * @param lastNumItems The number of items in the room before updates were made.
+	 * @param daysSinceItemsSaved The number of days since the items were last saved.
+	 * @return An array containing two integers:
+	 *         - The first integer is a status code. If it's -1, it indicates an error or failure occurred.
+	 *         - The second integer represents the number of updates made to the room.
+	 */
 	public static int[] updateLotWithThisData(Room R,
 											  final LandTitle T,
 											  final boolean resetRoomName,
@@ -325,16 +529,20 @@ public class Prop_RoomForSale extends Property implements LandTitle
 		boolean updateItems=false;
 		boolean updateExits=false;
 		boolean updateRoom=false;
-		synchronized(("SYNC"+R.roomID()).intern())
+		synchronized(CMClass.getSync("SYNC"+R.roomID()))
 		{
 			R=CMLib.map().getRoom(R);
+			if(R==null)
+				return new int[] {-1,0};
+			final PairList<Physical,Room> gridItems = gatherGridItems(R);
 			if(T.getOwnerName().length()==0)
 			{
 				Item I=null;
 				for(int i=R.numItems()-1;i>=0;i--)
 				{
 					I=R.getItem(i);
-					if((I==null)||(I.Name().equalsIgnoreCase("id")))
+					if((I==null)
+					||(I.Name().equalsIgnoreCase("id")))
 						continue;
 					CMLib.catalog().updateCatalogIntegrity(I);
 					if(clearAllItems)
@@ -364,7 +572,8 @@ public class Prop_RoomForSale extends Property implements LandTitle
 					for(final Enumeration<Ability> a=R.effects();a.hasMoreElements();)
 					{
 						A=a.nextElement();
-						if(((A!=null)&&((A.classificationCode()&Ability.ALL_ACODES)!=Ability.ACODE_PROPERTY)))
+						if(((A!=null)
+						&&((A.classificationCode()&Ability.ALL_ACODES)!=Ability.ACODE_PROPERTY)))
 						{
 							A.unInvoke();
 							R.delEffect(A);
@@ -376,7 +585,9 @@ public class Prop_RoomForSale extends Property implements LandTitle
 				{
 					final Room R2=R.rawDoors()[d];
 					Exit E=R.getRawExit(d);
-					if((E!=null)&&(E.hasALock())&&(E.isGeneric()))
+					if((E!=null)
+					&&(E.hasALock())
+					&&(E.isGeneric()))
 					{
 						E.setKeyName("");
 						E.setDoorsNLocks(E.hasADoor(),E.isOpen(),E.defaultsClosed(),false,false,false);
@@ -384,7 +595,9 @@ public class Prop_RoomForSale extends Property implements LandTitle
 						if(R2!=null)
 						{
 							E=R2.getRawExit(Directions.getOpDirectionCode(d));
-							if((E!=null)&&(E.hasALock())&&(E.isGeneric()))
+							if((E!=null)
+							&&(E.hasALock())
+							&&(E.isGeneric()))
 							{
 								E.setKeyName("");
 								E.setDoorsNLocks(E.hasADoor(),E.isOpen(),E.defaultsClosed(),false,false,false);
@@ -404,11 +617,11 @@ public class Prop_RoomForSale extends Property implements LandTitle
 				if(updateRoom)
 					CMLib.database().DBUpdateRoom(R);
 				CMLib.law().colorRoomForSale(R,T,resetRoomName);
+				restoreGridItems(gridItems);
 				return new int[] {-1, 0};
 			}
 
-			if((lastNumItems<0)
-			&&(T.getOwnerName().length()>0)
+			if((T.getOwnerName().length()>0)
 			&&(!CMSecurity.isDisabled(CMSecurity.DisFlag.PROPERTYOWNERCHECKS)))
 			{
 				boolean playerExists = false;
@@ -424,24 +637,25 @@ public class Prop_RoomForSale extends Property implements LandTitle
 				}
 				if(!playerExists)
 				{
-					String id=T.getUniqueLotID();
+					String id=T.getTitleID();
 					if((id==null)||(id.equalsIgnoreCase("null")))
 						id=CMLib.map().getExtendedRoomID(R);
 					Log.warnOut("Property owned by non-existant player "+T.getOwnerName()+" is now lost: "+id);
 					T.setOwnerName("");
 					T.updateLot(null);
 					CMLib.database().DBUpdateRoom(R);
+					restoreGridItems(gridItems);
 					return new int[] {-1, 0};
 				}
 			}
 
-			int x=R.description().indexOf(LegalLibrary.SALESTR);
+			int x=R.description().indexOf(SALESTR);
 			if(x>=0)
 			{
 				R.setDescription(R.description().substring(0,x));
 				CMLib.database().DBUpdateRoom(R);
 			}
-			x=R.description().indexOf(LegalLibrary.RENTSTR);
+			x=R.description().indexOf(RENTSTR);
 			if(x>=0)
 			{
 				R.setDescription(R.description().substring(0,x));
@@ -459,20 +673,23 @@ public class Prop_RoomForSale extends Property implements LandTitle
 			for(int i=0;i<R.numItems();i++)
 			{
 				final Item I=R.getItem(i);
-				if((I.expirationDate()!=0)
-				&&((I.isSavable())||(I.Name().equalsIgnoreCase("id")))
-				&&((!(I instanceof DeadBody))||(((DeadBody)I).isPlayerCorpse())))
+				if(I!=null)
 				{
-					I.setExpirationDate(0);
-					updateItems=true;
-				}
+					if((I.expirationDate()!=0)
+					&&((I.isSavable())||(I.Name().equalsIgnoreCase("id")))
+					&&((!(I instanceof DeadBody))||(((DeadBody)I).isPlayerCorpse())))
+					{
+						I.setExpirationDate(0);
+						updateItems=true;
+					}
 
-				if((I.phyStats().rejuv()!=Integer.MAX_VALUE)
-				&&(I.phyStats().rejuv()!=0))
-				{
-					I.basePhyStats().setRejuv(PhyStats.NO_REJUV);
-					I.recoverPhyStats();
-					updateItems=true;
+					if((I.phyStats().rejuv()!=PhyStats.NO_REJUV)
+					&&(I.phyStats().rejuv()!=0))
+					{
+						I.basePhyStats().setRejuv(PhyStats.NO_REJUV);
+						I.recoverPhyStats();
+						updateItems=true;
+					}
 				}
 			}
 			if(!updateItems)
@@ -497,15 +714,17 @@ public class Prop_RoomForSale extends Property implements LandTitle
 									if((I!=null)
 									&&(I.container()==null)
 									&&(flags.isGettable(I))
-									&&((I.numEffects()==0)||(I.fetchEffect("Dusty")==null))
 									&&(flags.isSavable(I)))
 									{
-										final Ability A=CMClass.getAbility("Dusty");
-										if(A!=null)
+										if((I.numEffects()==0)||(I.fetchEffect("Dusty")==null))
 										{
-											A.setMiscText("LEVEL=0 INTERVAL="+t0);
-											I.addNonUninvokableEffect(A);
-											updateItems=true;
+											final Ability A=CMClass.getAbility("Dusty");
+											if(A!=null)
+											{
+												A.setMiscText("LEVEL=0 INTERVAL="+t0);
+												I.addNonUninvokableEffect(A);
+												updateItems=true;
+											}
 										}
 									}
 								}
@@ -517,6 +736,7 @@ public class Prop_RoomForSale extends Property implements LandTitle
 			if((!CMSecurity.isSaveFlag(CMSecurity.SaveFlag.NOPROPERTYITEMS))
 			&&(updateItems))
 				CMLib.database().DBUpdateItems(R);
+			restoreGridItems(gridItems);
 		}
 		return new int[] {R.numItems(), updateItems?0:(daysSinceItemsSaved+1)};
 	}
@@ -524,7 +744,7 @@ public class Prop_RoomForSale extends Property implements LandTitle
 	@SuppressWarnings("unchecked")
 	public static boolean doRentalProperty(final Area A, final String ID, final String owner, final int rent)
 	{
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return false;
 		final int month=A.getTimeObj().getMonth();
 		final int day=A.getTimeObj().getDayOfMonth();
@@ -629,7 +849,7 @@ public class Prop_RoomForSale extends Property implements LandTitle
 		if(affected instanceof Room)
 		{
 			Room R=(Room)affected;
-			synchronized(("SYNC"+R.roomID()).intern())
+			synchronized(CMClass.getSync("SYNC"+R.roomID()))
 			{
 				R=CMLib.map().getRoom(R);
 				int[] data=updateLotWithThisData(R,this,false,scheduleReset,optPlayerList,lastItemNums,daysWithNoChange);
@@ -638,7 +858,7 @@ public class Prop_RoomForSale extends Property implements LandTitle
 
 				// rentals are below
 				if((lastDayDone!=R.getArea().getTimeObj().getDayOfMonth())
-				&&(CMProps.getBoolVar(CMProps.Bool.MUDSTARTED)))
+				&&(CMProps.isState(CMProps.HostState.RUNNING)))
 				{
 					lastDayDone=R.getArea().getTimeObj().getDayOfMonth();
 					if((getOwnerName().length()>0)

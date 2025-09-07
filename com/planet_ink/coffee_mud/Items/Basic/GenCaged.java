@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ public class GenCaged extends GenItem implements CagedAnimal
 			return false;
 		if(!M.isMonster())
 			return false;
-		name=M.Name();
+		_name=M.Name();
 		displayText=M.displayText();
 		setDescription(M.description());
 		basePhyStats().setLevel(M.basePhyStats().level());
@@ -93,7 +93,7 @@ public class GenCaged extends GenItem implements CagedAnimal
 		itemstr.append("<MOBITEM>");
 		itemstr.append(CMLib.xml().convertXMLtoTag("MICLASS",CMClass.classID(M)));
 		itemstr.append(CMLib.xml().convertXMLtoTag("MISTART",CMLib.map().getExtendedRoomID(M.getStartRoom())));
-		itemstr.append(CMLib.xml().convertXMLtoTag("MIDATA",CMLib.coffeeMaker().getPropertiesStr(M,true)));
+		itemstr.append(CMLib.xml().convertXMLtoTag("MIDATA",CMLib.coffeeMaker().getEnvironmentalMiscTextXML(M,true)));
 		itemstr.append("</MOBITEM>");
 		setCageText(itemstr.toString());
 		recoverPhyStats();
@@ -155,12 +155,14 @@ public class GenCaged extends GenItem implements CagedAnimal
 			Log.errOut("Caged","Error parsing 'MOBITEM' data.");
 			return M;
 		}
-		CMLib.coffeeMaker().setPropertiesStr(newOne,idat,true);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(newOne,idat,true);
 		M=(MOB)newOne;
 		M.basePhyStats().setRejuv(PhyStats.NO_REJUV);
 		M.setStartRoom(null);
 		if(M.isGeneric())
 			CMLib.coffeeMaker().resetGenMOB(M,M.text());
+		else
+			CMLib.coffeeMaker().resetGenMOB(M,null);
 		if((startr.length()>0)&&(!startr.equalsIgnoreCase("null")))
 		{
 			final Room R=CMLib.map().getRoom(startr);

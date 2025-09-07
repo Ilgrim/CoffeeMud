@@ -8,7 +8,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.PhyStats;
 import com.planet_ink.coffee_mud.Common.interfaces.Tattoo;
 
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -71,8 +71,9 @@ public interface Tattooable extends CMObject
 	 * @see Tattooable
 	 * @see Tattooable#delTattoo(Tattoo)
 	 * @param of the tattoo name of the tattoo to remove
+	 * @return true if the tattoo existed
 	 */
-	public void delTattoo(String of);
+	public boolean delTattoo(String of);
 
 	/**
 	 * Returns an enumeration of all the tattoos on this object.

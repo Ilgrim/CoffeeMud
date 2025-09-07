@@ -4,9 +4,11 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
 
+import com.planet_ink.fakedb.backend.Connection;
+
 /*
    Copyright 2001 Thomas Neumann
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -92,6 +94,7 @@ public class Driver implements java.sql.Driver
 		return result;
 	}
 
+	@Override
 	public Logger getParentLogger() throws SQLFeatureNotSupportedException
 	{
 		throw new SQLFeatureNotSupportedException();

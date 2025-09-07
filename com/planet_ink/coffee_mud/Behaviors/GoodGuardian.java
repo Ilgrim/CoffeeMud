@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -104,20 +104,23 @@ public class GoodGuardian extends StdBehavior
 			for(int i=0;i<room.numInhabitants();i++)
 			{
 				final MOB inhab=room.fetchInhabitant(i);
-				if((inhab!=null)
-				&&(inhab.isInCombat())
-				&&(inhab.getVictim().isInCombat())
-				&&((observer.phyStats().level()>(inhab.phyStats().level()+5))))
+				if((inhab != null)
+				&&((observer.phyStats().level()>(inhab.phyStats().level()+CMProps.getIntVar(CMProps.Int.EXPRATE)))))
 				{
-					final String msg="<S-NAME> stop(s) <T-NAME> from fighting with "+inhab.getVictim().name();
-					final CMMsg msgs=CMClass.getMsg(observer,inhab,CMMsg.MSG_NOISYMOVEMENT,msg);
-					if(observer.location().okMessage(observer,msgs))
+					final MOB inhabV=inhab.getVictim();
+					if((inhabV!=null)
+					&&(inhabV.isInCombat()))
 					{
-						observer.location().send(observer,msgs);
-						final MOB ivictim=inhab.getVictim();
-						if(ivictim!=null)
-							ivictim.makePeace(true);
-						inhab.makePeace(true);
+						final String msg=CMLib.lang().L("<S-NAME> stop(s) <T-NAME> from fighting with @x1.",inhab.getVictim().name());
+						final CMMsg msgs=CMClass.getMsg(observer,inhab,CMMsg.MSG_NOISYMOVEMENT,msg);
+						if(observer.location().okMessage(observer,msgs))
+						{
+							observer.location().send(observer,msgs);
+							final MOB ivictim=inhab.getVictim();
+							if(ivictim!=null)
+								ivictim.makePeace(true);
+							inhab.makePeace(true);
+						}
 					}
 				}
 			}

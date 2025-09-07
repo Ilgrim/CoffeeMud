@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -34,7 +34,6 @@ import java.util.*;
 */
 public class Spell_AchillesArmor extends Spell
 {
-
 	@Override
 	public String ID()
 	{
@@ -84,6 +83,18 @@ public class Spell_AchillesArmor extends Spell
 	protected int vulnerability=0;
 
 	@Override
+	public void setMiscText(final String newMiscText)
+	{
+		super.setMiscText(newMiscText);
+		if(newMiscText.length()>0)
+		{
+			if(vulnerability==0)
+				vulnerability=CMLib.dice().roll(1, Weapon.TYPE_DESCS.length, -1);
+			vulnerability=CMParms.getParmInt(newMiscText, "VULNERABILITY", vulnerability);
+		}
+	}
+
+	@Override
 	public void unInvoke()
 	{
 		// undo the affects of this spell
@@ -95,9 +106,7 @@ public class Spell_AchillesArmor extends Spell
 			if((mob.location()!=null)&&(!mob.amDead()))
 				mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-YOUPOSS> Achilles Armor is now gone."));
 		}
-
 		super.unInvoke();
-
 	}
 
 	@Override
@@ -179,6 +188,20 @@ public class Spell_AchillesArmor extends Spell
 	}
 
 	@Override
+	public int castingQuality(final MOB mob, final Physical target)
+	{
+		if((mob!=null)
+		&&(target != null)
+		&&(mob != target))
+		{
+			if(!mob.getGroupMembers(new HashSet<MOB>()).contains(target)
+			||(mob.mayIFight((MOB)target)))
+				return Ability.QUALITY_INDIFFERENT;
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		final MOB target=getTarget(mob,commands,givenTarget);
@@ -188,7 +211,8 @@ public class Spell_AchillesArmor extends Spell
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		final boolean success=proficiencyCheck(mob,0,auto);
+		boolean success=proficiencyCheck(mob,0,auto);
+		success = success & (auto || mob.mayIFight(target) || (target==mob)||(mob.getGroupMembers(new HashSet<MOB>()).contains(target)));
 		if(success)
 		{
 			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("<T-NAME> attain(s) Achilles Armor!"):L("^S<S-NAME> invoke(s) Achilles Armor around <T-NAMESELF>!^?"));
@@ -196,7 +220,9 @@ public class Spell_AchillesArmor extends Spell
 			{
 				mob.location().send(mob,msg);
 				vulnerability=CMLib.dice().roll(1,Weapon.TYPE_DESCS.length,-1);
-				beneficialAffect(mob,target,asLevel,0);
+				final Ability A=beneficialAffect(mob,target,asLevel,0);
+				if(A!=null)
+					A.setMiscText("VULNERABILITY="+vulnerability);
 			}
 		}
 		else

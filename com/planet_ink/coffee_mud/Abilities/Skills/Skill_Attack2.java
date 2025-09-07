@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -118,7 +118,7 @@ public class Skill_Attack2 extends StdSkill
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
 		if((affected instanceof MOB)&&(((MOB)affected).isInCombat()))
-			affectableStats.setSpeed(affectableStats.speed()+(numberOfFullAttacks()*(proficiency()/100.0)));
+			affectableStats.setSpeed(affectableStats.speed()+(CMProps.getSpeedAdjustment()*(numberOfFullAttacks()*(proficiency()/100.0))));
 		if((freeToNerf)&& (affectableStats.attackAdjustment()>0))
 			affectableStats.setAttackAdjustment((int)Math.round(affectableStats.attackAdjustment() * nerfAmount()));
 	}

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -112,7 +112,7 @@ public class ArchonSkill extends StdAbility implements ArchonOnly
 		{
 			try
 			{
-				final List<MOB> targets=CMLib.map().findInhabitants(CMLib.map().rooms(), mob, targetName, 50);
+				final List<MOB> targets=CMLib.hunt().findInhabitants(CMLib.map().rooms(), mob, targetName, 50);
 				if(targets.size()>0)
 					target=targets.get(CMLib.dice().roll(1,targets.size(),-1));
 			}
@@ -150,7 +150,7 @@ public class ArchonSkill extends StdAbility implements ArchonOnly
 				if(target==mob)
 					mob.tell(L("You are already affected by @x1.",name()));
 				else
-					mob.tell(target,null,null,L("<S-NAME> is already affected by @x1.",name()));
+					failureTell(mob,target,false,L("<S-NAME> is already affected by @x1.",name()));
 			}
 			return null;
 		}

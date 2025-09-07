@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -86,16 +87,16 @@ public class Arcanist extends Thief
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_ReadMagic",true);
 
 		// clan magic
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqAcid",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqCold",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqElectric",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqFire",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqGas",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqMind",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqParalysis",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqPoison",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqWater",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqDisease",0,"",false,true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqAcid",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqCold",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqElectric",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqFire",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqGas",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqMind",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqParalysis",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqPoison",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqWater",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_CEqDisease",0,"",false,SecretFlag.SECRET);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Thief_Hide",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Spell_Erase",false);
@@ -105,6 +106,7 @@ public class Arcanist extends Thief
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Spell_ClarifyScroll",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Thief_Sneak",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Spell_TapScroll",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"PaperMaking",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Skill_Revoke",false);
@@ -145,11 +147,14 @@ public class Arcanist extends Thief
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Spell_WardArea",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Spell_DetectInvisible",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"ImprovedAlchemy",false,CMParms.parseSemicolons("Alchemy(100)",true));
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Skill_Attack2",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Thief_Shadow",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Spell_Knock",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Thief_UsePotion",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Skill_ScrollFamiliarity",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Spell_Refit",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Thief_Detection",false);
@@ -197,7 +202,7 @@ public class Arcanist extends Thief
 	@Override
 	public String getOtherBonusDesc()
 	{
-		return L("Magic resistance, 1%/level.  Huge discounts when buying potions after 5th level.  Ability to memorize spells learned through SpellCraft. "
+		return L("Magic resistance, 1%/level.  Huge discounts when buying arcane potions after 5th level.  Ability to memorize spells learned through SpellCraft. "
 				+ "Can see wand charges at level 30.");
 	}
 
@@ -216,9 +221,19 @@ public class Arcanist extends Thief
 				||(msg.sourceMinor()==CMMsg.TYP_LIST))
 			&&(msg.tool() instanceof Potion))
 			{
-				mob.basePhyStats().setDisposition(mob.basePhyStats().disposition()|PhyStats.IS_BONUS);
-				mob.recoverPhyStats();
-				mob.recoverCharStats();
+				final Potion P=(Potion)msg.tool();
+				boolean hasSpell=true;
+				for(final Ability A : P.getSpells())
+				{
+					if((A.classificationCode()&Ability.ALL_ACODES)!=Ability.ACODE_SPELL)
+						hasSpell=false;
+				}
+				if(hasSpell)
+				{
+					mob.basePhyStats().setDisposition(mob.basePhyStats().disposition()|PhyStats.IS_BONUS);
+					mob.recoverPhyStats();
+					mob.recoverCharStats();
+				}
 			}
 			else
 			if((mob.basePhyStats().disposition()&PhyStats.IS_BONUS)==PhyStats.IS_BONUS)
@@ -234,17 +249,17 @@ public class Arcanist extends Thief
 	@Override
 	public void endCharacter(final MOB mob)
 	{
-		final Vector<Ability> otherChoices=new Vector<Ability>();
+		final List<Ability> otherChoices=new ArrayList<Ability>();
 		for(int a=0;a<mob.numAbilities();a++)
 		{
 			final Ability A2=mob.fetchAbility(a);
 			if((A2!=null)
 			&&(!A2.isSavable())
 			&&((A2.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SPELL))
-				otherChoices.addElement(A2);
+				otherChoices.add(A2);
 		}
 		for(int a=0;a<otherChoices.size();a++)
-			mob.delAbility(otherChoices.elementAt(a));
+			mob.delAbility(otherChoices.get(a));
 	}
 
 	private void addAbilityToSpellcraftList(final MOB mob, final Ability A)
@@ -300,12 +315,12 @@ public class Arcanist extends Thief
 				||(((Wand)msg.target()).getEnchantType()==Ability.ACODE_SPELL))
 			&&(mob.charStats().getClassLevel(this)>=30))
 			{
-				final int maxCharges = ((Wand)msg.target()).usesRemaining();
+				final int maxCharges = ((Wand)msg.target()).getMaxCharges();
 				final String message;
 				if((maxCharges < Integer.MAX_VALUE/2)&&(maxCharges > 0))
-					message=L("<O-NAME> has @x1/@x2 charges remaining.",""+((Wand)msg.target()).usesRemaining(),""+maxCharges);
+					message=L("<O-NAME> has @x1/@x2 charges remaining.",""+((Wand)msg.target()).getCharges(),""+maxCharges);
 				else
-					message=L("<O-NAME> has @x1 charges remaining.",""+((Wand)msg.target()).usesRemaining());
+					message=L("<O-NAME> has @x1 charges remaining.",""+((Wand)msg.target()).getCharges());
 				msg.addTrailerMsg(CMClass.getMsg(mob, null, msg.target(), CMMsg.MSG_OK_VISUAL, CMMsg.NO_EFFECT, CMMsg.NO_EFFECT, message));
 			}
 			else
@@ -331,21 +346,21 @@ public class Arcanist extends Thief
 						else
 						if(CMLib.ableMapper().lowestQualifyingLevel(A.ID())<30)
 						{
-							final Vector<Ability> otherChoices=new Vector<Ability>();
+							final List<Ability> otherChoices=new ArrayList<Ability>();
 							for(int a=0;a<mob.numAbilities();a++)
 							{
 								final Ability A2=mob.fetchAbility(a);
 								if((A2!=null)
 								&&(!A2.isSavable())
 								&&((A2.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SPELL))
-									otherChoices.addElement(A2);
+									otherChoices.add(A2);
 							}
 							A=(Ability)A.copyOf();
 							A.setProficiency(0);
 							A.setSavable(false);
 							if(otherChoices.size()>(mob.charStats().getClassLevel(this)/3))
 							{
-								final Ability A2=otherChoices.elementAt(CMLib.dice().roll(1,otherChoices.size(),-1));
+								final Ability A2=otherChoices.get(CMLib.dice().roll(1,otherChoices.size(),-1));
 								clearAbilityFromSpellcraftList(mob,A2);
 							}
 							addAbilityToSpellcraftList(mob,A);
@@ -365,7 +380,8 @@ public class Arcanist extends Thief
 						clearAbilityFromSpellcraftList(mob,A);
 				}
 				else
-				if(msg.tool() instanceof Ability)
+				if((msg.tool() instanceof Ability)
+				&&((((Ability)msg.tool()).classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SPELL))
 				{
 					final Ability A=mob.fetchAbility(msg.tool().ID());
 					if((A!=null)&&(!A.isSavable())

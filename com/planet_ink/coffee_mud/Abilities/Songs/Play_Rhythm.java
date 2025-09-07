@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,8 +62,7 @@ public class Play_Rhythm extends Play
 			return;
 		if(invoker()!=null)
 			stats.setStat(CharStats.STAT_SAVE_MAGIC,stats.getStat(CharStats.STAT_SAVE_MAGIC)
-									-(invoker().charStats().getStat(CharStats.STAT_CHARISMA)
-											+(adjustedLevel(invoker(),0)*2)));
+									-(super.avgStat()+(adjustedLevel(invoker(),0)*2)));
 	}
 }
 

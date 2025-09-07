@@ -16,9 +16,10 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -74,13 +75,20 @@ public class Spell_Scry extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	public int classificationCode()
 	{
 		return Ability.ACODE_SPELL|Ability.DOMAIN_DIVINATION;
 	}
 
-	public static final DVector scries=new DVector(2);
-	private boolean recurse=false;
+	public static final PairList<MOB,MOB> scries=new PairVector<MOB,MOB>();
+
+	private final AtomicBoolean recurse=new AtomicBoolean(false);
 
 	@Override
 	public void unInvoke()
@@ -90,7 +98,7 @@ public class Spell_Scry extends Spell
 			return;
 		final MOB mob=(MOB)affected;
 		if(canBeUninvoked())
-			scries.removeElement(mob);
+			scries.removeElementFirst(mob);
 		if((canBeUninvoked())&&(invoker!=null))
 			invoker.tell(mob,null,null,L("Your knowledge of '<S-NAME>' fades."));
 		super.unInvoke();
@@ -107,12 +115,18 @@ public class Spell_Scry extends Spell
 		&&(invoker!=null)
 		&&(msg.target()!=null)
 		&&((invoker.location()!=((MOB)affected).location())||(!(msg.target() instanceof Room)))
-		&&(!recurse))
+		&&(!recurse.get()))
 		{
 			final CMMsg newAffect=CMClass.getMsg(invoker,msg.target(),msg.sourceMinor(),null);
-			recurse=true;
-			msg.target().executeMsg(msg.target(),newAffect);
-			recurse=false;
+			try
+			{
+				recurse.set(true);
+				msg.target().executeMsg(msg.target(),newAffect);
+			}
+			finally
+			{
+				recurse.set(false);
+			}
 		}
 		else
 		if((affected instanceof MOB)
@@ -122,11 +136,17 @@ public class Spell_Scry extends Spell
 		&&(msg.othersCode()!=CMMsg.NO_EFFECT)
 		&&(msg.othersMessage()!=null)
 		&&(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_CHANNEL))
-		&&(!recurse))
+		&&(!recurse.get()))
 		{
-			recurse=true;
-			invoker.executeMsg(invoker,msg);
-			recurse=false;
+			try
+			{
+				recurse.set(true);
+				invoker.executeMsg(invoker,msg);
+			}
+			finally
+			{
+				recurse.set(false);
+			}
 		}
 	}
 
@@ -154,13 +174,13 @@ public class Spell_Scry extends Spell
 			final StringBuffer scryList=new StringBuffer("");
 			for(int e=0;e<scries.size();e++)
 			{
-				if(scries.elementAt(e,2)==mob)
-					scryList.append(((e>0)?", ":"")+((MOB)scries.elementAt(e,1)).name());
+				if(scries.get(e).second==mob)
+					scryList.append(((e>0)?", ":"")+scries.get(e).first.name());
 			}
 			if(scryList.length()>0)
-				mob.tell(L("Cast on or revoke from whom?  You currently have @x1 on the following: @x2.",name(),scryList.toString()));
+				commonTelL(mob,"Cast on or revoke from whom?  You currently have @x1 on the following: @x2.",name(),scryList.toString());
 			else
-				mob.tell(L("Cast on whom?"));
+				commonTelL(mob,"Cast on whom?");
 			return false;
 		}
 		final String mobName=CMParms.combine(commands,0).trim().toUpperCase();
@@ -173,7 +193,7 @@ public class Spell_Scry extends Spell
 		{
 			try
 			{
-				final List<MOB> targets=CMLib.map().findInhabitantsFavorExact(CMLib.map().rooms(), mob, mobName, false, 50);
+				final List<MOB> targets=CMLib.hunt().findInhabitantsFavorExact(CMLib.map().rooms(), mob, mobName, false, 50);
 				if(targets.size()>0)
 					target=targets.get(CMLib.dice().roll(1,targets.size(),-1));
 			}
@@ -188,7 +208,7 @@ public class Spell_Scry extends Spell
 			newRoom=target.location();
 		else
 		{
-			mob.tell(L("You can't seem to focus on '@x1'.",mobName));
+			commonTelL(mob,"You can't seem to focus on '@x1'.",mobName);
 			return false;
 		}
 
@@ -199,9 +219,9 @@ public class Spell_Scry extends Spell
 			return true;
 		}
 		else
-		if((A!=null)||(scries.contains(target)))
+		if((A!=null)||(scries.containsFirst(target)))
 		{
-			mob.tell(L("You can't seem to focus on '@x1'.",mobName));
+			commonTelL(mob,"You can't seem to focus on '@x1'.",mobName);
 			return false;
 		}
 
@@ -221,12 +241,12 @@ public class Spell_Scry extends Spell
 					newRoom.send(target,msg2);
 				if((msg.value()<=0)&&(msg2.value()<=0))
 				{
-					scries.addElement(target,mob);
+					scries.add(target,mob);
 					beneficialAffect(mob,target,asLevel,0);
 				}
 			}
 			else
-				mob.tell(L("You attempt to invoke scrying, but fizzle the spell."));
+				commonTelL(mob,"You attempt to invoke scrying, but fizzle the spell.");
 
 		}
 		else

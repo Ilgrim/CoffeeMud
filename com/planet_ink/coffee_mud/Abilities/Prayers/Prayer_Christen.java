@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -123,7 +123,7 @@ public class Prayer_Christen extends Prayer
 			}
 		}
 		targetMob.destroy();
-		
+
 		if(name.length()==0)
 		{
 			mob.tell(L("Christen @x1 what?",target.name(mob)));
@@ -140,6 +140,12 @@ public class Prayer_Christen extends Prayer
 		if(CMLib.players().playerExists(name))
 		{
 			mob.tell(L("That name is already taken.  Please choose another."));
+			return false;
+		}
+
+		if(!CMLib.login().isOkName(name, false))
+		{
+			mob.tell(L("That name is not appropriate."));
 			return false;
 		}
 
@@ -164,11 +170,13 @@ public class Prayer_Christen extends Prayer
 					oldName=txt.substring(startNameX+6,endNameX);
 				txt=CMStrings.replaceFirst(txt,"<NAME>"+oldName+"</NAME>","<NAME>"+name+"</NAME>");
 				txt=CMStrings.replaceFirst(txt,"<DISP>"+oldName,"<DISP>"+name);
+				if(txt.indexOf("<TATTOOS>CHRISTENED, ")<0)
+					txt=CMStrings.replaceFirst(txt,"<TATTOOS>","<TATTOOS>CHRISTENED, ");
 				((CagedAnimal)target).setCageText(txt);
 				final List<String> channels=CMLib.channels().getFlaggedChannelNames(ChannelsLibrary.ChannelFlag.CHRISTENINGS, null);
 				for(int i=0;i<channels.size();i++)
-					CMLib.commands().postChannel(channels.get(i),mob.clans(),L("@x1 was just christened.",target.name()),true);
-				CMLib.leveler().postExperience(mob,null,null,5,false);
+					CMLib.commands().postChannel(channels.get(i),mob.clans(),L("@x1 was just christened.",target.name()),true,mob);
+				CMLib.leveler().postExperience(mob,"ABILITY:"+ID(),null,null,5, false);
 			}
 		}
 		else

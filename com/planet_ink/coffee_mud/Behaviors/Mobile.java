@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -63,6 +63,9 @@ public class Mobile extends ActiveTicker implements MobileBehavior
 	protected int					tickStatus			= Tickable.STATUS_NOT;
 	protected int					ticksSuspended		= 0;
 
+	protected final static TreeMap<String, Integer>	localeMap	= new TreeMap<String, Integer>();
+	protected final static Collection<String>		localeTags	= new ArrayList<String>();
+
 	@Override
 	public String accountForYourself()
 	{
@@ -99,25 +102,25 @@ public class Mobile extends ActiveTicker implements MobileBehavior
 				return false;
 			if(leashHash==null)
 				leashHash=new Hashtable<Room,Integer>();
-			Integer DISTNOW=leashHash.get(currentRoom);
-			Integer DISTLATER=leashHash.get(newRoom);
-			if(DISTNOW==null)
+			Integer distanceNow=leashHash.get(currentRoom);
+			Integer distanceLater=leashHash.get(newRoom);
+			if(distanceNow==null)
 			{
-				DISTNOW=Integer.valueOf(0);
-				leashHash.put(currentRoom,DISTNOW);
+				distanceNow=Integer.valueOf(0);
+				leashHash.put(currentRoom,distanceNow);
 			}
-			if(DISTLATER==null)
+			if(distanceLater==null)
 			{
-				DISTLATER=Integer.valueOf(DISTNOW.intValue()+1);
-				leashHash.put(newRoom,DISTLATER);
+				distanceLater=Integer.valueOf(distanceNow.intValue()+1);
+				leashHash.put(newRoom,distanceLater);
 			}
-			if(DISTLATER.intValue()>(DISTNOW.intValue()+1))
+			if(distanceLater.intValue()>(distanceNow.intValue()+1))
 			{
-				DISTLATER=Integer.valueOf(DISTNOW.intValue()+1);
+				distanceLater=Integer.valueOf(distanceNow.intValue()+1);
 				leashHash.remove(newRoom);
-				leashHash.put(newRoom,DISTLATER);
+				leashHash.put(newRoom,distanceLater);
 			}
-			if(DISTLATER.intValue()>leash)
+			if(distanceLater.intValue()>leash)
 				return false;
 		}
 		if((!ignoreAtmosphere)
@@ -127,6 +130,47 @@ public class Mobile extends ActiveTicker implements MobileBehavior
 		if(restrictedLocales==null)
 			return true;
 		return !restrictedLocales.contains(Integer.valueOf(newRoom.domainType()));
+	}
+
+	protected static final TreeMap<String,Integer> getLocaleMap()
+	{
+		if(Mobile.localeMap.size()==0)
+		{
+			final TreeMap<String,Integer> localeMap = new TreeMap<String,Integer>();
+			for(int i=0;i<Room.DOMAIN_INDOORS_DESCS.length;i++)
+				localeMap.put(Room.DOMAIN_INDOORS_DESCS[i].toUpperCase(), Integer.valueOf(Room.INDOORS+i));
+			for(int i=0;i<Room.DOMAIN_OUTDOOR_DESCS.length;i++)
+				localeMap.put(Room.DOMAIN_OUTDOOR_DESCS[i].toUpperCase(), Integer.valueOf(i));
+			Mobile.localeMap.putAll(localeMap);
+		}
+		return Mobile.localeMap;
+	}
+
+	public static Collection<String> getMobileRemovables()
+	{
+		if(localeTags.size()==0)
+		{
+			final List<String> rem = new ArrayList<String>(2+Room.DOMAIN_INDOORS_DESCS.length+Room.DOMAIN_OUTDOOR_DESCS.length);
+			rem.add("+ALL");
+			rem.add("-ALL");
+			for(int i=0;i<Room.DOMAIN_INDOORS_DESCS.length;i++)
+			{
+				rem.add("+"+Room.DOMAIN_INDOORS_DESCS[i]);
+				rem.add("-"+Room.DOMAIN_INDOORS_DESCS[i]);
+			}
+			for(int i=0;i<Room.DOMAIN_OUTDOOR_DESCS.length;i++)
+			{
+				rem.add("+"+Room.DOMAIN_OUTDOOR_DESCS[i]);
+				rem.add("-"+Room.DOMAIN_OUTDOOR_DESCS[i]);
+			}
+			synchronized(localeTags)
+			{
+				if(localeTags.size()==0)
+					localeTags.addAll(rem);
+			}
+		}
+		return localeTags;
+
 	}
 
 	@Override
@@ -160,10 +204,7 @@ public class Mobile extends ActiveTicker implements MobileBehavior
 				if(s.equalsIgnoreCase("-ALL"))
 				{
 					restrictedLocales.clear();
-					for(int i=0;i<Room.DOMAIN_INDOORS_DESCS.length;i++)
-						restrictedLocales.add(Integer.valueOf(Room.INDOORS+i));
-					for(int i=0;i<Room.DOMAIN_OUTDOOR_DESCS.length;i++)
-						restrictedLocales.add(Integer.valueOf(i));
+					restrictedLocales.addAll(getLocaleMap().values());
 				}
 				else
 				{
@@ -173,29 +214,31 @@ public class Mobile extends ActiveTicker implements MobileBehavior
 					for(int i=0;i<Room.DOMAIN_INDOORS_DESCS.length;i++)
 					{
 						if(Room.DOMAIN_INDOORS_DESCS[i].startsWith(s))
+						{
 							code=Room.INDOORS+i;
+							if((c=='+')&&(restrictedLocales.contains(Integer.valueOf(code))))
+								restrictedLocales.remove(Integer.valueOf(code));
+							else
+							if((c=='-')&&(!restrictedLocales.contains(Integer.valueOf(code))))
+								restrictedLocales.add(Integer.valueOf(code));
+							break;
+						}
 					}
-					if(code>=0)
+					if(code < 0)
 					{
-						if((c=='+')&&(restrictedLocales.contains(Integer.valueOf(code))))
-							restrictedLocales.remove(Integer.valueOf(code));
-						else
-						if((c=='-')&&(!restrictedLocales.contains(Integer.valueOf(code))))
-							restrictedLocales.add(Integer.valueOf(code));
-					}
-					code=-1;
-					for(int i=0;i<Room.DOMAIN_OUTDOOR_DESCS.length;i++)
-					{
-						if(Room.DOMAIN_OUTDOOR_DESCS[i].startsWith(s))
-							code=i;
-					}
-					if(code>=0)
-					{
-						if((c=='+')&&(restrictedLocales.contains(Integer.valueOf(code))))
-							restrictedLocales.remove(Integer.valueOf(code));
-						else
-						if((c=='-')&&(!restrictedLocales.contains(Integer.valueOf(code))))
-							restrictedLocales.add(Integer.valueOf(code));
+						for(int i=0;i<Room.DOMAIN_OUTDOOR_DESCS.length;i++)
+						{
+							if(Room.DOMAIN_OUTDOOR_DESCS[i].startsWith(s))
+							{
+								code=i;
+								if((c=='+')&&(restrictedLocales.contains(Integer.valueOf(code))))
+									restrictedLocales.remove(Integer.valueOf(code));
+								else
+								if((c=='-')&&(!restrictedLocales.contains(Integer.valueOf(code))))
+									restrictedLocales.add(Integer.valueOf(code));
+								break;
+							}
+						}
 					}
 
 				}

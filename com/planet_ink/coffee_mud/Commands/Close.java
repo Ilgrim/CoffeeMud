@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,24 +48,26 @@ public class Close extends StdCommand
 
 	private final static Class<?>[][]	internalParameters	= new Class<?>[][] { { Environmental.class, String.class, Integer.class } };
 
-	public boolean closeMe(final MOB mob, final Environmental closeThis, final String whatToClose, int dirCode)
+	public boolean closeMe(final MOB mob, final Environmental closeThis, final String whatToClose, int dirCode, final List<String> origCmds)
 	{
-		final boolean useShipDirs=(mob.location() instanceof BoardableShip)||(mob.location().getArea() instanceof BoardableShip);
+		final Directions.DirType dirType=CMLib.flags().getInDirType(mob);
 		final String closeWord=(!(closeThis instanceof Exit))?"close":((Exit)closeThis).closeWord();
 		final String closeMsg="<S-NAME> "+((closeWord.indexOf('(')>0)?closeWord:(closeWord+"(s)"))+" <T-NAMESELF>."+CMLib.protocol().msp("dooropen.wav",10);
 		final CMMsg msg=CMClass.getMsg(mob,closeThis,null,CMMsg.MSG_CLOSE,closeMsg,whatToClose,closeMsg);
 		if(closeThis instanceof Exit)
 		{
 			final boolean open=((Exit)closeThis).isOpen();
-			if((mob.location().okMessage(msg.source(),msg))
+			final Room R=mob.location();
+			if((R!=null)
+			&&(R.okMessage(msg.source(),msg))
 			&&(open))
 			{
-				mob.location().send(msg.source(),msg);
+				R.send(msg.source(),msg);
 				if(dirCode<0)
 				{
 					for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 					{
-						if(mob.location().getExitInDir(d)==closeThis)
+						if(R.getExitInDir(d)==closeThis)
 						{
 							dirCode = d;
 							break;
@@ -73,10 +75,8 @@ public class Close extends StdCommand
 					}
 				}
 
-				final Room R=mob.location();
-				final Room opR=(R==null)?null:R.getRoomInDir(dirCode);
+				final Room opR=R.getRoomInDir(dirCode);
 				if((dirCode>=0)
-				&&(R!=null)
 				&&(opR!=null))
 				{
 					final Exit opE=R.getPairedExit(dirCode);
@@ -89,7 +89,7 @@ public class Close extends StdCommand
 					if((opE!=null)
 					&&(!opE.isOpen())
 					&&(!((Exit)closeThis).isOpen()))
-						opR.showHappens(CMMsg.MSG_OK_ACTION,L("@x1 @x2 closes.",opE.name(),(useShipDirs?CMLib.directions().getShipInDirectionName(opCode):CMLib.directions().getInDirectionName(opCode))));
+						opR.showHappens(CMMsg.MSG_OK_ACTION,L("@x1 @x2 closes.",opE.name(),(CMLib.directions().getInDirectionName(opCode, dirType))));
 				}
 				return true;
 			}
@@ -100,6 +100,8 @@ public class Close extends StdCommand
 			mob.location().send(mob,msg);
 			return true;
 		}
+		else
+			CMLib.commands().postCommandRejection(msg.source(),msg.target(),msg.tool(),origCmds);
 		return false;
 	}
 
@@ -126,7 +128,7 @@ public class Close extends StdCommand
 			CMLib.commands().postCommandFail(mob,origCmds,L("You don't see '@x1' here.",whatToClose));
 			return false;
 		}
-		return closeMe(mob,closeThis,whatToClose,dirCode);
+		return closeMe(mob,closeThis,whatToClose,dirCode,origCmds);
 	}
 
 	@Override
@@ -134,7 +136,7 @@ public class Close extends StdCommand
 	{
 		if(!super.checkArguments(internalParameters, args))
 			return Boolean.FALSE;
-		return Boolean.valueOf(closeMe(mob, (Environmental)args[0], (String)args[1], ((Integer)args[2]).intValue()));
+		return Boolean.valueOf(closeMe(mob, (Environmental)args[0], (String)args[1], ((Integer)args[2]).intValue(), new XVector<String>("CLOSE")));
 	}
 
 	@Override

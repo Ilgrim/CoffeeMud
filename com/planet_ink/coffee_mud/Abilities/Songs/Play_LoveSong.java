@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -78,7 +78,8 @@ public class Play_LoveSong extends Play
 				&&(M!=mob)
 				&&(CMLib.flags().canBeSeenBy(M,mob))
 				&&(M.charStats().getStat(CharStats.STAT_GENDER)!=mob.charStats().getStat(CharStats.STAT_GENDER))
-				&&(M.charStats().getStat(CharStats.STAT_GENDER)!='N')
+				&&(M.charStats().reproductiveCode()!='N')
+				&&(mob.charStats().reproductiveCode()!='N')
 				&&(M.charStats().getSave(CharStats.STAT_CHARISMA)>14))
 					choices.add(M);
 			}
@@ -141,6 +142,7 @@ public class Play_LoveSong extends Play
 	public void affectCharStats(final MOB affected, final CharStats affectableStats)
 	{
 		super.affectCharStats(affected,affectableStats);
-		affectableStats.setStat(CharStats.STAT_CHARISMA,affectableStats.getStat(CharStats.STAT_CHARISMA)+4+(getXLEVELLevel(invoker())));
+		final int chaBonus = (int)Math.round(CMath.mul(4,super.statBonusPct()));
+		affectableStats.setStat(CharStats.STAT_CHARISMA,affectableStats.getStat(CharStats.STAT_CHARISMA)+chaBonus+(getXLEVELLevel(invoker())));
 	}
 }

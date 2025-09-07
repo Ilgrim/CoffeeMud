@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ public class Dance extends StdAbility
 	@Override
 	public String displayText()
 	{
-		return L("("+danceOf()+")");
+		return "("+danceOf()+")"; // danceOf is name, and name is localized
 	}
 
 	@Override
@@ -98,6 +98,62 @@ public class Dance extends StdAbility
 	protected Room			originRoom		= null;
 	protected volatile int	danceDepth		= 0;
 
+	protected volatile Pair<Double,Integer> bonusCache = null;
+
+	@Override
+	public void setAffectedOne(final Physical P)
+	{
+		bonusCache = null;
+		super.setAffectedOne(P);
+	}
+
+	@Override
+	public void setInvoker(final MOB mob)
+	{
+		super.setInvoker(mob);
+		bonusCache = null;
+	}
+
+	protected synchronized Pair<Double,Integer> getBonuses()
+	{
+		if(bonusCache != null)
+			return bonusCache;
+		final Double d = Double.valueOf(innerStatBonusPct());
+		final Integer i = Integer.valueOf(innerAvgStat());
+		bonusCache = new Pair<Double,Integer>(d,i);
+		return bonusCache;
+	}
+
+	protected double statBonusPct()
+	{
+		return getBonuses().first.doubleValue();
+	}
+
+	protected int avgStat()
+	{
+		return getBonuses().second.intValue();
+	}
+
+	protected double innerStatBonusPct()
+	{
+		if(invoker()==null)
+			return 1.0;
+		final double max = CMProps.getIntVar(CMProps.Int.BASEMAXSTAT);
+		double pct = CMath.div(invoker().charStats().getStat(CharStats.STAT_CHARISMA)+3, max);
+		pct += CMath.div(invoker().charStats().getStat(CharStats.STAT_STRENGTH)+3, max);
+		return pct / 2.0;
+	}
+
+	protected int innerAvgStat()
+	{
+		final int max = CMProps.getIntVar(CMProps.Int.BASEMAXSTAT);
+		if(invoker()==null)
+			return max;
+		final double pct = CMath.div((invoker().charStats().getStat(CharStats.STAT_CHARISMA)+3)
+									+ (invoker().charStats().getStat(CharStats.STAT_STRENGTH)+3),2.0);
+		return (int)Math.round(pct);
+	}
+
 	protected boolean skipStandardDanceInvoke()
 	{
 		return false;
@@ -139,10 +195,12 @@ public class Dance extends StdAbility
 	@Override
 	public int adjustedLevel(final MOB mob, final int asLevel)
 	{
-		final int level=super.adjustedLevel(mob,asLevel);
-		final int charisma=(invoker().charStats().getStat(CharStats.STAT_CHARISMA)-10);
-		if(charisma>0)
-			return level+(charisma/3);
+		int level=super.adjustedLevel(mob,asLevel);
+		if(mob != null)
+		{
+			level += (mob.charStats().getStat(CharStats.STAT_CHARISMA)-10)/4;
+			level += (mob.charStats().getStat(CharStats.STAT_STRENGTH)-10)/5;
+		}
 		return level;
 	}
 
@@ -451,7 +509,7 @@ public class Dance extends StdAbility
 			{
 				final Room R=commonRoomSet.get(v);
 				final String msgStr=getCorrectMsgString(R,str,v);
-				final CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),msgStr);
+				final CMMsg msg=CMClass.getMsg(mob,null,this,somaticCastCode(mob,null,auto),msgStr);
 				if(R.okMessage(mob,msg))
 				{
 					final Set<MOB> h=this.sendMsgAndGetTargets(mob, R, msg, givenTarget, auto);
@@ -469,10 +527,17 @@ public class Dance extends StdAbility
 
 						// malicious dances must not affect the invoker!
 						int affectType=CMMsg.MSG_CAST_SOMANTIC_SPELL;
+						int taffectType=CMMsg.MASK_MAGIC|CMMsg.MASK_EYES|CMMsg.TYP_CAST_SPELL;
 						if((castingQuality(mob,follower)==Ability.QUALITY_MALICIOUS)&&(follower!=mob))
+						{
 							affectType=affectType|CMMsg.MASK_MALICIOUS;
+							taffectType=taffectType|CMMsg.MASK_MALICIOUS;
+						}
 						if(auto)
+						{
 							affectType=affectType|CMMsg.MASK_ALWAYS;
+							taffectType=taffectType|CMMsg.MASK_ALWAYS;
+						}
 
 						final Dance effectD = (Dance)follower.fetchEffect(this.ID());
 						if(effectD!=null)
@@ -481,7 +546,7 @@ public class Dance extends StdAbility
 						if((R2!=null)
 						&&(CMLib.flags().canBeSeenBy(invoker,follower)))
 						{
-							CMMsg msg2=CMClass.getMsg(mob,follower,this,affectType,null);
+							CMMsg msg2=CMClass.getMsg(mob,follower,this,affectType,null,taffectType,null,affectType,null);
 							final CMMsg msg3=msg2;
 							if((mindAttack())&&(follower!=mob))
 								msg2=CMClass.getMsg(mob,follower,this,CMMsg.MSK_CAST_MALICIOUS_SOMANTIC|CMMsg.TYP_MIND|(auto?CMMsg.MASK_ALWAYS:0),null);

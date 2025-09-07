@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -75,6 +75,12 @@ public class Spell_Toadstool extends Spell
 		return Ability.ACODE_SPELL|Ability.DOMAIN_TRANSMUTATION;
 	}
 
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_POLYMORPHING;
+	}
+
 	Race newRace=null;
 
 	@Override
@@ -102,13 +108,17 @@ public class Spell_Toadstool extends Spell
 		if(newRace!=null)
 		{
 			final int oldCat=affected.baseCharStats().ageCategory();
-			affectableStats.setMyRace(newRace);
+			if(affectableStats.getMyRace()!=newRace)
+			{
+				affectableStats.getMyRace().unaffectCharStats(affected, affectableStats);
+				affectableStats.setMyRace(newRace);
+				newRace.affectCharStats(affected, affectableStats);
+			}
 			affectableStats.setWearableRestrictionsBitmap(affectableStats.getWearableRestrictionsBitmap()|affectableStats.getMyRace().forbiddenWornBits());
 			if(affected.baseCharStats().getStat(CharStats.STAT_AGE)>0)
 				affectableStats.setStat(CharStats.STAT_AGE,newRace.getAgingChart()[oldCat]);
 		}
-		affectableStats.setMyClasses("StdCharClass");
-		affectableStats.setMyLevels("1");
+		affectableStats.setAllClassInfo("StdCharClass", "1");
 	}
 
 	@Override
@@ -142,7 +152,7 @@ public class Spell_Toadstool extends Spell
 
 		if(target.baseCharStats().getMyRace() != target.charStats().getMyRace())
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already polymorphed."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already polymorphed."));
 			return false;
 		}
 

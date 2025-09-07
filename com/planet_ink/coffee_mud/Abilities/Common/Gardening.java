@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ public class Gardening extends GatheringSkill
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof Room))
+		if((affected instanceof Room))
 		{
 			final Room R=(Room)affected;
 			if(R!=null)
@@ -114,7 +114,7 @@ public class Gardening extends GatheringSkill
 					||(mob==null)
 					||(mob.location()==null))
 					{
-						commonTell(mob,L("Your @x1 garden has failed.\n\r",foundShortName));
+						commonTelL(mob,"Your @x1 garden has failed.\n\r",foundShortName);
 						unInvoke();
 					}
 				}
@@ -122,7 +122,7 @@ public class Gardening extends GatheringSkill
 				if((tickUp > 10)&&(goodticks < (tickUp/2)))
 				{
 					found=null;
-					commonTell(mob,L("Your @x1 garden has failed due to lack of sunlight.\n\r",foundShortName));
+					commonTelL(mob,"Your @x1 garden has failed due to lack of sunlight.\n\r",foundShortName);
 					unInvoke();
 				}
 			}
@@ -292,7 +292,7 @@ public class Gardening extends GatheringSkill
 		verb=L("planting");
 		if((!auto)&&(!R.getArea().getClimateObj().canSeeTheSun(R)))
 		{
-			commonTell(mob,L("You need clear sunlight to do your gardening.  Check the time and weather."));
+			commonTelL(mob,"You need clear sunlight to do your gardening.  Check the time and weather.");
 			return false;
 		}
 
@@ -304,17 +304,17 @@ public class Gardening extends GatheringSkill
 		&&(R.domainType()!=Room.DOMAIN_OUTDOORS_SWAMP)
 		&&(R.myResource()!=RawMaterial.RESOURCE_DIRT))
 		{
-			commonTell(mob,L("The land is not suitable for gardening here."));
+			commonTelL(mob,"The land is not suitable for gardening here.");
 			return false;
 		}
 		if((!auto)&&(R.getArea().getClimateObj().weatherType(R)==Climate.WEATHER_DROUGHT))
 		{
-			commonTell(mob,L("The current drought conditions make gardening useless."));
+			commonTelL(mob,"The current drought conditions make gardening useless.");
 			return false;
 		}
 		if(R.fetchEffect(ID())!=null)
 		{
-			commonTell(mob,L("It looks like a garden is already growing here."));
+			commonTelL(mob,"It looks like a garden is already growing here.");
 			return false;
 		}
 		if(mob.isMonster()
@@ -350,14 +350,14 @@ public class Gardening extends GatheringSkill
 			}
 			if(mine==null)
 			{
-				commonTell(mob,L("You don't have anything you can plant."));
+				commonTelL(mob,"You don't have anything you can plant.");
 				return false;
 			}
 		}
 		else
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Grow what?"));
+			commonTelL(mob,"Grow what?");
 			return false;
 		}
 		int code=-1;
@@ -383,8 +383,8 @@ public class Gardening extends GatheringSkill
 				final String str=codes.name(cd).toUpperCase();
 				if((str.toUpperCase().startsWith(what)||(what.startsWith(str)))
 				&&((cd==RawMaterial.RESOURCE_FLOWERS)
-				  ||(cd==RawMaterial.RESOURCE_HERBS))
-				  ||(cd==RawMaterial.RESOURCE_GARLIC))
+				  ||(cd==RawMaterial.RESOURCE_HERBS)
+				  ||(cd==RawMaterial.RESOURCE_GARLIC)))
 				{
 					code=cd;
 					foundShortName=CMStrings.capitalizeAndLower(str);
@@ -408,7 +408,7 @@ public class Gardening extends GatheringSkill
 		}
 		if(code<0)
 		{
-			commonTell(mob,L("You've never heard of an herb or flower called '@x1'.",CMParms.combine(commands,0)));
+			commonTelL(mob,"You've never heard of an herb or flower called '@x1'.",CMParms.combine(commands,0));
 			return false;
 		}
 
@@ -424,19 +424,19 @@ public class Gardening extends GatheringSkill
 		}
 		if(mine==null)
 		{
-			commonTell(mob,L("You'll need to have some @x1 to seed from on the ground first.",foundShortName));
+			commonTelL(mob,"You'll need to have some @x1 to seed from on the ground first.",foundShortName);
 			return false;
 		}
 		final String mineName=mine.name();
-		mine=(Item)CMLib.materials().unbundle(mine,-1,null);
+		mine=CMLib.materials().unbundle(mine,-1,null);
 		if(mine==null)
 		{
-			commonTell(mob,L("'@x1' is not suitable for use as seed.",mineName));
+			commonTelL(mob,"'@x1' is not suitable for use as seed.",mineName);
 			return false;
 		}
 		if(!(isPotentialCrop(R,code)))
 		{
-			commonTell(mob,L("'@x1' does not seem to be taking root here.",mineName));
+			commonTelL(mob,"'@x1' does not seem to be taking root here.",mineName);
 			return false;
 		}
 
@@ -467,6 +467,7 @@ public class Gardening extends GatheringSkill
 
 		mine.destroy();
 		final int duration=getDuration(mob,1);
+		final String oldFoundName = (found==null)?"":found.Name();
 		final CMMsg msg=CMClass.getMsg(mob,found,this,getActivityMessageType(),L("<S-NAME> start(s) planting @x1.",foundShortName));
 		verb=L("planting @x1",foundShortName);
 		displayText=L("You are planting @x1",foundShortName);
@@ -475,6 +476,8 @@ public class Gardening extends GatheringSkill
 		{
 			R.send(mob,msg);
 			found=(Item)msg.target();
+			if((found!=null)&&(!found.Name().equals(oldFoundName)))
+				foundShortName=CMLib.english().removeArticleLead(found.Name());
 			beneficialAffect(mob,mob,asLevel,duration);
 		}
 		return true;

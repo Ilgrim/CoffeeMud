@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -77,6 +77,6 @@ public class Prayer_Retribution extends Prayer_BladeBarrier
 	@Override
 	protected void doDamage(final MOB srcM, final MOB targetM, final int damage)
 	{
-		CMLib.combat().postDamage(srcM, targetM,this,damage,CMMsg.TYP_ELECTRIC|CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS,Weapon.TYPE_STRIKING,L("A bolt of retribution from <S-NAME> <DAMAGE> <T-NAME>."));
+		CMLib.combat().postDamage(srcM, targetM,this,damage,CMMsg.TYP_ELECTRIC|CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS,Weapon.TYPE_STRIKING,L("A bolt of retribution from <S-NAME> <DAMAGES> <T-NAME>."));
 	}
 }

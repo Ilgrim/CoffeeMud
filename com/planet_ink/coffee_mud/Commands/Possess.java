@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -118,7 +118,7 @@ public class Possess extends StdCommand
 				{
 					try
 					{
-						final List<MOB> inhabs=CMLib.map().findInhabitantsFavorExact(targetRooms, mob,MOBname,false,100);
+						final List<MOB> inhabs=CMLib.hunt().findInhabitantsFavorExact(targetRooms, mob,MOBname,false,100);
 						for(final MOB mob2 : inhabs)
 						{
 							if((mob2.isMonster())&&(CMSecurity.isAllowed(mob,mob2.location(),CMSecurity.SecFlag.POSSESS)))
@@ -153,7 +153,7 @@ public class Possess extends StdCommand
 			{
 				try
 				{
-					final List<MOB> inhabs=CMLib.map().findInhabitants(CMLib.map().rooms(), mob,MOBname,100);
+					final List<MOB> inhabs=CMLib.hunt().findInhabitants(CMLib.map().rooms(), mob,MOBname,100);
 					for(final MOB mob2 : inhabs)
 					{
 						if((mob2.isMonster())&&(CMSecurity.isAllowed(mob,mob2.location(),CMSecurity.SecFlag.POSSESS)))

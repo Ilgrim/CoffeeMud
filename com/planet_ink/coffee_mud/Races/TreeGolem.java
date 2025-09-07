@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -155,18 +155,19 @@ public class TreeGolem extends StdRace
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public Weapon[] getNaturalWeapons()
 	{
-		if(naturalWeapon==null)
+		if(this.naturalWeaponChoices.length==0)
 		{
-			naturalWeapon=CMClass.getWeapon("StdWeapon");
+			final Weapon naturalWeapon=CMClass.getWeapon("GenWeapon");
 			naturalWeapon.setName(L("a jagged limb"));
 			naturalWeapon.setRanges(0,2);
 			naturalWeapon.setMaterial(RawMaterial.RESOURCE_OAK);
 			naturalWeapon.setUsesRemaining(1000);
 			naturalWeapon.setWeaponDamageType(Weapon.TYPE_BASHING);
+			this.naturalWeaponChoices = new Weapon[] { naturalWeapon };
 		}
-		return naturalWeapon;
+		return super.getNaturalWeapons();
 	}
 
 	@Override
@@ -189,6 +190,8 @@ public class TreeGolem extends StdRace
 	public void affectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
 		affectableStats.setStat(CharStats.STAT_GENDER,'N');
+		affectableStats.adjStat(CharStats.STAT_WISDOM,-9);
+		affectableStats.adjStat(CharStats.STAT_CHARISMA,-5);
 		affectableStats.setStat(CharStats.STAT_SAVE_POISON,affectableStats.getStat(CharStats.STAT_SAVE_POISON)+100);
 		affectableStats.setStat(CharStats.STAT_SAVE_MIND,affectableStats.getStat(CharStats.STAT_SAVE_MIND)+100);
 		affectableStats.setStat(CharStats.STAT_SAVE_GAS,affectableStats.getStat(CharStats.STAT_SAVE_GAS)+100);
@@ -272,6 +275,8 @@ public class TreeGolem extends StdRace
 					(L("a pound of wood"),RawMaterial.RESOURCE_WOOD));
 				resources.addElement(makeResource
 					(L("a pound of leaves"),RawMaterial.RESOURCE_GREENS));
+				resources.addElement(makeResource
+					(L("a pound of wood"),RawMaterial.RESOURCE_WOOD));
 			}
 		}
 		return resources;

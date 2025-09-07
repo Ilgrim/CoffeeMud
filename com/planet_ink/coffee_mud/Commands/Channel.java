@@ -16,10 +16,11 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
+import java.io.IOException;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,7 +45,10 @@ public class Channel extends StdCommand
 		return CMLib.channels().getChannelNames();
 	}
 
-	private final static Class<?>[][] internalParameters=new Class<?>[][]{{Boolean.class,String.class,String.class}};
+	private final static Class<?>[][] internalParameters=new Class<?>[][]
+	{
+		{Boolean.class,String.class,String.class}
+	};
 
 	@Override
 	public boolean execute(final MOB mob, final List<String> commands, final int metaFlags)
@@ -58,11 +62,50 @@ public class Channel extends StdCommand
 	{
 		if(!super.checkArguments(internalParameters, args))
 			return Boolean.FALSE;
-		final boolean systemMsg=((Boolean)args[0]).booleanValue();
-		final String channelName=(String)args[1];
-		final String message=(String)args[2];
-		CMLib.channels().createAndSendChannelMessage(mob,channelName,message,systemMsg);
-		return Boolean.TRUE;
+		final int index = getArgumentSetIndex(internalParameters, args);
+		if(index == 0)
+		{
+			final boolean systemMsg=((Boolean)args[0]).booleanValue();
+			final String channelName=(String)args[1];
+			final String message=(String)args[2];
+			CMLib.channels().createAndSendChannelMessage(mob,channelName,message,systemMsg,false);
+			return Boolean.TRUE;
+		}
+		return Boolean.FALSE;
+	}
+
+	protected String reTimeAgo(final String str, final String timeAgo)
+	{
+		if((str == null)||(str.length()==0))
+			return null;
+		final int x = str.lastIndexOf("^</CHANNEL^>");
+		if(x<0)
+			return str+timeAgo;
+		return str.substring(0,x) + timeAgo+str.substring(x);
+	}
+
+	public boolean showBacklogMsg(final MOB mob, final long now, final int channelInt, final boolean areareq, final ChannelsLibrary.ChannelMsg msg)
+	{
+		final CMMsg modMsg = (CMMsg)msg.msg().copyOf();
+		long elapsedTime=now-msg.sentTimeMillis();
+		elapsedTime=Math.round(elapsedTime/1000L)*1000L;
+		if(elapsedTime<0)
+		{
+			Log.errOut("Channel","Weird elapsed time: now="+now+", then="+msg.sentTimeMillis());
+			elapsedTime=0;
+		}
+
+		final String timeAgo = "^.^N ("+CMLib.time().date2SmartEllapsedTime(elapsedTime,false)+" ago)";
+		modMsg.setSourceMessage(reTimeAgo(modMsg.sourceMessage(),timeAgo));
+		modMsg.setTargetMessage(reTimeAgo(modMsg.targetMessage(),timeAgo));
+		modMsg.setOthersMessage(reTimeAgo(modMsg.othersMessage(),timeAgo));
+		if(CMath.bset(modMsg.sourceCode(),CMMsg.MASK_CHANNEL))
+			modMsg.setSourceCode(CMMsg.MASK_CHANNEL|(CMMsg.TYP_CHANNEL+channelInt));
+		if(CMath.bset(modMsg.targetCode(),CMMsg.MASK_CHANNEL))
+			modMsg.setTargetCode(CMMsg.MASK_CHANNEL|(CMMsg.TYP_CHANNEL+channelInt));
+		if(CMath.bset(modMsg.othersCode(),CMMsg.MASK_CHANNEL))
+			modMsg.setOthersCode(CMMsg.MASK_CHANNEL|(CMMsg.TYP_CHANNEL+channelInt));
+		return CMLib.channels().sendChannelCMMsgTo(mob.session(),areareq,channelInt,modMsg,modMsg.source());
 	}
 
 	public boolean channel(final MOB mob, final List<String> commands, final boolean systemMsg)
@@ -75,8 +118,27 @@ public class Channel extends StdCommand
 
 		if((pstats!=null)&&(CMath.isSet(pstats.getChannelMask(),channelInt)))
 		{
+			final Command C = CMClass.getCommand("NoChannel");
+			if(C!=null)
+			{
+				for(final Enumeration<ScriptingEngine> e=mob.scripts();e.hasMoreElements();)
+				{
+					final ScriptingEngine engine = e.nextElement();
+					if(engine.getScript().startsWith("#"+channelName.toUpperCase()+C))
+					{
+						mob.delScript(engine);
+						break;
+					}
+				}
+			}
 			pstats.setChannelMask(pstats.getChannelMask()&(pstats.getChannelMask()-channelNum));
 			mob.tell(L("@x1 has been turned on.  Use `NO@x2` to turn it off again.",channelName,channelName.toUpperCase()));
+			return false;
+		}
+		else
+		if((commands.size()>0)&&(CMParms.combine(commands,0).equalsIgnoreCase("on")))
+		{
+			mob.tell(L("@x1 is already turned on.",channelName));
 			return false;
 		}
 
@@ -95,7 +157,7 @@ public class Channel extends StdCommand
 
 		if(commands.size()==0)
 		{
-			int size = CMLib.channels().getChannelQue(channelInt, 0, 5).size();
+			int size = CMLib.channels().getChannelQue(channelInt, 0, 5, mob).size();
 			if(size>0)
 			{
 				if(size>5)
@@ -128,98 +190,152 @@ public class Channel extends StdCommand
 			}
 		}
 
-		if((commands.size()==1)
-		&&("last".startsWith(commands.get(0))||"list".startsWith(commands.get(0))))
+		if(commands.size()==1)
 		{
-			commands.set(0, "last");
-			commands.add("10");
-		}
-
-		if((commands.size()==1)
-		&&("undo".startsWith(commands.get(0))||"delete".startsWith(commands.get(0))))
-		{
-			final List<ChannelsLibrary.ChannelMsg> que=CMLib.channels().getChannelQue(channelInt, 0, 1);
-			if(que.size()>0)
+			if("last".startsWith(commands.get(0))||"list".startsWith(commands.get(0)))
 			{
-				final ChannelsLibrary.ChannelMsg chanMsg =que.get(que.size()-1);
-				final CMMsg msg=chanMsg.msg();
-				if((msg!=null)
-				&&(msg.source()!=null)
-				&&(msg.source().Name().equals(mob.Name())))
+				commands.set(0, "last");
+				commands.add("10");
+			}
+			else
+			if("off".equals(commands.get(0)))
+			{
+				final Command C = CMClass.getCommand("NoChannel");
+				if(C!=null)
 				{
-					CMLib.database().delBackLogEntry(channelName, chanMsg.sentTimeMillis());
-					mob.tell(L("Previous message deleted."));
+					commands.clear();
+					commands.add("NO"+channelName.toUpperCase().trim());
+					try
+					{
+						return C.execute(mob, commands, 0);
+					}
+					catch (final IOException e)
+					{
+						return false;
+					}
+				}
+			}
+			else
+			if(("undo".startsWith(commands.get(0))||"delete".startsWith(commands.get(0))))
+			{
+				final List<ChannelsLibrary.ChannelMsg> que=CMLib.channels().getChannelQue(channelInt, 0, 1, mob);
+				if(que.size()>0)
+				{
+					final ChannelsLibrary.ChannelMsg chanMsg =que.get(que.size()-1);
+					final CMMsg msg=chanMsg.msg();
+					if((msg!=null)
+					&&(msg.source()!=null)
+					&&(msg.source().Name().equals(mob.Name())))
+					{
+						CMLib.database().delBackLogEntry(channelName, chanMsg.sentTimeMillis());
+						mob.tell(L("Previous message deleted."));
+						return true;
+					}
+				}
+				if(commands.get(0).length()>=4)
+				{
+					mob.tell(L("You may not delete the last message."));
 					return true;
 				}
 			}
-			if(commands.get(0).length()>=4)
-			{
-				mob.tell(L("You may not delete the last message."));
-				return true;
-			}
 		}
 
+		final String lfw = (commands.size()>1)?commands.get(0).toLowerCase():"";
+		if((commands.size()>1)
+		&&(mob.session()!=null)
+		&&(lfw.startsWith("search:")))
+		{
+			final String searchTerm = (lfw.substring(7)+" "+CMParms.combine(commands,1)).trim();
+			boolean showedAny=false;
+			final int max=CMSecurity.isAllowedEverywhere(mob, CMSecurity.SecFlag.JOURNALS)?Integer.MAX_VALUE/2:100;
+			final List<ChannelsLibrary.ChannelMsg> q=CMLib.channels().searchChannelQue(mob, channelInt, searchTerm, max);
+			final ChannelsLibrary clib=CMLib.channels();
+			final boolean areareq=flags.contains(ChannelsLibrary.ChannelFlag.SAMEAREA);
+			final long now=System.currentTimeMillis();
+			for(int i=0;i<q.size();i++)
+			{
+				final ChannelsLibrary.ChannelMsg m=q.get(i);
+				if(clib.mayReadThisChannel(m.msg().source(), areareq, mob, channelInt))
+					showedAny=this.showBacklogMsg(mob,now,channelInt,areareq,m)||showedAny;
+			}
+			if(!showedAny)
+			{
+				mob.tell(L("No messages matching '@x1' found on this channel.",searchTerm));
+				return false;
+			}
+		}
+		else
 		if((commands.size()==2)
 		&&(mob.session()!=null)
-		&&(commands.get(0).equalsIgnoreCase("last"))
-		&&(CMath.isNumber(commands.get(commands.size()-1))))
+		&&(CMath.isNumber(commands.get(commands.size()-1)))
+		&&(lfw.length()>0)
+		&&(lfw.equals("last")
+			||("last".startsWith(lfw))
+			||("last".endsWith(lfw))
+			||("previous".startsWith(lfw))
+			||(CMStrings.sameLetterCount("last",lfw))>2))
 		{
+			final long now=System.currentTimeMillis();
+			final boolean areareq=flags.contains(ChannelsLibrary.ChannelFlag.SAMEAREA);
 			int num=CMath.s_int(commands.get(commands.size()-1));
-			int lastNum=num;
-			final List<ChannelsLibrary.ChannelMsg> que=CMLib.channels().getChannelQue(channelInt, 0, num);
-			boolean showedAny=false;
-			while(que.size()>0)
+			if((num>100)
+			&&(!CMSecurity.isAllowedEverywhere(mob, CMSecurity.SecFlag.JOURNALS)))
+				num=100;
+			final ChannelsLibrary clib=CMLib.channels();
+			int count=0;
+			int page=-1;
+			int lastIndex=-1;
+			int lastPage=0;
+			boolean skippedSome=true;
+			final int pageSize=50;
+			final int highestNum=CMLib.channels().getChannelQuePageEnd(channelInt, mob);
+			while((count < num)
+			&&((skippedSome)||((page*pageSize) < (highestNum+2+pageSize))))
 			{
-				final boolean allDone=num>que.size();
-				if(allDone)
-					num=que.size();
-				final boolean areareq=flags.contains(ChannelsLibrary.ChannelFlag.SAMEAREA);
-				long elapsedTime=0;
-				final long now=System.currentTimeMillis();
-				final LinkedList<ChannelsLibrary.ChannelMsg> showThese=new LinkedList<ChannelsLibrary.ChannelMsg>();
-				for (final ChannelMsg channelMsg : que)
+				page++;
+				skippedSome=false;
+				final List<ChannelsLibrary.ChannelMsg> que=CMLib.channels().getChannelQue(channelInt, (page*pageSize), pageSize, mob);
+				lastIndex=0;
+				for(int i=que.size()-1;i>=0;i--)
 				{
-					showThese.add(channelMsg);
-					if(showThese.size()>num)
-						showThese.removeFirst();
-				}
-				int numSkipped = 0;
-				que.clear();
-				for(final ChannelsLibrary.ChannelMsg msg : showThese)
-				{
-					final CMMsg modMsg = (CMMsg)msg.msg().copyOf();
-					elapsedTime=now-msg.sentTimeMillis();
-					elapsedTime=Math.round(elapsedTime/1000L)*1000L;
-					if(elapsedTime<0)
+					final ChannelsLibrary.ChannelMsg m = que.get(i);
+					if(clib.mayReadThisChannel(m.msg().source(), areareq, mob, channelInt,true))
 					{
-						Log.errOut("Channel","Wierd elapsed time: now="+now+", then="+msg.sentTimeMillis());
-						elapsedTime=0;
+						lastPage=page;
+						count++;
+						if(count>=num)
+						{
+							lastIndex=i;
+							break;
+						}
 					}
-
-					final String timeAgo = "^.^N ("+CMLib.time().date2SmartEllapsedTime(elapsedTime,false)+" ago)";
-					if((modMsg.sourceMessage()!=null)&&(modMsg.sourceMessage().length()>0))
-						modMsg.setSourceMessage(modMsg.sourceMessage()+timeAgo);
-					if((modMsg.targetMessage()!=null)&&(modMsg.targetMessage().length()>0))
-						modMsg.setTargetMessage(modMsg.targetMessage()+timeAgo);
-					if((modMsg.othersMessage()!=null)&&(modMsg.othersMessage().length()>0))
-						modMsg.setOthersMessage(modMsg.othersMessage()+timeAgo);
-					if(CMath.bset(modMsg.sourceCode(),CMMsg.MASK_CHANNEL))
-						modMsg.setSourceCode(CMMsg.MASK_CHANNEL|(CMMsg.TYP_CHANNEL+channelInt));
-					if(CMath.bset(modMsg.targetCode(),CMMsg.MASK_CHANNEL))
-						modMsg.setTargetCode(CMMsg.MASK_CHANNEL|(CMMsg.TYP_CHANNEL+channelInt));
-					if(CMath.bset(modMsg.othersCode(),CMMsg.MASK_CHANNEL))
-						modMsg.setOthersCode(CMMsg.MASK_CHANNEL|(CMMsg.TYP_CHANNEL+channelInt));
-					final boolean showedThis = CMLib.channels().sendChannelCMMsgTo(mob.session(),areareq,channelInt,modMsg,modMsg.source());
-					if(!showedThis)
-						numSkipped++;
-					showedAny=showedAny || showedThis;
+					else
+						skippedSome=true;
+					//CMLib.s_sleep(10); //?!
 				}
-				if((!allDone) && (numSkipped > 0))
+			}
+			page=lastPage;
+			boolean showedAny=false;
+			List<ChannelsLibrary.ChannelMsg> q=CMLib.channels().getChannelQue(channelInt, (page*pageSize), pageSize, mob);
+			if(lastIndex<0)
+				lastIndex=0;
+			for(int i=lastIndex;i<q.size();i++)
+			{
+				final ChannelsLibrary.ChannelMsg m=q.get(i);
+				if(clib.mayReadThisChannel(m.msg().source(), areareq, mob, channelInt))
+					showedAny=this.showBacklogMsg(mob,now,channelInt,areareq,m)||showedAny;
+			}
+			page--;
+			while(page >=0)
+			{
+				q=CMLib.channels().getChannelQue(channelInt, (page*pageSize), pageSize, mob);
+				for(int i=0;i<q.size();i++)
 				{
-					num = numSkipped;
-					que.addAll(CMLib.channels().getChannelQue(channelInt, lastNum, num));
-					lastNum += num;
+					final ChannelsLibrary.ChannelMsg m=q.get(i);
+					if(clib.mayReadThisChannel(m.msg().source(), areareq, mob, channelInt,true))
+						showedAny=this.showBacklogMsg(mob,now,channelInt,areareq,m)||showedAny;
 				}
+				page--;
 			}
 			if(!showedAny)
 			{
@@ -246,7 +362,7 @@ public class Channel extends StdCommand
 			return false;
 		}
 		else
-			CMLib.channels().createAndSendChannelMessage(mob,channelName,CMParms.combine(commands,0),systemMsg);
+			CMLib.channels().createAndSendChannelMessage(mob,channelName,CMParms.combine(commands,0),systemMsg,false);
 		return false;
 	}
 

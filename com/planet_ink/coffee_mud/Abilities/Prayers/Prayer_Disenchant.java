@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -95,15 +95,7 @@ public class Prayer_Disenchant extends Prayer
 				mob.location().send(mob,msg);
 				beneficialAffect(mob,target,asLevel,0);
 				target.basePhyStats().setAbility(0);
-				target.delAllEffects(true);
-				if(target instanceof Wand)
-				{
-					((Wand)target).setSpell(null);
-					((Wand)target).setUsesRemaining(0);
-				}
-				else
-				if(target instanceof SpellHolder)
-					((SpellHolder)target).setSpellList("");
+				CMLib.utensils().disenchantItem(target);
 				target.recoverPhyStats();
 				mob.location().recoverRoomStats();
 			}

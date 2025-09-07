@@ -3,7 +3,7 @@
 
 function ID() 
 {
-	return "ShipDiagProgram";
+	return "DiagProgram";
 }
 
 var lib=Packages.com.planet_ink.coffee_mud.core.CMLib;
@@ -17,16 +17,6 @@ function newInstance()
 	return newOne;
 }
  
-function getParentMenu() 
-{
-	return "";
-}
-
-function getInternalName() 
-{
-	return "SCRIPTDIAG";
-}
-
 function isActivationString(word)
 {
 	return this.isCommandString(word, false);

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -84,6 +84,13 @@ public class Floristry extends CommonSkill
 		verb=L("evaluating");
 	}
 
+	// so we can override it on a skill-by-skill basis
+	@Override
+	protected List<List<String>> loadList(final StringBuffer str)
+	{
+		return CMLib.utensils().loadRecipeList(str.toString(), false);
+	}
+
 	@Override
 	public void unInvoke()
 	{
@@ -96,7 +103,7 @@ public class Floristry extends CommonSkill
 			{
 				final MOB mob=(MOB)affected;
 				if(messedUp)
-					commonTell(mob,L("You lose your concentration on @x1.",found.name()));
+					commonTelL(mob,"You lose your concentration on @x1.",found.name());
 				else
 				{
 					final List<String> flowerList=Resources.getFileLineVector(Resources.getFileResource("skills/floristry.txt",true));
@@ -104,7 +111,7 @@ public class Floristry extends CommonSkill
 					while(found != null)
 					{
 						if(found.phyStats().weight()>1)
-							found=(Item)CMLib.materials().unbundle(found, 1, null);
+							found=CMLib.materials().unbundle(found, 1, null);
 						String flower=null;
 						while((flowerList.size()>2)&&((flower==null)||(flower.trim().length()==0)))
 							flower=flowerList.get(CMLib.dice().roll(1,flowerList.size(),-1)).trim().toLowerCase();
@@ -115,9 +122,10 @@ public class Floristry extends CommonSkill
 							found.setSecretIdentity("");
 						}
 
-						commonTell(mob,L("@x1 appears to be @x2.",found.name(),flower));
+						commonTelL(mob,"@x1 appears to be @x2.",found.name(),flower);
 						String name=found.Name();
-						name=name.substring(0,name.length()-8).trim();
+						if(name.length()>8)
+							name=name.substring(0,name.length()-8).trim();
 						if(name.startsWith("a pound of"))
 							name="some"+name.substring(10);
 						if(name.length()>0)
@@ -178,14 +186,14 @@ public class Floristry extends CommonSkill
 			return true;
 		if(commands.size()<1)
 		{
-			commonTell(mob,L("You must specify what flower you want to identify."));
+			commonTelL(mob,"You must specify what flower you want to identify.");
 			return false;
 		}
 		final String finalName=CMParms.combine(commands,0);
 		Item target=mob.fetchItem(null,Wearable.FILTER_UNWORNONLY,finalName);
 		if((target==null)||(!CMLib.flags().canBeSeenBy(target,mob)))
 		{
-			commonTell(mob,L("You don't seem to have a '@x1'.",(commands.get(0))));
+			commonTelL(mob,"You don't seem to have a '@x1'.",(commands.get(0)));
 			return false;
 		}
 		commands.remove(commands.get(0));
@@ -197,11 +205,11 @@ public class Floristry extends CommonSkill
 		||(!(target instanceof RawMaterial))
 		||(!target.isGeneric()))
 		{
-			commonTell(mob,L("You can only identify unknown flowers."));
+			commonTelL(mob,"You can only identify unknown flowers.");
 			return false;
 		}
 		if(isLimitedToOne() && target.basePhyStats().weight()>1)
-			target=(Item)CMLib.materials().unbundle(target, 1, null);
+			target=CMLib.materials().unbundle(target, 1, null);
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 		verb=L("studying @x1",target.name());

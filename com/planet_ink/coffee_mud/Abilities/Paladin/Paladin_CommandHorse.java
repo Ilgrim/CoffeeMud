@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -108,9 +108,12 @@ public class Paladin_CommandHorse extends StdAbility
 			}
 		}
 
-		if(!target.charStats().getMyRace().racialCategory().equals("Equine"))
+		final PrivateProperty P = CMLib.law().getPropertyRecord(target);
+		if((P==null)
+		||(!P.getOwnerName().equals(invoker.Name()))
+		||(!(P instanceof Paladin_SummonMount)))
 		{
-			mob.tell(L("@x1 is not a horse!",target.name(mob)));
+			mob.tell(L("@x1 is not your holy mount!",target.name(mob)));
 			return false;
 		}
 
@@ -121,9 +124,12 @@ public class Paladin_CommandHorse extends StdAbility
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalSpeakCode(mob,target,auto),auto?"":L("^S<S-NAME> command(s) <T-NAMESELF> to '@x1'.^?",CMParms.combine(commands,0)));
-			final CMMsg msg2=CMClass.getMsg(mob,target,this,CMMsg.MASK_MALICIOUS|CMMsg.MASK_SOUND|CMMsg.TYP_MIND|(auto?CMMsg.MASK_ALWAYS:0),null);
-			final CMMsg omsg=CMClass.getMsg(mob,target,null,CMMsg.MSG_ORDER,null);
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalSpeakCode(mob,target,auto),
+					auto?"":L("^S<S-NAME> command(s) <T-NAMESELF> to '@x1'.^?",CMParms.combine(commands,0)));
+			final int malicious = mob.getGroupMembersAndRideables(new HashSet<Rider>()).contains(target) ? 0 : CMMsg.MASK_MALICIOUS;
+			final CMMsg msg2=CMClass.getMsg(mob,target,this,malicious|CMMsg.MASK_SOUND|CMMsg.TYP_MIND|(auto?CMMsg.MASK_ALWAYS:0),null);
+			final Language langL = CMLib.utensils().getLanguageSpoken(target);
+			final CMMsg omsg=CMClass.getMsg(mob,target,langL,CMMsg.MSG_ORDER,null);
 			if((mob.location().okMessage(mob,msg))
 			&&((mob.location().okMessage(mob,msg2)))
 			&&(mob.location().okMessage(mob, omsg)))
@@ -133,7 +139,8 @@ public class Paladin_CommandHorse extends StdAbility
 				{
 					mob.location().send(mob,msg2);
 					mob.location().send(mob,omsg);
-					if((msg2.value()<=0)&&(omsg.sourceMinor()==CMMsg.TYP_ORDER))
+					if((msg2.value()<=0)
+					&&(omsg.sourceMinor()==CMMsg.TYP_ORDER))
 					{
 						invoker=mob;
 						target.makePeace(true);

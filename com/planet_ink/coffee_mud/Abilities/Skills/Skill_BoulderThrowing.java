@@ -9,7 +9,6 @@ import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
-import com.planet_ink.coffee_mud.Items.Basic.GenSailingShip;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
@@ -19,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -105,10 +104,10 @@ public class Skill_BoulderThrowing extends StdSkill
 				final MOB mob=(MOB)affected;
 				final Room R=(mob!=null)?mob.location():null;
 				final Area A=(R != null) ? R.getArea() : null;
-				final Item shipItem=(A instanceof BoardableShip) ? ((BoardableShip)A).getShipItem() : null;
+				final Item shipItem=(A instanceof Boardable) ? ((Boardable)A).getBoardableItem() : null;
 				if((mob!=null)
 				&&(mob.isMonster())
-				&&(shipItem instanceof SailingShip)
+				&&(shipItem instanceof SiegableItem)
 				&&(!mob.isInCombat()))
 				{
 					final Item ammoI=mob.fetchHeldItem();
@@ -116,7 +115,7 @@ public class Skill_BoulderThrowing extends StdSkill
 					{
 						if(tickDownThisShipCombatRound==0)
 						{
-							if(((SailingShip)shipItem).isInCombat())
+							if(((SiegableItem)shipItem).isInCombat())
 								CMLib.commands().forceStandardCommand(mob, "Throw", new XVector<String>("THROW",ammoI.Name()));
 						}
 					}
@@ -183,8 +182,9 @@ public class Skill_BoulderThrowing extends StdSkill
 				if((O instanceof Command) && (((Command)O).ID().equals("Throw")))
 				{
 					final Area A=R.getArea();
-					final Item shipItem=(A instanceof BoardableShip) ? ((BoardableShip)A).getShipItem() : null;
-					final Room shipR=(shipItem != null)?CMLib.map().roomLocation(shipItem):null;
+					final Item possShipItem = (A instanceof Boardable) ? ((Boardable)A).getBoardableItem() : null;
+					final SiegableItem siegeBase = (possShipItem instanceof SiegableItem) ? (SiegableItem)possShipItem : null;
+					final Room shipR=(siegeBase != null)?CMLib.map().roomLocation(siegeBase):null;
 
 					final String str;
 					if(cmd.size()>2)
@@ -193,10 +193,10 @@ public class Skill_BoulderThrowing extends StdSkill
 						cmd.remove(str);
 					}
 					else
-					if((shipItem instanceof SailingShip)
+					if((siegeBase instanceof SiegableItem)
 					&&(shipR!=null)
-					&&(((SailingShip)shipItem).getCombatant()!=null))
-						str=shipR.getContextName(((SailingShip)shipItem).getCombatant());
+					&&(siegeBase.getCombatant()!=null))
+						str=shipR.getContextName(siegeBase.getCombatant());
 					else
 						return true;
 
@@ -209,27 +209,27 @@ public class Skill_BoulderThrowing extends StdSkill
 					if((!item.amWearingAt(Wearable.WORN_HELD))&&(!item.amWearingAt(Wearable.WORN_WIELD)))
 						return true;
 					final Item target;
-					if((shipItem != null)&&(shipR!=null))
+					if((siegeBase != null)&&(shipR!=null))
 						target=shipR.findItem(null,str);
 					else
 						target=R.findItem(null,str);
-					if((target instanceof BoardableShip)
+					if((target instanceof SiegableItem)
 					&&(CMLib.flags().canBeSeenBy(target, mob)))
 					{
+						final SiegableItem targetSiegeItem = (SiegableItem)target;
 						if(tickDownThisShipCombatRound>0)
-							msg.setSourceMessage(L("You've already thrown at a ship this round."));
+							msg.setSourceMessage(L("You've already thrown this round."));
 						else
 						if(mob.charStats().getStat(CharStats.STAT_STRENGTH)<10)
 							msg.setSourceMessage(L("You aren't strong enough."));
 						else
 						if((!(item instanceof Ammunition))||(((Ammunition)item).ammunitionRemaining()<1))
-							msg.setSourceMessage(L("You can't throw that at another ship."));
+							msg.setSourceMessage(L("You can't throw that."));
 						else
-						if((shipItem instanceof SailingShip)
+						if((siegeBase instanceof SiegableItem)
 						&&((R.domainType()&Room.INDOORS)==0))
 						{
-							final SailingShip sailShip=(SailingShip)shipItem;
-							if(sailShip.isInCombat() && (sailShip.getCombatant()==target))
+							if(siegeBase.isInCombat() && (siegeBase.getCombatant()==target))
 							{
 								if(this.boulderThrower==null)
 								{
@@ -244,7 +244,7 @@ public class Skill_BoulderThrowing extends StdSkill
 								weapon.setAmmunitionType(ammo.ammunitionType());
 								weapon.setName(ammo.Name());
 								weapon.setRanges(0, 1+(mob.charStats().getStat(CharStats.STAT_STRENGTH)-10)/2);
-								final int distance=sailShip.rangeToTarget();
+								final int distance=siegeBase.rangeToTarget();
 								boolean wasHit=true;
 								if((weapon.maxRange() < distance)||(weapon.minRange() > distance))
 								{
@@ -289,7 +289,7 @@ public class Skill_BoulderThrowing extends StdSkill
 									tickDownThisShipCombatRound=CombatLibrary.TICKS_PER_SHIP_COMBAT;
 									for(int i=0;i<distance;i++)
 										wasHit = wasHit && super.proficiencyCheck(mob, -50+mob.charStats().getStat(CharStats.STAT_DEXTERITY)+(super.getXLEVELLevel(mob)*2), false);
-									CMLib.combat().postShipAttack(mob, shipItem, target, weapon, wasHit);
+									CMLib.combat().postSiegeAttack(mob, siegeBase, targetSiegeItem, weapon, wasHit);
 									if(ammo.ammunitionRemaining()<=0)
 										ammo.destroy();
 								}

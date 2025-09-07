@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,7 +60,10 @@ public class Song_Knowledge extends Song
 		super.affectCharStats(affected,affectableStats);
 		if(invoker==null)
 			return;
-		affectableStats.setStat( CharStats.STAT_WISDOM, ( affectableStats.getStat( CharStats.STAT_WISDOM ) + 2 + getXLEVELLevel( invoker() ) ) );
-		affectableStats.setStat( CharStats.STAT_INTELLIGENCE, ( affectableStats.getStat( CharStats.STAT_INTELLIGENCE ) + 2 + getXLEVELLevel( invoker() ) ) );
+		final int cha = super.avgStat();
+		affectableStats.setStat( CharStats.STAT_WISDOM, ( Math.max(cha,affectableStats.getStat( CharStats.STAT_WISDOM ))
+															+ 2 + getXLEVELLevel( invoker() ) ) );
+		affectableStats.setStat( CharStats.STAT_INTELLIGENCE, ( Math.max(cha,affectableStats.getStat( CharStats.STAT_INTELLIGENCE ))
+															+ 2 + getXLEVELLevel( invoker() ) ) );
 	}
 }

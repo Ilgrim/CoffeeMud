@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -83,6 +83,12 @@ public class Thief_Steal extends ThiefSkill
 	public int usageType()
 	{
 		return USAGE_MOVEMENT|USAGE_MANA;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_STEALING;
 	}
 
 	public int code=0;
@@ -155,7 +161,7 @@ public class Thief_Steal extends ThiefSkill
 		if((givenTarget!=null)&&(givenTarget instanceof MOB))
 			target=(MOB)givenTarget;
 		else
-			target=mob.location().fetchInhabitant(CMParms.combine(commands,1));
+			target=getVisibleRoomTarget(mob,CMParms.combine(commands,1));
 		if((target==null)||(target.amDead())||(!CMLib.flags().canBeSeenBy(target,mob)))
 		{
 			mob.tell(L("You don't see '@x1' here.",CMParms.combine(commands,1)));
@@ -222,7 +228,10 @@ public class Thief_Steal extends ThiefSkill
 			{
 				if((target.isMonster())&&(mob.getVictim()==null))
 					mob.setVictim(target);
-				final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_NOISYMOVEMENT,auto?"":L("You fumble the attempt to steal; <T-NAME> spots you!"),CMMsg.MSG_NOISYMOVEMENT,auto?"":L("<S-NAME> tries to steal from you and fails!"),CMMsg.MSG_NOISYMOVEMENT,auto?"":L("<S-NAME> tries to steal from <T-NAME> and fails!"));
+				final CMMsg msg=CMClass.getMsg(mob,target,this,
+						CMMsg.MSG_NOISYMOVEMENT,auto?"":L("You fumble the attempt to steal; <T-NAME> spots you!"),
+						CMMsg.MSG_NOISYMOVEMENT,auto?"":L("<S-NAME> tries to steal from you and fails!"),
+						CMMsg.MSG_NOISYMOVEMENT,auto?"":L("<S-NAME> tries to steal from <T-NAME> and fails!"));
 				if(mob.location().okMessage(mob,msg))
 					mob.location().send(mob,msg);
 			}

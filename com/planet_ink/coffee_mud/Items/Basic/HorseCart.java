@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ public class HorseCart extends StdRideable
 		baseGoldValue=500;
 		basePhyStats().setWeight(500);
 		setMaterial(RawMaterial.RESOURCE_OAK);
-		setRideBasis(Rideable.RIDEABLE_WAGON);
+		setRideBasis(Rideable.Basis.WAGON);
 		setRiderCapacity(10);
 		recoverPhyStats();
 	}

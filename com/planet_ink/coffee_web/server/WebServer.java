@@ -27,7 +27,7 @@ import com.planet_ink.coffee_web.util.CWThreadExecutor;
 import com.planet_ink.coffee_web.util.CWConfig;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ import com.planet_ink.coffee_web.util.CWConfig;
 public class WebServer extends Thread
 {
 	public static final	String	  NAME				= "CoffeeWebServer";
-	public static final String	  POMVERSION		= "2.4";
+	public static final String	  POMVERSION		= "2.5";
 	public static 		double	  VERSION;
 	static
 	{
@@ -268,6 +268,7 @@ public class WebServer extends Thread
 		|| (((key.interestOps() & SelectionKey.OP_WRITE)==SelectionKey.OP_WRITE) && key.isWritable()))
 		{
 			final HTTPIOHandler handler = (HTTPIOHandler)key.attachment();
+			handler.scheduleReading(); // dont idle out in the midding of processing, omg!
 			//config.getLogger().finer("Read/Write: "+handler.getName());
 			try
 			{
@@ -330,7 +331,7 @@ public class WebServer extends Thread
 			{
 				i=handlers.iterator();
 			}
-			catch(final java.lang.IndexOutOfBoundsException x)
+			catch(final IndexOutOfBoundsException x)
 			{
 				handlers.clear();
 				throw x;
@@ -437,7 +438,7 @@ public class WebServer extends Thread
 			}
 		}
 		close();
-		config.getLogger().info("Shutdown complete");
+		config.getLogger().info(serverName+" shutdown complete");
 	}
 
 	/**
@@ -631,7 +632,7 @@ public class WebServer extends Thread
 		String iniFilename="coffeeweb.ini";
 		for(final String arg : args)
 		{
-			if(arg.startsWith("BOOT="))
+			if(arg.toUpperCase().startsWith("BOOT="))
 				iniFilename=arg.substring(5);
 		}
 
@@ -642,7 +643,8 @@ public class WebServer extends Thread
 		}
 		catch (final Exception e)
 		{
-			e.printStackTrace();
+			e.printStackTrace(System.out);
+			e.printStackTrace(System.err);
 			System.exit(-1);
 			return; // an unhit operation, but my ide is argueing with me over it.
 		}

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -192,10 +192,11 @@ public class Archon_Multiwatch extends ArchonSkill
 			if(!DATA.containsKey(mob))
 				DATA.put(mob,new int[DATA_TOTAL]);
 			final int[] data=DATA.get(mob);
-			if((mob.session()!=null)&&(mob.session().getPreviousCMD()!=null))
+			if((mob.session()!=null)
+			&&(mob.session().getHistory().size()>0))
 			{
 				if((lastCommand!=null)
-				&&(!CMParms.combine(mob.session().getPreviousCMD(),0).equals(lastCommand)))
+				&&(!CMParms.combine(mob.session().getHistory().getLast(),0).equals(lastCommand)))
 				{
 					data[DATA_TYPEDCOMMAND]++;
 					List<MOB> V=null;
@@ -212,7 +213,7 @@ public class Archon_Multiwatch extends ArchonSkill
 							continue;
 						if(!CMLib.flags().isInTheGame(M,true))
 							continue;
-						final String hisLastCmd=CMParms.combine(mob.session().getPreviousCMD(),0);
+						final String hisLastCmd=CMParms.combine(mob.session().getHistory().getLast(),0);
 						final Archon_Multiwatch A=(Archon_Multiwatch)M.fetchEffect(ID());
 						if(A!=null)
 						{
@@ -222,7 +223,7 @@ public class Archon_Multiwatch extends ArchonSkill
 						}
 					}
 				}
-				lastCommand=CMParms.combine(mob.session().getPreviousCMD(),0);
+				lastCommand=CMParms.combine(mob.session().getHistory().getLast(),0);
 			}
 		}
 		return true;
@@ -235,26 +236,25 @@ public class Archon_Multiwatch extends ArchonSkill
 		{
 			DATA.clear();
 			IPS.clear();
-			final Hashtable<String,List<MOB>> ipes=new Hashtable<String,List<MOB>>();
+			final HashMap<String,List<MOB>> ipes=new HashMap<String,List<MOB>>();
 			for(final Session S : CMLib.sessions().localOnlineIterable())
 			{
 				if((S.getAddress().length()>0)
 				&&(S.mob()!=null))
 				{
-					List<MOB> V=ipes.get(S.getAddress());
-					if(V==null)
+					List<MOB> ipList=ipes.get(S.getAddress());
+					if(ipList==null)
 					{
-						V=new Vector<MOB>();
-						ipes.put(S.getAddress(),V);
+						ipList=new ArrayList<MOB>();
+						ipes.put(S.getAddress(),ipList);
 					}
-					if(!V.contains(S.mob()))
-						V.add(S.mob());
+					if(!ipList.contains(S.mob()))
+						ipList.add(S.mob());
 				}
 			}
 			final StringBuffer rpt=new StringBuffer("");
-			for(final Enumeration<String> e=ipes.keys();e.hasMoreElements();)
+			for(final String addr : ipes.keySet())
 			{
-				final String addr=e.nextElement();
 				final List<MOB> names=ipes.get(addr);
 				if(names.size()>1)
 				{

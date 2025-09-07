@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ public class Dance_Basse extends Dance
 	@Override
 	protected String danceOf()
 	{
-		return name()+" Dance";
+		return L("@x1 Dance",name());
 	}
 
 	@Override
@@ -71,16 +71,21 @@ public class Dance_Basse extends Dance
 			final MOB target=(MOB)msg.target();
 			if((!target.isInCombat())
 			&&(msg.source().getVictim()!=target)
-			&&(msg.source().location()==target.location())
-			&&(CMLib.dice().rollPercentage()>((msg.source().phyStats().level()-(target.phyStats().level()+getXLEVELLevel(invoker()))*10))))
+			&&(msg.source().location()==target.location()))
 			{
-				msg.source().tell(L("You are too much in awe of @x1",target.name(msg.source())));
-				if(target.getVictim()==msg.source())
+				final double pct = statBonusPct();
+				final int victimlevel = (int)Math.round(CMath.div(target.phyStats().level(),pct));
+				final int chance = ((victimlevel-(msg.source().phyStats().level()+getXLEVELLevel(invoker()))*10));
+				if(CMLib.dice().rollPercentage()>chance)
 				{
-					target.makePeace(true);
-					target.setVictim(null);
+					msg.source().tell(L("You are too much in awe of @x1",target.name(msg.source())));
+					if(target.getVictim()==msg.source())
+					{
+						target.makePeace(true);
+						target.setVictim(null);
+					}
+					return false;
 				}
-				return false;
 			}
 		}
 		return super.okMessage(myHost,msg);

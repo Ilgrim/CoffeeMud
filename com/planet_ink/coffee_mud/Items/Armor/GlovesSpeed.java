@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ public class GlovesSpeed extends StdArmor
 		super.affectPhyStats(affected,affectableStats);
 		if((!this.amWearingAt(Wearable.IN_INVENTORY))&&(!this.amWearingAt(Wearable.WORN_HELD)))
 		{
-			affectableStats.setSpeed(affectableStats.speed() * 2.0);
+			affectableStats.setSpeed(affectableStats.speed() + CMProps.getSpeedAdjustment());
 			affectableStats.setAttackAdjustment(affectableStats.attackAdjustment() + 10);
 		}
 	}

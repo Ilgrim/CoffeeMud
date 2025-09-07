@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,6 +59,12 @@ public class Spell_Clairevoyance extends Spell
 	protected int canAffectCode()
 	{
 		return CAN_MOBS;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -138,9 +144,9 @@ public class Spell_Clairevoyance extends Spell
 					scryList.append(((e>0)?", ":"")+(scries.get(e).first.name()));
 			}
 			if(scryList.length()>0)
-				mob.tell(L("Cast on or revoke from whom?  You currently have @x1 on the following: @x2.",name(),scryList.toString()));
+				commonTelL(mob,"Cast on or revoke from whom?  You currently have @x1 on the following: @x2.",name(),scryList.toString());
 			else
-				mob.tell(L("Cast on whom?"));
+				commonTelL(mob,"Cast on whom?");
 			return false;
 		}
 		final String mobName=CMParms.combine(commands,0).trim().toUpperCase();
@@ -153,9 +159,9 @@ public class Spell_Clairevoyance extends Spell
 		{
 			try
 			{
-				List<MOB> targets=CMLib.map().findInhabitantsFavorExact(mob.location().getArea().getProperMap(), mob, mobName, false, 10);
+				List<MOB> targets=CMLib.hunt().findInhabitantsFavorExact(mob.location().getArea().getProperMap(), mob, mobName, false, 10);
 				if(targets.size()==0)
-					targets=CMLib.map().findInhabitantsFavorExact(CMLib.map().rooms(), mob, mobName, false, 10);
+					targets=CMLib.hunt().findInhabitantsFavorExact(CMLib.map().rooms(), mob, mobName, false, 10);
 				if(targets.size()>0)
 					target=targets.get(CMLib.dice().roll(1,targets.size(),-1));
 			}
@@ -170,13 +176,13 @@ public class Spell_Clairevoyance extends Spell
 			newRoom=target.location();
 		else
 		{
-			mob.tell(L("You can't seem to focus on '@x1'.",mobName));
+			commonTelL(mob,"You can't seem to focus on '@x1'.",mobName);
 			return false;
 		}
 
 		if(mob==target)
 		{
-			mob.tell(L("You can't cast this on yourself!"));
+			commonTelL(mob,"You can't cast this on yourself!");
 			return false;
 		}
 
@@ -189,7 +195,7 @@ public class Spell_Clairevoyance extends Spell
 		else
 		if((A!=null)||(scries.containsFirst(target)))
 		{
-			mob.tell(L("You can't seem to focus on '@x1'.",mobName));
+			commonTelL(mob,"You can't seem to focus on '@x1'.",mobName);
 			return false;
 		}
 

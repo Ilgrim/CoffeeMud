@@ -17,7 +17,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class MagicShelter extends StdRoom
 		name="the shelter";
 		displayText=L("Magic Shelter");
 		setDescription("You are in a domain of complete void and peace.");
-		basePhyStats.setWeight(0);
+		setMovementCost(0);
 		recoverPhyStats();
 		Ability A=CMClass.getAbility("Prop_PeaceMaker");
 		if(A!=null)

@@ -20,7 +20,7 @@ import java.io.IOException;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ public class Skill_BearForaging extends StdAbility
 		return localizedName;
 	}
 
-	protected String	displayText	= L("(Bear Foraging)");
+	protected static final String	displayText	= CMLib.lang().L("(Bear Foraging)");
 
 	@Override
 	public String displayText()
@@ -405,16 +405,21 @@ public class Skill_BearForaging extends StdAbility
 		TrackingLibrary.TrackingFlags flags;
 		flags = CMLib.tracking().newFlags()
 				.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
+				.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 				.plus(TrackingLibrary.TrackingFlag.NOAIR);
 		final int range=3 + (adjustedLevel(mob,asLevel)/15) + (super.getXMAXRANGELevel(mob));
-		final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,range);
-		for (final Room room : checkSet)
-		{
-			final Room R=CMLib.map().getRoom(room);
-			if(isFoodHere(mob,R)!=null)
-				rooms.add(R);
-		}
-
+		final List<Room> trashRooms = new ArrayList<Room>();
+		if(CMLib.tracking().getRadiantRoomsToTarget(mob.location(), trashRooms, flags, new TrackingLibrary.RFilter() {
+			@Override
+			public boolean isFilteredOut(final Room hostR, Room R, final Exit E, final int dir)
+			{
+				R=CMLib.map().getRoom(R);
+				if(isFoodHere(mob,R)!=null)
+					return false;
+				return true;
+			}
+		}, range))
+			rooms.add(trashRooms.get(trashRooms.size()-1));
 		if(rooms.size()>0)
 			theTrail=CMLib.tracking().findTrailToAnyRoom(mob.location(),rooms,flags,range);
 

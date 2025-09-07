@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -61,6 +61,7 @@ public class Song_Quickness extends Song
 		if(invoker==null)
 			return;
 
-		affectableStats.setSpeed(affectableStats.speed()+1.0+CMath.mul(0.1,super.getXLEVELLevel(invoker())));
+		final double pct = super.statBonusPct();
+		affectableStats.setSpeed(affectableStats.speed()+(CMProps.getSpeedAdjustment()*(pct+CMath.mul(0.1,super.getXLEVELLevel(invoker())))));
 	}
 }

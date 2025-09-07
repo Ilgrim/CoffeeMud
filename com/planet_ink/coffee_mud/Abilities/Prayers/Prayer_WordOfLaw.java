@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -222,7 +222,9 @@ public class Prayer_WordOfLaw extends Prayer implements MendingSkill
 
 		final boolean success=proficiencyCheck(mob,0,auto);
 
-		String str=(auto?"The word of law is spoken.":"^S<S-NAME> speak(s) the word of law"+ofDiety(mob)+" to <T-NAMESELF>.^?")+CMLib.protocol().msp("bless.wav",10);
+		String str=(auto?L("The word of law is spoken."):
+					L("^S<S-NAME> speak(s) the word of law@x1 to <T-NAMESELF>.^?",ofDiety(mob)))
+					+CMLib.protocol().msp("bless.wav",10);
 		String missStr=L("<S-NAME> speak(s) the word of law@x1, but nothing happens.",ofDiety(mob));
 		final Room room=mob.location();
 		if(room!=null)
@@ -254,10 +256,15 @@ public class Prayer_WordOfLaw extends Prayer implements MendingSkill
 							while((I!=null)&&(!alreadyDone.contains(I)))
 							{
 								alreadyDone.add(I);
-								final CMMsg msg2=CMClass.getMsg(target,I,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_DROP,L("<S-NAME> release(s) <T-NAME>."));
-								target.location().send(target,msg2);
-								endLowerChaos(I,CMLib.ableMapper().lowestQualifyingLevel(ID()));
-								I.recoverPhyStats();
+								final CMMsg msgb=CMClass.getMsg(mob,I,this,verbalCastCode(mob,target,auto), null);
+								if(target.location().okMessage(target, msgb))
+								{
+									target.location().send(target,msgb);
+									final CMMsg msg2=CMClass.getMsg(target,I,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_DROP,L("<S-NAME> release(s) <T-NAME>."));
+									target.location().send(target,msg2);
+									endLowerChaos(I,CMLib.ableMapper().lowestQualifyingLevel(ID()));
+									I.recoverPhyStats();
+								}
 								I=getSomething(target,true);
 							}
 							endAllOtherLegalProtections(mob,target,CMLib.ableMapper().lowestQualifyingLevel(ID()));

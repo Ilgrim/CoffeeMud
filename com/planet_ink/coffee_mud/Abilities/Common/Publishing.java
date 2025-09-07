@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -196,13 +196,14 @@ public class Publishing extends CommonSkill
 			{
 				final MOB mob=(MOB)affected;
 				if((!success)||(found==null))
-					commonTell(mob,L("You messed up your attempt to get published."));
+					commonTelL(mob,"You messed up your attempt to get published.");
 				else
 				{
 					final ArrayList<Room> rooms=new ArrayList<Room>();
 					final PairList<ShopKeeper,Room> shops=new PairVector<ShopKeeper,Room>();
 					final TrackingLibrary.TrackingFlags flags;
 					flags = CMLib.tracking().newFlags()
+							.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 							.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
 							.plus(TrackingLibrary.TrackingFlag.NOHIDDENAREAS)
 							.plus(TrackingLibrary.TrackingFlag.NOHOMES);
@@ -237,7 +238,7 @@ public class Publishing extends CommonSkill
 					rooms.clear();
 					final Publishing realPubA = (Publishing)mob.fetchAbility(ID());
 					if(shops.size()==0)
-						commonTell(mob,L("There were no appropriate book shops nearby to publish at."));
+						commonTelL(mob,"There were no appropriate book shops nearby to publish at.");
 					else
 					{
 						int pubbed = 0;
@@ -531,7 +532,7 @@ public class Publishing extends CommonSkill
 		if((commands.size()<1)
 		||((commands.size()==1)&&(!commands.get(0).equalsIgnoreCase("LIST"))))
 		{
-			commonTell(mob,L("Publish what, at what asking price? If you already published, try LIST."));
+			commonTelL(mob,"Publish what, at what asking price? If you already published, try LIST.");
 			return false;
 		}
 		if(commands.size()==1)
@@ -539,7 +540,7 @@ public class Publishing extends CommonSkill
 			final MiniJSON.JSONObject data=getData();
 			if((data.keySet().size()==0)
 			||((data.size()==1)&&(data.containsKey("lastpub"))))
-				commonTell(mob,L("You haven't been published yet."));
+				commonTelL(mob,"You haven't been published yet.");
 			else
 			{
 				try
@@ -552,7 +553,7 @@ public class Publishing extends CommonSkill
 							continue;
 						final MiniJSON.JSONObject bookObj = data.getCheckedJSONObject(bookName);
 						if(!bookObj.containsKey("author"))
-							str.append("* This book might need to be republished.\n\r");
+							str.append(L("* This book might need to be republished.\n\r"));
 						str.append(index+") ^H"+bookName+"^?:\n\r");
 						String purchased="0";
 						String royalties="0";
@@ -591,20 +592,20 @@ public class Publishing extends CommonSkill
 			try
 			{
 				final Long L=obj.getCheckedLong("lastpub");
-				final TimeClock lastPubC=(TimeClock)CMClass.getCommon("DefaultTimeClock");
+				final TimeClock lastPubC=(TimeClock)C.copyOf();
 				lastPubC.setFromHoursSinceEpoc(L.longValue());
 				if(C.getYear() == lastPubC.getYear())
 				{
 					if(C.getMonth() <= lastPubC.getMonth())
 					{
-						commonTell(mob,L("You won't be able to publish any more books this month."));
+						commonTelL(mob,"You won't be able to publish any more books this month.");
 						return false;
 					}
 				}
 				else
 				if(C.getYear() < lastPubC.getYear())
 				{
-					commonTell(mob,L("You last published in the year @x1?!!",""+lastPubC.getYear()));
+					commonTelL(mob,"You last published in the year @x1?!!",""+lastPubC.getYear());
 					return false;
 				}
 			}
@@ -625,7 +626,7 @@ public class Publishing extends CommonSkill
 		}
 		if(startHere < 0)
 		{
-			commonTell(mob,L("You haven't specified an asking price."));
+			commonTelL(mob,"You haven't specified an asking price.");
 			return false;
 		}
 		final List<String> remainV=new ArrayList<String>();
@@ -638,7 +639,7 @@ public class Publishing extends CommonSkill
  		final Item target = super.getTarget(mob, mob.location(), givenTarget, remainV, Wearable.FILTER_UNWORNONLY);
 		if((target==null)||(!CMLib.flags().canBeSeenBy(target,mob)))
 		{
-			commonTell(mob,L("You don't seem to have a '@x1'.",CMParms.combine(remainV)));
+			commonTelL(mob,"You don't seem to have a '@x1'.",CMParms.combine(remainV));
 			return false;
 		}
 
@@ -647,12 +648,12 @@ public class Publishing extends CommonSkill
 		&&(target.material()!=RawMaterial.RESOURCE_SILK)
 		&&(target.material()!=RawMaterial.RESOURCE_HIDE))
 		{
-			commonTell(mob,L("You can't publish something like that."));
+			commonTelL(mob,"You can't publish something like that.");
 			return false;
 		}
 		if(!CMLib.flags().isReadable(target))
 		{
-			commonTell(mob,L("That's not even readable!"));
+			commonTelL(mob,"That's not even readable!");
 			return false;
 		}
 
@@ -660,13 +661,13 @@ public class Publishing extends CommonSkill
 		String brand = getBrand(target);
 		if((brand==null)||(brand.length()==0))
 		{
-			commonTell(mob,L("You aren't permitted to publish that."));
+			commonTelL(mob,"You aren't permitted to publish that.");
 			return false;
 		}
 		*/
 		if(!target.isGeneric())
 		{
-			commonTell(mob,L("You aren't able to publish that."));
+			commonTelL(mob,"You aren't able to publish that.");
 			return false;
 		}
 

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -102,6 +102,7 @@ public class Prop_AreaForSale extends Property implements LandTitle
 	{
 		setMiscText(getOwnerName()+"/"
 			+(rentalProperty()?"RENTAL ":"")
+			+(allowTheft()?"ALLOWTHEFT ":"")
 			+((backTaxes()!=0)?"TAX"+backTaxes()+"X ":"")
 			+price);
 	}
@@ -123,15 +124,15 @@ public class Prop_AreaForSale extends Property implements LandTitle
 	}
 
 	@Override
-	public CMObject getOwnerObject()
+	public boolean isProperlyOwned()
 	{
 		final String owner=getOwnerName();
 		if(owner.length()==0)
-			return null;
-		final Clan C=CMLib.clans().getClanExact(owner);
+			return false;
+		final Clan C=CMLib.clans().fetchClanAnyHost(owner);
 		if(C!=null)
-			return C;
-		return CMLib.players().getLoadPlayer(owner);
+			return true;
+		return CMLib.players().playerExistsAllHosts(owner);
 	}
 
 	@Override
@@ -139,6 +140,7 @@ public class Prop_AreaForSale extends Property implements LandTitle
 	{
 		setMiscText(owner+"/"
 				+(rentalProperty()?"RENTAL ":"")
+				+(allowTheft()?"ALLOWTHEFT ":"")
 				+((backTaxes()!=0)?"TAX"+backTaxes()+"X ":"")
 				+getPrice());
 	}
@@ -160,6 +162,7 @@ public class Prop_AreaForSale extends Property implements LandTitle
 	{
 		setMiscText(getOwnerName()+"/"
 				+(rentalProperty()?"RENTAL ":"")
+				+(allowTheft()?"ALLOWTHEFT ":"")
 				+((tax!=0)?"TAX"+tax+"X ":"")
 				+getPrice());
 	}
@@ -177,6 +180,27 @@ public class Prop_AreaForSale extends Property implements LandTitle
 	{
 		setMiscText(getOwnerName()+"/"
 				+(truefalse?"RENTAL ":"")
+				+(allowTheft()?"ALLOWTHEFT ":"")
+				+((backTaxes()!=0)?"TAX"+backTaxes()+"X ":"")
+				+getPrice());
+	}
+
+	@Override
+	public boolean allowTheft()
+	{
+		final String upperText=text().toUpperCase();
+		final int dex=upperText.indexOf('/');
+		if(dex<0)
+			return upperText.indexOf("ALLOWTHEFT")>=0;
+		return upperText.indexOf("ALLOWTHEFT",dex)>=0;
+	}
+
+	@Override
+	public void setAllowTheft(final boolean allow)
+	{
+		setMiscText(getOwnerName()+"/"
+				+(rentalProperty()?"RENTAL ":"")
+				+(allowTheft()?"ALLOWTHEFT":"")
 				+((backTaxes()!=0)?"TAX"+backTaxes()+"X ":"")
 				+getPrice());
 	}
@@ -201,7 +225,7 @@ public class Prop_AreaForSale extends Property implements LandTitle
 	@Override
 	public String landPropertyID()
 	{
-		if((affected!=null)&&(affected instanceof Area))
+		if((affected instanceof Area))
 			((Area)affected).Name();
 		else
 		if(affected instanceof Room)
@@ -254,11 +278,10 @@ public class Prop_AreaForSale extends Property implements LandTitle
 		&&((System.currentTimeMillis()-lastMobSave)>360000))
 		{
 			lastMobSave=System.currentTimeMillis();
-			final List<Room> V=getAllTitledRooms();
-			for(int v=0;v<V.size();v++)
+			//this should only for cached rooms, so thin-safe.
+			for(Room R : getTitledRooms())
 			{
-				Room R=V.get(v);
-				synchronized(("SYNC"+R.roomID()).intern())
+				synchronized(CMClass.getSync("SYNC"+R.roomID()))
 				{
 					R=CMLib.map().getRoom(R);
 					lastMobSave=System.currentTimeMillis();
@@ -281,7 +304,24 @@ public class Prop_AreaForSale extends Property implements LandTitle
 	}
 
 	@Override
-	public List<Room> getAllTitledRooms()
+	public Room getATitledRoom()
+	{
+		if(affected instanceof Area)
+			return ((Area)affected).getRandomProperRoom();
+		else
+		if(affected instanceof Room)
+			return (Room)affected;
+		else
+		{
+			final Area A=CMLib.map().getArea(landPropertyID());
+			if(A!=null)
+				return A.getRandomProperRoom();
+		}
+		return null;
+	}
+
+	@Override
+	public List<Room> getTitledRooms()
 	{
 		final List<Room> V=new Vector<Room>();
 		Area A=null;
@@ -294,6 +334,7 @@ public class Prop_AreaForSale extends Property implements LandTitle
 			A=CMLib.map().getArea(landPropertyID());
 		if(A!=null)
 		{
+			// this is ok for thin areas, because the title covers them all anyway
 			for(final Enumeration<Room> e=A.getProperMap();e.hasMoreElements();)
 				V.add(e.nextElement());
 		}
@@ -301,9 +342,41 @@ public class Prop_AreaForSale extends Property implements LandTitle
 	}
 
 	@Override
-	public List<Room> getConnectedPropertyRooms()
+	public int getNumTitledRooms()
 	{
-		return getAllTitledRooms();
+		Area A=null;
+		if(affected instanceof Area)
+			A=(Area)affected;
+		else
+		if(affected instanceof Room)
+			return 1;
+		else
+			A=CMLib.map().getArea(landPropertyID());
+		if(A!=null)
+			return A.numberOfProperIDedRooms();
+		return 0;
+	}
+
+	@Override
+	public Room getAConnectedPropertyRoom()
+	{
+		return getATitledRoom();
+	}
+
+	@Override
+	public int getNumConnectedPropertyRooms()
+	{
+		Area A=null;
+		if(affected instanceof Area)
+			A=(Area)affected;
+		else
+		if(affected instanceof Room)
+			return 1;
+		else
+			A=CMLib.map().getArea(landPropertyID());
+		if(A!=null)
+			return A.numberOfProperIDedRooms();
+		return 0;
 	}
 
 	// update lot, since its called by the savethread, ONLY worries about itself
@@ -311,12 +384,13 @@ public class Prop_AreaForSale extends Property implements LandTitle
 	public void updateLot(final Set<String> optPlayerList)
 	{
 		if(((System.currentTimeMillis()-lastCall)>360000)
-		&&(CMProps.getBoolVar(CMProps.Bool.MUDSTARTED)))
+		&&(CMProps.isState(CMProps.HostState.RUNNING)))
 		{
-			final List<Room> V=getAllTitledRooms();
-			for(int v=0;v<V.size();v++)
+			// in this case, we definitely only care about rooms actually existing
+			// thin rooms can safely be skipped
+			final List<Room> V=getTitledRooms();
+			for(final Room R : V)
 			{
-				final Room R=V.get(v);
 				lastCall=System.currentTimeMillis();
 				int[] pair=lastItemNums.get(R);
 				if(pair == null)

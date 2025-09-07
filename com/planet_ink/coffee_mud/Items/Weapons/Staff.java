@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -67,13 +67,25 @@ public class Staff extends StdWeapon implements Wand
 	}
 
 	@Override
-	public int maxUses()
+	public int getCharges()
+	{
+		return usesRemaining();
+	}
+
+	@Override
+	public void setCharges(final int newCharges)
+	{
+		this.setUsesRemaining(newCharges);
+	}
+
+	@Override
+	public int getMaxCharges()
 	{
 		return Integer.MAX_VALUE;
 	}
 
 	@Override
-	public void setMaxUses(final int newMaxUses)
+	public void setMaxCharges(final int num)
 	{
 	}
 
@@ -120,11 +132,16 @@ public class Staff extends StdWeapon implements Wand
 	{
 		String id=super.secretIdentity();
 		final Ability A=getSpell();
-		String uses;
-		if(this.maxUses() < 999999)
-			uses=""+usesRemaining()+"/"+maxUses();
+		final String uses;
+		if(this.getCharges() < 999999)
+		{
+			if(this.getMaxCharges() < 999999)
+				uses=""+getCharges()+"/"+getMaxCharges();
+			else
+				uses = ""+getCharges();
+		}
 		else
-			uses = ""+usesRemaining();
+			uses="unlimited";
 		if(A!=null)
 			id="'A staff of "+A.name()+"' Charges: "+uses+"\n\r"+id;
 		return id+"\n\rSay the magic word :`"+secretWord+"` to the target.";
@@ -180,8 +197,15 @@ public class Staff extends StdWeapon implements Wand
 					}
 				}
 				final String said=CMStrings.getSayFromMessage(msg.sourceMessage());
-				if((!alreadyWanding)&&(said!=null)&&(checkWave(mob,said)))
-					msg.addTrailerMsg(CMClass.getMsg(msg.source(),this,msg.target(),CMMsg.NO_EFFECT,null,CMMsg.MASK_ALWAYS|CMMsg.TYP_WAND_USE,said,CMMsg.NO_EFFECT,null));
+				if((!alreadyWanding)
+				&&(said!=null)
+				&&(checkWave(mob,said)))
+				{
+					msg.addTrailerMsg(CMClass.getMsg(msg.source(),this,msg.target(),
+							CMMsg.NO_EFFECT,null,
+							CMMsg.MASK_ALWAYS|CMMsg.TYP_WAND_USE,said,
+							CMMsg.NO_EFFECT,null));
+				}
 			}
 			break;
 		default:

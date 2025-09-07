@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,14 +70,20 @@ public class ItemRejuv extends StdAbility implements ItemTicker
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_NONENCHANTMENT;
+	}
+
+	@Override
 	public int abstractQuality()
 	{
 		return Ability.QUALITY_MALICIOUS;
 	}
 
 	protected Room			myProperLocation	= null;
-	protected Vector<Item>	contents			= new Vector<Item>();
-	protected Vector<Item>	ccontents			= new Vector<Item>();
+	protected Vector<Item>	contents			= new Vector<Item>(1);
+	protected Vector<Item>	ccontents			= new Vector<Item>(1);
 
 	public synchronized void loadContent(final ItemTicker ticker, final Item item, final Room room)
 	{
@@ -218,7 +224,12 @@ public class ItemRejuv extends StdAbility implements ItemTicker
 			}
 			if((CMLib.flags().canNotBeCamped(item)||CMLib.flags().canNotBeCamped(R))
 			&& (R.numPCInhabitants() > 0)
-			&& (!CMLib.tracking().isAnAdminHere(R,false)))
+			&& (!CMLib.hunt().isAnAdminHere(R,false)))
+			{
+				CMLib.threads().setTickPending(ticking,Tickable.TICKID_ROOM_ITEM_REJUV);
+				return true; // it will just come back next time
+			}
+			if(CMSecurity.isDisabled(CMSecurity.DisFlag.ITEMREJUV))
 			{
 				CMLib.threads().setTickPending(ticking,Tickable.TICKID_ROOM_ITEM_REJUV);
 				return true; // it will just come back next time

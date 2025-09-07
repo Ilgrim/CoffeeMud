@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ public class ATopics extends StdCommand
 		{
 			topicBuffer=new StringBuffer();
 
-			final Vector<String> reverseList=new Vector<String>();
+			final List<String> reverseList=new ArrayList<String>();
 			for(final Enumeration<Object> e=rHelpFile.keys();e.hasMoreElements();)
 			{
 				final String ptop = (String)e.nextElement();
@@ -64,7 +64,7 @@ public class ATopics extends StdCommand
 
 			Collections.sort(reverseList);
 			topicBuffer=new StringBuffer("Help topics: \n\r\n\r");
-			topicBuffer.append(CMLib.lister().fourColumns(mob,reverseList,"HELP"));
+			topicBuffer.append(CMLib.lister().build4ColTable(mob,reverseList,"HELP"));
 			topicBuffer=new StringBuffer(topicBuffer.toString().replace('_',' '));
 			Resources.submitResource(resName,topicBuffer);
 		}

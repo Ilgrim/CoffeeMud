@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -71,6 +71,14 @@ public class Searching extends CommonSkill
 		affectableStats.setStat(CharStats.STAT_SAVE_OVERLOOKING,bonusThisRoom+proficiency()+affectableStats.getStat(CharStats.STAT_SAVE_OVERLOOKING));
 	}
 
+	@Override
+	public void affectPhyStats(final Physical affectedEnv, final PhyStats affectableStats)
+	{
+		super.affectPhyStats(affectedEnv,affectableStats);
+		if((success)&&(affectedEnv instanceof MOB)&&(((MOB)affectedEnv).location()==searchRoom))
+			affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_SEE_HIDDEN);
+	}
+
 	protected boolean success=false;
 	public Searching()
 	{
@@ -82,15 +90,14 @@ public class Searching extends CommonSkill
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			final MOB mob=(MOB)affected;
 			if(tickUp==1)
 			{
 				if(success==false)
 				{
-					final StringBuffer str=new StringBuffer(L("You get distracted from your search.\n\r"));
-					commonTell(mob,str.toString());
+					commonTelL(mob,"You get distracted from your search.\n\r");
 					unInvoke();
 					return super.tick(ticking,tickID);
 				}
@@ -113,14 +120,6 @@ public class Searching extends CommonSkill
 	}
 
 	@Override
-	public void affectPhyStats(final Physical affectedEnv, final PhyStats affectableStats)
-	{
-		super.affectPhyStats(affectedEnv,affectableStats);
-		if((success)&&(affectedEnv instanceof MOB)&&(((MOB)affectedEnv).location()==searchRoom))
-			affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_SEE_HIDDEN);
-	}
-
-	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		if(super.checkStop(mob, commands))
@@ -138,7 +137,7 @@ public class Searching extends CommonSkill
 			mob.location().send(mob,msg);
 			searchRoom=mob.location();
 			beneficialAffect(mob,mob,asLevel,duration);
-			mob.tell(L(" "));
+			mob.tell(" ");
 			CMLib.commands().postLook(mob,true);
 		}
 		return true;

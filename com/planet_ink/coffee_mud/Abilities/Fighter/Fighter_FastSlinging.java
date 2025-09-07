@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -105,9 +105,10 @@ public class Fighter_FastSlinging extends FighterSkill
 			if((w instanceof AmmunitionWeapon)
 			&&(((Weapon)w).weaponClassification()==Weapon.CLASS_RANGED)
 			&&(((AmmunitionWeapon)w).ammunitionType().length()>0)
-			&&((mob.rangeToTarget()>=w.minRange())||((w.phyStats().sensesMask()&PhyStats.SENSE_ITEMNOMINRANGE)==PhyStats.SENSE_ITEMNOMINRANGE))
+			&&((mob.rangeToTarget()>=w.minRange()) || (w.minRange()==0))
 			&&(w.name().toLowerCase().indexOf("sling")>=0)
-			&&((mob.fetchAbility(ID())==null)||proficiencyCheck(null,0,false)))
+			&&((mob.fetchAbility(ID())==null)
+				||proficiencyCheck(null,0,false)))
 			{
 				helpProficiency(mob, 0);
 				final int extraAttacks=1+(int)Math.round(Math.floor(CMath.div(adjustedLevel(mob,0),16.0)));

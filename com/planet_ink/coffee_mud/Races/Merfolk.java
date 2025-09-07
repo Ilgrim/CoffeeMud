@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -100,8 +100,8 @@ public class Merfolk extends StdRace
 		return localizedStaticRacialCat;
 	}
 
-	private final String[]	culturalAbilityNames			= { "Aquan", "Fishing" };
-	private final int[]		culturalAbilityProficiencies	= { 25, 100 };
+	private final String[]	culturalAbilityNames			= { "Aquan", "Fishing", "Chant_LandLegs" };
+	private final int[]		culturalAbilityProficiencies	= { 25, 100, 25 };
 
 	@Override
 	public String[] culturalAbilityNames()
@@ -115,11 +115,11 @@ public class Merfolk extends StdRace
 		return culturalAbilityProficiencies;
 	}
 
-	private final String[]					racialAbilityNames			= { "Skill_Swim", "Skill_Autoswim", "Chant_LandLegs" };
-	private final int[]						racialAbilityLevels			= { 1, 1, 1 };
-	private final int[]						racialAbilityProficiencies	= { 100, 100, 25 };
-	private final boolean[]					racialAbilityQuals			= { false,false,false };
-	private final String[]					racialAbilityParms			= { "", "", ""};
+	private final String[]					racialAbilityNames			= { "Skill_Swim", "Skill_Autoswim" };
+	private final int[]						racialAbilityLevels			= { 1, 1 };
+	private final int[]						racialAbilityProficiencies	= { 100, 100 };
+	private final boolean[]					racialAbilityQuals			= { false,false };
+	private final String[]					racialAbilityParms			= { "", ""};
 
 	@Override
 	protected String[] racialAbilityNames()
@@ -205,13 +205,22 @@ public class Merfolk extends StdRace
 	public void affectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
 		super.affectCharStats(affectedMOB, affectableStats);
-		affectableStats.setStat(CharStats.STAT_DEXTERITY,affectableStats.getStat(CharStats.STAT_DEXTERITY)+2);
-		affectableStats.setStat(CharStats.STAT_MAX_DEXTERITY_ADJ,affectableStats.getStat(CharStats.STAT_MAX_DEXTERITY_ADJ)+2);
-		affectableStats.setStat(CharStats.STAT_WISDOM,affectableStats.getStat(CharStats.STAT_WISDOM)-2);
-		affectableStats.setStat(CharStats.STAT_MAX_WISDOM_ADJ,affectableStats.getStat(CharStats.STAT_MAX_WISDOM_ADJ)-2);
+		affectableStats.adjStat(CharStats.STAT_DEXTERITY,2);
+		affectableStats.adjStat(CharStats.STAT_WISDOM,-2);
 		affectableStats.setStat(CharStats.STAT_SAVE_WATER,affectableStats.getStat(CharStats.STAT_SAVE_WATER)+35);
 		affectableStats.setStat(CharStats.STAT_SAVE_FIRE,affectableStats.getStat(CharStats.STAT_SAVE_FIRE)-20);
 		affectableStats.setStat(CharStats.STAT_SAVE_ELECTRIC,affectableStats.getStat(CharStats.STAT_SAVE_ELECTRIC)-15);
+	}
+
+	@Override
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
+	{
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.adjStat(CharStats.STAT_DEXTERITY,-2);
+		affectableStats.adjStat(CharStats.STAT_WISDOM,+2);
+		affectableStats.setStat(CharStats.STAT_SAVE_WATER,affectableStats.getStat(CharStats.STAT_SAVE_WATER)-35);
+		affectableStats.setStat(CharStats.STAT_SAVE_FIRE,affectableStats.getStat(CharStats.STAT_SAVE_FIRE)+20);
+		affectableStats.setStat(CharStats.STAT_SAVE_ELECTRIC,affectableStats.getStat(CharStats.STAT_SAVE_ELECTRIC)+15);
 	}
 
 	@Override
@@ -233,14 +242,17 @@ public class Merfolk extends StdRace
 
 			final Armor s3=CMClass.getArmor("GenBelt");
 			outfitChoices.add(s3);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public Weapon[] getNaturalWeapons()
 	{
-		return funHumanoidWeapon();
+		if(naturalWeaponChoices.length==0)
+			naturalWeaponChoices = getHumanoidWeapons();
+		return super.getNaturalWeapons();
 	}
 
 	@Override

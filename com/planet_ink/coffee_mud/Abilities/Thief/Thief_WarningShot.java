@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -95,20 +95,23 @@ public class Thief_WarningShot extends ThiefSkill
 	protected List<Item> getSiegeWeapons(final Physical P)
 	{
 		final List<Item> items=new ArrayList<Item>();
-		if(P instanceof BoardableShip)
+		if(P instanceof Boardable)
 		{
-			final BoardableShip myShip=(BoardableShip)P;
-			for(final Enumeration<Room> r=myShip.getShipArea().getProperMap();r.hasMoreElements();)
+			final Boardable myShip=(Boardable)P;
+			if(myShip.getArea()!=null)
 			{
-				final Room R2=r.nextElement();
-				if((R2!=null)&&(R2.numItems()>0)&&(((R2.domainType()&Room.INDOORS)==0)))
+				for(final Enumeration<Room> r=myShip.getArea().getProperMap();r.hasMoreElements();)
 				{
-					for(final Enumeration<Item> i=R2.items();i.hasMoreElements();)
+					final Room R2=r.nextElement();
+					if((R2!=null)&&(R2.numItems()>0)&&(((R2.domainType()&Room.INDOORS)==0)))
 					{
-						final Item I2=i.nextElement();
-						if((I2.container()==null)
-						&&(CMLib.combat().isAShipSiegeWeapon(I2)))
-							items.add(I2);
+						for(final Enumeration<Item> i=R2.items();i.hasMoreElements();)
+						{
+							final Item I2=i.nextElement();
+							if((I2.container()==null)
+							&&(CMLib.combat().isASiegeWeapon(I2)))
+								items.add(I2);
+						}
 					}
 				}
 			}
@@ -132,9 +135,9 @@ public class Thief_WarningShot extends ThiefSkill
 
 	public static void tellTheDeck(final Item ship, final MOB M, final String msg)
 	{
-		if(ship instanceof BoardableShip)
+		if(ship instanceof Boardable)
 		{
-			for(final Enumeration<Room> r=((BoardableShip)ship).getShipArea().getProperMap();r.hasMoreElements();)
+			for(final Enumeration<Room> r=((Boardable)ship).getArea().getProperMap();r.hasMoreElements();)
 			{
 				final Room R=r.nextElement();
 				if((R!=null)&&((R.domainType()&Room.INDOORS)==0)&&(R.numPCInhabitants()>0))
@@ -172,15 +175,15 @@ public class Thief_WarningShot extends ThiefSkill
 		final Room R=mob.location();
 		if(R==null)
 			return false;
-		if((!(R.getArea() instanceof BoardableShip))
-		||(!(((BoardableShip)R.getArea()).getShipItem() instanceof SailingShip))
+		if((!(R.getArea() instanceof Boardable))
+		||(!(((Boardable)R.getArea()).getBoardableItem() instanceof SiegableItem))
 		||((R.domainType()&Room.INDOORS)!=0))
 		{
-			mob.tell(L("You must be on the deck of a ship to fire a warning shot."));
+			mob.tell(L("You must be able to man a siege weapon to fire a warning shot."));
 			return false;
 		}
-		final BoardableShip myShip=(BoardableShip)R.getArea();
-		final SailingShip myShipItem=(SailingShip)myShip.getShipItem();
+		final Boardable myShip=(Boardable)R.getArea();
+		final SiegableItem myShipItem=(SiegableItem)myShip.getBoardableItem();
 		if((myShipItem==null)
 		||(!(myShipItem.owner() instanceof Room))
 		||(!CMLib.flags().isWateryRoom((Room)myShipItem.owner())))
@@ -239,24 +242,24 @@ public class Thief_WarningShot extends ThiefSkill
 				final String targetSeesStr;
 				final String iSeeStr;
 				final Item hisShipItem;
-				if((target instanceof BoardableShip)
-				&&(((BoardableShip)target).getShipItem() instanceof SailingShip)
+				if((target instanceof Boardable)
+				&&(((Boardable)target).getBoardableItem() instanceof NavigableItem)
 				&&(hisItems.size()>0))
 				{
-					hisShipItem = ((BoardableShip)target).getShipItem();
-					double mySpeed = myShipItem.getShipSpeed();
+					hisShipItem = ((Boardable)target).getBoardableItem();
+					double mySpeed = (myShipItem instanceof NavigableItem)?((NavigableItem)myShipItem).getMaxSpeed():1.0;
 					if(mySpeed <=0)
 						mySpeed = 1.0;
-					double hisSpeed = ((SailingShip)hisShipItem).getShipSpeed();
+					double hisSpeed = ((NavigableItem)hisShipItem).getMaxSpeed();
 					if(hisSpeed <=0)
 						hisSpeed = 1.0;
 					final double myChancePerRoundToBeHit =  CMath.div(CMath.div(100.0, mySpeed + 1.0), 100.0);
 					final double hisChancePerRoundToBeHit =  CMath.div(CMath.div(100.0, hisSpeed + 1.0), 100.0);
 
-					double myHullPoints = CMLib.combat().getShipHullPoints(myShip);
+					double myHullPoints = (myShipItem instanceof SiegableItem)?myShipItem.getMaxHullPoints():0;
 					if(myShipItem.subjectToWearAndTear())
 						myHullPoints = myHullPoints * CMath.div(myShipItem.usesRemaining(), 100.0);
-					double hisHullPoints = CMLib.combat().getShipHullPoints((BoardableShip)target);
+					double hisHullPoints = (hisShipItem instanceof SiegableItem)?((SiegableItem)hisShipItem).getMaxHullPoints():0;
 					if(hisShipItem.subjectToWearAndTear())
 						hisHullPoints = hisHullPoints * CMath.div(hisShipItem.usesRemaining(), 100.0);
 

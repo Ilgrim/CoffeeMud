@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -115,7 +115,7 @@ public class Thief_Sneak extends ThiefSkill
 
 					}
 					else
-					if(((Rideable)target).rideBasis()!=Rideable.RIDEABLE_LADDER)
+					if(((Rideable)target).rideBasis()!=Rideable.Basis.LADDER)
 					{
 						mob.tell(L("You can not sneak into '@x1'.",target.name(mob)));
 						return false;
@@ -152,7 +152,7 @@ public class Thief_Sneak extends ThiefSkill
 			return false;
 		}
 
-		final MOB highestMOB=getHighestLevelMOB(mob,null);
+		final MOB highestMOB=getHighestLevelMOB(mob,null,false);
 		int levelDiff=(mob.phyStats().level()+(super.getXLEVELLevel(mob)*2))-getMOBLevel(highestMOB);
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))

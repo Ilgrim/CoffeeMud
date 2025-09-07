@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -129,7 +129,7 @@ public class Chant_FurCoat extends Chant
 			return true;
 
 		if((msg.source()==theArmor.owner())
-		&&(msg.tool() instanceof Druid_ShapeShift))
+		&&((msg.tool() instanceof Druid_ShapeShift)||(msg.tool() instanceof Druid_Krakenform)))
 		{
 			unInvoke();
 			return true;
@@ -178,7 +178,7 @@ public class Chant_FurCoat extends Chant
 
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> already <S-HAS-HAVE> a fur coat."));
+			failureTell(mob,target,auto,L("<S-NAME> already <S-HAS-HAVE> a fur coat."));
 			return false;
 		}
 
@@ -248,7 +248,7 @@ public class Chant_FurCoat extends Chant
 				theArmor.setRawLogicalAnd(true);
 				for(int i=target.numItems()-1;i>=0;i--)
 				{
-					final Item I=mob.getItem(i);
+					final Item I=target.getItem(i);
 					if((I.rawWornCode()&wornCode)>0)
 						I.unWear();
 				}

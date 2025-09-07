@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -73,6 +73,12 @@ public class Chant_SenseSentience extends Chant
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
@@ -91,6 +97,7 @@ public class Chant_SenseSentience extends Chant
 				lines.append(CMStrings.padRight(L("Location"),17)+"^.^N\n\r");
 				TrackingLibrary.TrackingFlags flags;
 				flags = CMLib.tracking().newFlags()
+						.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 						.plus(TrackingLibrary.TrackingFlag.AREAONLY);
 				final int range=50 + super.getXLEVELLevel(mob)+(2*super.getXMAXRANGELevel(mob));
 				final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,range);
@@ -99,18 +106,18 @@ public class Chant_SenseSentience extends Chant
 				for (final Room room : checkSet)
 				{
 					final Room R=CMLib.map().getRoom(room);
-					if((((R.domainType()&Room.INDOORS)==0)
-						&&(R.domainType()!=Room.DOMAIN_OUTDOORS_CITY)
-						&&(R.domainType()!=Room.DOMAIN_OUTDOORS_SPACEPORT))
+					if((((R.domainType()&Room.INDOORS)==0)&&(!CMLib.flags().isACityRoom(R)))
 					||(R==mob.location()))
-					for(int m=0;m<R.numInhabitants();m++)
 					{
-						final MOB M=R.fetchInhabitant(m);
-						if((M!=null)&&(M.charStats().getStat(CharStats.STAT_INTELLIGENCE)>=2))
+						for(int m=0;m<R.numInhabitants();m++)
 						{
-							lines.append("^!"+CMStrings.padRight(M.name(mob),25)+"^?| ");
-							lines.append(R.displayText(mob));
-							lines.append("\n\r");
+							final MOB M=R.fetchInhabitant(m);
+							if((M!=null)&&(M.charStats().getStat(CharStats.STAT_INTELLIGENCE)>=2))
+							{
+								lines.append("^!"+CMStrings.padRight(M.name(mob),25)+"^?| ");
+								lines.append(R.displayText(mob));
+								lines.append("\n\r");
+							}
 						}
 					}
 				}

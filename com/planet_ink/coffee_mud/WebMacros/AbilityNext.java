@@ -7,6 +7,7 @@ import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_web.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -41,6 +42,18 @@ public class AbilityNext extends StdWebMacro
 		return "AbilityNext";
 	}
 
+	protected static final int[] normalAcodes = {
+									Ability.ACODE_CHANT,
+									Ability.ACODE_COMMON_SKILL,
+									Ability.ACODE_LANGUAGE,
+									Ability.ACODE_PRAYER,
+									Ability.ACODE_SKILL,
+									Ability.ACODE_SONG,
+									Ability.ACODE_SPELL,
+									Ability.ACODE_SUPERPOWER,
+									Ability.ACODE_TECH,
+									Ability.ACODE_THIEF_SKILL
+								};
 	@Override
 	@SuppressWarnings("unchecked")
 	public String runMacro(final HTTPRequest httpReq, final String parm, final HTTPResponse httpResp)
@@ -72,18 +85,6 @@ public class AbilityNext extends StdWebMacro
 		}
 
 		String lastID="";
-		final int[] normalAcodes = {
-			Ability.ACODE_CHANT,
-			Ability.ACODE_COMMON_SKILL,
-			Ability.ACODE_LANGUAGE,
-			Ability.ACODE_PRAYER,
-			Ability.ACODE_SKILL,
-			Ability.ACODE_SONG,
-			Ability.ACODE_SPELL,
-			Ability.ACODE_SUPERPOWER,
-			Ability.ACODE_TECH,
-			Ability.ACODE_THIEF_SKILL
-		};
 		final String className=httpReq.getUrlParameter("CLASS");
 		final boolean genericOnly =parms.containsKey("GENERIC");
 		final boolean parmsEditable=parms.containsKey("PARMSEDITABLE");
@@ -91,11 +92,11 @@ public class AbilityNext extends StdWebMacro
 		final boolean unqualifiedNormalOK=parms.containsKey("UNQUALIFIEDNORMALOK");
 		final String levelName=httpReq.getUrlParameter("LEVEL");
 		final boolean notFlag =parms.containsKey("NOT");
-		final boolean allFlag =parms.containsKey("ALL");
+		final boolean allFlag =parms.containsKey("ALL") || (parm==null);
 		final boolean domainFlag=parms.containsKey("DOMAIN");
 		final String domain=parms.get("DOMAIN");
 		boolean containsACodeMask=false;
-		for (final String element : Ability.ACODE_DESCS)
+		for (final String element : Ability.ACODE.DESCS)
 		{
 			if(parms.containsKey(element))
 			{
@@ -109,10 +110,10 @@ public class AbilityNext extends StdWebMacro
 			a=CMClass.abilities();
 		else
 		if(httpReq.getRequestObjects().containsKey("ABILITIESSORTEDBYNAME"))
-			a=((Vector)httpReq.getRequestObjects().get("ABILITIESSORTEDBYNAME")).elements();
+			a=new IteratorEnumeration<Ability>(((List)httpReq.getRequestObjects().get("ABILITIESSORTEDBYNAME")).iterator());
 		else
 		{
-			final Vector<Ability> fullList=new Vector<Ability>();
+			final List<Ability> fullList=new ArrayList<Ability>();
 			for(final Enumeration<Ability> aa=CMClass.abilities();aa.hasMoreElements();)
 				fullList.add(aa.nextElement());
 			final Ability[] aaray=fullList.toArray(new Ability[0]);
@@ -127,35 +128,38 @@ public class AbilityNext extends StdWebMacro
 			fullList.clear();
 			fullList.addAll(Arrays.asList(aaray));
 			httpReq.getRequestObjects().put("ABILITIESSORTEDBYNAME",fullList);
-			a=fullList.elements();
+			a=new IteratorEnumeration<Ability>(fullList.iterator());
 		}
+		final AbilityMapper mapper = CMLib.ableMapper();
 		for(;a.hasMoreElements();)
 		{
 			final Ability A=a.nextElement();
 			boolean okToShow=true;
 			final int classType=A.classificationCode()&Ability.ALL_ACODES;
 			if(genericOnly)
+			{
 				okToShow=A.isGeneric();
+			}
 			else
 			if(parmsEditable)
 			{
-				okToShow=((A instanceof CraftorAbility)
-						&&(((CraftorAbility)A).parametersFile()!=null)
-						&&(((CraftorAbility)A).parametersFile().length()>0)
-						&&(((CraftorAbility)A).parametersFormat()!=null)
-						&&(((CraftorAbility)A).parametersFormat().length()>0));
+				okToShow=((A instanceof RecipeDriven)
+						&&(((RecipeDriven)A).getRecipeFilename()!=null)
+						&&(((RecipeDriven)A).getRecipeFilename().length()>0)
+						&&(((RecipeDriven)A).getRecipeFormat()!=null)
+						&&(((RecipeDriven)A).getRecipeFormat().length()>0));
 			}
 
 			if((className!=null)&&(className.length()>0))
 			{
-				final int level=CMLib.ableMapper().getQualifyingLevel(className,true,A.ID());
+				final int level=mapper.getQualifyingLevel(className,true,A.ID());
 				if((level<0)
 				&&(!unqualifiedOK)
 				&&((!unqualifiedNormalOK)
 					||(!CMParms.contains(normalAcodes, A.classificationCode()&Ability.ALL_ACODES))))
 					okToShow=false;
 				else
-				if(CMLib.ableMapper().getSecretSkill(className,false,A.ID()))
+				if(CMLib.ableMapper().getSecretSkill(className,false,A.ID())!=SecretFlag.PUBLIC)
 					okToShow=false;
 				else
 				if((flags>0)&&((A.flags()&flags)!=flags))
@@ -169,14 +173,14 @@ public class AbilityNext extends StdWebMacro
 			else
 			if(!allFlag)
 			{
-				final int level=CMLib.ableMapper().getQualifyingLevel("Archon",true,A.ID());
+				final int level=mapper.qualifiesByAnything(A.ID())?mapper.lowestQualifyingLevel(A.ID()):-1;
 				if((level<0)
 				&&(!unqualifiedOK)
 				&&((!unqualifiedNormalOK)
 					||(!CMParms.contains(normalAcodes, A.classificationCode()&Ability.ALL_ACODES))))
 					okToShow=false;
 				else
-				if(CMLib.ableMapper().getAllSecretSkill(A.ID()))
+				if(CMLib.ableMapper().getAllSecretSkill(A.ID())!=SecretFlag.PUBLIC)
 					okToShow=false;
 				else
 				if((flags>0)&&((A.flags()&flags)!=flags))
@@ -189,9 +193,9 @@ public class AbilityNext extends StdWebMacro
 			}
 			if(okToShow)
 			{
-				if((domainFlag)&&(!domain.equalsIgnoreCase(Ability.DOMAIN_DESCS[(A.classificationCode()&Ability.ALL_DOMAINS)>>5])))
+				if((domainFlag)&&(!domain.equalsIgnoreCase(Ability.DOMAIN.DESCS.get((A.classificationCode()&Ability.ALL_DOMAINS)>>5))))
 					okToShow=false;
-				if(containsACodeMask&&(!parms.containsKey(Ability.ACODE_DESCS[classType])))
+				if(containsACodeMask&&(!parms.containsKey(Ability.ACODE.DESCS.get(classType))))
 					okToShow=false;
 			}
 			if(notFlag)

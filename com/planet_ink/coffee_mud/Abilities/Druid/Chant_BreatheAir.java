@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -129,7 +129,7 @@ public class Chant_BreatheAir extends Chant
 		if((target.fetchEffect(this.ID())!=null)
 		||(CMParms.contains(target.charStats().getBreathables(),RawMaterial.RESOURCE_AIR)))
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already an air breather."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already an air breather."));
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))

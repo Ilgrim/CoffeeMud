@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,12 +43,36 @@ public class WebServerPort extends StdWebMacro
 		return "WebServerPort";
 	}
 
+	protected String getServerWebPort(final Map<String,String> parms)
+	{
+		final String serverType = parms.containsKey("ADMIN") ? "ADMIN" : "PUB";
+		for(final MudHost host : CMLib.hosts())
+		{
+			try
+			{
+				final String var = host.executeCommand("WEBSERVER "+serverType+" PORT");
+				if(var.length()>0)
+					return var;
+			}
+			catch (final Exception e)
+			{
+			}
+		}
+		return null;
+	}
+	
 	@Override
 	public String runMacro(final HTTPRequest httpReq, final String parm, final HTTPResponse httpResp)
 	{
 		final java.util.Map<String,String> parms=parseParms(parm);
 		if(parms.containsKey("CURRENT"))
 			return Integer.toString(httpReq.getClientPort());
+		if(parms.containsKey("SERVER"))
+		{
+			final String val = getServerWebPort(parms);
+			if(val != null)
+				return val;
+		}
 		if(Thread.currentThread() instanceof CWThread)
 		{
 			final CWConfig config=((CWThread)Thread.currentThread()).getConfig();
@@ -56,19 +80,9 @@ public class WebServerPort extends StdWebMacro
 		}
 		if(httpReq.getClientPort()==0)
 		{
-			final String serverType = parms.containsKey("ADMIN") ? "ADMIN" : "PUB";
-			for(final MudHost host : CMLib.hosts())
-			{
-				try
-				{
-					final String var = host.executeCommand("WEBSERVER "+serverType+" PORT");
-					if(var.length()>0)
-						return var;
-				}
-				catch (final Exception e)
-				{
-				}
-			}
+			final String val = getServerWebPort(parms);
+			if(val != null)
+				return val;
 		}
 		return Integer.toString(httpReq.getClientPort());
 	}

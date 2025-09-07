@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,6 +62,12 @@ public class Spell_KnowFate extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	public int classificationCode()
 	{
 		return Ability.ACODE_SPELL|Ability.DOMAIN_DIVINATION;
@@ -81,7 +87,7 @@ public class Spell_KnowFate extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> concentrate(s) on <T-NAMESELF>!^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> concentrate(s) on <T-NAMESELF>!^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -189,15 +195,24 @@ public class Spell_KnowFate extends Spell
 				if(draws>0)
 					addendum=" with "+draws+" draws.";
 				if(iwin>hewin)
-					mob.tell(L("@x1% of the time, you defeat @x2 with @x3 hit points left@x4.",""+iwin,target.charStats().himher(),""+(ihp/iwin),addendum));
+				{
+					commonTelL(mob,"@x1% of the time, you defeat @x2 with @x3 hit points left@x4.",
+							""+iwin,target.charStats().himher(),""+(ihp/iwin),addendum);
+				}
 				else
 				if(hewin>iwin)
-					mob.tell(L("@x1% of the time you die, and @x2 still has @x3 hit points left@x4.",""+hewin,target.charStats().himher(),""+(hehp/hewin),addendum));
+				{
+					commonTelL(mob,"@x1% of the time you die, and @x2 still has @x3 hit points left@x4.",
+							""+hewin,target.charStats().himher(),""+(hehp/hewin),addendum);
+				}
 				else
 				if(iwin>0)
-					mob.tell(L("Half of the time, you defeat @x1 with @x2 hit points left@x3.",target.charStats().himher(),""+(ihp/iwin),addendum));
+				{
+					commonTelL(mob,"Half of the time, you defeat @x1 with @x2 hit points left@x3.",
+							target.charStats().himher(),""+(ihp/iwin),addendum);
+				}
 				else
-					mob.tell(L("You can't hurt each other .. there were @x1% draws.",""+(draws*5)));
+					commonTelL(mob,"You can't hurt each other .. there were @x1% draws.",""+(draws*5));
 				//Log.debugOut(fakeS.afkMessage());
 			}
 		}

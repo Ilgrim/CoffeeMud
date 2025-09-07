@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -121,6 +121,12 @@ public class Disease_Lycanthropy extends Disease
 		return 8;
 	}
 
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_POLYMORPHING;
+	}
+
 	protected boolean changed=false;
 
 	@Override
@@ -162,7 +168,12 @@ public class Disease_Lycanthropy extends Disease
 		super.affectCharStats(affected,affectableStats);
 		if(lycanRace()!=null)
 		{
-			affectableStats.setMyRace(lycanRace());
+			if(affectableStats.getMyRace()!=lycanRace())
+			{
+				affectableStats.getMyRace().unaffectCharStats(affected, affectableStats);
+				affectableStats.setMyRace(lycanRace());
+				lycanRace().affectCharStats(affected, affectableStats);
+			}
 			affectableStats.setWearableRestrictionsBitmap(affectableStats.getWearableRestrictionsBitmap()|affectableStats.getMyRace().forbiddenWornBits());
 			if(affected.baseCharStats().getStat(CharStats.STAT_AGE)>0)
 				affectableStats.setStat(CharStats.STAT_AGE,lycanRace().getAgingChart()[affected.baseCharStats().ageCategory()]);
@@ -182,7 +193,7 @@ public class Disease_Lycanthropy extends Disease
 			&&(M!=mob)
 			&&(!CMLib.flags().isEvil(M))
 			&&(mob.mayIFight(M))
-			&&(M.phyStats().level()<(mob.phyStats().level()+5)))
+			&&(M.phyStats().level()<(mob.phyStats().level()+CMProps.getIntVar(CMProps.Int.EXPRATE))))
 				return M;
 		}
 		return null;

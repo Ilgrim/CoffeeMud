@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -81,6 +81,8 @@ public class Healer extends Cleric
 	}
 
 	protected volatile long auraCheckTime = System.currentTimeMillis();
+
+	protected final long auraCheckPeriod = 2L * 60L * 1000L;
 
 	public Healer()
 	{
@@ -162,7 +164,7 @@ public class Healer extends Cleric
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Prayer_HolyAura",false,CMParms.parseSemicolons("Prayer_Bless",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Prayer_HolyShield",true);
 
-		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Prayer_Calm",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Prayer_Pacify",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Prayer_CureCannibalism",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Prayer_CureBlindness",true);
@@ -226,12 +228,11 @@ public class Healer extends Cleric
 		final MOB myChar=(MOB)ticking;
 		if(tickID!=Tickable.TICKID_MOB)
 			return super.tick(ticking, tickID);
-		if((System.currentTimeMillis() - auraCheckTime) > 2 * 60 * 1000)
+		final long auraEllapsed = System.currentTimeMillis() - auraCheckTime;
+		if(auraEllapsed > auraCheckPeriod)
 		{
-			if((System.currentTimeMillis() - auraCheckTime) > 3 * 60 * 1000)
-			{
+			if(auraEllapsed > auraCheckPeriod + 30) // try it every tick for 30 secs?! why is this necessary?!
 				auraCheckTime = System.currentTimeMillis();
-			}
 			affectHealingAura(myChar);
 		}
 		return super.tick(myChar,tickID);
@@ -240,7 +241,8 @@ public class Healer extends Cleric
 	public void affectHealingAura(final MOB myChar)
 	{
 		Ability A = myChar.fetchEffect("Prayer_HealingAura");
-		if((myChar.charStats().getClassLevel(this)>=30)&&(CMLib.flags().isGood(myChar)))
+		if((myChar.charStats().getClassLevel(this)>=30)
+		&&(CMLib.flags().isGood(myChar)))
 		{
 			if(A==null)
 			{
@@ -258,6 +260,20 @@ public class Healer extends Cleric
 			myChar.delEffect(A);
 			A.destroy();
 		}
+	}
+
+	@Override
+	public void unLevel(final MOB mob)
+	{
+		super.unLevel(mob);
+		affectHealingAura(mob);
+	}
+
+	@Override
+	public void level(final MOB mob, final List<String> gainedAbilityIDs)
+	{
+		super.level(mob, gainedAbilityIDs);
+		affectHealingAura(mob);
 	}
 
 	private final String[] raceRequiredList=new String[]{
@@ -327,6 +343,7 @@ public class Healer extends Cleric
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

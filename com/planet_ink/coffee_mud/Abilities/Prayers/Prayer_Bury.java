@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -96,10 +96,14 @@ public class Prayer_Bury extends Prayer
 			return false;
 		}
 		Item hole=mob.location().findItem("HoleInTheGround");
-		if((hole!=null)&&(!hole.text().equalsIgnoreCase(mob.Name())))
+		if(hole!=null)
 		{
-			mob.tell(L("This prayer will not work on this previously used burial ground."));
-			return false;
+			final Ability A=hole.fetchEffect("Thief_BuriedTreasure");
+			if(A!=null)
+			{
+				mob.tell(L("This prayer will not work on this previously used burial ground."));
+				return false;
+			}
 		}
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
@@ -109,11 +113,14 @@ public class Prayer_Bury extends Prayer
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("^S<T-NAME> bur(ys) <T-HIM-HERSELF>.^?"):L("^S<S-NAME> bur(ys) <T-NAMESELF> in the name of @x1.^?",hisHerDiety(mob)));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					auto?L("^S<T-NAME> bur(ys) <T-HIM-HERSELF>.^?"):
+						L("^S<S-NAME> bur(ys) <T-NAMESELF> in the name of @x1.^?",hisHerDiety(mob)));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				if(CMLib.flags().isNeutral(mob))
+				if(CMLib.flags().isNeutral(mob)
+				&&(target.fetchEffect(ID())==null))
 				{
 					double exp=5.0;
 					final int levelLimit=CMProps.getIntVar(CMProps.Int.EXPRATE);
@@ -121,7 +128,7 @@ public class Prayer_Bury extends Prayer
 					if(levelDiff>levelLimit)
 						exp=0.0;
 					if(exp>0.0)
-						CMLib.leveler().postExperience(mob,null,null,(int)Math.round(exp)+super.getXPCOSTLevel(mob),false);
+						CMLib.leveler().postExperience(mob,"ABILITY:"+ID(),null,null,(int)Math.round(exp)+super.getXPCOSTLevel(mob), false);
 				}
 				if(hole==null)
 				{
@@ -132,9 +139,9 @@ public class Prayer_Bury extends Prayer
 				hole.basePhyStats().setDisposition(hole.basePhyStats().disposition()|PhyStats.IS_HIDDEN);
 				hole.recoverPhyStats();
 				if(!mob.location().isContent(target))
-					mob.location().moveItemTo(hole, Expire.Player_Drop);
-				else
-					target.setContainer((Container)hole);
+					mob.location().moveItemTo(target, Expire.Player_Drop);
+				target.setContainer((Container)hole);
+				target.addNonUninvokableEffect((Ability)this.copyOf());
 				CMLib.flags().setGettable(target,false);
 				mob.location().recoverRoomStats();
 			}

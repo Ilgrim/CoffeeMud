@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class BrownBear extends StdMOB
 		super();
 		final Random randomizer = new Random(System.currentTimeMillis());
 
-		username="a Brown Bear";
+		_name="a Brown Bear";
 		setDescription("A bear, large and husky with brown fur.");
 		setDisplayText("A brown bear hunts here.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -63,7 +63,7 @@ public class BrownBear extends StdMOB
 
 		basePhyStats().setDamage(8);
 		basePhyStats().setSpeed(2.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(5);
 		basePhyStats().setArmor(70);
 

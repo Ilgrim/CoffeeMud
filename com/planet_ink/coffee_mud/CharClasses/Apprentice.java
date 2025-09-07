@@ -1,5 +1,6 @@
 package com.planet_ink.coffee_mud.CharClasses;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.CostDef.Cost;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -19,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -129,7 +130,7 @@ public class Apprentice extends StdCharClass
 		return disallowedWeapons;
 	}
 
-	protected Set<Tickable> currentApprentices = new HashSet<Tickable>();
+	protected Set<Tickable> currentApprentices = Collections.synchronizedSet(new HashSet<Tickable>());
 
 	@Override
 	public void initializeClass()
@@ -150,23 +151,80 @@ public class Apprentice extends StdCharClass
 	}
 
 	@Override
+	public boolean qualifiesForThisClass(final MOB mob, final boolean quiet)
+	{
+		if(!super.qualifiesForThisClass(mob, quiet))
+			return false;
+		if(mob==null)
+			return true;
+		final CharClass curClass = mob.baseCharStats().getCurrentClass();
+		final String currentClassID=curClass.ID();
+		if(currentClassID.equalsIgnoreCase("StdCharClass")) // this is the starting character rule
+			return true;
+		if(mob.basePhyStats().level()>1)
+		{
+			if(!quiet)
+				mob.tell(L("You are beyond apprentice skill at this point."));
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if(!(myHost instanceof MOB))
+			return super.okMessage(myHost,msg);
+		if(!super.okMessage(myHost, msg))
+			return false;
+		if((msg.target()==myHost)
+		&&(msg.targetMinor()==CMMsg.TYP_TRAIN)
+		&&(((MOB)msg.target()).charStats().getCurrentClass().ID().equals("Apprentice"))
+		&&(msg.tool() != null))
+		{
+			final String costStr = msg.tool().getStat("COST");
+			final String typStr = msg.tool().getStat("TYPE");
+			if((costStr!=null)
+			&&(costStr.length()>0)
+			&&(typStr!=null)
+			&&(typStr.length()>0))
+			{
+				final Cost C = Cost.valueOf(costStr);
+				if((C != null)
+				&&(CMClass.getCharClass(typStr)==null))
+				{
+					//final CostManager cM = CMLib.utensils().createCostManager(C);
+					//TODO: something that prevents an Apprentice from using their last train
+				}
+			}
+		}
+		return true;
+	}
+
+	@Override
+	public void affectCharStats(final MOB affectedMOB, final CharStats affectableStats)
+	{
+		super.affectCharStats(affectedMOB, affectableStats);
+		if(affectableStats.getCurrentClass().ID().equals("Apprentice"))
+		{
+			if(!currentApprentices.contains(affectedMOB))
+				currentApprentices.add(affectedMOB);
+		}
+	}
+
+	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
 		if((tickID==Tickable.TICKID_MOB)
 		&&(ticking instanceof MOB)
 		&&(!((MOB)ticking).isMonster()))
 		{
-			if(((MOB)ticking).baseCharStats().getCurrentClass().ID().equals(ID()))
-			{
-				if(!currentApprentices.contains(ticking))
-					currentApprentices.add(ticking);
-			}
-			else
-			if(currentApprentices.contains(ticking))
+			if((!((MOB)ticking).charStats().getCurrentClass().ID().equals("Apprentice"))
+			&&(currentApprentices.contains(ticking)))
 			{
 				currentApprentices.remove(ticking);
 				((MOB)ticking).tell(L("\n\r\n\r^ZYou are no longer an apprentice!!!!^N\n\r\n\r"));
-				CMLib.leveler().postExperience((MOB)ticking,null,null,1000,false);
+				CMLib.leveler().postExperience((MOB)ticking,"CLASS:"+ID(),null,null,1000, false);
 			}
 		}
 		return super.tick(ticking,tickID);
@@ -218,6 +276,7 @@ public class Apprentice extends StdCharClass
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

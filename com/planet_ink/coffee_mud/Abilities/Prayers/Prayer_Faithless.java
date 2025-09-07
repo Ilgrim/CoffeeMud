@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -81,11 +81,11 @@ public class Prayer_Faithless extends Prayer
 				return Ability.QUALITY_INDIFFERENT;
 			if(target instanceof MOB)
 			{
-				if(((MOB)target).charStats().getCurrentClass().baseClass().equals("Cleric"))
+				if(((MOB)target).charStats().getStat(CharStats.STAT_FAITH)>=100)
 					return Ability.QUALITY_INDIFFERENT;
 				if(CMLib.flags().isAnimalIntelligence(((MOB)target))||CMLib.flags().isGolem(target))
 					return Ability.QUALITY_INDIFFERENT;
-				if(((MOB)target).getWorshipCharID().length()==0)
+				if(((MOB)target).charStats().getWorshipCharID().length()==0)
 					return Ability.QUALITY_INDIFFERENT;
 			}
 		}
@@ -98,7 +98,7 @@ public class Prayer_Faithless extends Prayer
 		final MOB target=this.getTarget(mob,commands,givenTarget);
 		if(target==null)
 			return false;
-		if((!auto)&&(target.charStats().getCurrentClass().baseClass().equals("Cleric")))
+		if((!auto)&&(target.charStats().getStat(CharStats.STAT_FAITH)>=100))
 		{
 			mob.tell(L("@x1 can not be affected by this prayer.",target.name(mob)));
 			return false;
@@ -118,8 +118,8 @@ public class Prayer_Faithless extends Prayer
 			levelDiff=0;
 		final boolean success=proficiencyCheck(mob,-(levelDiff*25),auto);
 		Deity D=null;
-		if(target.getWorshipCharID().length()>0)
-			D=CMLib.map().getDeity(target.getWorshipCharID());
+		if(target.charStats().getWorshipCharID().length()>0)
+			D=CMLib.map().getDeity(target.charStats().getWorshipCharID());
 		int type=verbalCastCode(mob,target,auto);
 		int mal=CMMsg.MASK_MALICIOUS;
 		if(auto)

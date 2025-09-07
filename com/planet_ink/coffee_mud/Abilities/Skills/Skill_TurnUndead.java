@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -156,7 +156,9 @@ public class Skill_TurnUndead extends StdSkill
 				{
 					if((mob.phyStats().level()+levelAdj+(getXLEVELLevel(mob))-target.phyStats().level())>6)
 					{
-						mob.location().show(mob,target,CMMsg.MSG_OK_ACTION,L("<T-NAME> wither(s)"+(auto?".":" under <S-HIS-HER> holy power!")));
+						mob.location().show(mob,target,CMMsg.MSG_OK_ACTION,
+								(auto?L("<T-NAME> wither(s)."):
+								L("<T-NAME> wither(s) under <S-HIS-HER> holy power!")));
 						CMLib.combat().postDamage(mob,target,this,target.curState().getHitPoints(),CMMsg.MASK_ALWAYS|CMMsg.TYP_CAST_SPELL,-1,null);
 					}
 					else

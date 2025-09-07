@@ -1,7 +1,9 @@
 package com.planet_ink.coffee_mud.MOBS;
 
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.ShopKeeper.ViewType;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMProps.Bool;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -13,6 +15,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.TimeClock.TimePeriod;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary;
+import com.planet_ink.coffee_mud.Libraries.interfaces.ShoppingLibrary.BuySellFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -20,7 +23,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,15 +53,17 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 	protected long			budgetMax			= Long.MAX_VALUE / 2;
 	protected int			budgetTickDown		= 2;
 	protected double[]		devalueRate			= null;
+	protected String		currency			= "";
 	protected String[]		pricingAdjustments	= new String[0];
 	protected String		itemZapperMask		= "";
+	protected Set<ViewType>	viewTypes			= new XHashSet<ViewType>(ViewType.BASIC);
 
 	protected Pair<Long,TimeClock.TimePeriod>	budget = null;
 
 	public StdShopKeeper()
 	{
 		super();
-		username = "a shopkeeper";
+		_name = "a shopkeeper";
 		setDescription("He\\`s pleased to be of assistance.");
 		setDisplayText("A shopkeeper is waiting to serve you.");
 		CMLib.factions().setAlignment(this, Faction.Align.GOOD);
@@ -144,6 +149,18 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 	}
 
 	@Override
+	public Set<ViewType> viewFlags()
+	{
+		return viewTypes;
+	}
+
+	@Override
+	public CoffeeShop getShop(final MOB mob)
+	{
+		return getShop();
+	}
+
+	@Override
 	public CoffeeShop getShop()
 	{
 		return shop;
@@ -180,7 +197,7 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 
 	protected void doInventoryReset()
 	{
-		invResetTickDown = finalInvResetRate(); // we should now be at a
+		invResetTickDown = getFinalInvResetRate(); // we should now be at a
 		// positive number.
 		if (invResetTickDown <= 0)
 			invResetTickDown = Ability.TICKS_FOREVER;
@@ -206,74 +223,61 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 		}
 	}
 
+	protected void doBudgetReset()
+	{
+		budgetTickDown = 100;
+		budgetRemaining = Long.MAX_VALUE / 2;
+		final Pair<Long,TimeClock.TimePeriod> budget = getFinalBudget();
+		if(budget != null)
+		{
+			budgetRemaining = budget.first.longValue();
+			budgetTickDown = 100;
+			final TimeClock C=CMLib.time().homeClock(this);
+			budgetTickDown = (int) (CMProps.getTicksPerMudHour() * C.getHoursPer(budget.second));
+		}
+		budgetMax = budgetRemaining;
+	}
+
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
 		if (!super.tick(ticking, tickID))
 			return false;
-		if ((tickID == Tickable.TICKID_MOB) && (isGeneric()))
+		if ((tickID == Tickable.TICKID_MOB)
+		&& (isGeneric())
+		&& (CMProps.isState(CMProps.HostState.RUNNING)))
 		{
 			if ((--invResetTickDown) <= 0)
-			{
 				doInventoryReset();
-			}
 			if ((--budgetTickDown) <= 0)
-			{
-				budgetTickDown = 100;
-				budgetRemaining = Long.MAX_VALUE / 2;
-				final Pair<Long,TimeClock.TimePeriod> budget = finalBudget();
-				if(budget != null)
-				{
-					budgetRemaining = budget.first.longValue();
-					budgetTickDown = 100;
-
-					final Room R=location();
-					final TimeClock C=((R != null) && (R.getArea() != null)) ? R.getArea().getTimeObj() : null;
-					final int ticksPerDay = CMProps.getIntVar(CMProps.Int.TICKSPERMUDDAY);
-					int hoursInDay = 1;
-					int daysInMonth = 1;
-					int monthsInYear = 1;
-					int daysInWeek = 1;
-					if(C!=null)
-					{
-						if(C.getHoursInDay()>0)
-							hoursInDay=C.getHoursInDay();
-						if(C.getDaysInMonth()>0)
-							daysInMonth=C.getDaysInMonth();
-						if(C.getMonthsInYear()>0)
-							monthsInYear=C.getMonthsInYear();
-						if(C.getDaysInWeek()>0)
-							daysInWeek=C.getDaysInWeek();
-					}
-					switch(budget.second)
-					{
-					case ALLTIME:
-						budgetTickDown = 100;
-						break;
-					case DAY:
-						budgetTickDown = ticksPerDay;
-						break;
-					case HOUR:
-						budgetTickDown = ticksPerDay / hoursInDay;
-						break;
-					case MONTH:
-						budgetTickDown = ticksPerDay * daysInMonth;
-						break;
-					case SEASON:
-						budgetTickDown = ticksPerDay * (daysInMonth * monthsInYear / 4);
-						break;
-					case WEEK:
-						budgetTickDown = ticksPerDay * daysInWeek;
-						break;
-					case YEAR:
-						budgetTickDown = ticksPerDay * (daysInMonth * monthsInYear);
-						break;
-					}
-				}
-				budgetMax = budgetRemaining;
-			}
+				doBudgetReset();
 		}
 		return true;
+	}
+
+	/**
+	 * For bankers and stuff that override stdshopkeeper, but can't call
+	 * its okmess,and needs to call the StdMob one.
+	 *
+	 * @param myHost the host
+	 * @param msg the message
+	 * @return true or false
+	 */
+	protected boolean stdMOBokMessage(final Environmental myHost, final CMMsg msg)
+	{
+		return super.okMessage(myHost, msg);
+	}
+
+	/**
+	 * For bankers and stuff that override stdshopkeeper, but can't call
+	 * its okmess,and needs to call the StdMob one.
+	 *
+	 * @param myHost the host
+	 * @param msg the message
+	 */
+	protected void stdMOBexecuteMsg(final Environmental myHost, final CMMsg msg)
+	{
+		super.executeMsg(myHost, msg);
 	}
 
 	@Override
@@ -286,9 +290,10 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 			case CMMsg.TYP_VALUE:
 			case CMMsg.TYP_SELL:
 			{
-				if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), finalIgnoreMask(), this))
+				if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), getFinalIgnoreMask(), this))
 					return false;
-				if (CMLib.coffeeShops().standardSellEvaluation(this, msg.source(), msg.tool(), this, budgetRemaining, budgetMax, msg.targetMinor() == CMMsg.TYP_SELL))
+				final BuySellFlag flag = (msg.targetMinor()==CMMsg.TYP_SELL)?BuySellFlag.RETAIL:BuySellFlag.INFO;
+				if (CMLib.coffeeShops().pawnEvaluation(this, msg.source(), msg.tool(), this, budgetRemaining, budgetMax, flag))
 					return super.okMessage(myHost, msg);
 				return false;
 			}
@@ -300,19 +305,35 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 			case CMMsg.TYP_BUY:
 			case CMMsg.TYP_VIEW:
 			{
-				if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), finalIgnoreMask(), this))
+				final MOB mobFor = CMLib.coffeeShops().parseBuyingFor(msg.source(), msg.targetMessage());
+				if(mobFor!=msg.source())
+				{
+					final MOB srcM = msg.source();
+					try
+					{
+						msg.setSource(mobFor);
+						if(!mobFor.okMessage(mobFor, msg))
+							return false;
+					}
+					finally
+					{
+						msg.setSource(srcM);
+					}
+				}
+				if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), getFinalIgnoreMask(), this))
 					return false;
 				if ((msg.targetMinor() == CMMsg.TYP_BUY)
 				&& (msg.tool() != null)
 				&& (!msg.tool().okMessage(myHost, msg)))
 					return false;
-				if (CMLib.coffeeShops().standardBuyEvaluation(this, msg.source(), msg.tool(), this, msg.targetMinor() == CMMsg.TYP_BUY))
+				final BuySellFlag buyFlag = (msg.targetMinor()==CMMsg.TYP_BUY)?BuySellFlag.RETAIL:BuySellFlag.INFO;
+				if (CMLib.coffeeShops().sellEvaluation(this, msg.source(), msg.tool(), this, buyFlag))
 					return super.okMessage(myHost, msg);
 				return false;
 			}
 			case CMMsg.TYP_LIST:
 			{
-				if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), finalIgnoreMask(), this))
+				if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), getFinalIgnoreMask(), this))
 					return false;
 				return super.okMessage(myHost, msg);
 			}
@@ -355,7 +376,7 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 				super.executeMsg(myHost, msg);
 				if (CMLib.flags().isAliveAwakeMobileUnbound(mob, true))
 				{
-					final double pawningPrice = CMLib.coffeeShops().pawningPrice(this, mob, msg.tool(), this, getShop()).absoluteGoldPrice;
+					final double pawningPrice = CMLib.coffeeShops().pawningPrice(this, mob, msg.tool(), this).absoluteGoldPrice;
 					final String currencyShort = CMLib.beanCounter().nameCurrencyShort(this, pawningPrice);
 					CMLib.commands().postSay(this, mob, L("I'll give you @x1 for @x2.", currencyShort, msg.tool().name()), true, false);
 				}
@@ -366,7 +387,7 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 				super.executeMsg(myHost, msg);
 				if (CMLib.flags().isAliveAwakeMobileUnbound(mob, true))
 				{
-					final double paid = CMLib.coffeeShops().transactPawn(this, msg.source(), this, msg.tool());
+					final double paid = CMLib.coffeeShops().transactPawn(this, msg.source(), this, msg.tool(), getShop(), BuySellFlag.RETAIL);
 					if (paid > Double.MIN_VALUE)
 					{
 						budgetRemaining = budgetRemaining - Math.round(paid);
@@ -389,14 +410,13 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 					&& (getShop().doIHaveThisInStock("$" + msg.tool().Name() + "$", mob)))
 					{
 						final String prefix = L("Interested in @x1? Here is some information for you: ",msg.tool().Name());
-						final String viewDesc = prefix + CMLib.coffeeShops().getViewDescription(msg.source(), msg.tool());
+						final String viewDesc = prefix + CMLib.coffeeShops().getViewDescription(msg.source(), msg.tool(), viewFlags());
 						CMLib.commands().postSay(this, msg.source(), viewDesc, true, false);
 					}
 				}
 				break;
 			}
-			case CMMsg.TYP_BUY: // buy-from -- this is a player buying from a
-								// shopkeeper
+			case CMMsg.TYP_BUY: // buy-from -- this is a player buying from a shopkeeper
 			{
 				super.executeMsg(myHost, msg);
 				if (CMLib.flags().isAliveAwakeMobileUnbound(mob, true))
@@ -407,7 +427,10 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 					{
 						final Environmental item = getShop().getStock("$" + msg.tool().Name() + "$", mobFor);
 						if (item != null)
-							CMLib.coffeeShops().transactMoneyOnly(this, msg.source(), this, item, !isMonster());
+						{
+							final BuySellFlag flag = !isMonster() ? BuySellFlag.RETAIL : BuySellFlag.INFO;
+							CMLib.coffeeShops().transactMoneyOnly(this, msg.source(), this, item, flag);
+						}
 
 						final List<Environmental> products = getShop().removeSellableProduct("$" + msg.tool().Name() + "$", mobFor);
 						if (products.size() == 0)
@@ -416,6 +439,7 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 
 						if (product instanceof Item)
 						{
+							msg.modify(msg.source(), msg.target(), product, msg.sourceCode(), msg.sourceMessage(), msg.targetCode(), msg.targetMessage(), msg.othersCode(), msg.othersMessage());
 							if (!CMLib.coffeeShops().purchaseItems((Item) product, products, this, mobFor))
 								return;
 						}
@@ -448,7 +472,7 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 					final String forMask = CMLib.coffeeShops().getListForMask(msg.targetMessage());
 					List<Environmental> inventory = new XVector<Environmental>(getShop().getStoreInventory());
 					inventory = CMLib.coffeeShops().addRealEstateTitles(inventory, mob, getShop(), getStartRoom());
-					final int limit = CMParms.getParmInt(finalPrejudiceFactors(), "LIMIT", 0);
+					final int limit = CMParms.getParmInt(getFinalPrejudiceFactors(), "LIMIT", 0);
 					final String s = CMLib.coffeeShops().getListInventory(this, mob, inventory, limit, this, forMask);
 					if (s.length() > 0)
 						mob.tell(s);
@@ -465,15 +489,15 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 	}
 
 	@Override
-	public String finalPrejudiceFactors()
+	public String getFinalPrejudiceFactors()
 	{
-		if (prejudiceFactors().length() > 0)
-			return prejudiceFactors();
-		return getStartArea().finalPrejudiceFactors();
+		if (getRawPrejudiceFactors().length() > 0)
+			return getRawPrejudiceFactors();
+		return getStartArea().getFinalPrejudiceFactors();
 	}
 
 	@Override
-	public String prejudiceFactors()
+	public String getRawPrejudiceFactors()
 	{
 		return CMStrings.bytesToStr(miscText);
 	}
@@ -485,15 +509,15 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 	}
 
 	@Override
-	public String finalIgnoreMask()
+	public String getFinalIgnoreMask()
 	{
-		if (ignoreMask().length() > 0)
-			return ignoreMask();
-		return getStartArea().finalIgnoreMask();
+		if (getRawIgnoreMask().length() > 0)
+			return getRawIgnoreMask();
+		return getStartArea().getFinalIgnoreMask();
 	}
 
 	@Override
-	public String ignoreMask()
+	public String getRawIgnoreMask()
 	{
 		return "";
 	}
@@ -504,16 +528,16 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 	}
 
 	@Override
-	public String[] finalItemPricingAdjustments()
+	public String[] getFinalItemPricingAdjustments()
 	{
-		if ((itemPricingAdjustments() != null)
-		&& (itemPricingAdjustments().length > 0))
-			return itemPricingAdjustments();
-		return getStartArea().finalItemPricingAdjustments();
+		if ((getRawItemPricingAdjustments() != null)
+		&& (getRawItemPricingAdjustments().length > 0))
+			return getRawItemPricingAdjustments();
+		return getStartArea().getFinalItemPricingAdjustments();
 	}
 
 	@Override
-	public String[] itemPricingAdjustments()
+	public String[] getRawItemPricingAdjustments()
 	{
 		return pricingAdjustments;
 	}
@@ -525,15 +549,15 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 	}
 
 	@Override
-	public Pair<Long, TimePeriod> finalBudget()
+	public Pair<Long, TimePeriod> getFinalBudget()
 	{
 		if (budget != null)
 			return budget;
-		return getStartArea().finalBudget();
+		return getStartArea().getFinalBudget();
 	}
 
 	@Override
-	public String budget()
+	public String getRawBbudget()
 	{
 		return budget == null ? "" : (budget.first + " " + budget.second.name());
 	}
@@ -546,15 +570,15 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 	}
 
 	@Override
-	public double[] finalDevalueRate()
+	public double[] getFinalDevalueRate()
 	{
 		if (devalueRate != null)
 			return devalueRate;
-		return getStartArea().finalDevalueRate();
+		return getStartArea().getFinalDevalueRate();
 	}
 
 	@Override
-	public String devalueRate()
+	public String getRawDevalueRate()
 	{
 		return (devalueRate == null) ? "" : (devalueRate[0] + " " + devalueRate[1]);
 	}
@@ -566,15 +590,15 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 	}
 
 	@Override
-	public int finalInvResetRate()
+	public int getFinalInvResetRate()
 	{
-		if (invResetRate() != 0)
-			return invResetRate();
-		return getStartArea().finalInvResetRate();
+		if (getRawInvResetRate() != 0)
+			return getRawInvResetRate();
+		return getStartArea().getFinalInvResetRate();
 	}
 
 	@Override
-	public int invResetRate()
+	public int getRawInvResetRate()
 	{
 		return invResetRate;
 	}
@@ -596,5 +620,34 @@ public class StdShopKeeper extends StdMOB implements ShopKeeper
 	public String getWhatIsSoldZappermask()
 	{
 		return itemZapperMask;
+	}
+
+	@Override
+	public String getFinalCurrency()
+	{
+		if(currency.length()>0)
+			return currency;
+		return CMLib.beanCounter().getCurrency(this);
+	}
+
+	@Override
+	public String getRawCurrency()
+	{
+		return currency;
+	}
+
+	@Override
+	public void setCurrency(final String newCurrency)
+	{
+		if ((currency != null) && (currency.length() > 0))
+		{
+			CMLib.beanCounter().unloadCurrencySet(currency);
+			currency = newCurrency;
+		}
+		else
+		{
+			currency = newCurrency;
+			CMLib.beanCounter().getCurrencySet(currency);
+		}
 	}
 }

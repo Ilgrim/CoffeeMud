@@ -22,7 +22,7 @@ import java.util.*;
 import org.mozilla.javascript.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -167,7 +167,7 @@ public class Quests extends StdLibrary implements QuestManager
 	}
 
 	@Override
-	public Object getHolidayFile()
+	public List<String> getHolidayFile() throws CMException
 	{
 		Quest Q=fetchQuest("holidays");
 		if((Q==null)
@@ -187,88 +187,210 @@ public class Quests extends StdLibrary implements QuestManager
 			CMLib.database().DBUpdateQuest(Q);
 			Q=fetchQuest("holidays");
 			if(Q==null)
-				return "A quest named 'holidays', with the script definition '"+holidayDefinition+"' has not been created.  Enter the following to create this quest:\n\r"
-					  +"CREATE QUEST "+holidayDefinition+"\n\r"
-					  +"SAVE QUESTS";
+			{
+				throw new CMException(
+					L("A quest named 'holidays', with the script definition '@x1' has not been created.  Enter the following to create this quest:\n\r"
+					  +"CREATE QUEST @x1\n\r"
+					  +"SAVE QUESTS",holidayDefinition));
+			}
 		}
 		final CMFile F=new CMFile(Resources.makeFileResourceName(holidayFilename),null);
 		if((!F.exists())||(!F.canRead())||(!F.canWrite()))
-		{
-			return "The file '"+Resources.makeFileResourceName(holidayFilename)+"' does not exist, and is required for this feature.";
-		}
+			throw new CMException(
+					L("The file '@x1' does not exist, and is required for this feature.",Resources.makeFileResourceName(holidayFilename)));
 		final List<String> V=Resources.getFileLineVector(F.text());
 		final List<String> steps=parseQuestSteps(V,0,true);
 		return steps;
 	}
 
-	@Override
 	@SuppressWarnings("unchecked")
-	public String listHolidays(final Area A, final String otherParms)
+	@Override
+	public List<JournalEntry> getHolidayEntries(final boolean datedOnly)
 	{
-		final Object resp=getHolidayFile();
-		if(resp instanceof String)
-			return (String)resp;
-		List<String> steps=null;
-		if(resp instanceof List)
-			steps=(List<String>)resp;
-		else
-			return "Unknown error.";
-		String areaName=A.Name().toUpperCase().trim();
-		if(otherParms.equalsIgnoreCase("ALL"))
-			areaName=null;
-		final StringBuffer str=new StringBuffer(L("^xDefined Quest Holidays^?\n\r"));
-		List<String> line=null;
-		String var=null;
-		List<String> V=null;
-		str.append("^H#  "+CMStrings.padRight(L("Holiday Name"),20)+CMStrings.padRight(L("Area Name(s)"),50)+"^?\n\r");
-		for(int s=1;s<steps.size();s++)
+		List<JournalEntry> holidayInfo;
+		final String resourceKey = "HOLIDAY_CACHE_"+super.name+"("+datedOnly+")";
+		synchronized(this)
 		{
-			final String step=steps.get(s);
-			V=Resources.getFileLineVector(new StringBuffer(step));
-			final List<List<String>> cmds=CMLib.quests().parseQuestCommandLines(V,"SET",0);
-			List<String> areaLine=null;
-			List<String> nameLine=null;
-			for(int v=0;v<cmds.size();v++)
+			holidayInfo = (List<JournalEntry>)Resources.getResource(resourceKey);
+			if(holidayInfo != null)
+				return holidayInfo;
+			else
+				holidayInfo = new Vector<JournalEntry>();
+		}
+		final List<String> steps;
+		try
+		{
+			steps=getHolidayFile();
+			List<String> V;
+			List<String> line;
+			String var;
+			for(int s=1;s<steps.size();s++)
 			{
-				line=cmds.get(v);
-				if(line.size()>1)
+				final String step=steps.get(s);
+				V=Resources.getFileLineVector(new StringBuffer(step));
+				final List<List<String>> cmds=getNextQuestScriptCommands(V,"SET",0);
+				List<String> areaLine=null;
+				List<String> nameLine=null;
+				List<String> dateLine=null;
+				List<String> duraLine=null;
+				List<String> muddayLine=null;
+				TimeClock C = null;
+				for(int v=0;v<cmds.size();v++)
 				{
-					var=line.get(1).toUpperCase();
-					if (var.equals("AREAGROUP"))
+					line=cmds.get(v);
+					if(line.size()>1)
 					{
-						areaLine = line;
+						var=line.get(1).toUpperCase();
+						if ((var.equals("AREAGROUP"))
+						||(var.equals("AREA")&&(areaLine == null)))
+						{
+							areaLine = line;
+							if((line.size()>1)
+							&&(line.get(0).equalsIgnoreCase("ANY")))
+							{
+								line.remove(0);
+								areaLine = new XArrayList<String>(CMParms.combineQuoted(line, 0));
+							}
+							else
+							for(final String areaName : areaLine)
+							{
+								final Area A = CMLib.map().getArea(areaName);
+								if(A != null)
+									C = A.getTimeObj();
+							}
+						}
+						if (var.equals("NAME"))
+						{
+							nameLine = line;
+						}
+						if (var.equals("MUDDAY"))
+						{
+							muddayLine = line;
+						}
+						if (var.equals("DATE"))
+						{
+							dateLine = line;
+						}
+						if (var.equals("DURATION"))
+						{
+							duraLine = line;
+						}
 					}
-					if (var.equals("NAME"))
+				}
+				if((nameLine!=null)
+				&&((muddayLine!=null)||(dateLine!=null)||(!datedOnly)))
+				{
+					final JournalEntry entry = (JournalEntry)CMClass.getCommon("DefaultJournalEntry");
+					entry.subj(CMParms.combine(nameLine,2));
+					if(areaLine != null)
+						entry.to(CMParms.combineQuoted(areaLine, 2));
+					else
+						entry.to("ALL");
+					if(muddayLine != null)
 					{
-						nameLine = line;
+						if(C == null)
+							C=CMLib.time().globalClock();
+						entry.dateStr(""+parseHolidayMudDay(C, CMParms.combine(muddayLine, 2)));
+						entry.update(entry.date());
 					}
+					if(dateLine != null)
+					{
+						entry.dateStr(""+parseRLDate(CMParms.combine(dateLine, 2)));
+						entry.update(entry.date());
+					}
+					if((duraLine != null) && (entry.date() != 0))
+						entry.expiration(entry.date() + (CMProps.getTickMillis() * CMath.s_long(CMParms.combine(duraLine, 2))));
+					else
+						entry.expiration(entry.date() + CMProps.getMillisPerMudHour());
+					entry.from("Holiday");
+					holidayInfo.add(entry);
 				}
 			}
-			if(nameLine!=null)
+		}
+		catch(final CMException e)
+		{
+		}
+		synchronized(this)
+		{
+			if(!Resources.isResource(resourceKey))
+				Resources.submitResource(resourceKey, holidayInfo);
+			return holidayInfo;
+		}
+	}
+
+	protected long parseRLDate(final String str)
+	{
+		int x=str.indexOf('-');
+		if(x<0)
+			x=str.indexOf('/');
+		if(x<0)
+			return 0;
+		final int month=CMath.s_parseIntExpression(str.substring(0,x));
+		final int day=CMath.s_parseIntExpression(str.substring(x+1));
+		int year=Calendar.getInstance().get(Calendar.YEAR);
+		long distance=CMLib.time().string2Millis(month+"/"+day+"/"+year+" 12:00 AM");
+		final Calendar C=Calendar.getInstance();
+		final long today=CMLib.time().string2Millis((C.get(Calendar.MONTH)+1)+"/"+C.get(Calendar.DAY_OF_MONTH)+"/"+C.get(Calendar.YEAR)+" 12:00 AM");
+		while(distance<today)
+			distance=CMLib.time().string2Millis(month+"/"+day+"/"+(++year)+" 12:00 AM");
+		return distance;
+	}
+
+	protected long parseHolidayMudDay(final TimeClock clock, final String str)
+	{
+		int x=str.indexOf('-');
+		if(x<0)
+			x=str.indexOf('/');
+		if(x<0)
+			return 0;
+		final int mudmonth=CMath.s_parseIntExpression(str.substring(0,x));
+		final int mudday=CMath.s_parseIntExpression(str.substring(x+1));
+		final TimeClock NOW=clock;
+		final TimeClock C=(TimeClock)clock.copyOf();
+		C.setMonth(mudmonth);
+		C.setDayOfMonth(mudday);
+		C.setHourOfDay(0);
+		if((mudmonth<NOW.getMonth())
+		||((mudmonth==NOW.getMonth())&&(mudday<NOW.getDayOfMonth())))
+			C.setYear(NOW.getYear()+1);
+		else
+			C.setYear(NOW.getYear());
+		return System.currentTimeMillis() + C.deriveMillisAfter(NOW);
+	}
+
+	@Override
+	public String listHolidays(final String areaName)
+	{
+		final List<JournalEntry> entries = getHolidayEntries(false);
+		final StringBuffer str=new StringBuffer(L("^xDefined Quest Holidays for @x1^?\n\r",areaName==null?"All":areaName));
+		str.append("^H#  "+CMStrings.padRight(L("Holiday Name"),20)+CMStrings.padRight(L("Area Name(s)"),50)+"^?\n\r");
+		int index = 0;
+		final String uAreaName = (areaName == null) ? null : areaName.toUpperCase();
+		for(final JournalEntry entry : entries)
+		{
+			String aName = null;
+			if(entry.to().length()>0)
 			{
-				boolean contains=true;//(areaName==null);
-				if(areaLine!=null)
-				{
-					if((!contains) && (areaName != null))
-					for(int l=2;l<areaLine.size();l++)
-					{
-						if(areaName.equalsIgnoreCase(areaLine.get(l)))
-							{
-								contains = true;
-								break;
-							}
-					}
-				}
+				if((areaName == null)||(areaName.length()==0))
+					aName = entry.to();
 				else
 				{
-					areaLine=new XVector<String>("","","*special*");
-					contains=true;
+					final List<String> areas = CMParms.parse(entry.to().toUpperCase());
+					if(areas.contains(uAreaName)||areas.contains("ALL"))
+						aName = entry.to();
 				}
-				if(contains)
-				{
-					final String name=CMParms.combine(nameLine,2);
-					str.append(CMStrings.padRight(""+s,3)+CMStrings.padRight(name,20)+CMStrings.padRight(CMParms.combineQuoted(areaLine,2),30)+"\n\r");
-				}
+			}
+			else
+			{
+				aName = "*special*";
+			}
+			if(aName != null)
+			{
+				index++;
+				final String name=entry.subj();
+				str.append(CMStrings.padRight(""+index,3)
+						+CMStrings.padRight(name,20)
+						+CMStrings.padRight(aName,30)+"\n\r");
 			}
 		}
 		return str.toString();
@@ -298,18 +420,18 @@ public class Quests extends StdLibrary implements QuestManager
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
 	public String createHoliday(final String named, final String areaName, final boolean save)
 	{
-		final Object resp=getHolidayFile();
-		if(resp instanceof String)
-			return (String)resp;
-		List<String> steps=null;
-		if(resp instanceof List)
-			steps=(List<String>)resp;
-		else
-			return "Unknown error.";
-		if(CMLib.quests().fetchQuest(named)!=null)
+		final List<String> steps;
+		try
+		{
+			steps=getHolidayFile();
+		}
+		catch(final CMException e)
+		{
+			return e.getMessage();
+		}
+		if(fetchQuest(named)!=null)
 			return "A quest called '"+named+"' already exists.  Better to pick a new name.";
 		Vector<String> lineV=null;
 		String line=null;
@@ -368,17 +490,17 @@ public class Quests extends StdLibrary implements QuestManager
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
 	public String deleteHoliday(final int holidayNumber)
 	{
-		final Object resp=getHolidayFile();
-		if(resp instanceof String)
-			return (String)resp;
-		List<String> steps=null;
-		if(resp instanceof List)
-			steps=(List<String>)resp;
-		else
-			return "Unknown error.";
+		final List<String> steps;
+		try
+		{
+			steps=getHolidayFile();
+		}
+		catch(final CMException e)
+		{
+			return e.getMessage();
+		}
 
 		if((holidayNumber<=0)||(holidayNumber>=steps.size()))
 			return holidayNumber+" does not exist as a holiday -- enter LIST HOLIDAYS.";
@@ -396,23 +518,23 @@ public class Quests extends StdLibrary implements QuestManager
 		final Quest Q=fetchQuest("holidays");
 		if(Q!=null)
 			Q.setScript(holidayDefinition,true);
+		Resources.removeResource("HOLIDAY_CACHE_"+super.name+"(true)");
+		Resources.removeResource("HOLIDAY_CACHE_"+super.name+"(false)");
 		return "Holiday deleted.";
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
 	public String getHolidayName(final int index)
 	{
-		final Object resp=getHolidayFile();
-		if(resp instanceof String)
+		final List<String> steps;
+		try
+		{
+			steps=getHolidayFile();
+		}
+		catch(final CMException e)
 		{
 			return "";
 		}
-		List<String> steps=null;
-		if(resp instanceof List)
-			steps=(List<String>)resp;
-		else
-			return "";
 
 		if((index<0)||(index>=steps.size()))
 			return "";
@@ -440,19 +562,17 @@ public class Quests extends StdLibrary implements QuestManager
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
 	public int getHolidayIndex(final String named)
 	{
-		final Object resp=getHolidayFile();
-		if(resp instanceof String)
+		final List<String> steps;
+		try
+		{
+			steps=getHolidayFile();
+		}
+		catch(final CMException e)
 		{
 			return -1;
 		}
-		List<String> steps=null;
-		if(resp instanceof List)
-			steps=(List<String>)resp;
-		else
-			return -1;
 
 		Vector<String> lineV=null;
 		String line=null;
@@ -522,7 +642,7 @@ public class Quests extends StdLibrary implements QuestManager
 				{
 					if(!settings.containsFirst(var))
 					{
-						String str=CMParms.combineQuoted(lineV,2);
+						String str=CMParms.rest(line,2);
 						if(str.toUpperCase().startsWith("ANY "))
 							str=str.substring(4);
 						if(str.toUpperCase().startsWith("RESELECT MASK="))
@@ -540,18 +660,18 @@ public class Quests extends StdLibrary implements QuestManager
 				if(cmd.equals("GIVE")&&("BEHAVIOR".equalsIgnoreCase(var))&&(lineV.size()>2)&&(pricingMobIndex<0))
 				{
 					var=lineV.elementAt(2).toUpperCase();
-					behaviors.add(var,CMParms.combineQuoted(lineV,3),Integer.valueOf(v));
+					behaviors.add(var,CMParms.rest(line,3),Integer.valueOf(v));
 				}
 				if(cmd.equals("GIVE")&&("AFFECT".equalsIgnoreCase(var))&&(lineV.size()>2)&&(pricingMobIndex<0))
 				{
 					var=lineV.elementAt(2).toUpperCase();
-					properties.add(var,CMParms.combineQuoted(lineV,3),Integer.valueOf(v));
+					properties.add(var,CMParms.rest(line,3),Integer.valueOf(v));
 				}
 				if(cmd.equals("GIVE")&&("STAT".equalsIgnoreCase(var))&&(lineV.size()>2))
 				{
 					var=lineV.elementAt(2).toUpperCase();
 					if((pricingMobIndex<0)||(var.equals("PRICEMASKS")))
-						stats.add(var,CMParms.combineQuoted(lineV,3),Integer.valueOf(v));
+						stats.add(var,CMParms.rest(line,3),Integer.valueOf(v));
 				}
 			}
 		}
@@ -597,21 +717,16 @@ public class Quests extends StdLibrary implements QuestManager
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
 	public void modifyHoliday(final MOB mob, final int holidayNumber)
 	{
-		final Object resp=getHolidayFile();
-		if(resp instanceof String)
+		final List<String> steps;
+		try
 		{
-			mob.tell((String)resp);
-			return;
+			steps=getHolidayFile();
 		}
-		List<String> steps=null;
-		if(resp instanceof List)
-			steps=(List<String>)resp;
-		else
+		catch(final CMException e)
 		{
-			mob.tell(L("Unknown error."));
+			mob.tell(e.getMessage());
 			return;
 		}
 		if((holidayNumber<=0)||(holidayNumber>=steps.size()))
@@ -642,10 +757,8 @@ public class Quests extends StdLibrary implements QuestManager
 				int showNumber=0;
 				promptText(mob,settings,"NAME",++showNumber,showFlag,"Holiday Name","It's, well, a name.",false);
 				showNumber=promptDuration(mob,settings,showNumber,showFlag);
-				if(settings.indexOfFirst("AREAGROUP")>=0)
-					promptText(mob,settings,"AREAGROUP",++showNumber,showFlag,"Areas List (?)","Area names are space separated, and words grouped using double-quotes",false);
-				if(settings.indexOfFirst("MOBGROUP")>=0)
-					promptText(mob,settings,"MOBGROUP",++showNumber,showFlag,"Mask for mobs that apply (?)",CMLib.masking().maskHelp("\n\r","disallow"),false);
+				promptText(mob,settings,"AREAGROUP",++showNumber,showFlag,"Areas List (?)","Area names are space separated, and words grouped using double-quotes",false);
+				promptText(mob,settings,"MOBGROUP",++showNumber,showFlag,"Mask for mobs that apply (?)",CMLib.masking().maskHelp("\n\r","disallow"),false);
 				promptText(mob,properties,"MOOD",++showNumber,showFlag,"Mood setting (?)","NULL/Empty (to not use a Mood), or one of: FORMAL, POLITE, HAPPY, SAD, ANGRY, RUDE, MEAN, PROUD, GRUMPY, EXCITED, SCARED, LONELY",true);
 				promptText(mob,behaviors,"AGGRESSIVE",++showNumber,showFlag,"Aggressive setting (?)",CMLib.help().getHelpText("Aggressive",mob,true)+"\n\r\n\r** NULL/Empty (to not use Aggressive **",true);
 				showNumber=genPricing(mob,stats,++showNumber,showFlag);
@@ -685,7 +798,6 @@ public class Quests extends StdLibrary implements QuestManager
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
 	public String alterHoliday(final String oldName, final HolidayData newData)
 	{
 		final TriadList<String,String,Integer> settings=newData.settings();
@@ -696,14 +808,15 @@ public class Quests extends StdLibrary implements QuestManager
 		final int pricingMobIndex=newData.pricingMobIndex().intValue();
 
 		final int holidayNumber=getHolidayIndex(oldName);
-		final Object resp=getHolidayFile();
-		if(resp instanceof String)
-			return (String)resp;
-		List<String> steps=null;
-		if(resp instanceof List)
-			steps=(List<String>)resp;
-		else
-			return "Unknown error.";
+		final List<String> steps;
+		try
+		{
+			steps=getHolidayFile();
+		}
+		catch(final CMException e)
+		{
+			return e.getMessage();
+		}
 
 		String step = null;
 		List<String> stepV = null;
@@ -894,6 +1007,8 @@ public class Quests extends StdLibrary implements QuestManager
 		final Quest Q=fetchQuest("holidays");
 		if(Q!=null)
 			Q.setScript(holidayDefinition,true);
+		Resources.removeResource("HOLIDAY_CACHE_"+super.name+"(true)");
+		Resources.removeResource("HOLIDAY_CACHE_"+super.name+"(false)");
 		return "";
 	}
 
@@ -1023,9 +1138,9 @@ public class Quests extends StdLibrary implements QuestManager
 					showNumber--;
 					continue;
 				}
-				StringBuilder help=CMLib.help().getHelpText(behavior,mob,true);
+				String help=CMLib.help().getHelpText(behavior,mob,true);
 				if(help==null)
-					help=new StringBuilder("No help on '"+behavior+"'");
+					help="No help on '"+behavior+"'";
 				parms=CMLib.genEd().prompt(mob,parms,showNumber,showFlag,L("Behavior Parameters"),help.toString());
 				behaviors.get(b).first = behavior;
 				behaviors.get(b).second = parms;
@@ -1088,9 +1203,9 @@ public class Quests extends StdLibrary implements QuestManager
 					showNumber--;
 					continue;
 				}
-				StringBuilder help=CMLib.help().getHelpText(propertyID,mob,true);
+				String help=CMLib.help().getHelpText(propertyID,mob,true);
 				if(help==null)
-					help=new StringBuilder("No help on '"+propertyID+"'");
+					help="No help on '"+propertyID+"'";
 				parms=CMLib.genEd().prompt(mob,parms,showNumber,showFlag,L("Ability Parameters"),help.toString());
 				properties.get(p).first =propertyID;
 				properties.get(p).second = parms;
@@ -1188,33 +1303,6 @@ public class Quests extends StdLibrary implements QuestManager
 	}
 
 	@Override
-	public String breakOutMaskString(final String s, final List<String> p)
-	{
-		String mask="";
-		int x=s.toUpperCase().lastIndexOf("MASK=");
-		if(x>=0)
-		{
-			mask=s.substring(x+5).trim();
-			int i=0;
-			while((i<p.size())&&(p.get(i).toUpperCase().indexOf("MASK=")<0))
-				i++;
-			if(i<=p.size())
-			{
-				final String pp=p.get(i);
-				x=pp.toUpperCase().indexOf("MASK=");
-				if((x>0)&&(pp.substring(0,x).trim().length()>0))
-				{
-					p.set(i,pp.substring(0,x).trim());
-					i++;
-				}
-				while(i<p.size())
-					p.remove(i);
-			}
-		}
-		return mask.trim();
-	}
-
-	@Override
 	public List<List<String>> breakOutMudChatVs(final String MUDCHAT, final TriadList<String,String,Integer> behaviors)
 	{
 		final int mndex=behaviors.indexOfFirst(MUDCHAT);
@@ -1245,7 +1333,9 @@ public class Quests extends StdLibrary implements QuestManager
 		return mudChatV;
 	}
 
-	protected int genMudChat(final MOB mob, final String var, final TriadList<String,String,Integer> behaviors, int showNumber, final int showFlag)
+	protected int genMudChat(final MOB mob, final String var,
+							 final TriadList<String,String,Integer> behaviors,
+							 int showNumber, final int showFlag)
 	throws IOException
 	{
 		final int mndex=behaviors.indexOfFirst(var);
@@ -1299,7 +1389,7 @@ public class Quests extends StdLibrary implements QuestManager
 					if(v1==V.size())
 					{
 						if((mob.session()!=null)&&(!mob.session().isStopped())
-						&&(mob.session().confirm(L("Add another thing to say (y/N)"),L("NO"))))
+						&&(mob.session().confirm(L("Add another thing to say (y/N)"),("NO"))))
 						{
 							V.add("9say this");
 							v1-=1;
@@ -1348,7 +1438,7 @@ public class Quests extends StdLibrary implements QuestManager
 	}
 
 	@Override
-	public List<List<String>> parseQuestCommandLines(final List<?> script, String cmdOnly, final int startLine)
+	public List<List<String>> getNextQuestScriptCommands(final List<?> script, String cmdOnly, final int startLine)
 	{
 		Vector<String> line=null;
 		String cmd=null;
@@ -1358,7 +1448,10 @@ public class Quests extends StdLibrary implements QuestManager
 			cmdOnly=cmdOnly.toUpperCase().trim();
 		for(int v=startLine;v<script.size();v++)
 		{
-			line=CMParms.parse(((String)script.get(v)));
+			final Object o=script.get(v);
+			if(!(o instanceof String))
+				continue;
+			line=CMParms.parse(((String)o));
 			if(line.size()==0)
 				continue;
 			cmd=line.firstElement().toUpperCase().trim();
@@ -1372,10 +1465,13 @@ public class Quests extends StdLibrary implements QuestManager
 				inScript=true;
 				continue;
 			}
-			if(cmd.equals("STEP"))
-				return lines;
-			if((cmdOnly==null)||(cmdOnly.equalsIgnoreCase(cmd)))
-				lines.add(line);
+			if(!inScript)
+			{
+				if(cmd.equals("STEP"))
+					return lines;
+				if((cmdOnly==null)||(cmdOnly.equalsIgnoreCase(cmd)))
+					lines.add(line);
+			}
 		}
 		return lines;
 	}
@@ -1419,7 +1515,7 @@ public class Quests extends StdLibrary implements QuestManager
 				inScript=true;
 				continue;
 			}
-			if(cmd.equals("STEP"))
+			if(cmd.equals("STEP")&&(!inScript))
 			{
 				parsed.addElement(scr.toString());
 				scr=new StringBuffer("");
@@ -1603,7 +1699,7 @@ public class Quests extends StdLibrary implements QuestManager
 	{
 		MOB M=null;
 		final List<MOB> choices=new ArrayList<MOB>();
-		MOB baseM=((showValue!=null)?baseM=CMLib.coffeeMaker().getMobFromXML(showValue):null);
+		MOB baseM=((showValue!=null)?baseM=CMLib.coffeeMaker().unpackMobFromXML(showValue):null);
 		final StringBuffer choiceDescs=new StringBuffer("");
 		if(baseM!=null)
 		{
@@ -1675,7 +1771,7 @@ public class Quests extends StdLibrary implements QuestManager
 	{
 		Item I=null;
 		final List<Item> choices=new ArrayList<Item>();
-		Item baseI=((showValue!=null)?baseI=CMLib.coffeeMaker().getItemFromXML(showValue):null);
+		Item baseI=((showValue!=null)?baseI=CMLib.coffeeMaker().unpackItemFromXML(showValue):null);
 		final StringBuffer choiceDescs=new StringBuffer("");
 		if(baseI!=null)
 		{
@@ -1746,15 +1842,17 @@ public class Quests extends StdLibrary implements QuestManager
 				continue;
 			if(SE.defaultQuestName().length()>1)
 			{
-				final Quest Q=CMLib.quests().fetchQuest(SE.defaultQuestName());
+				Quest Q=fetchQuest(SE.defaultQuestName());
+				if(Q==null)
+					Q=findQuest(SE.defaultQuestName());
 				if(Q==null)
 				{
+					SE.stepQuest(player, player, SE.defaultQuestName());
 					SE.endQuest(player, player, SE.defaultQuestName());
 					player.delScript(SE);
 				}
 				else
 					qVec.add(Q);
-
 			}
 		}
 		return qVec;
@@ -1762,7 +1860,7 @@ public class Quests extends StdLibrary implements QuestManager
 
 	@Override
 	@SuppressWarnings("unchecked")
-	public Quest questMaker(final MOB mob)
+	public Quest questMakerCommandLine(final MOB mob)
 	{
 		if(mob.isMonster())
 			return null;
@@ -1879,8 +1977,8 @@ public class Quests extends StdLibrary implements QuestManager
 						{
 							final String showValue=(showFlag<-900)?"":(String)pageDV.elementAt(step,4);
 							final StringBuffer label=new StringBuffer(((lastLabel==null)?"":lastLabel)+"\n\rChoices: ");
-							for(int q=0;q<CMLib.quests().numQuests();q++)
-								label.append("\""+CMLib.quests().fetchQuest(q).name()+"\" ");
+							for(int q=0;q<numQuests();q++)
+								label.append("\""+fetchQuest(q).name()+"\" ");
 							final GenericEditor.CMEval evaler = getQuestCommandEval(inputCommand);
 							final String s=CMLib.genEd().prompt(mob,showValue,++showNumber,showFlag,parm1Fixed,optionalEntry,false,label.toString(),
 															evaler, null);
@@ -2106,8 +2204,8 @@ public class Quests extends StdLibrary implements QuestManager
 					mob.tell(L("You must specify a VALID quest string.  This one contained errors.  Try AHELP QUESTS."));
 					return null;
 				}
-				CMLib.quests().addQuest(Q);
-				CMLib.quests().save();
+				addQuest(Q);
+				save();
 				return Q;
 			}
 			return null;
@@ -2180,7 +2278,7 @@ public class Quests extends StdLibrary implements QuestManager
 							throw new CMException("Quest names may only contain letters, digits, or _ -- no spaces or special characters.");
 					}
 
-					if (CMLib.quests().fetchQuest(((String) str).trim()) != null)
+					if (fetchQuest(((String) str).trim()) != null)
 						throw new CMException("A quest of that name already exists.  Enter another.");
 					return ((String) str).trim();
 				}
@@ -2293,7 +2391,7 @@ public class Quests extends StdLibrary implements QuestManager
 						if (R != null)
 							found = true;
 						if (!found)
-							found = CMLib.map().findWorldRoomLiberally(null, s, "R", 50, 30000) != null;
+							found = CMLib.hunt().findWorldRoomLiberally(null, s, "R", 50, 30000) != null;
 						if (!found)
 							throw new CMException("'" + (V.elementAt(v)) + "' is not a valid room name, id, or description.");
 					}
@@ -2549,7 +2647,7 @@ public class Quests extends StdLibrary implements QuestManager
 							return "";
 						throw new CMException("You must enter a quest name!");
 					}
-					final Quest Q = CMLib.quests().fetchQuest(((String) str).trim());
+					final Quest Q = fetchQuest(((String) str).trim());
 					if (Q == null)
 						throw new CMException("A quest of the name '" + ((String) str).trim() + "' does not exist.  Enter another.");
 					return Q.name();

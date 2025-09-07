@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -81,6 +81,17 @@ public class Prayer_Harm extends Prayer
 	}
 
 	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
+	{
+		if(((msg.targetMinor()==CMMsg.TYP_EAT)
+			||(msg.targetMinor()==CMMsg.TYP_DRINK))
+		&&(msg.target() == affected)
+		&&(affected instanceof Item)
+		&&(!(affected instanceof MiscMagic)))
+			invoke(anInvoker(msg.source()),new XVector<String>(),msg.source(),true,0);
+	}
+
+	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		final MOB target=this.getTarget(mob,commands,givenTarget);
@@ -96,7 +107,9 @@ public class Prayer_Harm extends Prayer
 		{
 			final Room R=target.location();
 			final int malicious = CMLib.flags().isUndead(target) ? 0 : CMMsg.MASK_MALICIOUS;
-			final CMMsg msg=CMClass.getMsg(mob,target,this,malicious|verbalCastCode(mob,target,auto),L(auto?"<T-NAME> cringe(s) in pain.":"^S<S-NAME> "+prayWord(mob)+" to deliver tremendous pain at <T-NAMESELF>!^?")+CMLib.protocol().msp("spelldam2.wav",40));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,malicious|verbalCastCode(mob,target,auto),
+					L(auto?"<T-NAME> cringe(s) in pain.":"^S<S-NAME> @x1 to deliver tremendous pain at <T-NAMESELF>!^?",prayWord(mob))
+					+CMLib.protocol().msp("spelldam2.wav",40));
 			final CMMsg msg2=CMClass.getMsg(mob,target,this,CMMsg.MSK_CAST_VERBAL|malicious|CMMsg.TYP_UNDEAD|(auto?CMMsg.MASK_ALWAYS:0),null);
 			if((R.okMessage(mob,msg))
 			&&((R.okMessage(mob,msg2))))

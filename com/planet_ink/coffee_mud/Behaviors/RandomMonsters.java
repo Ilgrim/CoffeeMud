@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -239,7 +239,7 @@ public class RandomMonsters extends ActiveTicker
 				return null;
 			}
 			for(final MOB M : monsters)
-				CMLib.threads().deleteAllTicks(M);
+				CMLib.threads().unTickAll(M);
 			Resources.submitResource("RANDOMMONSTERS-XML/"+filename.length()+"/"+filename.hashCode(),monsters);
 		}
 		else
@@ -277,7 +277,7 @@ public class RandomMonsters extends ActiveTicker
 					return null;
 				}
 				for(final MOB M : monsters)
-					CMLib.threads().deleteAllTicks(M);
+					CMLib.threads().unTickAll(M);
 				Resources.submitResource("RANDOMMONSTERS-"+filename,monsters);
 			}
 		}
@@ -308,7 +308,7 @@ public class RandomMonsters extends ActiveTicker
 	{
 		tickStatus=Tickable.STATUS_START;
 		super.tick(ticking,tickID);
-		if((!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if((!CMProps.isState(CMProps.HostState.RUNNING))
 		||(CMSecurity.isDisabled(CMSecurity.DisFlag.RANDOMMONSTERS)))
 		{
 			tickStatus=Tickable.STATUS_NOT;

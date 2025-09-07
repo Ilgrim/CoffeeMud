@@ -3,6 +3,7 @@
 @if?!Authenticate@ @AddFile?/grinder/failedlogin.cmvp@ @else@
 @if?!CheckAuthCode?ANYMODAREAS=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <html>
+	<META CHARSET="utf-8"/>
 <head>
 	<!-- tell spiders to sod off -->
 	<meta name="ROBOTS" content="NOINDEX, NOFOLLOW">
@@ -178,6 +179,16 @@
 	</SELECT>
 	</TD>
 </TR>
+@if?AreaData?ISSPACE@
+<TR>
+	<TD><FONT COLOR="#66FFFF"><B>Radius:</B></FONT></TD>
+    <TD COLSPAN=2><INPUT TYPE=TEXT NAME=RADIUS SIZE=10 VALUE="@AreaData?RADIUS@"></TD>
+</TR>
+<TR>
+	<TD><FONT COLOR="#66FFFF"><B>Coordinates:</B></FONT></TD>
+    <TD COLSPAN=2><INPUT TYPE=TEXT NAME=COORDINATES SIZE=60 VALUE="@AreaData?COORDINATES@"></TD>
+</TR>
+@endif@
 <TR>
 	<TD><FONT COLOR="#66FFFF"><B>'Blurb' Flags:</B></FONT></TD>
     <TD COLSPAN=2>@AreaData?BLURBS@</TD>

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Diseases;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMSecurity.DisFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -199,9 +200,13 @@ public class Disease_Depression extends Disease
 			{
 			}
 		}
-		if((mob.curState().getFatigue()<CharState.FATIGUED_MILLIS)
-		&&(mob.maxState().getFatigue()>Long.MIN_VALUE/2))
-			mob.curState().setFatigue(CharState.FATIGUED_MILLIS);
+		if((!CMSecurity.isDisabled(DisFlag.FATIGUE))
+		&&(!mob.charStats().getMyRace().infatigueable()))
+		{
+			if((mob.curState().getFatigue()<CharState.FATIGUED_MILLIS)
+			&&(mob.maxState().getFatigue()>Long.MIN_VALUE/2))
+				mob.curState().setFatigue(CharState.FATIGUED_MILLIS);
+		}
 		return true;
 	}
 

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -123,12 +123,14 @@ public class Chant extends StdAbility
 	}
 
 	// codes: -1=do nothing, 1=wind, 2=rain, 4=hot, 8=cold, 16=calm
-	public int weatherQue(final Room R)
+	public int weatherQue(Room R)
 	{
 		if(R==null)
 			return WEATHERQUE_NADA;
 		if((R.domainType()&Room.INDOORS)>0)
 			return WEATHERQUE_NADA;
+		if(R.getArea() instanceof Boardable)
+			R=CMLib.map().roomLocation(((Boardable)R.getArea()).getBoardableItem());
 		switch(R.getArea().getClimateObj().weatherType(R))
 		{
 		case Climate.WEATHER_BLIZZARD:
@@ -137,6 +139,8 @@ public class Chant extends StdAbility
 			return WEATHERQUE_NADA;
 		case Climate.WEATHER_CLEAR:
 			return WEATHERQUE_WIND | WEATHERQUE_RAIN | WEATHERQUE_HOT | WEATHERQUE_COLD;
+		case Climate.WEATHER_FOG:
+			return WEATHERQUE_RAIN | WEATHERQUE_CALM;
 		case Climate.WEATHER_CLOUDY:
 			return WEATHERQUE_WIND | WEATHERQUE_RAIN;
 		case Climate.WEATHER_DROUGHT:
@@ -175,7 +179,7 @@ public class Chant extends StdAbility
 				return false;
 			}
 			else
-			if(!CMLib.utensils().armorCheck(mob,CharClass.ARMOR_LEATHER))
+			if(!CMLib.utensils().armorCheck(mob,CharClass.ARMOR_NONMETAL))
 			{
 				mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,A.L("<S-NAME> watch(es) <S-HIS-HER> armor absorb <S-HIS-HER> magical energy!"));
 				return false;

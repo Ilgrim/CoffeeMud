@@ -22,7 +22,7 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -76,6 +76,7 @@ public class GenRace extends StdRace
 	protected int[]				culturalAbilityProfs= null;
 	protected int[]				culturalAbilityLvls = null;
 	protected boolean[]			culturalAbilityGains= null;
+	protected String[]			culturalAbilityParms= null;
 	protected int[]				sortedBreathables	= new int[] { RawMaterial.RESOURCE_AIR };
 	protected boolean			destroyBodyAfterUse	= false;
 	protected String			arriveStr			= "arrives";
@@ -303,6 +304,12 @@ public class GenRace extends StdRace
 	}
 
 	@Override
+	protected String[] culturalAbilityParms()
+	{
+		return culturalAbilityParms;
+	}
+
+	@Override
 	protected boolean destroyBodyAfterUse()
 	{
 		return destroyBodyAfterUse;
@@ -319,7 +326,7 @@ public class GenRace extends StdRace
 	{
 		try
 		{
-			return getClass().newInstance();
+			return getClass().getDeclaredConstructor().newInstance();
 		}
 		catch (final Exception e)
 		{
@@ -336,13 +343,11 @@ public class GenRace extends StdRace
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public Weapon getNaturalWeapon()
 	{
 		if(weaponBuddy!=null)
-			return weaponBuddy.myNaturalWeapon();
-		if(naturalWeapon!=null)
-			return naturalWeapon;
-		return funHumanoidWeapon();
+			return weaponBuddy.getNaturalWeapon();
+		return super.getNaturalWeapon();
 	}
 
 	@Override
@@ -384,7 +389,7 @@ public class GenRace extends StdRace
 			affectableStats.setHeight(affectableStats.height()+adjPStats.height());
 			affectableStats.setLevel(affectableStats.level()+adjPStats.level());
 			affectableStats.setSensesMask(affectableStats.sensesMask()|adjPStats.sensesMask());
-			affectableStats.setSpeed(affectableStats.speed()+adjPStats.speed());
+			affectableStats.setSpeed(affectableStats.speed()+(CMProps.getSpeedAdjustment()*adjPStats.speed()));
 			affectableStats.setWeight(affectableStats.weight()+adjPStats.weight());
 		}
 	}
@@ -403,6 +408,24 @@ public class GenRace extends StdRace
 			{
 				if(setStats.getStat(i)!=0)
 					affectableStats.setRacialStat(i,setStats.getStat(i));
+			}
+		}
+	}
+
+	@Override
+	public void unaffectCharStats(final MOB affectedMob, final CharStats affectableStats)
+	{
+		if(adjStats!=null)
+		{
+			for(final int i: CharStats.CODES.ALLCODES())
+				affectableStats.setStat(i,affectableStats.getStat(i)-adjStats.getStat(i));
+		}
+		if(setStats!=null)
+		{
+			for(final int i: CharStats.CODES.ALLCODES())
+			{
+				if(setStats.getStat(i)!=0)
+					affectableStats.setStat(i,affectedMob.baseCharStats().getStat(i));
 			}
 		}
 	}
@@ -518,13 +541,12 @@ public class GenRace extends StdRace
 			}
 			str.append("</OUTFIT>");
 		}
-		if(naturalWeapon==null)
+		if(this.getNaturalWeapons().length==0)
 			str.append("<WEAPON/>");
 		else
 		{
 			str.append("<WEAPON>");
-			str.append(CMLib.xml().convertXMLtoTag("ICLASS",CMClass.classID(naturalWeapon)));
-			str.append(CMLib.xml().convertXMLtoTag("IDATA",CMLib.xml().parseOutAngleBrackets(naturalWeapon.text())));
+			str.append(getStat("WEAPONCLASS"));
 			str.append("</WEAPON>");
 		}
 		if((racialAbilityNames==null)||(racialAbilityNames.length==0))
@@ -574,6 +596,7 @@ public class GenRace extends StdRace
 				str.append("<CPROFF>"+culturalAbilityProfs[r]+"</CPROFF>");
 				str.append("<CPLEVL>"+culturalAbilityLvls[r]+"</CPLEVL>");
 				str.append("<CGAIN>"+culturalAbilityGains[r]+"</CGAIN>");
+				str.append("<CPARM>"+CMLib.xml().parseOutAngleBrackets(culturalAbilityParms[r])+"</CPARM>");
 				str.append("</CABILITY>");
 			}
 			str.append("</CABILITIES>");
@@ -633,7 +656,6 @@ public class GenRace extends StdRace
 			Log.errOut("GenRace","Not able to parse: "+parms);
 			return;
 		}
-
 		String rcat=CMLib.xml().getValFromPieces(raceData,"CAT");
 		if((rcat==null)||(rcat.length()==0))
 		{
@@ -783,16 +805,33 @@ public class GenRace extends StdRace
 			}
 		}
 
-		naturalWeapon=null;
-		final List<XMLLibrary.XMLTag> wblk=CMLib.xml().getContentsFromPieces(raceData,"WEAPON");
+		this.naturalWeaponChoices = new Weapon[0];
+		final XMLLibrary.XMLTag wblk=CMLib.xml().getPieceFromPieces(raceData,"WEAPON");
 		if(wblk!=null)
 		{
-			naturalWeapon=CMClass.getWeapon(CMLib.xml().getValFromPieces(wblk,"ICLASS"));
-			final String idat=CMLib.xml().getValFromPieces(wblk,"IDATA");
-			if((idat!=null)&&(naturalWeapon!=null))
+			final Weapon naturalWeapon=CMClass.getWeapon(CMLib.xml().getValFromPieces(wblk.contents(),"ICLASS"));
+			if(naturalWeapon != null)
 			{
-				naturalWeapon.setMiscText(CMLib.xml().restoreAngleBrackets(idat));
-				naturalWeapon.recoverPhyStats();
+				final String idat=CMLib.xml().getValFromPieces(wblk.contents(),"IDATA");
+				if((idat!=null)&&(naturalWeapon!=null))
+				{
+					naturalWeapon.setMiscText(CMLib.xml().restoreAngleBrackets(idat));
+					naturalWeapon.recoverPhyStats();
+					this.naturalWeaponChoices = new Weapon[] {naturalWeapon};
+				}
+			}
+			else
+			if(wblk.contents().size()>0)
+			{
+				final List<Item> items=new ArrayList<Item>();
+				CMLib.coffeeMaker().addItemsFromXML(wblk.contents(), items, null);
+				final List<Weapon> weaps = new ArrayList<Weapon>();
+				for(final Item I : items)
+				{
+					if(I instanceof Weapon)
+						weaps.add((Weapon)I);
+				}
+				this.naturalWeaponChoices = weaps.toArray(new Weapon[weaps.size()]);
 			}
 		}
 		xV=CMLib.xml().getContentsFromPieces(raceData,"RABILITIES");
@@ -849,12 +888,14 @@ public class GenRace extends StdRace
 		culturalAbilityProfs=null;
 		culturalAbilityLvls=null;
 		culturalAbilityGains=null;
+		culturalAbilityParms=null;
 		if((xV!=null)&&(xV.size()>0))
 		{
 			culturalAbilityNames=new String[xV.size()];
 			culturalAbilityProfs=new int[xV.size()];
 			culturalAbilityLvls=new int[xV.size()];
 			culturalAbilityGains=new boolean[xV.size()];
+			culturalAbilityParms=new String[xV.size()];
 			for(int x=0;x<xV.size();x++)
 			{
 				final XMLTag iblk=xV.get(x);
@@ -867,6 +908,7 @@ public class GenRace extends StdRace
 					culturalAbilityGains[x]=iblk.getBoolFromPieces("CGAIN");
 				else
 					culturalAbilityGains[x]=true;
+				culturalAbilityParms[x]=iblk.getValFromPieces("CPARM");
 			}
 		}
 
@@ -901,7 +943,8 @@ public class GenRace extends StdRace
 									 "DISFLAGS","STARTASTATE","EVENTRACE","WEAPONRACE", "HELP",
 									 "BREATHES","CANRIDE",
 									 "NUMIABLE","GETIABLE",
-									 "XPADJ", "CLASS"
+									 "XPADJ", "CLASS",
+									 "GETCABLEPARM"
 									 };
 
 	@Override
@@ -965,10 +1008,18 @@ public class GenRace extends StdRace
 			return "" + ((Item) myResources().get(num)).ID();
 		case 20:
 			return "" + ((Item) myResources().get(num)).text();
-		case 21:
-			return (naturalWeapon == null) ? "" : naturalWeapon.ID();
+		case 21: // weaponclass / weaponxml
 		case 22:
-			return (naturalWeapon == null) ? "" : naturalWeapon.text();
+		{
+			if(this.getNaturalWeapons().length==0)
+				return "";
+			final StringBuilder x=new StringBuilder("");
+			x.append("<ITEMS>");
+			for(final Weapon W : this.getNaturalWeapons())
+				x.append(CMLib.coffeeMaker().getItemXML(W));
+			x.append("</ITEMS>");
+			return x.toString();
+		}
 		case 23:
 			return (racialAbilityNames == null) ? "0" : ("" + racialAbilityNames.length);
 		case 24:
@@ -1031,6 +1082,8 @@ public class GenRace extends StdRace
 			return ""+getXPAdjustment();
 		case 53:
 			return ID();
+		case 54:
+			return (culturalAbilityParms == null) ? "" : ("" + culturalAbilityParms[num]);
 		default:
 			return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
 		}
@@ -1281,19 +1334,30 @@ public class GenRace extends StdRace
 			}
 			break;
 		}
-		case 21:
-		{
-			naturalWeapon=null;
-			if(val.length()>0)
-				naturalWeapon=CMClass.getWeapon(val);
-			break;
-		}
+		case 21: // weaponclass / weaponxml
 		case 22:
 		{
-			if(naturalWeapon!=null)
+			if(val.trim().length()==0)
+				this.naturalWeaponChoices = new Weapon[0];
+			else
+			if(val.trim().toUpperCase().startsWith("<ITEMS>"))
 			{
-				naturalWeapon.setMiscText(val);
-				naturalWeapon.recoverPhyStats();
+				final List<Item> items = new Vector<Item>();
+				CMLib.coffeeMaker().addItemsFromXML(val, items, null);
+				this.naturalWeaponChoices = new Weapon[0];
+				final List<Weapon> weaps = new ArrayList<Weapon>();
+				for(final Item I : items)
+				{
+					if(I instanceof Weapon)
+						weaps.add((Weapon)I);
+				}
+				this.naturalWeaponChoices = weaps.toArray(new Weapon[weaps.size()]);
+			}
+			else
+			{
+				final Weapon W=CMClass.getWeapon(val);
+				if(W!=null)
+					this.naturalWeaponChoices = new Weapon[] {W};
 			}
 			break;
 		}
@@ -1361,6 +1425,7 @@ public class GenRace extends StdRace
 				culturalAbilityProfs=null;
 				culturalAbilityLvls=null;
 				culturalAbilityGains=null;
+				culturalAbilityParms=null;
 			}
 			else
 			{
@@ -1368,6 +1433,7 @@ public class GenRace extends StdRace
 				culturalAbilityProfs=new int[CMath.s_int(val)];
 				culturalAbilityLvls=new int[CMath.s_int(val)];
 				culturalAbilityGains=new boolean[CMath.s_int(val)];
+				culturalAbilityParms=new String[CMath.s_int(val)];
 			}
 			this.mappedCulturalAbilities=false;
 			break;
@@ -1567,6 +1633,14 @@ public class GenRace extends StdRace
 		}
 		case 53: // CLASS
 			break;
+		case 54:
+		{
+			if(culturalAbilityParms==null)
+				culturalAbilityParms=new String[num+1];
+			culturalAbilityParms[num]=val;
+			this.mappedCulturalAbilities=false;
+			break;
+		}
 		default:
 			CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);
 			break;

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -112,7 +112,7 @@ public class Thief_ContractHit extends ThiefSkill
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(invoker()!=null))
+		if((affected instanceof MOB)&&(invoker()!=null))
 		{
 			if(super.tickDown==1)
 			{
@@ -122,7 +122,7 @@ public class Thief_ContractHit extends ThiefSkill
 			final MOB mob=(MOB)affected;
 			if(readyToHit&&(!hitting)
 			&&(mob.location()!=null)
-			&&(mob.location().domainType()==Room.DOMAIN_OUTDOORS_CITY))
+			&&(CMLib.flags().isACityRoom(mob.location())))
 			{
 
 				hitting=true;
@@ -144,7 +144,7 @@ public class Thief_ContractHit extends ThiefSkill
 					M.basePhyStats().setRejuv(PhyStats.NO_REJUV);
 					M.baseState().setMana(CMLib.leveler().getLevelMana(M));
 					M.baseState().setMovement(CMLib.leveler().getLevelMove(M));
-					M.baseState().setHitPoints(CMLib.dice().rollHP(level, M.basePhyStats().level()));
+					M.baseState().setHitPoints(CMLib.leveler().getLevelHitPoints(M));
 					final Behavior B=CMClass.getBehavior("Thiefness");
 					B.setParms("Assassin");
 					M.addBehavior(B);
@@ -225,7 +225,7 @@ public class Thief_ContractHit extends ThiefSkill
 		{
 			if(!(target instanceof MOB))
 				return Ability.QUALITY_INDIFFERENT;
-			if(mob.location().domainType()!=Room.DOMAIN_OUTDOORS_CITY)
+			if(!CMLib.flags().isACityRoom(mob.location()))
 				return Ability.QUALITY_INDIFFERENT;
 			if(mob.isInCombat())
 				return Ability.QUALITY_INDIFFERENT;
@@ -245,7 +245,7 @@ public class Thief_ContractHit extends ThiefSkill
 		}
 		if(mob.location()==null)
 			return false;
-		if(mob.location().domainType()!=Room.DOMAIN_OUTDOORS_CITY)
+		if(!CMLib.flags().isACityRoom(mob.location()))
 		{
 			mob.tell(L("You need to be on the streets to put out a hit."));
 			return false;
@@ -259,7 +259,7 @@ public class Thief_ContractHit extends ThiefSkill
 		List<MOB> V=new Vector<MOB>();
 		try
 		{
-			V=CMLib.map().findInhabitantsFavorExact(CMLib.map().rooms(), mob,CMParms.combine(commands,0), false, 10);
+			V=CMLib.hunt().findInhabitantsFavorExact(CMLib.map().rooms(), mob,CMParms.combine(commands,0), false, 10);
 		}
 		catch(final NoSuchElementException nse)
 		{

@@ -1,5 +1,5 @@
 <!--  
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License</STRING><STRING>Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -12,13 +12,13 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND</STRING><STRING>either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
---------------------------------------------------------------------------------
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 See guides/RandomAreas.html for information about documents of this type.
 
 -->
 <!--  include file full of show plains-specific tags -->
-<string id="randomtheme" merge=true select="any-1">
+<string id="randomtheme" merge="true" select="any-1">
 	<string condition="$theme=''">snow</string>
 </string>
 
@@ -26,18 +26,20 @@ See guides/RandomAreas.html for information about documents of this type.
 <STRING load="/resources/randareas/inc_common.xml" />
 <STRING load="/resources/randareas/inc_adjectives.xml" />
 
-<AREA id="maze_dungeon" merge=true layout="MAZE" requires="areaname=$,areasize=int,level_range=int,aggrochance=int,theme=snow" >
-	<NAME merge=false>$areaname</NAME><SIZE merge=false>$areasize</SIZE>
-	<CLASS merge=false select="any-1"><CLASS condition="$areatype!=''">$areatype</CLASS><CLASS condition="$areatype=''">StdArea</CLASS></CLASS>
-	<ROOM merge=false insert="hallway_rooms,interior_rooms,leaf_rooms" />
+<AREA id="maze_dungeon" merge="true" layout="MAZE" requires="areaname=$,areasize=int,level_range=int,aggrochance=int,theme=snow" >
+	<NAME merge="false">$areaname</NAME><SIZE merge="false">$areasize</SIZE>
+	<CLASS merge="false" select="any-1"><CLASS condition="$areatype!=''">$areatype</CLASS><CLASS condition="$areatype=''">StdArea</CLASS></CLASS>
+	<ROOM merge="false" insert="hallway_rooms,interior_rooms,leaf_rooms" />
 </AREA>
-<AREA id="grid_dungeon" merge=true like="maze_dungeon" layout="GRIDCITY" requires="areaname=$,areasize=int,level_range=int,aggrochance=int,theme=snow" />
-<AREA id="square_dungeon" merge=true like="maze_dungeon" layout="BOXCITYSQUARE" requires="areaname=$,areasize=int,level_range=int,aggrochance=int,theme=snow" />
-<AREA id="box_dungeon" merge=true like="maze_dungeon" layout="BOXCITY" requires="areaname=$,areasize=int,level_range=int,aggrochance=int,theme=snow" />
-<AREA id="cross_dungeon" merge=true like="maze_dungeon" layout="CROSS" requires="areaname=$,areasize=int,level_range=int,aggrochance=int,theme=snow" />
-<AREA id="tree_dungeon" merge=true like="maze_dungeon" layout="TREE" requires="areaname=$,areasize=int,level_range=int,aggrochance=int,theme=snow" />
+<AREA id="grid_dungeon" merge="true" like="maze_dungeon" layout="GRIDCITY" requires="areaname=$,areasize=int,level_range=int,aggrochance=int,theme=snow" />
+<AREA id="square_dungeon" merge="true" like="maze_dungeon" layout="BOXCITYSQUARE" requires="areaname=$,areasize=int,level_range=int,aggrochance=int,theme=snow" />
+<AREA id="box_dungeon" merge="true" like="maze_dungeon" layout="BOXCITY" requires="areaname=$,areasize=int,level_range=int,aggrochance=int,theme=snow" />
+<AREA id="cross_dungeon" merge="true" like="maze_dungeon" layout="CROSS" requires="areaname=$,areasize=int,level_range=int,aggrochance=int,theme=snow" />
+<AREA id="tree_dungeon" merge="true" like="maze_dungeon" layout="TREE" requires="areaname=$,areasize=int,level_range=int,aggrochance=int,theme=snow" />
+<AREA id="branch_dungeon" merge="true" like="maze_dungeon" layout="BRANCH" requires="areaname=$,areasize=int,level_range=int,aggrochance=int,theme=snow" />
+<AREA id="spot_dungeon" merge="true" like="maze_dungeon" layout="SPOTTEDMESH" requires="areaname=$,areasize=int,level_range=int,aggrochance=int,theme=snow" />
 
-<ROOM id="hallway_rooms" merge=true select="pick-1" condition="$roomtag_nodetype='street' or $roomtag_nodetype='surround'">
+<ROOM id="hallway_rooms" merge="true" select="pick-1" condition="$roomtag_nodetype='street' or $roomtag_nodetype='surround'">
 	<ROOM class="IcePlains" id="snow_street_room" condition="$theme='snow' or $theme='random'">
 		<TITLE>(a(n)) $_snow_path_name</TITLE>
 		<DESCRIPTION>$snow_street_desc</DESCRIPTION>
@@ -64,6 +66,7 @@ See guides/RandomAreas.html for information about documents of this type.
 				<STRING condition="$_snow_path_roomtype=0">The snow plains surrounds you, $adj_sparse trees making some directions $adj_impassable. </STRING>
 				<STRING condition="$_snow_path_roomtype=0">You feel a $noun_snow_wind blow around the $adj_sparse plants of the snow plains. </STRING>
 			</STRING>
+			<STRING llm="true" action="APPEND">Give me only a sentence that describes ${l:room_title} in a snowy region, but don't mention any creatures, water, or portable items.</STRING>
 			<STRING select="any-1" action="APPEND">
 				<STRING condition="$_snow_path_roomtype=1">The $_snow_path_type continues $roomrun_desc_long.</STRING>
 				<STRING condition="$_snow_path_roomtype=1">Beneath the broad shadows of the snow banks you can see the $_snow_path_type running $roomrun_desc_long.</STRING>
@@ -76,15 +79,15 @@ See guides/RandomAreas.html for information about documents of this type.
 			</STRING>
 		</STRING>
 		<EXIT class="Open" />
-		<MOB condition="1?2=1" select="any-1" insert="snow_mobs" />
+		<MOB condition="(1?2=1) and ($pop_mobs!='false')" select="any-1" insert="snow_mobs" />
 	</ROOM>
 </ROOM>
 
-<ROOM id="interior_rooms" merge=true select="any-1" condition="$roomtag_nodetype='interior' or $roomtag_nodetype='square'">
+<ROOM id="interior_rooms" merge="true" select="any-1" condition="$roomtag_nodetype='interior' or $roomtag_nodetype='square'">
 	<ROOM class="IcePlains" like="snow_street_room" condition="$theme='snow' or $theme='random'" />
 </ROOM>
 
-<ROOM id="leaf_rooms" merge=true select="any-1" condition="$roomtag_nodetype='leaf'">
+<ROOM id="leaf_rooms" merge="true" select="any-1" condition="$roomtag_nodetype='leaf'">
 	<ROOM class="IcePlains" id="snow_interior_room" condition="$theme='snow' or $theme='random'">
 		<TITLE>
 			<TITLE>$snow_path_prefix $snow_nouns</TITLE>
@@ -103,6 +106,7 @@ See guides/RandomAreas.html for information about documents of this type.
 				<STRING>The snow plains surrounds you, ${adj_phys_size_tall} $adj_cramped snow banks making some directions $adj_impassable. </STRING>
 				<STRING>You feel a $noun_snow_wind blow over the $adj_phys_size_tall snow banks of the $noun_snow_wind_adj snow plains. </STRING>
 			</STRING>
+			<STRING llm="true" action="APPEND">Give me only a sentence that describes ${l:room_title} in a snowy region, but don't mention any creatures, water, or portable items.</STRING>
 			<STRING select="any-1" action="APPEND">
 				<STRING>It looks like you might pick your way $roomexits_desc_long.</STRING>
 				<STRING>Openings in the $noun_snow_brush can be seen $roomexits_desc_long.</STRING>
@@ -113,10 +117,10 @@ See guides/RandomAreas.html for information about documents of this type.
 			</STRING>
 		</STRING>
 		<EXIT class="Open" />
-		<MOB condition="($NOFANTASY != 'true') and ($__defined_snow_dragon&lt;1)" define="__defined_snow_dragon+=1" like="snow_dragon_mob" />
-		<MOB condition="1?2=1" select="any-1" insert="snow_mobs" />
-		<ITEM condition="1?4=1" select="any-1">
-			<ITEM class="GenContainer" name="A $adj_wooden_ragged chest" display="$item_name is here" HASLID="true" HASLOCK="$trueorfalse">
+		<MOB condition="($NOFANTASY != 'true') and ($__defined_snow_dragon&lt;1) and ($pop_mobs!='false')" define="__defined_snow_dragon+=1" like="snow_dragon_mob" />
+		<MOB condition="(1?2=1) and ($pop_mobs!='false')" select="any-1" insert="snow_mobs" />
+		<ITEM condition="(1?4=1) and ($pop_items!='false')" select="any-1">
+			<ITEM class="GenContainer" name="(a(n)) $adj_wooden_ragged chest" display="$item_name is here" HASLID="true" HASLOCK="$trueorfalse">
 				<CONTENT>
 					<ITEM select="any-5" insert="dungeon_treasure_items" />
 				</CONTENT>
@@ -135,7 +139,7 @@ See guides/RandomAreas.html for information about documents of this type.
 		<NAME condition="$mob_level&lt;70 and $mob_level&gt;=40">an adult white dragon</NAME>
 		<NAME condition="$mob_level&lt;80 and $mob_level&gt;=70">an old white dragon</NAME>
 		<NAME condition="$mob_level&lt;85 and $mob_level&gt;=80">a very old white dragon</NAME>
-		<NAME condition="$mob_level&gt;=85">a ancient white dragon</NAME>
+		<NAME condition="$mob_level&gt;=85">an ancient white dragon</NAME>
 	</NAME>
 		<DISPLAY select="pick-1">
 			<DISPLAY pickweight="1">$mob_name leaps towards you.</DISPLAY>
@@ -291,10 +295,10 @@ See guides/RandomAreas.html for information about documents of this type.
 </STRING>
 
 <STRING id="_snow_path_name" select="any-1" define="_snow_path_name">
-	<STRING pickweight=2 define="_snow_path_roomtype=1">$snow_path_prefix $_snow_path_type</STRING>
-	<STRING pickweight=2 define="_snow_path_roomtype=0">$snow_path_prefix $snow_nouns</STRING>
-	<STRING pickweight=1 define="_snow_path_roomtype=1">$adj_creepywords $snow_path_prefix $_snow_path_type</STRING>
-	<STRING pickweight=1 define="_snow_path_roomtype=0">$adj_creepywords $snow_path_prefix $snow_nouns</STRING>
+	<STRING pickweight="2" define="_snow_path_roomtype=1">$snow_path_prefix $_snow_path_type</STRING>
+	<STRING pickweight="2" define="_snow_path_roomtype=0">$snow_path_prefix $snow_nouns</STRING>
+	<STRING pickweight="1" define="_snow_path_roomtype=1">$adj_creepywords $snow_path_prefix $_snow_path_type</STRING>
+	<STRING pickweight="1" define="_snow_path_roomtype=0">$adj_creepywords $snow_path_prefix $snow_nouns</STRING>
 </STRING>
 
 <STRING id="snow_path_prefix" select="any-1">

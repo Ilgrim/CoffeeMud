@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -158,9 +158,9 @@ public class Spell_MirrorImage extends Spell
 				if(compress)
 					Say.append(CMLib.flags().getDispositionBlurbs(mob,mob)+"^M ");
 				if(mob.displayText(msg.source()).length()>0)
-					Say.append(CMStrings.endWithAPeriod(CMStrings.capitalizeFirstLetter(mob.displayText(msg.source()))));
+					Say.append(CMStrings.endWithAPeriod(CMStrings.capitalizeFirstLetter(mob.displayText(msg.source())), '.'));
 				else
-					Say.append(CMStrings.endWithAPeriod(CMStrings.capitalizeFirstLetter(mob.name())));
+					Say.append(CMStrings.endWithAPeriod(CMStrings.capitalizeFirstLetter(mob.name()), '.'));
 				if(!compress)
 					Say.append(CMLib.flags().getDispositionBlurbs(mob,msg.source())+"^N\n\r");
 				else
@@ -206,7 +206,7 @@ public class Spell_MirrorImage extends Spell
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> already <S-HAS-HAVE> mirror images."));
+			failureTell(mob,target,auto,L("<S-NAME> already <S-HAS-HAVE> mirror images."));
 			return false;
 		}
 
@@ -219,7 +219,9 @@ public class Spell_MirrorImage extends Spell
 		{
 			invoker=mob;
 			numberOfImages = CMLib.dice().roll(1,(int)(Math.round(CMath.div(adjustedLevel(mob,asLevel),3.0))),2);
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L((auto?"A spell forms around":"^S<S-NAME> incant(s) the reflective spell of")+" <T-NAME>, and suddenly @x1 copies appear.^?",""+numberOfImages));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					(auto?L("A spell forms around <T-NAME>, and suddenly @x1 copies appear.^?",""+numberOfImages):
+						L("^S<S-NAME> incant(s) the reflective spell of <T-NAME>, and suddenly @x1 copies appear.^?",""+numberOfImages)));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ public class PostalBoxInfo extends StdWebMacro
 			mailPieces = (List<MailPiece>)httpReq.getRequestObjects().get("MAIL_PIECES_"+chain+"_"+box);
 		else
 		{
-			final PostOffice P=CMLib.map().getPostOffice(chain, "*");
+			final PostOffice P=CMLib.city().getPostOffice(chain, "*");
 			if(P!=null)
 			{
 				final List<DatabaseEngine.PlayerData> data = CMLib.database().DBReadPlayerData(box, chain);

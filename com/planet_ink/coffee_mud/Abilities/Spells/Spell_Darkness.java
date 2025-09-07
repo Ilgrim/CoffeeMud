@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -134,7 +134,9 @@ public class Spell_Darkness extends Spell
 
 		if(success)
 		{
-			final CMMsg msg = CMClass.getMsg(mob, target, this, verbalCastCode(mob,target,auto), L("@x1arkness envelopes everyone.^?",(auto?"D":"^S<S-NAME> incant(s) and gesture(s) and d")));
+			final CMMsg msg = CMClass.getMsg(mob, target, this, verbalCastCode(mob,target,auto),
+					auto?L("Darkness envelopes everyone.^?"):
+						L("^S<S-NAME> incant(s) and gesture(s) and darkness envelopes everyone.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

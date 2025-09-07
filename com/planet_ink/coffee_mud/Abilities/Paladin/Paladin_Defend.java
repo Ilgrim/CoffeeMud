@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -69,6 +69,12 @@ public class Paladin_Defend extends StdAbility
 	}
 
 	@Override
+	public long flags()
+	{
+		return Ability.FLAG_HOLY|Ability.FLAG_LAW;
+	}
+
+	@Override
 	protected int canTargetCode()
 	{
 		return 0;
@@ -108,6 +114,19 @@ public class Paladin_Defend extends StdAbility
 			}
 		}
 		return super.okMessage(myHost,msg);
+	}
+
+	@Override
+	public boolean canBeTaughtBy(final MOB teacher, final MOB student)
+	{
+		if(!super.canBeTaughtBy(teacher, student))
+			return false;
+		if(!this.appropriateToMyFactions(student))
+		{
+			teacher.tell(L("@x1 lacks the moral disposition to learn '@x2'.",student.name(), name()));
+			student.tell(L("You lack the moral disposition to learn '@x1'.",name()));
+		}
+		return true;
 	}
 
 	@Override

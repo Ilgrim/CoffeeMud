@@ -1,5 +1,6 @@
 package com.planet_ink.coffee_mud.Abilities.Common;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.ShopKeeper.ViewType;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.Druid.Chant_ChargeMetal;
@@ -21,7 +22,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -78,7 +79,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 	}
 
 	@Override
-	protected ExpertiseLibrary.SkillCostDefinition getRawTrainingCost()
+	protected CostDef getRawTrainingCost()
 	{
 		return CMProps.getNormalSkillGainCost(ID());
 	}
@@ -115,9 +116,11 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 	private String[]		pricingAdjustments	= new String[0];
 	private String			itemZapperMask		= "";
 	private final String	contributorMask		= "";
+	private String			currency			= "";
 	private int				minOverdueDays		= 12;
 	private int				maxOverdueDays		= 48;
 	private int				maxBorrowed			= 2;
+	private final Set<ViewType>	viewTypes			= new XHashSet<ViewType>(ViewType.BASIC);
 
 	private Pair<Long, TimePeriod>	budget	= new Pair<Long, TimePeriod>(Long.valueOf(100000), TimePeriod.DAY);
 	private List<CheckedOutRecord>	records	= new LinkedList<CheckedOutRecord>();
@@ -130,13 +133,6 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 		displayText="";
 
 		isAutoInvoked();
-	}
-
-	protected TimeClock getMyClock()
-	{
-		if(affected != null)
-			return CMLib.time().localClock(affected);
-		return CMLib.time().globalClock();
 	}
 
 	@Override
@@ -158,6 +154,12 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 		final BookLoaning obj = (BookLoaning)super.newInstance();
 		obj.shop.build(obj);
 		return obj;
+	}
+
+	@Override
+	public CoffeeShop getShop(final MOB mob)
+	{
+		return getShop();
 	}
 
 	@Override
@@ -184,7 +186,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 						if (rec.itemName.length() > 0)
 							curShop.lowerStock("$" + rec.itemName + "$");
 					}
-					catch (final java.lang.IndexOutOfBoundsException e)
+					catch (final IndexOutOfBoundsException e)
 					{
 					}
 				}
@@ -213,13 +215,19 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 	}
 
 	@Override
+	public Set<ViewType> viewFlags()
+	{
+		return viewTypes;
+	}
+
+	@Override
 	public String text()
 	{
 		return shop.makeXML() + getRecordsXML();
 	}
 
 	@Override
-	public String budget()
+	public String getRawBbudget()
 	{
 		return budget == null ? "" : (budget.first + " " + budget.second.name());
 	}
@@ -231,7 +239,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 	}
 
 	@Override
-	public String devalueRate()
+	public String getRawDevalueRate()
 	{
 		return devalueRate == null ? "" : (devalueRate[0] + " "+devalueRate[1]);
 	}
@@ -243,9 +251,39 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 	}
 
 	@Override
-	public int invResetRate()
+	public int getRawInvResetRate()
 	{
 		return 0;
+	}
+
+
+	@Override
+	public String getFinalCurrency()
+	{
+		if(currency.length()>0)
+			return currency;
+		return CMLib.beanCounter().getCurrency(affected);
+	}
+
+	@Override
+	public String getRawCurrency()
+	{
+		return currency;
+	}
+
+	@Override
+	public void setCurrency(final String newCurrency)
+	{
+		if ((currency != null) && (currency.length() > 0))
+		{
+			CMLib.beanCounter().unloadCurrencySet(currency);
+			currency = newCurrency;
+		}
+		else
+		{
+			currency = newCurrency;
+			CMLib.beanCounter().getCurrencySet(currency);
+		}
 	}
 
 	@Override
@@ -346,7 +384,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 	}
 
 	@Override
-	public String prejudiceFactors()
+	public String getRawPrejudiceFactors()
 	{
 		return prejudice;
 	}
@@ -358,7 +396,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 	}
 
 	@Override
-	public String ignoreMask()
+	public String getRawIgnoreMask()
 	{
 		return ignore;
 	}
@@ -370,7 +408,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 	}
 
 	@Override
-	public String[] itemPricingAdjustments()
+	public String[] getRawItemPricingAdjustments()
 	{
 		return pricingAdjustments;
 	}
@@ -523,52 +561,52 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 	}
 
 	@Override
-	public int finalInvResetRate()
+	public int getFinalInvResetRate()
 	{
-		if((invResetRate()!=0)||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
-			return invResetRate();
-		return getStartArea().finalInvResetRate();
+		if((getRawInvResetRate()!=0)||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
+			return getRawInvResetRate();
+		return getStartArea().getFinalInvResetRate();
 	}
 
 	@Override
-	public String finalPrejudiceFactors()
+	public String getFinalPrejudiceFactors()
 	{
-		if((prejudiceFactors().length()>0)||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
-			return prejudiceFactors();
-		return getStartArea().finalPrejudiceFactors();
+		if((getRawPrejudiceFactors().length()>0)||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
+			return getRawPrejudiceFactors();
+		return getStartArea().getFinalPrejudiceFactors();
 	}
 
 	@Override
-	public String finalIgnoreMask()
+	public String getFinalIgnoreMask()
 	{
-		if((ignoreMask().length()>0)||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
-			return ignoreMask();
-		return getStartArea().finalIgnoreMask();
+		if((getRawIgnoreMask().length()>0)||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
+			return getRawIgnoreMask();
+		return getStartArea().getFinalIgnoreMask();
 	}
 
 	@Override
-	public String[] finalItemPricingAdjustments()
+	public String[] getFinalItemPricingAdjustments()
 	{
-		if(((itemPricingAdjustments()!=null)&&(itemPricingAdjustments().length>0))
+		if(((getRawItemPricingAdjustments()!=null)&&(getRawItemPricingAdjustments().length>0))
 		||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
-			return itemPricingAdjustments();
-		return getStartArea().finalItemPricingAdjustments();
+			return getRawItemPricingAdjustments();
+		return getStartArea().getFinalItemPricingAdjustments();
 	}
 
 	@Override
-	public Pair<Long, TimePeriod> finalBudget()
+	public Pair<Long, TimePeriod> getFinalBudget()
 	{
 		if((budget != null)||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
 			return budget;
-		return getStartArea().finalBudget();
+		return getStartArea().getFinalBudget();
 	}
 
 	@Override
-	public double[] finalDevalueRate()
+	public double[] getFinalDevalueRate()
 	{
 		if ((devalueRate != null)||((affected instanceof MOB)&&(!((MOB)affected).isMonster())))
 			return devalueRate;
-		return getStartArea().finalDevalueRate();
+		return getStartArea().getFinalDevalueRate();
 	}
 
 	protected void updateCheckedOutRecords()
@@ -587,7 +625,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 			return false;
 		if (!super.tick(ticking, tickID))
 			return false;
-		if (!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if (!CMProps.isState(CMProps.HostState.RUNNING))
 			return true;
 
 		if ((tickID == Tickable.TICKID_MOB) && (getStartArea() != null))
@@ -602,7 +640,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 			{
 				if (System.currentTimeMillis() > lastChangeMs[1])
 				{
-					final TimeClock clock = getMyClock();
+					final TimeClock clock = CMLib.time().localClock(affected);
 					lastChangeMs[1] = System.currentTimeMillis() + (CMProps.getMillisPerMudHour() * (clock==null?1:clock.getHoursInDay()));
 					doMaintenance = true;
 				}
@@ -650,7 +688,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 
 	protected boolean processCheckedOutRecord(final CheckedOutRecord rec)
 	{
-		final TimeClock clock = getMyClock();
+		final TimeClock clock = CMLib.time().localClock(affected);
 		final long nowTime = (clock != null) ? clock.toHoursSinceEpoc() : 0;
 		if ((clock == null) || (nowTime == 0))
 			return false;
@@ -661,7 +699,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 			if (System.currentTimeMillis() > rec.mudDueDateMs)
 			{
 				stockItem = shop.getStock("$" + rec.itemName + "$", null);
-				final ShopKeeper.ShopPrice P = CMLib.coffeeShops().pawningPrice(deriveLibrarian(null), null, stockItem, this, shop);
+				final ShopKeeper.ShopPrice P = CMLib.coffeeShops().pawningPrice(deriveLibrarian(null), null, stockItem, this);
 				final double value = (P!=null)? P.absoluteGoldPrice : 10;
 				if(rec.mudReclaimDateMs < rec.mudDueDateMs)
 					rec.mudReclaimDateMs = rec.mudDueDateMs + TimeManager.MILI_DAY;
@@ -680,7 +718,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 			{
 				if(stockItem == null)
 					stockItem = shop.getStock("$" + rec.itemName+"$", null);
-				final ShopKeeper.ShopPrice P = CMLib.coffeeShops().pawningPrice(deriveLibrarian(null), null, stockItem, this, shop);
+				final ShopKeeper.ShopPrice P = CMLib.coffeeShops().pawningPrice(deriveLibrarian(null), null, stockItem, this);
 				final double value = (P!=null)? P.absoluteGoldPrice : 0;
 				if(rec.charges < value)
 					rec.charges = value;
@@ -725,10 +763,10 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 		}
 		staticMOB.setStartRoom(room);
 		staticMOB.setLocation(room);
-		if(finalBudget() != null)
+		if(getFinalBudget() != null)
 		{
-			if( CMLib.beanCounter().getTotalAbsoluteNativeValue( staticMOB ) < finalBudget().first.longValue() )
-				staticMOB.setMoney(finalBudget().first.intValue());
+			if( CMLib.beanCounter().getTotalAbsoluteNativeValue( staticMOB ) < getFinalBudget().first.longValue() )
+				staticMOB.setMoney(getFinalBudget().first.intValue());
 		}
 		return staticMOB;
 	}
@@ -799,8 +837,9 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 					break;
 				//$FALL-THROUGH$
 			case CMMsg.TYP_DEPOSIT:
+				if(isActive(merchantM))
 				{
-					if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), finalIgnoreMask(), merchantM))
+					if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), getFinalIgnoreMask(), merchantM))
 						return false;
 					if (msg.tool() == null)
 						return false;
@@ -837,10 +876,12 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 					}
 					return super.okMessage(myHost, msg);
 				}
+				break;
 			case CMMsg.TYP_WITHDRAW:
 			case CMMsg.TYP_BORROW:
+				if(isActive(merchantM))
 				{
-					if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), finalIgnoreMask(), merchantM))
+					if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), getFinalIgnoreMask(), merchantM))
 						return false;
 					if ((msg.tool() == null) || (!(msg.tool() instanceof Item)) || (msg.tool() instanceof Coins))
 					{
@@ -881,7 +922,9 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 				return super.okMessage(myHost, msg);
 			case CMMsg.TYP_SELL:
 			case CMMsg.TYP_VALUE:
-				if ((contributorMask().length() > 0) && (!CMLib.masking().maskCheck(contributorMask(), msg.source(), false)))
+				if ((contributorMask().length() > 0)
+				&& (!CMLib.masking().maskCheck(contributorMask(), msg.source(), false))
+				&&(isActive(merchantM)))
 				{
 					msg.source().tell(merchantM, shopperM, null, L("I'm afraid you lack the credentials to contribute to our stock."));
 					return false;
@@ -890,14 +933,20 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 			case CMMsg.TYP_VIEW:
 				return super.okMessage(myHost, msg);
 			case CMMsg.TYP_BUY:
-				msg.source().tell(merchantM, shopperM, null, L("I'm sorry, but nothing here is for sale."));
-				return false;
-			case CMMsg.TYP_LIST:
-			{
-				if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), finalIgnoreMask(), merchantM))
+				if(isActive(merchantM))
+				{
+					msg.source().tell(merchantM, shopperM, null, L("I'm sorry, but nothing here is for sale."));
 					return false;
-				return true;
-			}
+				}
+				break;
+			case CMMsg.TYP_LIST:
+				if(isActive(merchantM))
+				{
+					if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), getFinalIgnoreMask(), merchantM))
+						return false;
+					return true;
+				}
+				break;
 			default:
 				break;
 			}
@@ -1018,7 +1067,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 			{
 				totalDue += recs.get(i).charges;
 			}
-			catch (final java.lang.IndexOutOfBoundsException e)
+			catch (final IndexOutOfBoundsException e)
 			{
 			}
 		}
@@ -1076,6 +1125,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 			case CMMsg.TYP_WITHDRAW:
 			{
 				if((msg.target() instanceof PostOffice)
+				&&(isActive(merchantM))
 				&&(msg.tool()==approvedI)
 				&&(approvedMob != null)
 				&&(msg.tool() instanceof Item))
@@ -1126,14 +1176,16 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 			{
 			case CMMsg.TYP_GIVE:
 				if((affected instanceof MOB)
-				&&(((MOB)affected).isPlayer()))
+				&&(((MOB)affected).isPlayer())
+				&&(isActive(merchantM)))
 				{
 					if(!isAPossiblePayback(msg.source(), msg.tool()))
 						break;
 				}
 				//$FALL-THROUGH$
 			case CMMsg.TYP_DEPOSIT:
-				if (CMLib.flags().isAliveAwakeMobileUnbound(mob, true))
+				if((isActive(merchantM))
+				&& (CMLib.flags().isAliveAwakeMobileUnbound(mob, true)))
 				{
 					if (msg.tool() instanceof Container)
 						((Container) msg.tool()).emptyPlease(true);
@@ -1260,9 +1312,12 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 				super.executeMsg(myHost, msg);
 				return;
 			case CMMsg.TYP_PUT:
-				if((canPossiblyLoan(affected,msg.tool()))
-				&&(putUpForLoan(msg.source(),merchantM,msg.tool())))
-					return;
+				if(isActive(merchantM))
+				{
+					if((canPossiblyLoan(affected,msg.tool()))
+					&&(putUpForLoan(msg.source(),merchantM,msg.tool())))
+						return;
+				}
 				super.executeMsg(myHost,msg);
 				break;
 			case CMMsg.TYP_VALUE:
@@ -1271,9 +1326,12 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 			case CMMsg.TYP_VIEW:
 				super.executeMsg(myHost,msg);
 				if((msg.tool() instanceof Physical)
+				&&(isActive(merchantM))
 				&&(getShop().doIHaveThisInStock(msg.tool().Name(),mob)))
 				{
-					msg.source().tell(merchantM, mob, null, L("Interested in @x1? Here is some information for you:\n\rLevel @x2\n\rDescription: @x3",msg.tool().name(),""+((Physical)msg.tool()).phyStats().level(),msg.tool().description()));
+					msg.source().tell(merchantM, mob, null,
+							L("Interested in @x1? Here is some information for you:\n\rLevel @x2\n\rDescription: @x3"
+									,msg.tool().name(),""+((Physical)msg.tool()).phyStats().level(),msg.tool().description()));
 				}
 				break;
 			case CMMsg.TYP_SELL: // sell TO -- this is a shopkeeper purchasing from a player
@@ -1284,26 +1342,30 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 			case CMMsg.TYP_BUY:
 			{
 				super.executeMsg(myHost,msg);
-				final MOB mobFor=CMLib.coffeeShops().parseBuyingFor(msg.source(),msg.targetMessage());
-				if((msg.tool()!=null)
-				&&(getShop().doIHaveThisInStock("$"+msg.tool().Name()+"$",mobFor))
-				&&(merchantM.location()!=null))
+				if(isActive(merchantM))
 				{
-					if(merchantM.isPlayer())
-						mob.tell(L("You'll need to talk to @x1 personally about that.",merchantM.Name()));
-					else
-						mob.tell(L("That's not for sale."));
+					final MOB mobFor=CMLib.coffeeShops().parseBuyingFor(msg.source(),msg.targetMessage());
+					if((msg.tool()!=null)
+					&&(getShop().doIHaveThisInStock("$"+msg.tool().Name()+"$",mobFor))
+					&&(merchantM.location()!=null))
+					{
+						if(merchantM.isPlayer())
+							mob.tell(L("You'll need to talk to @x1 personally about that.",merchantM.Name()));
+						else
+							mob.tell(L("That's not for sale."));
+					}
 				}
 				break;
 			}
 			case CMMsg.TYP_BORROW:
 			case CMMsg.TYP_WITHDRAW:
-				if (CMLib.flags().isAliveAwakeMobileUnbound(mob, true))
+				if((isActive(merchantM))
+				&& (CMLib.flags().isAliveAwakeMobileUnbound(mob, true)))
 				{
 					final Item old = (Item) msg.tool();
 					if ((getRecord(msg.source().Name(), old.Name()) == null) && (msg.source().isPlayer()))
 					{
-						final TimeClock clock = getMyClock();
+						final TimeClock clock = CMLib.time().localClock(affected);
 						if (clock != null)
 						{
 							final long millisPerMudDay = clock.getHoursInDay() * CMProps.getMillisPerMudHour();
@@ -1347,47 +1409,50 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 			case CMMsg.TYP_LIST:
 			{
 				super.executeMsg(myHost,msg);
-				shopApply=true;
-				final List<Environmental> inventory=new XVector<Environmental>(getShop().getStoreInventory());
-				final String forMask=CMLib.coffeeShops().getListForMask(msg.targetMessage());
-				final String s=CMLib.coffeeShops().getListInventory(merchantM,mob,inventory,0,this,forMask);
-				if(s.length()>0)
-					msg.source().tell(s);
-				if (CMLib.flags().isAliveAwakeMobileUnbound(mob, true))
+				if(isActive(merchantM))
 				{
-					final StringBuilder str = new StringBuilder("");
-					final List<CheckedOutRecord> recs = this.getAllMyRecords(msg.source().Name());
-					double totalDue = 0.0;
-					final TimeClock clock = getMyClock();
-					if (clock != null)
+					shopApply=true;
+					final List<Environmental> inventory=new XVector<Environmental>(getShop().getStoreInventory());
+					final String forMask=CMLib.coffeeShops().getListForMask(msg.targetMessage());
+					final String s=CMLib.coffeeShops().getListInventory(merchantM,mob,inventory,0,this,forMask);
+					if(s.length()>0)
+						msg.source().tell(s);
+					if (CMLib.flags().isAliveAwakeMobileUnbound(mob, true))
 					{
-						boolean recordsChanged = false;
-						for (final CheckedOutRecord rec : recs)
+						final StringBuilder str = new StringBuilder("");
+						final List<CheckedOutRecord> recs = this.getAllMyRecords(msg.source().Name());
+						double totalDue = 0.0;
+						final TimeClock clock = CMLib.time().localClock(affected);
+						if (clock != null)
 						{
-							final boolean recordChanged = processCheckedOutRecord(rec);
-							recordsChanged = recordsChanged || recordChanged;
-							totalDue += rec.charges;
-							if (rec.itemName.length() > 0)
+							boolean recordsChanged = false;
+							for (final CheckedOutRecord rec : recs)
 							{
-								str.append(L("You have @x1 checked out.", rec.itemName));
-								if (System.currentTimeMillis() > rec.mudDueDateMs)
-									str.append(L(" It is past due."));
-								else
+								final boolean recordChanged = processCheckedOutRecord(rec);
+								recordsChanged = recordsChanged || recordChanged;
+								totalDue += rec.charges;
+								if (rec.itemName.length() > 0)
 								{
-									TimeClock reClk = (TimeClock)clock.copyOf();
-									reClk=reClk.deriveClock(rec.mudDueDateMs);
-									str.append(L(" It is due by @x1.", reClk.getShortTimeDescription()));
+									str.append(L("You have @x1 checked out.", rec.itemName));
+									if (System.currentTimeMillis() > rec.mudDueDateMs)
+										str.append(L(" It is past due."));
+									else
+									{
+										TimeClock reClk = (TimeClock)clock.copyOf();
+										reClk=reClk.deriveClock(rec.mudDueDateMs);
+										str.append(L(" It is due by @x1.", reClk.getShortTimeDescription()));
+									}
+									str.append("\n\r");
 								}
-								str.append("\n\r");
 							}
-						}
 
+						}
+						if (totalDue > 0.0)
+							str.append(L("You owe the library @x1.\n\r", CMLib.beanCounter().abbreviatedPrice(merchantM, totalDue)));
+						if (str.length() > 2)
+							mob.tell(merchantM, mob, null, str.toString().substring(0, str.length() - 2));
+						return;
 					}
-					if (totalDue > 0.0)
-						str.append(L("You owe the library @x1.\n\r", CMLib.beanCounter().abbreviatedPrice(merchantM, totalDue)));
-					if (str.length() > 2)
-						mob.tell(merchantM, mob, null, str.toString().substring(0, str.length() - 2));
-					return;
 				}
 				break;
 			}
@@ -1398,6 +1463,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 		}
 		else
 		if((msg.targetMinor()==CMMsg.TYP_DROP)
+		&&(isActive(merchantM))
 		&&(myHost==affected)
 		&&((affected instanceof Room)
 			||(affected instanceof Exit)
@@ -1414,6 +1480,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 		}
 		else
 		if((msg.targetMinor()==CMMsg.TYP_THROW)
+		&&(isActive(merchantM))
 		&&(myHost==affected)
 		&&(affected instanceof Area)
 		&&(msg.target() instanceof Room)
@@ -1434,12 +1501,62 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 			super.executeMsg(myHost,msg);
 	}
 
+	protected boolean isActive(final MOB mob)
+	{
+		Physical P = affected;
+		if(P == null)
+			P = mob;
+		if(P instanceof MOB)
+		{
+			for(final Enumeration<Ability> a=P.effects();a.hasMoreElements();)
+			{
+				final Ability A=a.nextElement();
+				if(A.ID().equals(ID()))
+					return true;
+				if(A instanceof ShopKeeper)
+					return false;
+			}
+			return true;
+		}
+		return true;
+	}
+
+	protected void makeActive(final MOB mob)
+	{
+		Physical P = affected;
+		if(P == null)
+			P=mob;
+		if(P instanceof MOB)
+		{
+			for(final Enumeration<Ability> a=P.effects();a.hasMoreElements();)
+			{
+				final Ability A=a.nextElement();
+				if(A.ID().equals(ID()))
+					return;
+				if(A instanceof ShopKeeper)
+				{
+					// if we are here, then a different merchant is first
+					final Ability meA=P.fetchEffect(ID()); // fetch this ones effect
+					if(meA!=null)
+					{
+						P.delEffect(meA);
+						((MOB)P).addPriorityEffect(meA);
+						if(mob != null)
+							mob.tell(L("^H@x1 is now your active store.",name()));
+						return;
+					}
+				}
+			}
+		}
+	}
+
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
+		makeActive(mob);
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Loan what book? Enter \"bookloan list\" for a list or \"bookloan item\" to loan something."));
+			commonTelL(mob,"Loan what book? Enter \"bookloan list\" for a list or \"bookloan item\" to loan something.");
 			return false;
 		}
 		if(CMParms.combine(commands,0).equalsIgnoreCase("list"))
@@ -1453,7 +1570,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 			{
 				final boolean recordChanged = processCheckedOutRecord(rec);
 				recordsChanged = recordsChanged || recordChanged;
-				TimeClock reClk = (TimeClock)this.getMyClock().copyOf();
+				TimeClock reClk = (TimeClock)CMLib.time().localClock(affected).copyOf();
 				reClk=reClk.deriveClock(rec.mudDueDateMs);
 				if((rec.itemName==null)
 				||(rec.itemName.length()==0))
@@ -1488,7 +1605,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 		{
 			if(commands.size()==1)
 			{
-				commonTell(mob,L("Remove what item from the loan list?"));
+				commonTelL(mob,"Remove what item from the loan list?");
 				return false;
 			}
 			final String itemName=CMParms.combine(commands,1);
@@ -1498,7 +1615,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 			Item I=(Item)curShop.removeStock(itemName,mob);
 			if(I==null)
 			{
-				commonTell(mob,L("'@x1' is not on the list.",itemName));
+				commonTelL(mob,"'@x1' is not on the list.",itemName);
 				return false;
 			}
 			final String iname=I.name();
@@ -1576,7 +1693,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 			if((I instanceof Container)
 			&&(((Container)I).getContents().size()>0))
 			{
-				commonTell(mob,I,null,L("You may not loan out <T-NAME>."));
+				commonTelL(mob,I,null,"You may not loan out <T-NAME>.");
 				return false;
 			}
 			if(target==null)
@@ -1591,13 +1708,13 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 
 		if(itemsV.size()==0)
 		{
-			commonTell(mob,L("You don't seem to be carrying '@x1'.",itemName));
+			commonTelL(mob,"You don't seem to be carrying '@x1'.",itemName);
 			return false;
 		}
 
 		if((getShop().numberInStock(target)<=0)&&(val<=0))
 		{
-			commonTell(mob,L("You failed to specify a value for '@x1'.",itemName));
+			commonTelL(mob,"You failed to specify a value for '@x1'.",itemName);
 			return false;
 		}
 
@@ -1606,7 +1723,7 @@ public class BookLoaning extends CommonSkill implements ShopKeeper, Librarian
 
 		if(!proficiencyCheck(mob,0,auto))
 		{
-			commonTell(mob,target,null,L("You fail to make <T-NAME> available to borrow."));
+			commonTelL(mob,target,null,"You fail to make <T-NAME> available to borrow.");
 			return false;
 		}
 

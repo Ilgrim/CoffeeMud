@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -194,11 +194,10 @@ public class StdPersonalShield extends StdElecItem implements Armor
 			switch(msg.targetMinor())
 			{
 			case CMMsg.TYP_LOOK:
+			case CMMsg.TYP_EXAMINE:
 				super.executeMsg(host, msg);
 				if(CMLib.flags().canBeSeenBy(this, msg.source()))
-				{
 					msg.source().tell(L("@x1 is currently @x2 and is at @x3% power.",name(),(activated()?"activated":"deactivated"),""+Math.round(CMath.div(powerRemaining(),powerCapacity())*100.0)));
-				}
 				return;
 			case CMMsg.TYP_ACTIVATE:
 			{

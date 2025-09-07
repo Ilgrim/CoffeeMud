@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2020 Lee H. Fox
+   Copyright 2000-2025 Lee H. Fox
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,11 +44,11 @@ public class PegasusGreater extends StdRideable
 	{
 		super();
 
-		rideBasis = Rideable.RIDEABLE_AIR;
+		rideBasis = Rideable.Basis.AIR_FLYING;
 
 		final Random randomizer = new Random(System.currentTimeMillis());
 
-		username="a Greater Pegasus";
+		_name="a Greater Pegasus";
 		setDescription("a beautiful, white stallion with wings.");
 		setDisplayText("A regal Pegasus flaps its wings.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -65,7 +65,7 @@ public class PegasusGreater extends StdRideable
 
 		basePhyStats().setDamage(8);
 		basePhyStats().setSpeed(3.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(6);
 		basePhyStats().setArmor(60);
 		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_FLYING);

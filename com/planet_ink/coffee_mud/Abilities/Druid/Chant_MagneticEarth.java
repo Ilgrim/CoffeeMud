@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ public class Chant_MagneticEarth extends Chant
 	{
 		if(!super.tick(ticking, tickID))
 			return false;
-		if((affected!=null)&&(affected instanceof Room))
+		if((affected instanceof Room))
 		{
 			final Room R=(Room)affected;
 			final List<Item> toGo=new ArrayList<Item>(1);
@@ -152,6 +152,7 @@ public class Chant_MagneticEarth extends Chant
 			{
 				if((R.domainType()!=Room.DOMAIN_INDOORS_CAVE)
 				&&(R.domainType()!=Room.DOMAIN_OUTDOORS_CITY)
+				&&((R.domainType()!=Room.DOMAIN_INDOORS_STONE)||(R.maxRange()<5)||(R.phyStats().weight()<3))
 				&&(R.domainType()!=Room.DOMAIN_OUTDOORS_MOUNTAINS)
 				&&(R.domainType()!=Room.DOMAIN_OUTDOORS_ROCKS)
 				&&((R.getAtmosphere()&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_ROCK))
@@ -168,11 +169,10 @@ public class Chant_MagneticEarth extends Chant
 		if(target==null)
 			return false;
 		if((!auto)
-		&&(mob.location().domainType()!=Room.DOMAIN_INDOORS_CAVE)
-		&&(mob.location().domainType()!=Room.DOMAIN_OUTDOORS_CITY)
-		&&(mob.location().domainType()!=Room.DOMAIN_OUTDOORS_MOUNTAINS)
-		&&(mob.location().domainType()!=Room.DOMAIN_OUTDOORS_ROCKS)
-		&&((mob.location().getAtmosphere()&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_ROCK))
+		&&(!CMLib.flags().isACityRoom(target))
+		&&(target.domainType()!=Room.DOMAIN_OUTDOORS_MOUNTAINS)
+		&&(target.domainType()!=Room.DOMAIN_OUTDOORS_ROCKS)
+		&&((target.getAtmosphere()&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_ROCK))
 		{
 			mob.tell(L("This chant only works in caves, mountains, or rocky areas."));
 			return false;

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class FlyingInsect extends StdMOB
 		super();
 		final Random randomizer = new Random(System.currentTimeMillis());
 
-		username="a flying insect";
+		_name="a flying insect";
 		setDescription("The small flying bug is too tiny to tell whether it bites or stings.");
 		setDisplayText("A flying insect flits around.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -62,7 +62,7 @@ public class FlyingInsect extends StdMOB
 
 		basePhyStats().setDamage(10);
 		basePhyStats().setSpeed(1.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(1);
 		basePhyStats().setArmor(90);
 		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_FLYING);

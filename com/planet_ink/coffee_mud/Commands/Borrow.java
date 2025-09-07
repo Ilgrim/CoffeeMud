@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ public class Borrow extends StdCommand
 		throws java.io.IOException
 	{
 		final Vector<String> origCmds=new XVector<String>(commands);
-		final Environmental shopkeeper=CMLib.english().parseShopkeeper(mob,commands,"Borrow how much/what from whom?");
+		final Environmental shopkeeper=CMLib.english().parseShopkeeper(mob,commands,"from", "Borrow how much/what from whom?");
 		if(shopkeeper==null)
 			return false;
 		final ShopKeeper SHOP=CMLib.coffeeShops().getShopKeeper(shopkeeper);
@@ -87,7 +87,7 @@ public class Borrow extends StdCommand
 		if(SHOP instanceof Librarian)
 		{
 			final ShopKeeper SK=CMLib.coffeeShops().getShopKeeper(shopkeeper);
-			thisThang=SK.getShop().getStock(str,mob);
+			thisThang=SK.getShop(mob).getStock(str,mob);
 		}
 
 		if((thisThang==null)||(!CMLib.flags().canBeSeenBy(thisThang,mob)))

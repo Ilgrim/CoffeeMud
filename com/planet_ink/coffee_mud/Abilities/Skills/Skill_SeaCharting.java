@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -102,11 +102,11 @@ public class Skill_SeaCharting extends StdSkill
 		final String cmd=commands.get(0).toString().toUpperCase().trim();
 		if(!cmd.equals("LIST"))
 		{
-			if(R.getArea() instanceof BoardableShip)
+			if(R.getArea() instanceof Boardable)
 			{
 			}
 			else
-			if((mob.riding() !=null) && (mob.riding().rideBasis() == Rideable.RIDEABLE_WATER))
+			if((mob.riding() !=null) && (mob.riding().rideBasis() == Rideable.Basis.WATER_BASED))
 			{
 			}
 			else
@@ -154,12 +154,12 @@ public class Skill_SeaCharting extends StdSkill
 		}
 
 		Room currentR=null;
-		if(R.getArea() instanceof BoardableShip)
+		if(R.getArea() instanceof Boardable)
 		{
-			currentR=CMLib.map().roomLocation(((BoardableShip)R.getArea()).getShipItem());
+			currentR=CMLib.map().roomLocation(((Boardable)R.getArea()).getBoardableItem());
 		}
 		else
-		if((mob.riding() !=null) && (mob.riding().rideBasis() == Rideable.RIDEABLE_WATER))
+		if((mob.riding() !=null) && (mob.riding().rideBasis() == Rideable.Basis.WATER_BASED))
 		{
 			if(CMLib.flags().isWaterySurfaceRoom(mob.location()))
 				currentR=mob.location();
@@ -295,9 +295,16 @@ public class Skill_SeaCharting extends StdSkill
 						mob.tell(L("You can't get there from here."));
 						return false;
 					}
+					if(currentR == room)
+					{
+						mob.tell(L("You are already there."));
+						return false;
+					}
 
 					final List<Room> destRooms=new XVector<Room>(room);
-					final TrackingFlags flags=CMLib.tracking().newFlags().plus(TrackingFlag.WATERSURFACEONLY);
+					final TrackingFlags flags=CMLib.tracking().newFlags()
+												.plus(TrackingFlag.PASSABLE)
+												.plus(TrackingFlag.WATERSURFACEONLY);
 					final List<Room> trail=CMLib.tracking().findTrailToAnyRoom(currentR, destRooms, flags, 100);
 					if((trail.size()==0)
 					||(trail.get(trail.size()-1)!=currentR)

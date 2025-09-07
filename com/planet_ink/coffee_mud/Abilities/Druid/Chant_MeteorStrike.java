@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ public class Chant_MeteorStrike extends Chant
 		if(mob!=null)
 		{
 			final Set<MOB> h=properTargets(mob,target,false);
-			if(h==null)
+			if((h==null)||(h.size()==0))
 				return Ability.QUALITY_INDIFFERENT;
 
 			final Room R=mob.location();
@@ -95,7 +95,7 @@ public class Chant_MeteorStrike extends Chant
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		final Set<MOB> h=properTargets(mob,givenTarget,auto);
-		if(h==null)
+		if((h==null)||(h.size()==0))
 		{
 			mob.tell(L("There doesn't appear to be anyone here worth striking at."));
 			return false;
@@ -114,7 +114,10 @@ public class Chant_MeteorStrike extends Chant
 		if(success)
 		{
 
-			if(mob.location().show(mob,null,this,verbalCastCode(mob,null,auto),L(auto?"A devastating meteor shower erupts!":"^S<S-NAME> chant(s) for a devastating meteor shower!^?")+CMLib.protocol().msp("meteor.wav",40)))
+			if(mob.location().show(mob,null,this,verbalCastCode(mob,null,auto),
+					(auto?L("A devastating meteor shower erupts!"):
+					L("^S<S-NAME> chant(s) for a devastating meteor shower!^?"))
+					+CMLib.protocol().msp("meteor.wav",40)))
 			{
 				for (final Object element : h)
 				{

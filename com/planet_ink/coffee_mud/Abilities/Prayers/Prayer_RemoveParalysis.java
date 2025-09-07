@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ public class Prayer_RemoveParalysis extends Prayer implements MendingSkill
 	public boolean supportsMending(final Physical item)
 	{
 		return (item instanceof MOB)
-					&&(CMLib.flags().flaggedAffects(item,Ability.FLAG_PARALYZING|Ability.FLAG_UNHOLY).size()>0);
+					&&(CMLib.flags().flaggedAffects(item,Ability.FLAG_PARALYZING).size()>0);
 	}
 
 	@Override
@@ -82,6 +82,7 @@ public class Prayer_RemoveParalysis extends Prayer implements MendingSkill
 			{
 				if(supportsMending(target))
 					return super.castingQuality(mob, target,Ability.QUALITY_BENEFICIAL_OTHERS);
+				return Ability.QUALITY_INDIFFERENT;
 			}
 		}
 		return super.castingQuality(mob,target);

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ public class Poison_Caffeine extends Poison {
 		return "Poison_Caffeine";
 	}
 
-	private final static String localizedName = CMLib.lang().L("Poison_Hyper");
+	private final static String localizedName = CMLib.lang().L("Hyper");
 
 	@Override
 	public String name()
@@ -77,31 +77,31 @@ public class Poison_Caffeine extends Poison {
 	@Override
 	protected String POISON_DONE()
 	{
-		return "The caffeine runs its course.";
+		return L("The caffeine runs its course.");
 	}
 
 	@Override
 	protected String POISON_START()
 	{
-		return "^G<S-NAME> seem(s) wired!^?";
+		return L("^G<S-NAME> seem(s) wired!^?");
 	}
 
 	@Override
 	protected String POISON_AFFECT()
 	{
-		return "^G<S-NAME> twitch(es) spastically.";
+		return L("^G<S-NAME> twitch(es) spastically.");
 	}
 
 	@Override
 	protected String POISON_CAST()
 	{
-		return "^F^<FIGHT^><S-NAME> caffeinate(s) <T-NAMESELF>!^</FIGHT^>^?";
+		return L("^F^<FIGHT^><S-NAME> caffeinate(s) <T-NAMESELF>!^</FIGHT^>^?");
 	}
 
 	@Override
 	protected String POISON_FAIL()
 	{
-		return "<S-NAME> attempt(s) to caffinate <T-NAMESELF>, but fail(s).";
+		return L("<S-NAME> attempt(s) to caffinate <T-NAMESELF>, but fail(s).");
 	}
 
 	@Override
@@ -111,16 +111,22 @@ public class Poison_Caffeine extends Poison {
 	}
 
 	@Override
+	protected int POISON_ADDICTION_CHANCE()
+	{
+		return 1;
+	}
+
+	@Override
 	public void affectCharStats(final MOB affected, final CharStats affectableStats)
 	{
-		affectableStats.setStat(CharStats.STAT_DEXTERITY,affectableStats.getStat(CharStats.STAT_DEXTERITY)+1);
+		affectableStats.setStat(CharStats.STAT_DEXTERITY,affectableStats.getStat(CharStats.STAT_DEXTERITY)+(int)Math.round(rank));
 	}
 
 	@Override
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
 		super.affectPhyStats(affected,affectableStats);
-		affectableStats.setSpeed(affectableStats.speed() + 0.25);
+		affectableStats.setSpeed(affectableStats.speed() + (CMProps.getSpeedAdjustment()*0.25*rank));
 		int oldDisposition=affectableStats.disposition();
 		oldDisposition=oldDisposition&(~(PhyStats.IS_SLEEPING|PhyStats.IS_SNEAKING|PhyStats.IS_SITTING|PhyStats.IS_CUSTOM));
 		affectableStats.setDisposition(oldDisposition);

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -97,15 +97,15 @@ public class Druid_DruidicPass extends StdAbility
 			final Room R=M.location();
 			if(R!=null)
 			{
+				if(CMLib.flags().isACityRoom(R))
+					return false;
 				switch(R.domainType())
 				{
-				case Room.DOMAIN_OUTDOORS_CITY:
-				case Room.DOMAIN_OUTDOORS_SPACEPORT:
 				case Room.DOMAIN_OUTDOORS_UNDERWATER:
 				case Room.DOMAIN_OUTDOORS_WATERSURFACE:
 					return false;
 				}
-				if((R.domainType()&Room.INDOORS)>0)
+				if((R.domainType()&Room.INDOORS)==0)
 					return true;
 			}
 		}
@@ -124,7 +124,7 @@ public class Druid_DruidicPass extends StdAbility
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 
-		if(!canPassHere(affected))
+		if(!canPassHere(mob))
 		{
 			mob.tell(L("You must be in the wild to perform the Druidic Pass."));
 			return false;

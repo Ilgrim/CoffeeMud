@@ -20,7 +20,7 @@ import java.util.*;
 import java.util.regex.Pattern;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -97,9 +97,9 @@ public class GenGatheringSkill extends GatheringSkill implements ItemCollection
 		O[V_RMSK]="";
 		O[V_PMSK]="";
 		O[V_YILD]="(1?5)+3";
-		O[V_MSG1]="<S-NAME> start(s) trying to do something.";
+		O[V_MSG1]=CMLib.lang().L("<S-NAME> start(s) trying to do something.");
 		O[V_MSG2]="<S-NAME> find(s) @x1.";
-		O[V_MSG3]="You don't find anything useful to gather here.";
+		O[V_MSG3]=CMLib.lang().L("You don't find anything useful to gather here.");
 		O[V_MSG4]="<S-NAME> manage(s) to gather @x1 @x2.";
 		O[V_IXML]="";
 		O[V_COSM]=Boolean.valueOf(false);
@@ -164,7 +164,7 @@ public class GenGatheringSkill extends GatheringSkill implements ItemCollection
 	{
 		try
 		{
-			final GenGatheringSkill A=this.getClass().newInstance();
+			final GenGatheringSkill A=this.getClass().getDeclaredConstructor().newInstance();
 			A.ID=ID;
 			return A;
 		}
@@ -300,9 +300,8 @@ public class GenGatheringSkill extends GatheringSkill implements ItemCollection
 			else
 			if(code.equalsIgnoreCase("allxml"))
 				return getAllXML();
-			break;
+			return super.getStat(code);
 		}
-		return "";
 	}
 
 	@Override
@@ -424,6 +423,8 @@ public class GenGatheringSkill extends GatheringSkill implements ItemCollection
 		default:
 			if(code.equalsIgnoreCase("allxml")&&ID.equalsIgnoreCase("GenGatheringSkill"))
 				parseAllXML(val);
+			else
+				super.setStat(code, val);
 			break;
 		}
 	}
@@ -484,14 +485,14 @@ public class GenGatheringSkill extends GatheringSkill implements ItemCollection
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			final MOB mob=(MOB)affected;
 			if(tickUp==((Integer) V(ID, V_FDUR)).intValue())
 			{
 				if(found!=null)
 				{
-					commonTell(mob,L((String) V(ID, V_MSG2),foundShortName));
+					commonTelL(mob,(String) V(ID, V_MSG2),foundShortName);
 					if(!((Boolean) V(ID, V_COSM)).booleanValue())
 					{
 						displayText=L("You are @x1 @x2",(String)V(ID, V_VERB),foundShortName);
@@ -502,8 +503,7 @@ public class GenGatheringSkill extends GatheringSkill implements ItemCollection
 				}
 				else
 				{
-					final StringBuffer str=new StringBuffer(L((String) V(ID, V_MSG3)+"\n\r"));
-					commonTell(mob,str.toString());
+					commonTelL(mob,(String) V(ID, V_MSG3)+"\n\r");
 					unInvoke();
 				}
 
@@ -534,7 +534,7 @@ public class GenGatheringSkill extends GatheringSkill implements ItemCollection
 							final String plural = (msg.value()==1)
 									? CMLib.english().removeArticleLead(foundShortName)
 									: CMLib.english().makePlural(CMLib.english().removeArticleLead(foundShortName));
-							msg.modify(L((String)V(ID, V_MSG4),""+msg.value(),plural));
+							msg.modify(L((String)V(ID, V_MSG4),""+msg.value(),plural)); // need to keep variable support, so localize
 							mob.location().send(mob, msg);
 							if(!((Boolean) V(ID, V_COSM)).booleanValue())
 							{
@@ -581,12 +581,12 @@ public class GenGatheringSkill extends GatheringSkill implements ItemCollection
 				else
 				if(start.startsWith("<ITEM>"))
 				{
-					final Item I=CMLib.coffeeMaker().getItemFromXML(xml);
+					final Item I=CMLib.coffeeMaker().unpackItemFromXML(xml);
 					if(I==null)
 						error="Gathering skill "+ID+" had bad data: "+xml;
 					else
 					{
-						CMLib.threads().deleteAllTicks(I);
+						CMLib.threads().unTickAll(I);
 						choices.add(I);
 					}
 				}
@@ -739,7 +739,7 @@ public class GenGatheringSkill extends GatheringSkill implements ItemCollection
 		&&(!auto)
 		&&(!CMLib.masking().maskCheck(playerMask, mob, true)))
 		{
-			mob.tell(L("To do this, you must meet these requirements:  @x1.",CMLib.masking().maskDesc(playerMask, false)));
+			commonTelL(mob,"To do this, you must meet these requirements:  @x1.",CMLib.masking().maskDesc(playerMask, false));
 			return false;
 		}
 
@@ -768,11 +768,14 @@ public class GenGatheringSkill extends GatheringSkill implements ItemCollection
 			}
 		}
 		final int duration=getDuration(mob,mob.basePhyStats().level());
-		final CMMsg msg=CMClass.getMsg(mob,found,this,getActivityMessageType(),L((String)V(ID, V_MSG1)));
+		final String oldFoundName = (found==null)?"":found.Name();
+		final CMMsg msg=CMClass.getMsg(mob,found,this,getActivityMessageType(),(String)V(ID, V_MSG1));
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);
 			found=(Item)msg.target();
+			if((found!=null)&&(!found.Name().equals(oldFoundName)))
+				foundShortName=CMLib.english().removeArticleLead(found.Name());
 			beneficialAffect(mob,mob,asLevel,duration);
 		}
 		return true;

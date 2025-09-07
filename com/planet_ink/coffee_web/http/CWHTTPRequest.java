@@ -21,6 +21,7 @@ import java.util.TreeSet;
 import java.util.Vector;
 import java.util.logging.Logger;
 
+import com.planet_ink.coffee_mud.core.CMStrings;
 import com.planet_ink.coffee_web.interfaces.HTTPIOHandler;
 import com.planet_ink.coffee_web.interfaces.HTTPRequest;
 import com.planet_ink.coffee_web.util.CWConfig;
@@ -28,7 +29,7 @@ import com.planet_ink.coffee_web.util.CWThread;
 import com.planet_ink.coffee_web.util.CWConfig.DisableFlag;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -107,8 +108,9 @@ public class CWHTTPRequest implements HTTPRequest
 	 * @param disableFlags a set of config disable flags, if any
 	 * @param buffer a buffer to use instead of creating a new one
 	 */
-	public CWHTTPRequest(final InetAddress address, final boolean isHttps, final int requestPort, final boolean overwriteDups,
-						 final long requestLineSize, final Logger debugLogger, final Set<DisableFlag> disableFlags, final ByteBuffer buffer)
+	public CWHTTPRequest(final InetAddress address, final boolean isHttps, final int requestPort,
+						 final boolean overwriteDups, final long requestLineSize, final Logger debugLogger,
+						 final Set<DisableFlag> disableFlags, final ByteBuffer buffer)
 	{
 		this.address=address;
 		this.requestLineSize=requestLineSize;
@@ -1050,7 +1052,8 @@ public class CWHTTPRequest implements HTTPRequest
 			final int urlEncodeSeparator=url.indexOf('?');
 			if(urlEncodeSeparator >= 0)
 			{
-				uriPage = URLDecoder.decode(url.substring(0,urlEncodeSeparator),"UTF-8");
+				final String finalUrl=CMStrings.replaceAll(url.substring(0,urlEncodeSeparator),"%%","%25");
+				uriPage = URLDecoder.decode(finalUrl,"UTF-8");
 				queryString = url.substring(urlEncodeSeparator+1);
 				parseUrlEncodedKeypairs(queryString);
 			}

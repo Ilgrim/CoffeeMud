@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -73,15 +73,14 @@ public class PlantLore extends CommonSkill
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			final MOB mob=(MOB)affected;
 			if(tickUp==6)
 			{
 				if(success==false)
 				{
-					final StringBuffer str=new StringBuffer(L("Your growth observation attempt failed.\n\r"));
-					commonTell(mob,str.toString());
+					commonTelL(mob,"Your growth observation attempt failed.\n\r");
 					unInvoke();
 				}
 			}
@@ -94,7 +93,7 @@ public class PlantLore extends CommonSkill
 	{
 		if(canBeUninvoked())
 		{
-			if((affected!=null)&&(affected instanceof MOB)&&(!helping))
+			if((affected instanceof MOB)&&(!helping))
 			{
 				final MOB mob=(MOB)affected;
 				final Room room=mob.location();
@@ -153,7 +152,7 @@ public class PlantLore extends CommonSkill
 						commonTell(mob,str.toString());
 					}
 					else
-						commonTell(mob,L("You don't find any good plant life around here."));
+						commonTelL(mob,"You don't find any good plant life around here.");
 				}
 			}
 		}

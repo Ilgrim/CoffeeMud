@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -66,6 +66,12 @@ public class Chant_WindColor extends Chant
 	public int classificationCode()
 	{
 		return Ability.ACODE_CHANT | Ability.DOMAIN_WEATHER_MASTERY;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
 	}
 
 	Room	lastRoom	= null;
@@ -240,7 +246,7 @@ public class Chant_WindColor extends Chant
 			if((M!=null)&&(M!=mob)&&(!group.contains(M)))
 			{
 				if(colors==null)
-					colors=new int[9];
+					colors=new int[11];
 				if(M.phyStats().level()>=(mob.phyStats().level()+25))
 					levelCode=4;
 				else
@@ -269,7 +275,7 @@ public class Chant_WindColor extends Chant
 				}
 
 				int done=0;
-				if(M.charStats().getMyRace().racialCategory().equalsIgnoreCase("Undead"))
+				if(CMLib.flags().isUndead(M))
 				{
 					done++;
 					colors[0]++;
@@ -430,7 +436,7 @@ public class Chant_WindColor extends Chant
 
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already watching the winds."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already watching the winds."));
 			return false;
 		}
 

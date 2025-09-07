@@ -17,7 +17,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -61,7 +61,9 @@ public class StdMaze extends StdGrid
 	@Override
 	protected Room findCenterRoom(final int dirCode)
 	{
-		final Room dirRoom=rawDoors()[dirCode];
+		if((dirCode<0)||(dirCode >= doors.length))
+			return null;
+		final Room dirRoom=doors[dirCode];
 		if(dirRoom!=null)
 		{
 			final Room altR=super.findCenterRoom(dirCode);
@@ -200,6 +202,7 @@ public class StdMaze extends StdGrid
 			}
 			buildMaze();
 			buildFinalLinks();
+			distributeStuff();
 		}
 		catch(final Exception e)
 		{

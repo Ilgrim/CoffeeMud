@@ -2,7 +2,8 @@ package com.planet_ink.coffee_mud.Abilities.Prayers;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
-import com.planet_ink.coffee_mud.Abilities.PlanarAbility;
+import com.planet_ink.coffee_mud.Abilities.StdPlanarAbility;
+import com.planet_ink.coffee_mud.Abilities.interfaces.PlanarAbility.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -21,7 +22,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -35,7 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class Prayer_PlanarTravel extends PlanarAbility
+public class Prayer_PlanarTravel extends StdPlanarAbility
 {
 	@Override
 	public String ID()
@@ -60,13 +61,13 @@ public class Prayer_PlanarTravel extends PlanarAbility
 	@Override
 	public int classificationCode()
 	{
-		return Ability.ACODE_PRAYER | Ability.DOMAIN_CONJURATION;
+		return Ability.ACODE_PRAYER | Ability.DOMAIN_COSMOLOGY;
 	}
 
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_UNHOLY | Ability.FLAG_HOLY;
+		return Ability.FLAG_UNHOLY | Ability.FLAG_HOLY | Ability.FLAG_TRANSPORTING;
 	}
 
 	@Override
@@ -91,8 +92,8 @@ public class Prayer_PlanarTravel extends PlanarAbility
 
 	protected String prayWord(final MOB mob)
 	{
-		if(mob.getMyDeity()!=null)
-			return "pray(s) to "+mob.getMyDeity().name();
+		if(mob.charStats().getWorshipCharID().length()>0)
+			return "pray(s) to "+mob.charStats().getWorshipCharID();
 		return "pray(s)";
 	}
 

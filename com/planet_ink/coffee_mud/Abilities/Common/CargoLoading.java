@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -100,6 +100,7 @@ public class CargoLoading extends CommonSkill
 
 	final TrackingLibrary.TrackingFlags rflags = CMLib.tracking().newFlags()
 												.plus(TrackingLibrary.TrackingFlag.NOAIR)
+												.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 												.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
 												.plus(TrackingLibrary.TrackingFlag.UNLOCKEDONLY);
 	public boolean canLoadCargoHere(final MOB mob, final Item I, final Room R)
@@ -112,8 +113,16 @@ public class CargoLoading extends CommonSkill
 			final CMMsg msg=CMClass.getMsg(dropM, I, null, CMMsg.MASK_ALWAYS|CMMsg.MSG_DROP, CMMsg.MSG_DROP, CMMsg.NO_EFFECT, null);
 			if( R.okMessage(dropM, msg) )
 			{
-				final List<Room> radiusRooms=CMLib.tracking().getRadiantRooms(R, rflags, 5+super.getXLEVELLevel(mob));
-				return radiusRooms.contains(mob.location());
+				final List<Room> trashRooms = new ArrayList<Room>();
+				return (CMLib.tracking().getRadiantRoomsToTarget(R, trashRooms, rflags, new TrackingLibrary.RFilter() {
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R1, final Exit E, final int dir)
+					{
+						if(R1==R)
+							return false;
+						return true;
+					}
+				}, 5+super.getXLEVELLevel(mob)));
 			}
 			return false;
 		}
@@ -130,8 +139,16 @@ public class CargoLoading extends CommonSkill
 		final MOB dropM=CMClass.getFactoryMOB("cargo loader",I.phyStats().level(),R);
 		try
 		{
-			final List<Room> radiusRooms=CMLib.tracking().getRadiantRooms(R, rflags, 5+super.getXLEVELLevel(mob));
-			return radiusRooms.contains(mob.location());
+			final List<Room> trashRooms = new ArrayList<Room>();
+			return (CMLib.tracking().getRadiantRoomsToTarget(R, trashRooms, rflags, new TrackingLibrary.RFilter() {
+				@Override
+				public boolean isFilteredOut(final Room hostR, final Room R1, final Exit E, final int dir)
+				{
+					if(R1==R)
+						return false;
+					return true;
+				}
+			}, 5+super.getXLEVELLevel(mob)));
 		}
 		finally
 		{
@@ -155,7 +172,7 @@ public class CargoLoading extends CommonSkill
 				if((loadingI == null)
 				||(cargoR==null)
 				||(!this.canLoadCargoHere(mob,loadingI, cargoR)))
-					commonTell((MOB)aff,L("Your cargo loading has failed.\n\r"));
+					commonTelL((MOB)aff,"Your cargo loading has failed.\n\r");
 				else
 				{
 					cargoR.moveItemTo(loadingI, Expire.Never);
@@ -167,7 +184,7 @@ public class CargoLoading extends CommonSkill
 			else
 			if(loadingI == null)
 			{
-				commonTell((MOB)aff,L("Your cargo unloading has failed.\n\r"));
+				commonTelL((MOB)aff,"Your cargo unloading has failed.\n\r");
 			}
 			else
 			if(!isaborted)
@@ -192,7 +209,9 @@ public class CargoLoading extends CommonSkill
 		String shipName="the ship";
 		if(commands.size()<3)
 		{
-			commonTell(mob,null,null,L("Load or Unload? What cargo into or from which ship? Try CARGO LOAD [ITEM] [SHIP NAME] to load cargo, or CARGO UNLOAD [ITEM] [SHIP NAME] to unload."));
+			commonTelL(mob,(Environmental)null,(Environmental)null,
+					"Load or Unload? What cargo into or from which ship? "
+					+ "Try CARGO LOAD [ITEM] [SHIP NAME] to load cargo, or CARGO UNLOAD [ITEM] [SHIP NAME] to unload.");
 			return false;
 		}
 		this.fromR=R;
@@ -208,7 +227,9 @@ public class CargoLoading extends CommonSkill
 		}
 		else
 		{
-			commonTell(mob,null,null,L("Load or Unload? What cargo into or from which ship? Try CARGO LOAD [ITEM] [SHIP NAME] to load cargo, or CARGO UNLOAD [ITEM] [SHIP NAME] to unload."));
+			commonTelL(mob,(Environmental)null,(Environmental)null,
+					"Load or Unload? What cargo into or from which ship? "
+					+ "Try CARGO LOAD [ITEM] [SHIP NAME] to load cargo, or CARGO UNLOAD [ITEM] [SHIP NAME] to unload.");
 			return false;
 		}
 
@@ -222,15 +243,15 @@ public class CargoLoading extends CommonSkill
 			if(possShipI==null)
 				return false;
 			shipName=possShipI.Name();
-			if(!(possShipI instanceof BoardableShip))
+			if(!(possShipI instanceof Boardable))
 			{
-				commonTell(mob, L("@x1 is not a cargo ship.",possShipI.name()));
+				commonTelL(mob,"@x1 is not cargo loadable.",possShipI.name());
 				return false;
 			}
-			if((I instanceof BoardableShip)
+			if((I instanceof Boardable)
 			||(!CMLib.flags().isGettable(I)))
 			{
-				commonTell(mob, L("You can't load @x1 as cargo!",I.name()));
+				commonTelL(mob,"You can't load @x1 as cargo!",I.name());
 				return false;
 			}
 			final PrivateProperty propRecord = CMLib.law().getPropertyRecord(possShipI);
@@ -238,12 +259,12 @@ public class CargoLoading extends CommonSkill
 			{
 				if(!CMLib.law().doesHaveWeakPrivilegesWith(mob, propRecord))
 				{
-					commonTell(mob,L("You aren't permitted to load cargo onto @x1,",possShipI.Name()));
+					commonTelL(mob,"You aren't permitted to load cargo onto @x1,",possShipI.Name());
 					return false;
 				}
 			}
 			this.cargoR=null;
-			final Area shipA=((BoardableShip)possShipI).getShipArea();
+			final Area shipA=((Boardable)possShipI).getArea();
 			for(final Enumeration<Room> r=shipA.getProperMap();r.hasMoreElements();)
 			{
 				final Room R1=r.nextElement();
@@ -257,7 +278,7 @@ public class CargoLoading extends CommonSkill
 			}
 			if(cargoR == null)
 			{
-				commonTell(mob,L("There appears to be no space on board @x1 for @x2.",possShipI.Name(),I.Name()));
+				commonTelL(mob,"There appears to be no space on board @x1 for @x2.",possShipI.Name(),I.Name());
 				return false;
 			}
 			this.loadingI=I;
@@ -268,9 +289,9 @@ public class CargoLoading extends CommonSkill
 			if(possShipI==null)
 				return false;
 			shipName=possShipI.Name();
-			if(!(possShipI instanceof BoardableShip))
+			if(!(possShipI instanceof Boardable))
 			{
-				commonTell(mob, L("@x1 is not a cargo ship.",possShipI.name()));
+				commonTelL(mob,"@x1 is not cargo loadable.",possShipI.name());
 				return false;
 			}
 			final PrivateProperty propRecord = CMLib.law().getPropertyRecord(possShipI);
@@ -278,12 +299,12 @@ public class CargoLoading extends CommonSkill
 			{
 				if(!CMLib.law().doesHaveWeakPrivilegesWith(mob, propRecord))
 				{
-					commonTell(mob,L("You aren't permitted to unload cargo off of @x1,",possShipI.Name()));
+					commonTelL(mob,"You aren't permitted to unload cargo off of @x1,",possShipI.Name());
 					return false;
 				}
 			}
 			this.cargoR=null;
-			final Area shipA=((BoardableShip)possShipI).getShipArea();
+			final Area shipA=((Boardable)possShipI).getArea();
 			for(final Enumeration<Room> r=shipA.getProperMap();r.hasMoreElements();)
 			{
 				final Room R1=r.nextElement();
@@ -301,14 +322,14 @@ public class CargoLoading extends CommonSkill
 			}
 			if(cargoR==null)
 			{
-				commonTell(mob,L("You couldn't find any reachable cargo called '@x1' on board @x2.",cargoV.get(0),shipName));
+				commonTelL(mob,"You couldn't find any reachable cargo called '@x1' on board @x2.",cargoV.get(0),shipName);
 				return false;
 			}
 		}
 
 		if((this.loadingI != null)&&(this.loadingI.phyStats().weight() > (1000 + (1000*super.getXLEVELLevel(mob)))))
 		{
-			commonTell(mob,L("You just don't have the expertise to move that much weight"));
+			commonTelL(mob,"You just don't have the expertise to move that much weight");
 			return false;
 		}
 

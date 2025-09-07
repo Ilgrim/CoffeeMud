@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,93 +51,4 @@ public interface ChattyBehavior extends Behavior
 	 * @return the last MOB object spoken to.
 	 */
 	public MOB getLastRespondedTo();
-
-	/**
-	 * A response object representing something the chatty-one will
-	 * definitely be saying soon.
-	 * @author Bo Zimmerman
-	 */
-	public static class ChattyResponse
-	{
-		public int			delay;
-		public List<String>	parsedCommand;
-
-		public ChattyResponse(final List<String> cmd, final int responseDelay)
-		{
-			parsedCommand = cmd;
-			delay = responseDelay;
-		}
-	}
-
-	/**
-	 * A test response is a possible response to an environmental event, such as
-	 * someone speaking or acting.  It is only one possible response to one possible
-	 * event, and is weighed against its neighbors for whether it is chosen.
-	 * @author Bo Zimmerman
-	 */
-	public static class ChattyTestResponse
-	{
-		public String[] responses;
-		public int weight;
-		public ChattyTestResponse(final String resp)
-		{
-			weight=CMath.s_int(""+resp.charAt(0));
-			responses=CMParms.parseSquiggleDelimited(resp.substring(1),true).toArray(new String[0]);
-		}
-	}
-
-	/**
-	 * A chatty entry embodies a test for a particular environmental event, such as
-	 * someone speaking or acting, and all possible responses to that event.
-	 * @author Bo Zimmerman
-	 */
-	public static class ChattyEntry
-	{
-		public String				expression;
-		public ChattyTestResponse[]	responses;
-		public boolean				combatEntry	= false;
-
-		public ChattyEntry(String expression)
-		{
-			if (expression.startsWith("*"))
-			{
-				combatEntry = true;
-				expression = expression.substring(1);
-			}
-			this.expression = expression;
-		}
-	}
-
-	/**
-	 * A chatty group is a collection of particular environmental event tests, and
-	 * their possible responses.  It completely embodies a particular "chat behavior"
-	 * for a particular kind of chatty mob.
-	 * @author Bo Zimmerman
-	 */
-	public static class ChattyGroup implements Cloneable
-	{
-		public String[]								groupNames;
-		public MaskingLibrary.CompiledZMask[]	groupMasks;
-		public ChattyEntry[]						entries	= null;
-		public ChattyEntry[]						tickies	= null;
-
-		public ChattyGroup(final String[] names, final MaskingLibrary.CompiledZMask[] masks)
-		{
-			groupNames = names;
-			groupMasks = masks;
-		}
-
-		@Override
-		public ChattyGroup clone()
-		{
-			try
-			{
-				return (ChattyGroup) super.clone();
-			}
-			catch (final Exception e)
-			{
-				return this;
-			}
-		}
-	}
 }

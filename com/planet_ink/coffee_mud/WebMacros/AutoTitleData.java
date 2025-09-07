@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2007-2020 Bo Zimmerman
+   Copyright 2007-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,30 +60,36 @@ public class AutoTitleData extends StdWebMacro
 			String newTitle=httpReq.getUrlParameter("TITLE");
 			if((req!=null)&&(req.equalsIgnoreCase("on")))
 				newTitle="{"+newTitle+"}";
+			final String max=httpReq.getUrlParameter("MAX");
+			if((max==null)||(max==null)||(max.length()==0))
+				return "[missing data error]";
 			final String newMask=httpReq.getUrlParameter("MASK");
 			if((newTitle==null)||(newMask==null)||(newTitle.length()==0))
 				return "[missing data error]";
 
-			if((last!=null)&&((last.length()==0)&&(CMLib.titles().isExistingAutoTitle(newTitle))))
+			if((last!=null)&&((last.length()==0)&&(CMLib.awards().isExistingAutoTitle(newTitle))))
 			{
-				CMLib.titles().reloadAutoTitles();
+				CMLib.awards().reloadAutoTitles();
 				return "[new title already exists!]";
 			}
 
-			final String error=CMLib.titles().evaluateAutoTitle(newTitle+"="+newMask,false);
+			final String error=CMLib.awards().evaluateAutoTitle(newTitle+"="+newMask,false);
 			if(error!=null)
 				return "[error: "+error+"]";
 
-			if((last!=null)&&(CMLib.titles().isExistingAutoTitle(last)))
+			if((last!=null)&&(CMLib.awards().isExistingAutoTitle(last)))
 			{
-				final String err=CMLib.titles().deleteTitleAndResave(last);
+				final String err=CMLib.awards().deleteTitleAndResave(last);
 				if(err!=null)
 				{
-					CMLib.titles().reloadAutoTitles();
+					CMLib.awards().reloadAutoTitles();
 					return err;
 				}
 			}
-			CMLib.titles().appendAutoTitle("\n"+newTitle+"="+newMask);
+			if(CMath.s_int(max)<=0)
+				CMLib.awards().appendAutoTitle("\n"+newTitle+"="+newMask);
+			else
+				CMLib.awards().appendAutoTitle("\n"+newTitle+"="+max+":"+newMask);
 		}
 		else
 		if(parms.containsKey("DELETE"))
@@ -95,9 +101,9 @@ public class AutoTitleData extends StdWebMacro
 				return "[authentication error]";
 			if(last==null)
 				return " @break@";
-			if(!CMLib.titles().isExistingAutoTitle(last))
+			if(!CMLib.awards().isExistingAutoTitle(last))
 				return "Unknown title!";
-			final String err=CMLib.titles().deleteTitleAndResave(last);
+			final String err=CMLib.awards().deleteTitleAndResave(last);
 			if(err==null)
 				return "Auto-Title deleted.";
 			return err;
@@ -111,9 +117,19 @@ public class AutoTitleData extends StdWebMacro
 		{
 			String mask=httpReq.getUrlParameter("MASK");
 			if((mask==null)&&(last!=null)&&(last.length()>0))
-				mask=CMLib.titles().getAutoTitleMask(last);
+				mask=CMLib.awards().getAutoTitleMask(last);
 			if(mask!=null)
 				str.append(CMStrings.replaceAll(mask,"\"","&quot;")+", ");
+		}
+		if(parms.containsKey("MAX"))
+		{
+			String max=httpReq.getUrlParameter("MAX");
+			if(((max==null)||(max.length()==0))
+			&&(last!=null)
+			&&(last.length()>0))
+				max=""+CMLib.awards().getAutoTitle(last).getMax();
+			if(max!=null)
+				str.append(max+", ");
 		}
 		if(parms.containsKey("TITLE"))
 		{
@@ -139,7 +155,7 @@ public class AutoTitleData extends StdWebMacro
 		{
 			String mask=httpReq.getUrlParameter("MASK");
 			if((mask==null)&&(last!=null)&&(last.length()>0))
-				mask=CMLib.titles().getAutoTitleMask(last);
+				mask=CMLib.awards().getAutoTitleMask(last);
 			if(mask!=null)
 				str.append(CMLib.masking().maskDesc(mask)+", ");
 		}

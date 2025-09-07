@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -142,6 +142,18 @@ public class Skill_Swim extends StdSkill
 	}
 
 	@Override
+	public boolean proficiencyCheck(final MOB mob, final int adjustment, final boolean auto)
+	{
+		if(!super.proficiencyCheck(mob, adjustment, auto))
+		{
+			if((proficiency()>=100)
+			&&(adjustment>=0))
+				return true;
+		}
+		return true;
+	}
+
+	@Override
 	public boolean preInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel, final int secondsElapsed, final double actionsRemaining)
 	{
 		if(secondsElapsed==0)
@@ -176,8 +188,8 @@ public class Skill_Swim extends StdSkill
 			}
 
 			if((mob.riding()!=null)
-			&&(mob.riding().rideBasis()!=Rideable.RIDEABLE_WATER)
-			&&(mob.riding().rideBasis()!=Rideable.RIDEABLE_AIR))
+			&&(mob.riding().rideBasis()!=Rideable.Basis.WATER_BASED)
+			&&(mob.riding().rideBasis()!=Rideable.Basis.AIR_FLYING))
 			{
 				mob.tell(L("You need to get off @x1 first!",mob.riding().name()));
 				return false;

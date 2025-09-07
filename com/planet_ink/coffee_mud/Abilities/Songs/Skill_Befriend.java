@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -230,9 +230,10 @@ public class Skill_Befriend extends BardSkill
 		&&((text().length()==0)||(text().indexOf('=')<0)))
 		{
 			final MOB mob=(MOB)ticking;
-			if((mob.amFollowing()==null)
-			||(mob.amFollowing().isMonster())
-			||(!CMLib.flags().isInTheGame(mob.amFollowing(), true)))
+			final MOB masterM = mob.amFollowing();
+			if((masterM==null)
+			||(masterM.isMonster())
+			||(!CMLib.flags().isInTheGame(masterM, true)))
 			{
 				if(mob.getStartRoom()==null)
 					mob.destroy();
@@ -265,7 +266,7 @@ public class Skill_Befriend extends BardSkill
 			mob.tell(L("You are already your own friend."));
 			return false;
 		}
-		if(target.phyStats().level()>mob.phyStats().level()+(mob.phyStats().level()/10))
+		if(target.phyStats().level()>(mob.phyStats().level()+(super.getXLEVELLevel(mob)/10)))
 		{
 			mob.tell(L("@x1 is a bit too powerful to befriend.",target.charStats().HeShe()));
 			return false;
@@ -290,13 +291,33 @@ public class Skill_Befriend extends BardSkill
 
 		if(target.amFollowing()!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> is already someone elses friend."));
+			failureTell(mob,target,auto,L("<S-NAME> is already someone elses friend."));
 			return false;
 		}
 
+		final String raceReq = CMParms.getParmStr(text(), "RACE", "");
+		final String raceCat = CMParms.getParmStr(text(), "RACECAT", "");
+		if(raceReq.length()>0)
+		{
+			if(!target.charStats().getMyRace().ID().equalsIgnoreCase(raceReq))
+			{
+				failureTell(mob,target,auto,L("<S-NAME> is not a @x1.",raceReq.toLowerCase()));
+				return false;
+			}
+		}
+		else
+		if(raceCat.length()>0)
+		{
+			if(!target.charStats().getMyRace().racialCategory().equalsIgnoreCase(raceCat))
+			{
+				failureTell(mob,target,auto,L("<S-NAME> is not a @x1.",raceCat.toLowerCase()));
+				return false;
+			}
+		}
+		else
 		if(!target.charStats().getMyRace().racialCategory().equals(mob.charStats().getMyRace().racialCategory()))
 		{
-			mob.tell(target,null,null,L("<S-NAME> is not a fellow @x1.",mob.charStats().getMyRace().racialCategory()));
+			failureTell(mob,target,auto,L("<S-NAME> is not a fellow @x1.",mob.charStats().getMyRace().racialCategory()));
 			return false;
 		}
 
@@ -307,7 +328,7 @@ public class Skill_Befriend extends BardSkill
 			final int mine=target.fetchFaction(F.factionID());
 			if(F.fetchRange(his)!=F.fetchRange(mine))
 			{
-				mob.tell(target,null,null,L("<S-NAME> is not @x1, like yourself.",F.fetchRangeName(mine)));
+				failureTell(mob,target,auto,L("<S-NAME> is not @x1, like yourself.",F.fetchRangeName(mine)));
 				return false;
 			}
 		}
@@ -329,7 +350,7 @@ public class Skill_Befriend extends BardSkill
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
-		int levelDiff=mob.phyStats().level()-target.phyStats().level();
+		int levelDiff=(mob.phyStats().level()+(super.getXLEVELLevel(mob)/10))-target.phyStats().level();
 		if(levelDiff>0)
 			levelDiff=(-(levelDiff*levelDiff))/(1+super.getXLEVELLevel(mob));
 		else

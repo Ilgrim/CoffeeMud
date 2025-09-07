@@ -3,6 +3,7 @@ import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftorType;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
@@ -12,6 +13,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.Session.InputCallback;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.CommonCommands.LookView;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -19,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -33,7 +35,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class Painting extends CommonSkill
+public class Painting extends CommonSkill implements RecipeDriven
 {
 	@Override
 	public String ID()
@@ -67,9 +69,86 @@ public class Painting extends CommonSkill
 	protected boolean	messedUp	= false;
 
 	@Override
+	public String supportedResourceString()
+	{
+		return "LEATHER";
+	}
+
+	@Override
+	public String getRecipeFormat()
+	{
+		return
+		"ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\tITEM_BASE_VALUE\tACTIVE_VERB\t"
+		+"ITEM_CLASS_ID\tEXPERTISENUM\tZAPPERMASK\tCODED_SPELL_LIST";
+	}
+
+	//protected static final int RCP_FINALNAME=0;
+	//protected static final int RCP_LEVEL=1;
+	protected static final int	RCP_TICKS		= 2;
+	protected static final int	RCP_VALUE		= 3;
+	protected static final int	RCP_VERB		= 4;
+	protected static final int	RCP_CLASSTYPE	= 5;
+	protected static final int	RCP_XNUM		= 6;
+	protected static final int	RCP_ZAPPERMASK	= 7;
+	protected static final int	RCP_SPELL		= 8;
+
+	@Override
+	public List<List<String>> fetchRecipes()
+	{
+		@SuppressWarnings("unchecked")
+		List<List<String>> V=(List<List<String>>)Resources.getResource("PARSED_RECIPE: "+getRecipeFilename());
+		if(V==null)
+		{
+			V = new Vector<List<String>>();
+			for(final CMFile F : CMFile.getExistingExtendedFiles(Resources.buildResourcePath("skills")+getRecipeFilename(),null,CMFile.FLAG_LOGERRORS))
+			{
+				final StringBuffer str = F.text();
+				V.addAll(CMLib.utensils().loadRecipeList(str.toString(), true));
+			}
+			V=new ReadOnlyList<List<String>>(V);
+			if(V.size()==0)
+				Log.errOut(ID(),"Recipes not found!");
+			Resources.submitResource("PARSED_RECIPE: "+getRecipeFilename(),V);
+		}
+		return V;
+	}
+
+	public List<List<String>> matchingRecipes(final List<List<String>> recipes, final String recipeName, final boolean beLoose)
+	{
+		return new CraftingSkill().matchingRecipes(recipes, recipeName, beLoose);
+	}
+
+	@Override
+	public List<String> matchingRecipeNames(final String recipeName, final boolean beLoose)
+	{
+		final List<String> matches = new Vector<String>();
+		for(final List<String> list : fetchRecipes())
+		{
+			final String name=list.get(RecipeDriven.RCP_FINALNAME);
+			if(name.equalsIgnoreCase(recipeName)
+			||(beLoose && (name.toUpperCase().indexOf(recipeName.toUpperCase())>=0)))
+				matches.add(name);
+		}
+		return matches;
+	}
+
+	@Override
+	public Pair<String, Integer> getDecodedItemNameAndLevel(final List<String> recipe)
+	{
+		return new Pair<String,Integer>(recipe.get( RecipeDriven.RCP_FINALNAME ),
+				Integer.valueOf(CMath.s_int(recipe.get( RecipeDriven.RCP_LEVEL ))));
+	}
+
+	@Override
+	public String getRecipeFilename()
+	{
+		return "painting.txt";
+	}
+
+	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			if(building==null)
 				unInvoke();
@@ -85,10 +164,11 @@ public class Painting extends CommonSkill
 			if(affected instanceof MOB)
 			{
 				final MOB mob=(MOB)affected;
-				if((building!=null)&&(!aborted))
+				if((building!=null)
+				&&(!aborted))
 				{
 					if(messedUp)
-						commonTell(mob,L("<S-NAME> mess(es) up painting @x1.",building.name()));
+						commonTelL(mob,"<S-NAME> mess(es) up painting @x1.",building.name());
 					else
 						mob.location().addItem(building,ItemPossessor.Expire.Player_Drop);
 				}
@@ -106,7 +186,7 @@ public class Painting extends CommonSkill
 			return true;
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Paint on what? Enter \"paint [canvas name]\" or paint \"wall\"."));
+			commonTelL(mob,"Paint what or on what? Enter \"paint list\", \"paint [type] [canvas name]\", or paint \"wall\".");
 			return false;
 		}
 		String paintingKeyWords=null;
@@ -135,7 +215,9 @@ public class Painting extends CommonSkill
 				break;
 		}
 
-		final String str=CMParms.combine(commands,0);
+		final String str=CMParms.combine(commands,0).toLowerCase().trim();
+		final String word = commands.get(0).toLowerCase().trim();
+
 		building=null;
 		messedUp=false;
 		Session S=mob.session();
@@ -143,25 +225,83 @@ public class Painting extends CommonSkill
 			S=mob.amFollowing().session();
 		if(S==null)
 		{
-			commonTell(mob,L("I can't work! I need a player to follow!"));
+			commonTelL(mob,"I can't work! I need a player to follow!");
 			return false;
 		}
 
+		List<String> foundRecipe = null;
 		Item canvasI=null;
-		if(str.equalsIgnoreCase("wall"))
+		if("wall".startsWith(str.toLowerCase()))
 		{
 			if(!CMLib.law().doesOwnThisProperty(mob,mob.location()))
 			{
-				commonTell(mob,L("You need the owners permission to paint the walls here."));
+				commonTelL(mob,"You need the owners permission to paint the walls here.");
 				return false;
 			}
 		}
 		else
+		if("list".startsWith(word))
 		{
-			canvasI=mob.location().findItem(null,str);
+			final List<List<String>> recipes = new XVector<List<String>>(fetchRecipes());
+			CMLib.utensils().addExtRecipes(mob, ID(), recipes);
+			String mask=(commands.size()==1)?"":CMParms.combine(commands,1);
+			boolean allFlag=false;
+			if(mask.equalsIgnoreCase("all"))
+			{
+				allFlag=true;
+				mask="";
+			}
+			final StringBuffer buf=new StringBuffer("");
+			final int[] cols={
+				CMLib.lister().fixColWidth(29,mob.session()),
+				CMLib.lister().fixColWidth(3,mob.session())
+			};
+			int toggler=1;
+			final int toggleTop=2;
+			for(int i=0;i<toggleTop;i++)
+				buf.append(L("^H@x1 @x2 ",CMStrings.padRight(L("Item"),cols[0]),CMStrings.padRight(L("Lvl"),cols[1])));
+			buf.append("^N\n\r");
+			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : matchingRecipes(recipes, mask, true);
+			for(int r=0;r<listRecipes.size();r++)
+			{
+				final List<String> V=listRecipes.get(r);
+				if(V.size()>0)
+				{
+					final String item=V.get(RCP_FINALNAME);
+					final int level=CMath.s_int(V.get(RCP_LEVEL));
+					final String zmask=V.get(RCP_ZAPPERMASK);
+					final int exp = CMath.s_int(V.get(RCP_XNUM));
+					if((item.trim().length()>0)
+					&&((exp<=super.getXLEVELLevel(mob))||allFlag)
+					&&((level<=xlevel(mob))||allFlag)
+					&&((zmask.trim().length()==0)||CMLib.masking().maskCheck(zmask, mob, true)))
+					{
+						buf.append("^w"+CMStrings.padRight(item,cols[0])+"^N "+CMStrings.padRight(""+level,cols[1])+((toggler!=toggleTop)?" ":"\n\r"));
+						if(++toggler>toggleTop)
+							toggler=1;
+					}
+				}
+			}
+			commonTell(mob,buf.toString());
+			return true;
+		}
+		else
+		if(commands.size()<2)
+		{
+			commonTelL(mob,"Paint what or on what? Enter \"paint list\", \"paint [type] [canvas name]\", or paint \"wall\".");
+			return false;
+		}
+		else
+		{
+			final String what=CMParms.combine(commands,1).toLowerCase().trim();
+			final String recipeName = word;
+			final List<List<String>> recipes = new XVector<List<String>>(fetchRecipes());
+			CMLib.utensils().addExtRecipes(mob, ID(), recipes);
+
+			canvasI=mob.location().findItem(null,what);
 			if((canvasI==null)||(!CMLib.flags().canBeSeenBy(canvasI,mob)))
 			{
-				commonTell(mob,L("You don't see any canvases called '@x1' sitting here.",str));
+				commonTelL(mob,"You don't see any canvases called '@x1' sitting here.",what);
 				return false;
 			}
 			if((canvasI.material()!=RawMaterial.RESOURCE_COTTON)
@@ -169,7 +309,31 @@ public class Painting extends CommonSkill
 			&&(!canvasI.Name().toUpperCase().endsWith("CANVAS"))
 			&&(!canvasI.Name().toUpperCase().endsWith("SILKSCREEN")))
 			{
-				commonTell(mob,L("You cannot paint on '@x1'.",str));
+				commonTelL(mob,"You cannot paint on '@x1'.",what);
+				return false;
+			}
+
+			final List<List<String>> matches=matchingRecipes(recipes,recipeName,false);
+			for(int r=0;r<matches.size();r++)
+			{
+				final List<String> V=matches.get(r);
+				if(V.size()>0)
+				{
+					final int level=CMath.s_int(V.get(RCP_LEVEL));
+					final String zmask=V.get(RCP_ZAPPERMASK);
+					final int exp = CMath.s_int(V.get(RCP_XNUM));
+					if(((exp<=super.getXLEVELLevel(mob)))
+					&&((level<=xlevel(mob)))
+					&&((zmask.trim().length()==0)||CMLib.masking().maskCheck(zmask, mob, true)))
+					{
+						foundRecipe=V;
+						break;
+					}
+				}
+			}
+			if(foundRecipe==null)
+			{
+				commonTelL(mob,"You don't know how to paint a '@x1'.  Try \"paint list\" for a list.",recipeName);
 				return false;
 			}
 		}
@@ -185,9 +349,10 @@ public class Painting extends CommonSkill
 				building=CMClass.getItem("GenWallpaper");
 				building.setName(paintingKeyWords);
 				building.setDescription(paintingDesc);
-				building.setSecretIdentity(getBrand(mob));
+				building.setSecretIdentity(CMLib.ableParms().createCraftingBrand(mob));
 			}
 			else
+			if(session != null)
 			{
 				session.prompt(new InputCallback(InputCallback.Type.PROMPT,"",0)
 				{
@@ -302,27 +467,39 @@ public class Painting extends CommonSkill
 		else
 		if(canvasI!=null)
 		{
-			if((paintingKeyWords!=null)&&(paintingDesc!=null))
+			if((paintingKeyWords!=null)&&(paintingDesc!=null)&&(foundRecipe!=null))
 			{
-				building=CMClass.getItem("GenItem");
-				building.setName(L("a painting of @x1",paintingKeyWords));
-				building.setDisplayText(L("a painting of @x1 is here.",paintingKeyWords));
+				building=CMClass.getItem(foundRecipe.get(RCP_CLASSTYPE));
+				final String name = CMLib.english().startWithAorAn(
+					foundRecipe.get(RCP_FINALNAME)
+				) + L(" of ") + paintingKeyWords;
+				building.setName(name);
+				building.setDisplayText(L("@x1 is here.",name));
 				building.setDescription(paintingDesc);
 				building.basePhyStats().setWeight(canvasI.basePhyStats().weight());
-				building.setBaseValue(canvasI.baseGoldValue()*(CMLib.dice().roll(1,5,0)));
+				building.setBaseValue(canvasI.baseGoldValue()+(CMLib.dice().roll(1,CMath.s_int(foundRecipe.get(RCP_VALUE))+super.getXLEVELLevel(mob),0)));
 				building.setMaterial(canvasI.material());
 				building.basePhyStats().setLevel(canvasI.basePhyStats().level());
-				building.setSecretIdentity(getBrand(mob));
+				building.setSecretIdentity(CMLib.ableParms().createCraftingBrand(mob));
+				final String spell=foundRecipe.get(RCP_SPELL);
+				new CraftingSkill().addSpellsOrBehaviors(building,spell,new ArrayList<CMObject>(),new ArrayList<CMObject>());
 				canvasI.destroy();
 			}
 			else
+			if((session != null)&&(foundRecipe!=null))
 			{
+				final Item oldCanvasI = canvasI;
+				final String paintingName = foundRecipe.get(RCP_FINALNAME).toLowerCase();
 				session.prompt(new InputCallback(InputCallback.Type.PROMPT,"",0)
 				{
+					final MOB M = session.mob();
+					final Room R = (M!=null)?M.location():null;
+					final Item canvasI = oldCanvasI;
+
 					@Override
 					public void showPrompt()
 					{
-						session.promptPrint(L("\n\rIn brief, what is this a painting of?\n\r: "));
+						session.promptPrint(L("\n\rIn brief, what is this a @x1 of?\n\r: ",paintingName));
 					}
 
 					@Override
@@ -333,38 +510,117 @@ public class Painting extends CommonSkill
 					@Override
 					public void callBack()
 					{
-						final String name=this.input.trim();
-						if(name.length()==0)
+						if(this.input.trim().length()==0)
 							return;
-						session.prompt(new InputCallback(InputCallback.Type.PROMPT,"",0)
+						final String name;
+						String desc = null;
+						if(R!=null)
 						{
-							@Override
-							public void showPrompt()
+							final String word = this.input.trim().toLowerCase();
+							if((word.equals(CMLib.lang().rawInputParser("room")))
+							||(word.equals(CMLib.lang().rawInputParser("the room")))
+							||(word.equals(CMLib.lang().rawInputParser(R.name(mob).toLowerCase())))
+							||(CMStrings.containsWord(CMLib.lang().rawInputParser(R.name(mob).toLowerCase()),word))
+							||(word.equals(CMLib.lang().rawInputParser("here"))))
 							{
-								session.promptPrint(L("\n\rPlease describe this painting.\n\r: "));
+								name = R.displayText(mob);
+								final CommonCommands.LookView lookCode=mob.isAttributeSet(MOB.Attrib.COMPRESS)?
+										LookView.LOOK_BRIEFOK:LookView.LOOK_NORMAL;
+								final int disp =canvasI.basePhyStats().disposition();
+								canvasI.basePhyStats().setDisposition(PhyStats.IS_NOT_SEEN);
+								canvasI.phyStats().setDisposition(PhyStats.IS_NOT_SEEN);
+								desc = CMLib.commands().getFullRoomView(mob, R, lookCode, false);
+								canvasI.basePhyStats().setDisposition(disp);
+								canvasI.phyStats().setDisposition(disp);
 							}
+							else
+							{
+								final Physical P = R.fetchFromRoomFavorMOBs(null, word);
+								if(P == null)
+									name = this.input.trim();
+								else
+								{
+									name = P.displayText(mob);
+									desc = P.description(mob);
+								}
+							}
+						}
+						else
+							name = this.input.trim();
+						if(desc == null)
+						{
+							session.prompt(new InputCallback(InputCallback.Type.PROMPT,"",0)
+							{
+								@Override
+								public void showPrompt()
+								{
+									session.promptPrint(L("\n\rPlease describe this @x1.\n\r: ",paintingName));
+								}
 
-							@Override
-							public void timedOut()
-							{
-							}
+								@Override
+								public void timedOut()
+								{
+								}
 
-							@Override
-							public void callBack()
+								@Override
+								public void callBack()
+								{
+									final String desc=this.input.trim();
+									if(desc.length()==0)
+										return;
+									final Vector<String> newCommands=new XVector<String>(originalCommands);
+									newCommands.add("PAINTINGKEYWORDS="+name);
+									newCommands.add("PAINTINGDESC="+desc);
+									me.invoke(mob, newCommands, target, auto, asLevel);
+								}
+							});
+						}
+						else
+						{
+							final String description = desc;
+							session.prompt(new InputCallback(InputCallback.Type.CONFIRM,"",0)
 							{
-								final String desc=this.input.trim();
-								if(desc.length()==0)
-									return;
-								final Vector<String> newCommands=new XVector<String>(originalCommands);
-								newCommands.add("PAINTINGKEYWORDS="+name);
-								newCommands.add("PAINTINGDESC="+desc);
-								me.invoke(mob, newCommands, target, auto, asLevel);
-							}
-						});
+								final String desc = description;
+
+								@Override
+								public void showPrompt()
+								{
+									session.println(L("^HName       :^N @x1",name));
+									session.println(L("^HDescription:^N @x1",desc));
+									session.promptPrint(L("\n\rIs this correct (Y/n)? "));
+								}
+
+								@Override
+								public void timedOut()
+								{
+								}
+
+								@Override
+								public void callBack()
+								{
+									if(this.input.trim().equalsIgnoreCase("Y"))
+									{
+										final Vector<String> newCommands=new XVector<String>(originalCommands);
+										newCommands.add("PAINTINGKEYWORDS="+name);
+										final Session sess = (Session)CMClass.getCommon("FakeSession");
+										sess.setClientTelnetMode(Session.TELNET_ANSI, true);
+										final String descFiltered = CMLib.coffeeFilter().colorOnlyFilter(desc, sess);
+										newCommands.add("PAINTINGDESC="+descFiltered);
+										me.invoke(mob, newCommands, target, auto, asLevel);
+									}
+								}
+							});
+						}
 					}
 				});
 				return true;
 			}
+		}
+
+		if(building == null)
+		{
+			this.commonTelL(mob,"I have no idea what I'm doing.");
+			return false;
 		}
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
@@ -374,12 +630,16 @@ public class Painting extends CommonSkill
 			return false;
 		}
 
-		final String startStr=L("<S-NAME> start(s) painting @x1.",building.name());
-		displayText=L("You are painting @x1",building.name());
-		verb=L("painting @x1",building.name());
+		String paintingName = L("painting");
+		if(foundRecipe != null)
+			paintingName = foundRecipe.get(RCP_VERB).toLowerCase();
+		final String startStr=L("<S-NAME> start(s) @x2 @x1.",building.name(),paintingName);
+		displayText=L("You are @x2 @x1",building.name(),paintingName);
+		verb=L("@x1 @x2",paintingName,building.name());
 		building.recoverPhyStats();
 		building.text();
 		building.recoverPhyStats();
+		setBrand(mob, building);
 
 		messedUp=!proficiencyCheck(mob,0,auto);
 		duration=getDuration(25,mob,1,2);

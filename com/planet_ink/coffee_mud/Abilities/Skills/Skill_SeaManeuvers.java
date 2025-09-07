@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -99,17 +99,19 @@ public class Skill_SeaManeuvers extends StdSkill
 		if((msg.sourceMinor()==CMMsg.TYP_ADVANCE)
 		&&(msg.target() instanceof Room)
 		&&(R!=null)
-		&&(R.getArea() instanceof BoardableShip)
+		&&(R.getArea() instanceof Boardable)
 		&&(R.roomID().length()>0)
-		&&(msg.source().riding() == ((BoardableShip)R.getArea()).getShipItem())
+		&&(msg.source().riding() == ((Boardable)R.getArea()).getBoardableItem())
 		&&(msg.source().Name().equals(msg.source().riding().Name()))
 		&&(msg.sourceMessage()!=null)
 		&&(msg.targetMessage()!=null)
 		&&(CMLib.directions().getStrictCompassDirectionCode(msg.sourceMessage())>=0)
 		&&(CMLib.directions().getStrictCompassDirectionCode(msg.targetMessage())>=0)
-		&&(!msg.sourceMessage().equals(msg.targetMessage())))
+		&&(!msg.sourceMessage().equals(msg.targetMessage()))
+		&&(((Boardable)R.getArea()).getBoardableItem() instanceof NavigableItem)
+		&&(((NavigableItem)(((Boardable)R.getArea()).getBoardableItem())).navBasis() == Rideable.Basis.WATER_BASED))
 		{
-			final SailingShip ship = (SailingShip)((BoardableShip)R.getArea()).getShipItem();
+			final NavigableItem ship = (NavigableItem)((Boardable)R.getArea()).getBoardableItem();
 			if(ship.isInCombat())
 			{
 				if(proficiencyCheck(mob, 0, false))

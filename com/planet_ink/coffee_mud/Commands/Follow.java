@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -170,10 +170,9 @@ public class Follow extends StdCommand
 			CMLib.commands().postCommandFail(mob,origCmds,L("@x1 is not accepting followers.",target.name(mob)));
 			return false;
 		}
-		final MOB ultiTarget=target.amUltimatelyFollowing();
-		if((ultiTarget!=null)&&(ultiTarget.isAttributeSet(MOB.Attrib.NOFOLLOW)))
+		if(target.getGroupLeader().isAttributeSet(MOB.Attrib.NOFOLLOW))
 		{
-			CMLib.commands().postCommandFail(mob,origCmds,L("@x1 is not accepting followers.",ultiTarget.name()));
+			CMLib.commands().postCommandFail(mob,origCmds,L("@x1 is not accepting followers.",target.getGroupLeader().name()));
 			return false;
 		}
 		processFollow(mob,target,quiet);

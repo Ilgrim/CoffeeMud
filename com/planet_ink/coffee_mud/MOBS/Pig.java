@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Pig extends StdMOB
 	public Pig()
 	{
 		super();
-		username="a pig";
+		_name="a pig";
 		setDescription("A large pink hairless animal with hooved feet.");
 		setDisplayText("A pig snorts at you.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -55,7 +55,7 @@ public class Pig extends StdMOB
 		baseCharStats().setMyRace(CMClass.getRace("Pig"));
 		baseCharStats().getMyRace().startRacing(this,false);
 
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(1);
 		basePhyStats().setArmor(90);
 

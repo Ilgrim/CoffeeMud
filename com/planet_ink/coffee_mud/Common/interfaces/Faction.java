@@ -10,6 +10,7 @@ import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.DefaultFaction;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.Faction.FRange;
 import com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
@@ -27,7 +28,7 @@ import java.util.Random;
 import java.util.Vector;
 
 /*
- * Copyright 2000-2020 Bo Zimmerman Licensed under the Apache License, Version
+ * Copyright 2000-2025 Bo Zimmerman Licensed under the Apache License, Version
  * 2.0 (the "License"); you may not use this file except in compliance with the
  * License. You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0 Unless required by applicable law
@@ -77,7 +78,7 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 
 	/**
 	 * Returns the value of a given internal faction variable.
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#TAG_NAMES
+	 *
 	 * @param tag the tag to get the value of
 	 * @return the value of the given tag
 	 */
@@ -85,9 +86,10 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 
 	/**
 	 * Retrieves an entry for an ini properties definition document that describes this faction.
+	 *
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#getINIDef(String, String)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#initializeFaction(StringBuffer, String)
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#TAG_NAMES
+	 *
 	 * @param tag the tag to retrieve a properties definition for
 	 * @param delimeter if the tag represents a list, this is the delimiter for entries.
 	 * @return the ini properties definition entry for the tag
@@ -281,6 +283,19 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 	public void setShowInScore(boolean truefalse);
 
 	/**
+	 * Returns true if this faction is inheritable by children.
+	 * @return true if its inheritable, false otherwise
+	 */
+	public boolean isInheritable();
+
+	/**
+	 * Sets whether this faction is inheritable by children.
+	 * @param truefalse true if its inheritable, false otherwise
+	 */
+	public void setInherited(final boolean truefalse);
+
+
+	/**
 	 * Returns whether this factions value is shown in certain special admins commands.
 	 * @return true if displayed in special admin commands, false otherwise
 	 */
@@ -326,7 +341,7 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary
 	 * @return the default faction mask/value list
 	 */
-	public Enumeration<String> defaults();
+	public Enumeration<Pair<Integer,String>> defaults();
 
 	/**
 	 * Returns the default faction value that applies to the given mob.
@@ -363,7 +378,7 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#setAutoDefaults(List)
 	 * @return the automatic default faction mask/value list
 	 */
-	public Enumeration<String> autoDefaults();
+	public Enumeration<Pair<Integer,String>> autoDefaults();
 
 	/**
 	 * Returns the automatic default faction value that applies to the
@@ -412,7 +427,7 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#setChoices(List)
 	 * @return the choosable faction mask/value list
 	 */
-	public Enumeration<String> choices();
+	public Enumeration<Pair<Integer,String>> choices();
 
 	/**
 	 * Returns a vector of Integer objects representing the choosable
@@ -499,7 +514,7 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 	 * Returns an enumeration of change event keys, which are the code names of
 	 * the triggers that cause faction values to change automatically.
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#createChangeEvent(String eventID)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#createChangeEvent(String eventKey, String eventData)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#delChangeEvent(Faction.FactionChangeEvent event)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#ALL_CHANGE_EVENT_TYPES()
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#executeChange(MOB, MOB, com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent)
@@ -519,6 +534,17 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 	public FactionChangeEvent[] findAbilityChangeEvents(Ability key);
 
 	/**
+	 * Returns a FactionChangeEvent that applies when the given message type is seen
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#changeEventKeys()
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#executeChange(MOB, MOB, com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent)
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#ALL_CHANGE_EVENT_TYPES()
+	 * @param msg the CMMsg object whose source code matters
+	 * @return the FactionChangeEvents that apply, or null.
+	 */
+	public FactionChangeEvent[] findMsgChangeEvents(final CMMsg msg);
+
+	/**
 	 * Returns a FactionChangeEvent that applies when the given Social is used
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#changeEventKeys()
@@ -534,13 +560,13 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 	 * code) occurs in the game.
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#changeEventKeys()
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#MISC_TRIGGERS
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#miscEvent()
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#executeChange(MOB, MOB, com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent)
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#ALL_CHANGE_EVENT_TYPES()
-	 * @param key the code name of the event that occurred
+	 * @param eventID the code name of the event that occurred
 	 * @return the FactionChangeEvent triggered by that event
 	 */
-	public FactionChangeEvent[] getChangeEvents(String key);
+	public FactionChangeEvent[] getChangeEvents(String eventID);
 
 	/**
 	 * Adds a new FactionChangeEvent object to this faction using the given event code
@@ -548,20 +574,21 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 	 * trigger code (an ability name, event code name), or a fully encoded string
 	 * which is a semicolon delimited field consisting of event (trigger) id, direction
 	 * code, and amount
+	 * @param eventKey the faction event key
+	 * @param eventData the field used to create the new FactionChangeEvent
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#changeEventKeys()
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#MISC_TRIGGERS
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#miscEvent()
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#ALL_CHANGE_EVENT_TYPES()
-	 * @param key the field used to create the new FactionChangeEvent
 	 * @return the FactionChangeEvent object created and added to this faction, or null
 	 */
-	public FactionChangeEvent createChangeEvent(String key);
+	public FactionChangeEvent createChangeEvent(final String eventKey, String eventData);
 
 	/**
 	 * Removes a FactionChangeEvent of the given event (trigger) id.
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#changeEventKeys()
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#MISC_TRIGGERS
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#miscEvent()
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#ALL_CHANGE_EVENT_TYPES()
 	 * @param event the event object to remove from the list of change events
 	 * @return whether the event id was found to remove
@@ -572,7 +599,7 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 	 * Removes all FactionChangeEvents
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#changeEventKeys()
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#MISC_TRIGGERS
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#miscEvent()
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#ALL_CHANGE_EVENT_TYPES()
 	 */
 	public void clearChangeEvents();
@@ -599,7 +626,7 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 	public String ALL_CHANGE_EVENT_TYPES();
 
 	/**
-	 * Returns an enumeration of Object arrays referring to the a factor to multiply
+	 * Returns an enumeration of Object arrays referring to a factor to multiply
 	 * times the base amount (100) of faction change (up or down) for particular
 	 * mobs who match a given Zapper mask.  Each Object array consists of a factor
 	 * to apply on faction gains, a factor to apply on factor drops, and the zapper
@@ -926,6 +953,7 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 		/**
 		 * Returns the event trigger id
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#ALL_CHANGE_EVENT_TYPES()
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#miscEvent()
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#setEventID(String)
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#IDclassFilter()
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#IDdomainFilter()
@@ -933,11 +961,23 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 		 * @return the event trigger id
 		 */
 		public String eventID();
+		/**
+		 * Returns the event trigger code, for non-ability related static-type triggers
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#ALL_CHANGE_EVENT_TYPES()
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#eventID()
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#setEventID(String)
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#IDclassFilter()
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#IDdomainFilter()
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#IDflagFilter()
+		 * @return the misc event trigger object
+		 */
+		public MiscTrigger miscEvent();
 
 		/**
 		 * Sets the event trigger id
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#ALL_CHANGE_EVENT_TYPES()
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#eventID()
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#miscEvent()
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#IDclassFilter()
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#IDdomainFilter()
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#IDflagFilter()
@@ -947,10 +987,31 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 		public boolean setEventID(String newID);
 
 		/**
+		 * Returns the num ticks after the reset of this event that the event
+		 * will be valid for.  0 means never, -1 means always.
+		 * @return the num ticks before timeout of the event
+		 */
+		public int getWithinTicks();
+
+		/**
+		 * Returns the amount of time that must pass between uses of this event
+		 * by a particular player.
+		 * @return amount of milliseconds, or -1
+		 */
+		public long getWaitBetweenMs();
+
+		/**
+		 * Returns the pct chance 0-100 that this event will trigger
+		 * @return the pct chance
+		 */
+		public int getPctChance();
+
+		/**
 		 * A derivative of the event id, this will return a value of 0 or above
 		 * if the event id was of a particular Ability ACODE_.  Returns -1 if
-		 * this value does not apply, or an index into ACODE_DESCS.
-		 * @see com.planet_ink.coffee_mud.Abilities.interfaces.Ability#ACODE_DESCS
+		 * this value does not apply, or an index into ACODE DESCS.
+		 *
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#miscEvent()
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#eventID()
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#IDdomainFilter()
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#IDflagFilter()
@@ -964,6 +1025,7 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 		 * this value does not apply, or an index into FLAG_DESCS.
 		 * @see com.planet_ink.coffee_mud.Abilities.interfaces.Ability#FLAG_DESCS
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#eventID()
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#miscEvent()
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#IDclassFilter()
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#IDdomainFilter()
 		 * @return -1, or an mask for an Ability FLAG
@@ -973,9 +1035,10 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 		/**
 		 * A derivative of the event id, this will return a value of 0 or above
 		 * if the event id was of a particular Ability DOMAIN_.  Returns -1 if
-		 * this value does not apply, or an index into DOMAIN_DESCS.
-		 * @see com.planet_ink.coffee_mud.Abilities.interfaces.Ability#DOMAIN_DESCS
+		 * this value does not apply, or an index into DOMAIN DESCS.
+		 * @see com.planet_ink.coffee_mud.Abilities.interfaces.Ability.DOMAIN#DESCS
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#eventID()
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#miscEvent()
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#IDclassFilter()
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FactionChangeEvent#IDflagFilter()
 		 * @return -1, or a mask for an Ability domain
@@ -1203,7 +1266,7 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 
 		/**
 		 * Returns a semicolon delimited list of all the settings in this change event
-		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#createChangeEvent(String)
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction#createChangeEvent(String, String)
 		 * @return a semicolon delimited list of all the settings in this change event
 		 */
 		@Override
@@ -1246,9 +1309,14 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 		/** the code words for the various evaluation flags to decide if this event applies and other things */
 		public static final String[] FLAG_DESCS={"OUTSIDER","SELFOK","JUST100"};
 		/** the code words for the various flags to set miscellaneous change event values, such as xp grants */
-		public static final String[] FLAG_KEYVALS={"XP","RPXP"};
+		public static final String[] FLAG_KEYVALS={"XP","RPXP", "RESTIME", "ANNOUNCE"};
 		/** some non-ability-related event trigger ids */
-		public static final String[] MISC_TRIGGERS={"MURDER","TIME","ADDOUTSIDER","KILL","BRIBE","TALK","MUDCHAT","ARRESTED","SOCIAL","SINK","SUNK"};
+		public static enum MiscTrigger
+		{
+			MURDER,  TIME,  ADDOUTSIDER, KILL, BRIBE, TALK,
+			MUDCHAT, ARRESTED, SOCIAL, SINK, SUNK, AREAKILL,
+			AREAASS,  AREAEXPLORE, DYING, CMMSG
+		}
 	}
 
 	/**
@@ -1289,6 +1357,12 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 		 * @return the numerically high value of this faction range
 		 */
 		public int high();
+
+		/**
+		 * Returns the numerically median value of this faction range
+		 * @return the numerically median value of this faction range
+		 */
+		public int med();
 
 		/**
 		 * Sets the numerically high value of this faction range
@@ -1384,11 +1458,34 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 		 */
 		public boolean tick(final Tickable ticking, final int tickID);
 
+
+		/**
+		 * Returns the creation time of this data object, or the
+		 * last time the event with the given id was reset,
+		 * whichever is later.
+		 * @param eventID the event id to look for
+		 * @return the time, in ms
+		 */
+		public long getEventTime(final String eventID);
+
+		/**
+		 * Resets the event timer with the given event id to
+		 * the current time.
+		 * @param eventID the event id to reset the timer for
+		 */
+		public void resetEventTimers(final String eventID);
+
 		/**
 		 * Return the parent faction for which this data stands.
 		 * @return this data objects parent faction.
 		 */
 		public Faction getFaction();
+
+		/**
+		 * Returns the current faction range for the current value.
+		 * @return the current faction range for the current value.
+		 */
+		public FRange getRange();
 
 		/**
 		 * Returns the actual value that the holding object has in this faction.
@@ -1401,6 +1498,20 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 		 * @param newValue the faction value
 		 */
 		public void setValue(int newValue);
+
+		/**
+		 * Returns the counter value for the given key/event id
+		 * @param key the event id
+		 * @return the counter value
+		 */
+		public int getCounter(final String key);
+
+		/**
+		 * Sets the counter value for the given key/event id
+		 * @param key the counter key/event id
+		 * @param newValue the counter value
+		 */
+		public void setCounter(final String key, int newValue);
 
 		/**
 		 * Clears and re-adds all the necessary message listeners and tickers
@@ -1450,11 +1561,11 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 		 * Sets the ability usage masks and methods from an ability id, domain, flags, etc.
 		 * Parses the string sent to set many of the methods below.
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#abilityFlags()
-		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#notflag()
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#notFlagsBitmap()
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#possibleAbilityID()
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#type()
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#domain()
-		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#flag()
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#flagsBitmap()
 		 * @param str the ability usage mask
 		 * @return A vector of words inside the given string that are not valid or were not understood.
 		 */
@@ -1463,20 +1574,20 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 		/**
 		 * A bitmask of ability flags that must NOT be set for this usage to apply to an ability
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#abilityFlags()
-		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#flag()
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#flagsBitmap()
 		 * @see com.planet_ink.coffee_mud.Abilities.interfaces.Ability#FLAG_DESCS
 		 * @return a bitmask of Ability flags that must not be set by the ability
 		 */
-		public long notflag();
+		public long notFlagsBitmap();
 
 		/**
 		 * A bitmask of ability flags that MUST be set for this usage to apply to an ability
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#abilityFlags()
-		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#notflag()
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#notFlagsBitmap()
 		 * @see com.planet_ink.coffee_mud.Abilities.interfaces.Ability#FLAG_DESCS
 		 * @return a bitmask of Ability flags that must be set by the ability
 		 */
-		public long flag();
+		public long flagsBitmap();
 
 		/**
 		 * Whether the abilityFlags() method is possibly a specific Ability ID
@@ -1489,7 +1600,7 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 		/**
 		 * An ability code that an ability must be in order for this usage to apply, or -1
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#abilityFlags()
-		 * @see com.planet_ink.coffee_mud.Abilities.interfaces.Ability#ACODE_DESCS
+		 *
 		 * @return an ability code that an ability must be in order for this usage to apply, or -1
 		 */
 		public int type();
@@ -1497,16 +1608,24 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 		/**
 		 * An ability domain that an ability must be in order for this usage to apply, or -1
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#abilityFlags()
-		 * @see com.planet_ink.coffee_mud.Abilities.interfaces.Ability#DOMAIN_DESCS
+		 *
 		 * @return an ability domain that an ability must be in order for this usage to apply, or -1
 		 */
 		public int domain();
 
 		/**
+		 * Returns whether the low()-high() ranges is negated or not.  Usually false.
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#low()
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#high()
+		 * @return true to negate the range, false not to.
+		 */
+		public boolean notRange();
+
+		/**
 		 * The minimum value that a player must have in the faction to be able to use the selected
 		 * ability referred to by the ability flags of this usage criterium.
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#abilityFlags()
-		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#setLow(int)
+		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#setLow(String)
 		 * @return a minimum faction value
 		 */
 		public int low();
@@ -1516,9 +1635,9 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 		 * ability referred to by the ability flags of this usage criterium.
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#abilityFlags()
 		 * @see com.planet_ink.coffee_mud.Common.interfaces.Faction.FAbilityUsage#low()
-		 * @param newVal a new minimum faction value
+		 * @param newVal a new minimum faction value, optionally starting with "!" to negate range
 		 */
-		public void setLow(int newVal);
+		public void setLow(String newVal);
 
 		/**
 		 * Returns the maximum value that a player must have in the faction to be able to use the selected
@@ -1725,6 +1844,11 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 		;
 		public final static Align[] alignAligns = { EVIL, NEUTRAL, GOOD};
 		public final static Align[] inclinationAligns = { CHAOTIC, MODERATE, LAWFUL};
+		public final boolean isInclination;
+		private Align()
+		{
+			isInclination=this.ordinal() >= 4;
+		}
 	}
 
 	/** String list for the valid {@link Faction#experienceFlag()} constants */
@@ -1732,52 +1856,48 @@ public interface Faction extends CMCommon, MsgListener, Contingent
 	/** String descriptions for the valid {@link Faction#experienceFlag()} constants */
 	public final static String[] EXPAFFECT_DESCS={"None","Proportional (Extreme)","Higher (mine)","Lower (mine)","Higher (other)","Lower (other)"};
 
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the NAME tag */
-	public final static int TAG_NAME=0;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the MINIMUM tag */
-	public final static int TAG_MINIMUM=1;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the MAXIMUM tag */
-	public final static int TAG_MAXIMUM=2;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the SCOREDISPLAY tag */
-	public final static int TAG_SCOREDISPLAY=3;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the SPECIALREPORTED tag */
-	public final static int TAG_SPECIALREPORTED=4;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the EDITALONE tag */
-	public final static int TAG_EDITALONE=5;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the DEFAULT tag */
-	public final static int TAG_DEFAULT=6;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the AUTODEFAULTS tag */
-	public final static int TAG_AUTODEFAULTS=7;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the AUTOCHOICES tag */
-	public final static int TAG_AUTOCHOICES=8;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the CHOICEINTRO tag */
-	public final static int TAG_CHOICEINTRO=9;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the RATEMODIFIER tag */
-	public final static int TAG_RATEMODIFIER=10;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the EXPERIENCE tag */
-	public final static int TAG_EXPERIENCE=11;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the RANGE tag */
-	public final static int TAG_RANGE_=12;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the CHANGE tag */
-	public final static int TAG_CHANGE_=13;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the ABILITY tag */
-	public final static int TAG_ABILITY_=14;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the FACTOR tag */
-	public final static int TAG_FACTOR_=15;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the RELATION tag */
-	public final static int TAG_RELATION_=16;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the SHOWINFACTIONSCMD tag */
-	public final static int TAG_SHOWINFACTIONSCMD=17;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the AFFBEHAV tag */
-	public final static int TAG_AFFBEHAV_=18;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the RELATION tag */
-	public final static int TAG_REACTION_=19;
-	/** index constant for tag names in {@link Faction#TAG_NAMES} denoting the SCOREDISPLAY tag */
-	public final static int TAG_USELIGHTREACTIONS=20;
-	/** list of valid tag names for internal faction data, retrieved by {@link Faction#getTagValue(String)} */
-	public final static String[] TAG_NAMES={"NAME","MINIMUM","MAXIMUM","SCOREDISPLAY",
-											"SPECIALREPORTED","EDITALONE","DEFAULT","AUTODEFAULTS",
-											"AUTOCHOICES","CHOICEINTRO","RATEMODIFIER","EXPERIENCE",
-											"RANGE*","CHANGE*","ABILITY*","FACTOR*","RELATION*",
-											"SHOWINFACTIONSCMD","AFFBEHAV*","REACTION*","USELIGHTREACTIONS"};
+	/**
+	 * Faction Tags are the named parameter keys found in
+	 * faction ini files, which are used to define the
+	 * faction.  Those tags ending with "_" are wildcards.
+	 * For example, RANGE_ is as RANGE*, or a parameter key
+	 * starting with RANGE.
+	 *
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public enum FacTag
+	{
+		NAME,
+		MINIMUM,
+		MAXIMUM,
+		SCOREDISPLAY,
+		SPECIALREPORTED,
+		EDITALONE,
+		DEFAULT,
+		AUTODEFAULTS,
+		AUTOCHOICES,
+		CHOICEINTRO,
+		RATEMODIFIER,
+		EXPERIENCE,
+		RANGE_,
+		CHANGE_,
+		ABILITY_,
+		FACTOR_,
+		RELATION_,
+		SHOWINFACTIONSCMD,
+		AFFBEHAV_,
+		REACTION_,
+		USELIGHTREACTIONS,
+		INHERITABLE
+		;
+		public final String maskPrefix;
+		private FacTag()
+		{
+			if(name().endsWith("_"))
+				maskPrefix=name().substring(0,name().length()-1);
+			else
+				maskPrefix=null;
+		}
+	}
 }

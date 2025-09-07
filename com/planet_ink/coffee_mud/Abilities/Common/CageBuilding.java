@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ public class CageBuilding extends Wainwrighting
 	}
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return "cagebuilding.txt";
 	}
@@ -70,7 +70,7 @@ public class CageBuilding extends Wainwrighting
 	@Override
 	protected List<List<String>> loadRecipes()
 	{
-		return super.loadRecipes(parametersFile());
+		return super.loadRecipes(getRecipeFilename());
 	}
 
 	@Override
@@ -102,7 +102,7 @@ public class CageBuilding extends Wainwrighting
 			return true;
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Build what? Enter \"buildcage list\" for a list, \"buildcage learn <item>\" to gain recipes, or \"buildcage stop\" to cancel."));
+			commonTelL(mob,"Build what? Enter \"buildcage list\" for a list, \"buildcage learn <item>\" to gain recipes, or \"buildcage stop\" to cancel.");
 			return false;
 		}
 		return super.invoke(mob,commands,givenTarget,auto,asLevel);

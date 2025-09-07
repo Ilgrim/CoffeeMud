@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Tim Kassebaum
+   Copyright 2018-2025 Tim Kassebaum
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ public class LegendaryWeaponsmithing extends Weaponsmithing implements ItemCraft
 	}
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return "legendaryweaponsmith.txt";
 	}
@@ -72,7 +72,7 @@ public class LegendaryWeaponsmithing extends Weaponsmithing implements ItemCraft
 	@Override
 	protected List<List<String>> loadRecipes()
 	{
-		return super.loadRecipes(parametersFile());
+		return super.loadRecipes(getRecipeFilename());
 	}
 
 	@Override
@@ -87,7 +87,7 @@ public class LegendaryWeaponsmithing extends Weaponsmithing implements ItemCraft
 
 	@Override
 	protected boolean autoGenInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto,
-			 					 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<Item> crafted)
+			 					 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<CraftedItem> crafted)
 	{
 		if(super.checkStop(mob, commands))
 			return true;
@@ -98,8 +98,8 @@ public class LegendaryWeaponsmithing extends Weaponsmithing implements ItemCraft
 		randomRecipeFix(mob,addRecipes(mob,loadRecipes()),commands,autoGenerate);
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Make what? Enter \"lweaponsmith list\" for a list, \"lweaponsmith info <item>\", \"lweaponsmith scan\","
-						+ " \"lweaponsmith learn <item>\", \"lweaponsmith mend <item>\", or \"lweaponsmith stop\" to cancel."));
+			commonTelL(mob,"Make what? Enter \"lweaponsmith list\" for a list, \"lweaponsmith info <item>\", \"lweaponsmith scan\","
+						+ " \"lweaponsmith learn <item>\", \"lweaponsmith mend <item>\", or \"lweaponsmith stop\" to cancel.");
 			return false;
 		}
 		return super.autoGenInvoke(mob,commands,givenTarget,auto,asLevel,autoGenerate,forceLevels,crafted);

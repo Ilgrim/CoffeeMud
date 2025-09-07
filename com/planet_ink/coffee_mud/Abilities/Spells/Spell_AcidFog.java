@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -141,7 +141,7 @@ public class Spell_AcidFog extends Spell
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		final Set<MOB> h=properTargets(mob,givenTarget,auto);
-		if(h==null)
+		if((h==null)||(h.size()==0))
 		{
 			mob.tell(L("There doesn't appear to be anyone here worth melting."));
 			return false;
@@ -154,13 +154,13 @@ public class Spell_AcidFog extends Spell
 
 		if(success)
 		{
-			if(mob.location().show(mob,null,this,somanticCastCode(mob,null,auto),auto?L("A horrendous cloud of acid appears!"):L("^S<S-NAME> incant(s) and wave(s) <S-HIS-HER> arms around.^?")))
+			if(mob.location().show(mob,null,this,somaticCastCode(mob,null,auto),auto?L("A horrendous cloud of acid appears!"):L("^S<S-NAME> incant(s) and wave(s) <S-HIS-HER> arms around.^?")))
 			{
 				for (final Object element : h)
 				{
 					final MOB target=(MOB)element;
 
-					final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),null);
+					final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),null);
 					final CMMsg msg2=CMClass.getMsg(mob,target,this,CMMsg.MSK_CAST_MALICIOUS_SOMANTIC|CMMsg.TYP_ACID|(auto?CMMsg.MASK_ALWAYS:0),null);
 					if((mob.location().okMessage(mob,msg))
 					&&(mob.location().okMessage(mob,msg2))

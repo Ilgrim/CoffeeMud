@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -196,6 +196,7 @@ public class Skill_MorseCode extends StdSkill
 					msgCode=CMMsg.MSG_OK_ACTION;
 				final CMMsg msg2=CMClass.getMsg(mob,null,this,CMMsg.NO_EFFECT,null,CMMsg.NO_EFFECT,str,msgCode,null);
 				final TrackingLibrary.TrackingFlags flags=CMLib.tracking().newFlags();
+				flags.plus(TrackingLibrary.TrackingFlag.PASSABLE);
 				if(outDoorsI!=null)
 					flags.add(TrackingFlag.OUTDOORONLY);
 				else
@@ -209,10 +210,10 @@ public class Skill_MorseCode extends StdSkill
 					msg2.setOthersMessage(L("You hear someone banging morse code on the walls in the distance."));
 				else
 				{
-					if(R.getArea() instanceof BoardableShip)
+					if(R.getArea() instanceof Boardable)
 					{
-						deckShip=((BoardableShip)R.getArea()).getShipItem();
-						if(deckShip instanceof SailingShip)
+						deckShip=((Boardable)R.getArea()).getBoardableItem();
+						if(deckShip instanceof Boardable)
 						{
 							deckArea=R.getArea();
 							deckShipRoom=CMLib.map().roomLocation(deckShip);

@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -42,6 +42,9 @@ public class StdTechItem extends StdItem implements Technical
 	{
 		return "StdTechItem";
 	}
+
+	protected String 		manufacturer	= "RANDOM";
+	protected Manufacturer  cachedManufact  = null;
 
 	public StdTechItem()
 	{
@@ -74,4 +77,29 @@ public class StdTechItem extends StdItem implements Technical
 		return TechType.GIZMO;
 	}
 
+	@Override
+	public String getManufacturerName()
+	{
+		return manufacturer;
+	}
+
+	@Override
+	public void setManufacturerName(final String name)
+	{
+		cachedManufact = null;
+		if (name != null)
+			manufacturer = name;
+	}
+
+	@Override
+	public Manufacturer getFinalManufacturer()
+	{
+		if(cachedManufact==null)
+		{
+			cachedManufact=CMLib.tech().getManufacturerOf(this,manufacturer.toUpperCase().trim());
+			if(cachedManufact==null)
+				cachedManufact=CMLib.tech().getDefaultManufacturer();
+		}
+		return cachedManufact;
+	}
 }

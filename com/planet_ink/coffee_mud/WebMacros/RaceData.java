@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -55,17 +55,18 @@ public class RaceData extends StdWebMacro
 		for(final Enumeration<Race> e=MobData.sortedRaces(httpReq);e.hasMoreElements();)
 		{
 			R2=e.nextElement();
+			final String IDlimit = (R2.isGeneric()?CMStrings.ellipse(R2.ID(),20):R2.ID());
 			R2ID="com.planet_ink.coffee_mud.Races."+R2.ID();
 			if(R2.isGeneric() && CMClass.checkForCMClass(CMObjectType.RACE,R2ID))
 			{
-				str.append("<OPTION VALUE=\""+R2.ID()+"\" "+((old.equalsIgnoreCase(R2.ID()))?"SELECTED":"")+">"+R2.ID()+" (Generic)");
-				str.append("<OPTION VALUE=\""+R2ID+"\" "+((old.equalsIgnoreCase(R2ID))?"SELECTED":"")+">"+R2ID);
+				str.append("<OPTION VALUE=\""+R2.ID()+"\" "+((old.equalsIgnoreCase(R2.ID()))?"SELECTED":"")+">"+IDlimit+" (Generic)");
+				str.append("<OPTION VALUE=\""+R2ID+"\" "+((old.equalsIgnoreCase(R2ID))?"SELECTED":"")+">"+IDlimit);
 			}
 			else
 			if(R2.isGeneric())
-				str.append("<OPTION VALUE=\""+R2.ID()+"\" "+((old.equalsIgnoreCase(R2.ID())||old.equalsIgnoreCase(R2ID))?"SELECTED":"")+">"+R2.ID()+" (Generic)");
+				str.append("<OPTION VALUE=\""+R2.ID()+"\" "+((old.equalsIgnoreCase(R2.ID())||old.equalsIgnoreCase(R2ID))?"SELECTED":"")+">"+IDlimit+" (Generic)");
 			else
-				str.append("<OPTION VALUE=\""+R2ID+"\" "+((old.equalsIgnoreCase(R2.ID())||old.equalsIgnoreCase(R2ID))?"SELECTED":"")+">"+R2ID);
+				str.append("<OPTION VALUE=\""+R2.ID()+"\" "+((old.equalsIgnoreCase(R2.ID())||old.equalsIgnoreCase(R2ID))?"SELECTED":"")+">"+IDlimit);
 		}
 		return str.toString();
 	}
@@ -271,21 +272,19 @@ public class RaceData extends StdWebMacro
 			items=new ArrayList<Item>();
 		final StringBuffer str=new StringBuffer("");
 		final List<Item> classes=new ArrayList<Item>();
-		List<Item> itemlist=null;
 		if(httpReq.isUrlParameter(c+"ITEM1"))
 		{
-			itemlist=RoomData.getItemCache();
 			for(int i=1;;i++)
 			{
 				final String MATCHING=httpReq.getUrlParameter(c+"ITEM"+i);
 				if(MATCHING==null)
 					break;
-				Item I2=RoomData.getItemFromAnywhere(itemlist,MATCHING);
+				Item I2=CMLib.webMacroFilter().findItemInWebCache(MATCHING);
 				if(I2==null)
 				{
-					I2=RoomData.getItemFromAnywhere(items,MATCHING);
+					I2=CMLib.webMacroFilter().findItemInAnything(items,MATCHING);
 					if(I2!=null)
-						RoomData.contributeItems(new XVector<Item>(I2));
+						CMLib.webMacroFilter().contributeItemsToWebCache(new XVector<Item>(I2));
 				}
 				if(I2!=null)
 					classes.add(I2);
@@ -296,7 +295,7 @@ public class RaceData extends StdWebMacro
 		else
 		{
 			classes.addAll(items);
-			itemlist=RoomData.contributeItems(classes);
+			CMLib.webMacroFilter().contributeItemsToWebCache(classes);
 		}
 		str.append("<TABLE WIDTH=100% BORDER=\""+borderSize+"\" CELLSPACING=0 CELLPADDING=0>");
 		int numItems=0;
@@ -311,33 +310,34 @@ public class RaceData extends StdWebMacro
 			if(!one)
 				str.append("<OPTION VALUE=\"\">Delete!");
 			if(items.contains(I))
-				str.append("<OPTION SELECTED VALUE=\""+RoomData.getItemCode(classes,I)+"\">"+I.Name()+" ("+I.ID()+")");
+				str.append("<OPTION SELECTED VALUE=\""+CMLib.webMacroFilter().findItemWebCacheCode(classes,I)+"\">"+I.Name()+" ("+I.ID()+")");
 			else
-			if(itemlist.contains(I))
+			if(CMLib.webMacroFilter().isWebCachedItem(I))
 				str.append("<OPTION SELECTED VALUE=\""+I+"\">"+I.Name()+" ("+I.ID()+")");
 			else
 				str.append("<OPTION SELECTED VALUE=\""+I.ID()+"\">"+I.Name()+" ("+I.ID()+")");
 			str.append("</SELECT>");
 			str.append("</TD>");
 			str.append("<TD WIDTH=10%>");
-			str.append("<INPUT TYPE=BUTTON NAME="+c+"EDITITEM"+(i+1)+" VALUE=EDIT ONCLICK=\"EditItem('"+RoomData.getItemCode(classes,I)+"','"+c+"ITEM"+(numItems)+"');\">");
+			if(I.isGeneric())
+				str.append("<INPUT TYPE=BUTTON NAME="+c+"EDITITEM"+(i+1)+" VALUE=EDIT ONCLICK=\"EditItem('"+CMLib.webMacroFilter().findItemWebCacheCode(classes,I)+"','"+c+"ITEM"+(numItems)+"');\">");
 			str.append("</TD></TR>");
 		}
 		str.append("<TR><TD WIDTH=90%>");
 		str.append("<SELECT ONCHANGE=\"AddItem(this);\" NAME="+c+"ITEM"+(numItems+1)+">");
 		if(!one)
 			str.append("<OPTION SELECTED VALUE=\"\">Select a new Item");
-		for(final Item I : itemlist)
+		for(final Item I : CMLib.webMacroFilter().getItemWebCacheIterable())
 		{
 			if(one&&(classes.contains(I)))
 			{
 				if(items.contains(I))
-					str.append("<OPTION SELECTED VALUE=\""+RoomData.getItemCode(classes,I)+"\">"+I.Name()+" ("+I.ID()+")");
+					str.append("<OPTION SELECTED VALUE=\""+CMLib.webMacroFilter().findItemWebCacheCode(classes,I)+"\">"+I.Name()+" ("+I.ID()+")");
 				else
 					str.append("<OPTION SELECTED VALUE=\""+I+"\">"+I.Name()+" ("+I.ID()+")");
 			}
 			else
-				str.append("<OPTION VALUE=\""+I+"\">"+I.Name()+RoomData.getObjIDSuffix(I));
+				str.append("<OPTION VALUE=\""+I+"\">"+I.Name()+CMLib.webMacroFilter().getWebCacheSuffix(I));
 		}
 		if(one)
 		{
@@ -426,14 +426,15 @@ public class RaceData extends StdWebMacro
 		}
 		else
 		{
-			QuadVector<String,Integer,Integer,Boolean> cables;
+			QuintVector<String,Integer,Integer,Boolean,String> cables;
 			if(obj instanceof Race)
 				cables=((Race)obj).culturalAbilities();
 			else
-				cables=new QuadVector<String,Integer,Integer,Boolean>();
+				cables=new QuintVector<String,Integer,Integer,Boolean,String>(1);
 			for (final Ability A : ables)
 			{
-				if((A!=null)&&(!cables.containsFirst(A.ID())))
+				if((A!=null)
+				&&(!cables.containsFirst(A.ID())))
 				{
 					final AbilityMapper.AbilityMapping ableMap=CMLib.ableMapper().getAbleMap(ID, A.ID());
 					final boolean defaultGain = ableMap.autoGain();
@@ -701,7 +702,7 @@ public class RaceData extends StdWebMacro
 	public static StringBuffer cabilities(final Race E, final HTTPRequest httpReq, final java.util.Map<String,String> parms, final int borderSize, String font)
 	{
 		final StringBuffer str=new StringBuffer("");
-		final QuadVector<String,Integer,Integer,Boolean> theclasses=new QuadVector<String,Integer,Integer,Boolean>();
+		final QuintVector<String,Integer,Integer,Boolean,String> theclasses=new QuintVector<String,Integer,Integer,Boolean,String>();
 		if(httpReq.isUrlParameter("CABLES1"))
 		{
 			int num=1;
@@ -719,7 +720,14 @@ public class RaceData extends StdWebMacro
 					String levl=httpReq.getUrlParameter("CABLVL"+num);
 					if(levl==null)
 						levl="0";
-					theclasses.addElement(behav,Integer.valueOf(CMath.s_int(prof)),Integer.valueOf(CMath.s_int(levl)),qual.equals("on")?Boolean.TRUE:Boolean.FALSE);
+					String parm=httpReq.getUrlParameter("CABPRM"+num);
+					if(parm==null)
+						parm="";
+					theclasses.addElement(behav,
+							Integer.valueOf(CMath.s_int(prof)),
+							Integer.valueOf(CMath.s_int(levl)),
+							qual.equals("on")?Boolean.TRUE:Boolean.FALSE,
+							parm);
 				}
 				num++;
 				behav=httpReq.getUrlParameter("CABLES"+num);
@@ -728,7 +736,7 @@ public class RaceData extends StdWebMacro
 		else
 		{
 			theclasses.addAll(E.culturalAbilities());
-			for(final Quad<String,Integer,Integer,Boolean> Q : theclasses)
+			for(final Quint<String,Integer,Integer,Boolean,String> Q : theclasses)
 				Q.fourth = Boolean.valueOf(!Q.fourth.booleanValue());
 		}
 		if(font==null)
@@ -753,6 +761,9 @@ public class RaceData extends StdWebMacro
 			str.append("<INPUT TYPE=CHECKBOX NAME=CABQUA"+(i+1)+" "+(theclasses.elementAt(i).fourth.booleanValue()?"CHECKED":"")+">"+font+"Qualify Only</B></FONT></I>&nbsp;");
 			str.append("</TD>");
 			str.append("</TR>");
+			str.append("<TR><TD WIDTH=35%>&nbsp;</TD><TD COLSPAN=3>");
+			str.append(font+"Parms:</B></FONT> <INPUT TYPE=TEXT NAME=CABPRM"+(i+1)+" VALUE=\""+(theclasses.elementAt(i).fifth)+"\" SIZE=40 MAXLENGTH=100>");
+			str.append("</TD></TR>");
 		}
 		str.append("<TR><TD WIDTH=35%>");
 		str.append("<SELECT ONCHANGE=\"AddAffect(this);\" NAME=CABLES"+(theclasses.size()+1)+">");
@@ -776,6 +787,9 @@ public class RaceData extends StdWebMacro
 		str.append("<INPUT TYPE=CHECKBOX NAME=CABQUA"+i+" >"+font+"Qualify Only</B></FONT></I>&nbsp;");
 		str.append("</TD>");
 		str.append("</TR>");
+		str.append("<TR><TD WIDTH=35%>&nbsp;</TD><TD COLSPAN=3>");
+		str.append(font+"Parms:</B></FONT> <INPUT TYPE=TEXT NAME=CABPRM"+i+" VALUE=\"\" SIZE=40 MAXLENGTH=100>");
+		str.append("</TD></TR>");
 		str.append("</TABLE>");
 		return str;
 	}
@@ -830,13 +844,13 @@ public class RaceData extends StdWebMacro
 				final StringBuffer str=new StringBuffer("");
 				if(parms.containsKey("HELP"))
 				{
-					StringBuilder s=CMLib.help().getHelpText(R.ID(),null,false,true);
+					String s=CMLib.help().getHelpText(R.ID(),null,false,true);
 					if(s==null)
 						s=CMLib.help().getHelpText(R.name(),null,false,true);
 					if(s!=null)
 					{
 						if(s.toString().startsWith("<RACE>"))
-							s=new StringBuilder(s.toString().substring(6));
+							s=s.toString().substring(6);
 						int limit=78;
 						if(parms.containsKey("LIMIT"))
 							limit=CMath.s_int(parms.get("LIMIT"));
@@ -925,7 +939,7 @@ public class RaceData extends StdWebMacro
 				}
 				if(parms.containsKey("GENHELP"))
 				{
-					String old=httpReq.getUrlParameter("GENHELP");
+					String old=CMStrings.fixMudCRLF(httpReq.getUrlParameter("GENHELP"));
 					if(old==null)
 					{
 						R=R.makeGenRace();
@@ -1096,7 +1110,7 @@ public class RaceData extends StdWebMacro
 				if(parms.containsKey("PLAYABLE"))
 					str.append(Area.THEME_PHRASE_EXT[R.availabilityCode()]+", ");
 				if(parms.containsKey("NATURALWEAPON"))
-					str.append(R.myNaturalWeapon().name()+", ");
+					str.append(R.getNaturalWeapon().name()+", ");
 
 				if(parms.containsKey("STATS"))
 					str.append(R.getStatAdjDesc()+", ");
@@ -1161,8 +1175,8 @@ public class RaceData extends StdWebMacro
 					str.append(itemList(R.outfit(null),'O',httpReq,parms,0,false)+", ");
 				if(parms.containsKey("WEAPON"))
 				{
-					final List<Item> V=new XVector<Item>(R.myNaturalWeapon());
-					str.append(itemList(V,'W',httpReq,parms,0,true)+", ");
+					final List<Item> V=new XVector<Item>(R.getNaturalWeapons());
+					str.append(itemList(V,'W',httpReq,parms,0,false)+", ");
 				}
 				if(parms.containsKey("RESOURCES"))
 					str.append(itemList(R.myResources(),'R',httpReq,parms,0,false)+", ");
@@ -1275,7 +1289,7 @@ public class RaceData extends StdWebMacro
 						for(final Item I : R.outfit(null))
 						{
 							if(I!=null)
-								str.append(I.Name()+", ");
+								str.append(super.helpHelp(I.Name())+", ");
 						}
 					}
 				}
@@ -1286,7 +1300,8 @@ public class RaceData extends StdWebMacro
 						final CharClass C=c.nextElement();
 						if((C!=null)
 						&&(CMProps.isTheme(C.availabilityCode()))
-						&&(!CMath.bset(C.availabilityCode(), Area.THEME_SKILLONLYMASK))
+						&&((!CMath.bset(C.availabilityCode(), Area.THEME_SKILLONLYMASK))||CMSecurity.isCharClassEnabled(C.ID()))
+						&&(!CMSecurity.isCharClassDisabled(C.ID()))
 						&&(C.isAllowedRace(R)))
 							str.append(C.name()+", ");
 					}

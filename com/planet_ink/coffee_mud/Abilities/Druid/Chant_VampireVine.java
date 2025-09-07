@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -110,10 +110,13 @@ public class Chant_VampireVine extends Chant_SummonVine
 		final MOB victim=caster.getVictim();
 		final MOB newMOB=CMClass.getMOB("GenMOB");
 		int level=adjustedLevel(caster,0);
+		final int altLevel = (caster.phyStats().level()-5)+(super.getXLEVELLevel(caster)/2);
+		if(altLevel > level)
+			level = altLevel;
 		if(level<1)
 			level=1;
 		newMOB.basePhyStats().setLevel(level);
-		newMOB.basePhyStats().setAbility(19);
+		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase()+8);
 		newMOB.baseCharStats().setMyRace(CMClass.getRace("Vine"));
 		final String name="a vampire vine";
 		newMOB.setName(name);
@@ -132,7 +135,9 @@ public class Chant_VampireVine extends Chant_SummonVine
 		newMOB.basePhyStats().setAttackAdjustment(10+(level));
 		newMOB.basePhyStats().setArmor(100-(30+(level/2)));
 		newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'N');
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		newMOB.setMiscText(newMOB.text());
 		newMOB.recoverCharStats();
 		newMOB.recoverPhyStats();

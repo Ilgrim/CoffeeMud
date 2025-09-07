@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -109,10 +109,14 @@ public class Chant_SpeedTime extends Chant
 						final MOB M=m.nextElement();
 						if(M!=null)
 						{
-							if(M.getAgeMinutes()>=0)
+							synchronized(M)
 							{
-								oldAges.put(M, Long.valueOf(M.getAgeMinutes()));
-								M.setAgeMinutes(-1000);
+								final long ageMin = M.getAgeMinutes();
+								if(ageMin >=0)
+								{
+									oldAges.put(M, Long.valueOf(ageMin));
+									M.setAgeMinutes(-ageMin);
+								}
 							}
 						}
 					}

@@ -17,7 +17,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class HideoutShelter extends MagicShelter
 		name="the hideout";
 		displayText=L("Secret Hideout");
 		setDescription("You are in a small dark room.");
-		basePhyStats.setWeight(0);
+		setMovementCost(0);
 		basePhyStats.setDisposition(PhyStats.IS_DARK);
 		recoverPhyStats();
 		Ability A=CMClass.getAbility("Prop_PeaceMaker");

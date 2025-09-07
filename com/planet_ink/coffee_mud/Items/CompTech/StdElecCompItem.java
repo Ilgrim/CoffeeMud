@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@ public class StdElecCompItem extends StdElecItem implements TechComponent
 
 	protected float				installedFactor	= 1.0f;
 	protected volatile String	circuitKey		= null;
+	protected TechCommand[]		listenForCmds	= null;
 
 	public StdElecCompItem()
 	{
@@ -117,6 +118,11 @@ public class StdElecCompItem extends StdElecItem implements TechComponent
 		return false;
 	}
 
+	protected boolean requiresPower()
+	{
+		return true;
+	}
+
 	protected static final boolean isThisPanelActivated(final ElecPanel E)
 	{
 		if (!E.activated())
@@ -153,11 +159,11 @@ public class StdElecCompItem extends StdElecItem implements TechComponent
 		super.setOwner(newOwner);
 		if(prevOwner != newOwner)
 		{
-			if(newOwner instanceof Room)
-				circuitKey=CMLib.tech().registerElectrics(this,circuitKey);
+			if(newOwner instanceof Room) //TODO: this shouldn't be enough -- installation should be required!
+				circuitKey=CMLib.tech().registerElectrics(this, circuitKey, listenForCmds);
 			else
 			{
-				CMLib.tech().unregisterElectronics(this,circuitKey);
+				CMLib.tech().unregisterElectronics(this, circuitKey);
 				circuitKey=null;
 			}
 		}
@@ -190,7 +196,9 @@ public class StdElecCompItem extends StdElecItem implements TechComponent
 					return false;
 				}
 				else
-				if((!isAllWiringHot(this))&&(!(this instanceof ElecPanel)))
+				if((!isAllWiringHot(this))
+				&&(!(this instanceof ElecPanel))
+				&&(!(this instanceof Weapon)))
 				{
 					if(!CMath.bset(msg.targetMajor(), CMMsg.MASK_CNTRLMSG))
 						msg.source().tell(L("The panel containing @x1 is not activated or connected.",name()));
@@ -232,12 +240,12 @@ public class StdElecCompItem extends StdElecItem implements TechComponent
 				setInstalledFactor((float)CMath.div(msg.value(),100.0));
 				break;
 			case CMMsg.TYP_ACTIVATE: // sometimes one triggers many acts in other places, but you don't want many msgs.
-				if((msg.source().location() != null)&&(!CMath.bset(msg.targetMajor(), CMMsg.MASK_CNTRLMSG)))
+				if((msg.source().location() != null)&&(!CMath.bset(msg.targetMajor(), CMMsg.MASK_CNTRLMSG))&&(requiresPower()))
 					msg.source().location().show(msg.source(), this, CMMsg.MSG_OK_VISUAL, L("<S-NAME> activate(s) <T-NAME>."));
 				this.activate(true);
 				break;
 			case CMMsg.TYP_DEACTIVATE:
-				if((msg.source().location() != null)&&(!CMath.bset(msg.targetMajor(), CMMsg.MASK_CNTRLMSG)))
+				if((msg.source().location() != null)&&(!CMath.bset(msg.targetMajor(), CMMsg.MASK_CNTRLMSG))&&(requiresPower()))
 					msg.source().location().show(msg.source(), this, CMMsg.MSG_OK_VISUAL, L("<S-NAME> deactivate(s) <T-NAME>."));
 				this.activate(false);
 				break;
@@ -248,18 +256,29 @@ public class StdElecCompItem extends StdElecItem implements TechComponent
 					{
 						final Room R=CMLib.map().roomLocation(this);
 						final CMMsg msg2=CMClass.getMsg(msg.source(), CMMsg.MSG_DEACTIVATE, L("@x1 sparks and fizzes out.",name()));
-						if((R!=null)&&(R.okMessage(msg.source(), msg2)))
+						if((R!=null)
+						&&(R.okMessage(msg.source(), msg2)))
+						{
 							R.send(msg.source(), msg2);
+							setUsesRemaining(0);
+						}
 					}
 					else
 					{
-						this.setUsesRemaining(this.usesRemaining()-msg.value());
+						final Room R=CMLib.map().roomLocation(this);
+						final CMMsg msg2=CMClass.getMsg(msg.source(), CMMsg.MSG_OK_VISUAL, L("@x1 sparks.",name()));
+						if((R!=null)
+						&&(R.okMessage(msg.source(), msg2)))
+						{
+							R.send(msg.source(), msg2);
+							setUsesRemaining(this.usesRemaining()-msg.value());
+						}
 					}
 				}
 				break;
-			case CMMsg.TYP_LOOK:
-				super.executeMsg(host, msg);
-				if(CMLib.flags().canBeSeenBy(this, msg.source()))
+			case CMMsg.TYP_EXAMINE:
+				super.executeMsg(host, msg); // this line is why the return below is OK
+				if(CMLib.flags().canBeSeenBy(this, msg.source())&&(this.requiresPower()))
 					msg.source().tell(L("@x1 is currently @x2",name(),(activated()?"connected.\n\r":"deactivated/disconnected.\n\r")));
 				return;
 			case CMMsg.TYP_REPAIR:

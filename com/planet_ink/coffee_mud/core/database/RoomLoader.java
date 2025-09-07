@@ -1,6 +1,8 @@
 package com.planet_ink.coffee_mud.core.database;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMProps.Bool;
+import com.planet_ink.coffee_mud.core.CMProps.HostState;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.core.database.DBConnector.DBPreparedBatchEntry;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -12,6 +14,8 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.DatabaseEngine.ReadRoomDisableFlag;
+import com.planet_ink.coffee_mud.Libraries.interfaces.DatabaseEngine.RoomContent;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -20,7 +24,7 @@ import java.sql.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -47,6 +51,10 @@ public class RoomLoader
 	}
 
 	private final static String zeroes="000000000000";
+
+	private final static Set<ReadRoomDisableFlag> noStatusReadRoomFlags=new XHashSet<ReadRoomDisableFlag>(ReadRoomDisableFlag.STATUS);
+	private final static Set<ReadRoomDisableFlag> noLiveReadRoomFlags=new XHashSet<ReadRoomDisableFlag>(ReadRoomDisableFlag.LIVE);
+	private final static Set<ReadRoomDisableFlag> allEnabledReadRoomFlags=new XHashSet<ReadRoomDisableFlag>();
 
 	protected static class StuffClass
 	{
@@ -114,7 +122,10 @@ public class RoomLoader
 			while(R.next())
 			{
 				final String areaName=DBConnections.getRes(R,"CMAREA");
+				final String oldName = A.Name();
 				A.setName(areaName);
+				if(!oldName.equals(areaName))
+					CMLib.map().renamedArea(A);
 				A.setClimateType((int)DBConnections.getLongRes(R,"CMCLIM"));
 				A.setSubOpList(DBConnections.getRes(R,"CMSUBS"));
 				A.setDescription(DBConnections.getRes(R,"CMDESC"));
@@ -150,7 +161,7 @@ public class RoomLoader
 
 		DBReadRoomExits(null,rooms,false,unloadedRooms);
 
-		DBReadContent(null,null,rooms,unloadedRooms,false,true);
+		DBReadContent(null,null,rooms,unloadedRooms,noStatusReadRoomFlags);
 
 		for(final Map.Entry<String,Room> entry : rooms.entrySet())
 		{
@@ -331,37 +342,210 @@ public class RoomLoader
 		return new Room[0];
 	}
 
-	private void populateRoomInnerFields(final ResultSet R, final Room newRoom) throws SQLException
+	private void populateRoomInnerFields(final ResultSet R, final Room newRoom, final boolean buildXML) throws SQLException
 	{
 		newRoom.setDisplayText(DBConnections.getRes(R,"CMDESC1"));
 		if(CMProps.getBoolVar(CMProps.Bool.ROOMDNOCACHE))
 			newRoom.setDescription("");
 		else
 			newRoom.setDescription(DBConnections.getRes(R,"CMDESC2"));
-		newRoom.setMiscText(DBConnections.getRes(R,"CMROTX"));
+		if(buildXML)
+			newRoom.setMiscText(DBConnections.getRes(R,"CMROTX"));
+	}
+
+	protected Map<Integer,Pair<String,String>> readRoomExitIDsMap(final String roomID)
+	{
+		final Map<Integer,Pair<String,String>> exitIDs = new TreeMap<Integer,Pair<String,String>>();
+		DBConnection D=null;
+		// now grab the exits
+		try
+		{
+			D=DB.DBFetch();
+			final ResultSet R=D.query("SELECT CMDIRE, CMNRID, CMEXID FROM CMROEX WHERE CMROID='"+DB.injectionClean(roomID)+"'");
+			while(R.next())
+			{
+				final int direction=(int)DBConnections.getLongRes(R,"CMDIRE");
+				final String exitID=DBConnections.getRes(R,"CMEXID");
+				final String nextRoomID=DBConnections.getRes(R,"CMNRID");
+				exitIDs.put(Integer.valueOf(direction), new Pair<String,String>(exitID,nextRoomID));
+			}
+		}
+		catch(final SQLException sqle)
+		{
+			Log.errOut("Room",sqle);
+		}
+		finally
+		{
+			DB.DBDone(D);
+		}
+		return exitIDs;
+	}
+
+	public Map<Integer,Pair<String,String>> DBReadIncomingRoomExitIDsMap(final String roomID)
+	{
+		final Map<Integer,Pair<String,String>> exitIDs = new TreeMap<Integer,Pair<String,String>>();
+		DBConnection D=null;
+		// now grab the exits
+		try
+		{
+			D=DB.DBFetch();
+			final ResultSet R=D.query("SELECT CMDIRE, CMEXID, CMROID FROM CMROEX WHERE CMNRID='"+DB.injectionClean(roomID)+"'");
+			while(R.next())
+			{
+				final int direction=(int)DBConnections.getLongRes(R,"CMDIRE");
+				final String exitID=DBConnections.getRes(R,"CMEXID");
+				final String froomID=DBConnections.getRes(R,"CMROID");
+				exitIDs.put(Integer.valueOf(direction), new Pair<String,String>(froomID,exitID));
+			}
+		}
+		catch(final SQLException sqle)
+		{
+			Log.errOut("Room",sqle);
+		}
+		finally
+		{
+			DB.DBDone(D);
+		}
+		return exitIDs;
+	}
+
+	protected Pair<String,String>[] getRoomExitIDs(final String roomID)
+	{
+		@SuppressWarnings("unchecked")
+		final Pair<String,String>[] exits = new Pair[Directions.NUM_DIRECTIONS()];
+		final Map<Integer,Pair<String,String>> ids = readRoomExitIDsMap(roomID);
+		for(final Integer dirI : ids.keySet())
+		{
+			if((dirI.intValue()>=0)
+			&&(dirI.intValue()<Directions.NUM_DIRECTIONS()))
+				exits[dirI.intValue()] = ids.get(dirI);
+		}
+		return exits;
+	}
+
+	public Set<String> DBReadAffectedRoomIDs(final Area parentA, final boolean metro, final String[] propIDs, final String[] propArgs)
+	{
+		final Set<String> ids = Collections.synchronizedSet(new TreeSet<String>());
+		String commonPrefix;
+		String commonSuffix;
+		if((propIDs != null)&&(propIDs.length>0))
+		{
+			commonPrefix = propIDs[0].toLowerCase();
+			commonSuffix = propIDs[0].toLowerCase();
+			for(int i=1;i<propIDs.length;i++)
+			{
+				while((commonPrefix.length()>0)&&(!propIDs[i].toLowerCase().startsWith(commonPrefix)))
+					commonPrefix = commonPrefix.substring(0,commonPrefix.length()-1);
+				while((commonSuffix.length()>0)&&(!propIDs[i].toLowerCase().endsWith(commonSuffix)))
+					commonSuffix = commonSuffix.substring(1);
+			}
+		}
+		else
+		{
+			commonPrefix="";
+			commonSuffix="";
+		}
+		DBConnection D=null;
+		try
+		{
+			D=DB.DBFetch();
+			final StringBuilder sql = new StringBuilder("SELECT CMROID,CMROTX FROM CMROOM WHERE ");
+			boolean needAnd = false;
+			if(parentA!=null)
+			{
+				sql.append("(");
+				final Stack<Area> areasToDo = new Stack<Area>();
+				areasToDo.add(parentA);
+				while(areasToDo.size()>0)
+				{
+					final Area A1 = areasToDo.pop();
+					if(A1 != parentA)
+						sql.append(" OR ");
+					sql.append("CMAREA = '"+DB.injectionClean(A1.Name())+"'");
+					if(metro)
+					{
+						for(final Enumeration<Area> ac = A1.getChildren();ac.hasMoreElements();)
+							areasToDo.push(ac.nextElement());
+					}
+				}
+				sql.append(") ");
+				needAnd = true;
+			}
+			if((commonPrefix.length()>0)||(commonSuffix.length()>0))
+			{
+				if(needAnd)
+					sql.append("AND ");
+				if(commonPrefix.length()>0)
+				{
+					sql.append("CMROTX LIKE '%<ACLASS>"+DB.injectionClean(commonPrefix)+"%'");
+					if(commonSuffix.length()>0)
+						sql.append(" AND CMROTX LIKE '%"+DB.injectionClean(commonSuffix)+"</ACLASS>%'");
+				}
+				else
+				if(commonSuffix.length()>0)
+					sql.append("CMROTX LIKE '%"+DB.injectionClean(commonSuffix)+"%'");
+				needAnd = true;
+			}
+			if(propArgs != null)
+			{
+				for(int i=0;i<propArgs.length;i++)
+				{
+					if(needAnd)
+						sql.append("AND ");
+					sql.append("CMROTX LIKE '%"+DB.injectionClean(propArgs[i])+"%'");
+					needAnd = true;
+				}
+			}
+			final ResultSet R=D.query(sql.toString());
+			while(R.next())
+			{
+				final String text = R.getString("CMROTX");
+				if((propIDs!=null) && (CMStrings.indexOfAny(text, propIDs)>=0))
+					ids.add(R.getString("CMROID"));
+			}
+		}
+		catch(final SQLException sqle)
+		{
+			Log.errOut("Room",sqle);
+		}
+		finally
+		{
+			DB.DBDone(D);
+		}
+		return ids;
+	}
+
+	private Room buildRoomObject(final ResultSet R, final boolean buildXML) throws SQLException
+	{
+		final String roomID=DBConnections.getRes(R,"CMROID");
+		final String localeID=DBConnections.getRes(R,"CMLOID");
+		//String areaName=DBConnections.getRes(R,"CMAREA");
+		final Room newRoom=CMClass.getLocale(localeID);
+		if(newRoom==null)
+			Log.errOut("Room","Couldn't load room '"+roomID+"', localeID '"+localeID+"'.");
+		else
+		{
+			newRoom.setRoomID(roomID);
+			populateRoomInnerFields(R,newRoom,buildXML);
+		}
+		return newRoom;
 	}
 
 	private List<Room> buildRoomObjects(final DBConnection D, final ResultSet R, final boolean reportStatus) throws SQLException
 	{
-		recordCount=DB.getRecordCount(D,R);
-		updateBreak=CMath.s_int("1"+zeroes.substring(0,(""+(recordCount/100)).length()-1));
-		String roomID=null;
+		if(reportStatus)
+		{
+			recordCount=DB.getRecordCount(D,R);
+			updateBreak=CMath.s_int("1"+zeroes.substring(0,(""+(recordCount/100)).length()-1));
+		}
 		final List<Room> rooms=new Vector<Room>();
 		while(R.next())
 		{
-			currentRecordPos=R.getRow();
-			roomID=DBConnections.getRes(R,"CMROID");
-			final String localeID=DBConnections.getRes(R,"CMLOID");
-			//String areaName=DBConnections.getRes(R,"CMAREA");
-			final Room newRoom=CMClass.getLocale(localeID);
-			if(newRoom==null)
-				Log.errOut("Room","Couldn't load room '"+roomID+"', localeID '"+localeID+"'.");
-			else
-			{
-				newRoom.setRoomID(roomID);
-				populateRoomInnerFields(R,newRoom);
+			if(reportStatus)
+				currentRecordPos=R.getRow();
+			final Room newRoom = this.buildRoomObject(R,true);
+			if(newRoom != null)
 				rooms.add(newRoom);
-			}
 			if(((currentRecordPos%updateBreak)==0)&&(reportStatus))
 				CMProps.setUpLowVar(CMProps.Str.MUDSTATUS,"Booting: Loading Rooms ("+currentRecordPos+" of "+recordCount+")");
 		}
@@ -378,7 +562,7 @@ public class RoomLoader
 			D=DB.DBFetch();
 			final ResultSet R=D.query("SELECT * FROM CMROOM WHERE CMROID='"+room.roomID()+"'");
 			if(R.next())
-				populateRoomInnerFields(R, room);
+				populateRoomInnerFields(R, room,true);
 			else
 				return false;
 		}
@@ -394,7 +578,7 @@ public class RoomLoader
 		return true;
 	}
 
-	public Room DBReadRoomObject(final String roomIDtoLoad, final boolean reportStatus)
+	public Room DBReadRoomObject(final String roomIDtoLoad, final boolean buildXML, final boolean reportStatus)
 	{
 		DBConnection D=null;
 		try
@@ -403,9 +587,8 @@ public class RoomLoader
 			if(reportStatus)
 				CMProps.setUpLowVar(CMProps.Str.MUDSTATUS,"Booting: Counting Rooms");
 			final ResultSet R=D.query("SELECT * FROM CMROOM WHERE CMROID='"+roomIDtoLoad+"'");
-			final List<Room> rooms=buildRoomObjects(D,R,reportStatus);
-			if(rooms.size()>0)
-				return rooms.get(0);
+			if(R.next())
+				return buildRoomObject(R,buildXML);
 		}
 		catch(final SQLException sqle)
 		{
@@ -516,6 +699,7 @@ public class RoomLoader
 
 	public void DBReadRoomExits(String roomID, final Map<String, Room> allRooms, final boolean reportStatus, final RoomnumberSet unloadedRooms)
 	{
+		final List<String> badRoomIDs=new LinkedList<String>();
 		DBConnection D=null;
 		// now grab the exits
 		try
@@ -537,7 +721,13 @@ public class RoomLoader
 				if(thisRoom==null)
 				{
 					if((unloadedRooms!=null)&&(!unloadedRooms.contains(roomID)))
-						Log.errOut("Room","Couldn't set "+direction+" exit for unknown room '"+roomID+"'");
+					{
+						if((!CMProps.isState(HostState.RUNNING))
+						&&(!CMProps.isState(HostState.SHUTTINGDOWN)))
+							badRoomIDs.add(roomID);
+						else
+							Log.errOut("Room","Couldn't set "+direction+" exit for unknown room '"+roomID+"'");
+					}
 				}
 				else
 				{
@@ -599,7 +789,11 @@ public class RoomLoader
 						}
 						else
 						if(!nextRoomID.startsWith("#"))
+						{
 							Log.errOut("RoomLoader","Unknown unlinked room #"+nextRoomID+" in "+roomID);
+							if(CMSecurity.isDisabled(CMSecurity.DisFlag.BADEXITS))
+								DB.update("DELETE FROM CMROEX WHERE ROOMID='"+roomID+"' AND CMDIRE="+direction);
+						}
 						else
 						if(newExit!=null)
 							newExit.setTemporaryDoorLink(nextRoomID);
@@ -632,8 +826,8 @@ public class RoomLoader
 							((GridLocale)thisRoom).addOuterExit(CE);
 							if((!CE.out)&&(!(newRoom instanceof GridLocale)))
 							{
-								newRoom.rawDoors()[CE.dir]=thisRoom;
 								newRoom.setRawExit(CE.dir,CMClass.getExit("Open"));
+								newRoom.rawDoors()[CE.dir]=thisRoom;
 							}
 						}
 					}
@@ -648,8 +842,8 @@ public class RoomLoader
 							Log.errOut("RoomLoader",CMLib.map().getExtendedRoomID(thisRoom)+" has an invalid direction #"+direction);
 						else
 						{
-							thisRoom.rawDoors()[direction]=newRoom;
 							thisRoom.setRawExit(direction,newExit);
+							thisRoom.rawDoors()[direction]=newRoom;
 							CMLib.map().registerWorldObjectLoaded(thisRoom.getArea(), newRoom, newExit);
 						}
 					}
@@ -665,6 +859,11 @@ public class RoomLoader
 		finally
 		{
 			DB.DBDone(D);
+		}
+		for(final String badRoomId : badRoomIDs)
+		{
+			Log.errOut("RoomLoader","Deleted exits for unknown room #"+badRoomId);
+			DB.update("DELETE FROM CMROEX WHERE CMROID='"+badRoomId+"'");
 		}
 	}
 
@@ -698,7 +897,8 @@ public class RoomLoader
 
 		DBReadRoomExits(null,rooms,set==null,unloadedRooms);
 
-		DBReadContent(null,null,rooms,unloadedRooms,set==null,true);
+		final Set<ReadRoomDisableFlag> flags=(set == null) ? RoomLoader.allEnabledReadRoomFlags : RoomLoader.noStatusReadRoomFlags;
+		DBReadContent(null,null,rooms,unloadedRooms,flags);
 
 		if(set==null)
 			CMProps.setUpLowVar(CMProps.Str.MUDSTATUS,"Booting: Finalizing room data");
@@ -771,6 +971,105 @@ public class RoomLoader
 		return null;
 	}
 
+	public MOB DBReadRoomMOB(final String roomID, final String mobID)
+	{
+		DBConnection D=null;
+		// now grab the items
+		try
+		{
+			D=DB.DBFetch();
+			final ResultSet R=D.query("SELECT * FROM CMROCH WHERE CMROID='"+roomID+"' AND CMCHNM='"+mobID+"'");
+			if(R.next())
+			{
+				final String NUMID=DB.getRes(R, "CMCHNM");
+				final String MOBID=DB.getRes(R, "CMCHID");
+				final MOB newMOB=CMClass.getMOB(MOBID);
+				if(newMOB==null)
+					return null;
+				newMOB.setDatabaseID(NUMID);
+				if((CMProps.getBoolVar(CMProps.Bool.MOBNOCACHE))
+				&&(NUMID.indexOf(MOBID+"@")>=0))
+					newMOB.setMiscText("%DBID>"+roomID+NUMID.substring(NUMID.indexOf('@')));
+				else
+				{
+					final String text=DBConnections.getResQuietly(R,"CMCHTX");
+					newMOB.setMiscText(text);
+				}
+				newMOB.basePhyStats().setLevel(((int)DBConnections.getLongRes(R,"CMCHLV")));
+				newMOB.basePhyStats().setAbility((int)DBConnections.getLongRes(R,"CMCHAB"));
+				newMOB.basePhyStats().setRejuv((int)DBConnections.getLongRes(R,"CMCHRE"));
+				if(!newMOB.isGeneric())
+				{
+					final int oldRejuv = newMOB.basePhyStats().rejuv();
+					CMLib.leveler().fillOutMOB(newMOB, newMOB.basePhyStats().level());
+					newMOB.basePhyStats().setRejuv(oldRejuv);
+				}
+				newMOB.recoverCharStats();
+				newMOB.recoverPhyStats();
+				newMOB.recoverMaxState();
+				newMOB.resetToMaxState();
+				CMLib.threads().unTickAll(newMOB);
+				return newMOB;
+			}
+		}
+		catch(final SQLException sqle)
+		{
+			Log.errOut("Room",sqle);
+		}
+		finally
+		{
+			DB.DBDone(D);
+		}
+		return null;
+	}
+
+	public Item DBReadRoomItem(final String roomID, final String itemNum)
+	{
+		DBConnection D=null;
+		// now grab the items
+		try
+		{
+			D=DB.DBFetch();
+			final ResultSet R=D.query("SELECT * FROM CMROIT WHERE CMROID='"+roomID+"' AND CMITNM='"+itemNum+"'");
+			if(R.next())
+			{
+				final String itemID=DBConnections.getRes(R,"CMITID");
+				final Item newItem=CMClass.getItem(itemID);
+				if(newItem==null)
+					Log.errOut("Room","Couldn't find item '"+itemID+"' for room "+roomID);
+				else
+				{
+					newItem.setDatabaseID(itemNum);
+					try
+					{
+						newItem.setMiscText(DBConnections.getResQuietly(R,"CMITTX"));
+						newItem.basePhyStats().setRejuv((int)DBConnections.getLongRes(R,"CMITRE"));
+						newItem.setUsesRemaining((int)DBConnections.getLongRes(R,"CMITUR"));
+						newItem.basePhyStats().setLevel((int)DBConnections.getLongRes(R,"CMITLV"));
+						newItem.basePhyStats().setAbility((int)DBConnections.getLongRes(R,"CMITAB"));
+						newItem.basePhyStats().setHeight((int)DBConnections.getLongRes(R,"CMHEIT"));
+						newItem.recoverPhyStats();
+						CMLib.threads().unTickAll(newItem);
+						return newItem;
+					}
+					catch (final Exception e)
+					{
+						Log.errOut("RoomLoader", e);
+					}
+				}
+			}
+		}
+		catch(final SQLException sqle)
+		{
+			Log.errOut("Room",sqle);
+		}
+		finally
+		{
+			DB.DBDone(D);
+		}
+		return null;
+	}
+
 	private void fixItemKeys(final Hashtable<Item,String> itemLocs, final Hashtable<String, PhysicalAgent> itemNums)
 	{
 		for(final Enumeration<Item> e=itemLocs.keys();e.hasMoreElements();)
@@ -778,6 +1077,10 @@ public class RoomLoader
 			final Item keyItem=e.nextElement();
 			final String location=itemLocs.get(keyItem);
 			final Environmental container=itemNums.get(location);
+			if((keyItem instanceof SpaceObject.SpaceGateway)
+			&&(container instanceof SpaceObject))
+				((SpaceObject)keyItem).setKnownTarget((SpaceObject)container);
+			else
 			if((container instanceof Container)&&(((Container)container).capacity()>0))
 				keyItem.setContainer((Container)container);
 			else
@@ -796,9 +1099,26 @@ public class RoomLoader
 			final String ride=mobRides.get(M);
 			if(ride!=null)
 			{
-				final PhysicalAgent P=itemNums.get(ride);
+				final boolean rideFlag;
+				final PhysicalAgent P;
+				if(ride.startsWith("*"))
+				{
+					P=itemNums.get(ride.substring(1));
+					rideFlag=true;
+				}
+				else
+				{
+					P=itemNums.get(ride);
+					rideFlag=false;
+				}
 				if(P!=null)
 				{
+					if((M instanceof Rideable)
+					&&(P instanceof Rideable)
+					&&(P instanceof MOB)
+					&&(!rideFlag))
+						M.setFollowing((MOB)P);
+					else
 					if(P instanceof Rideable)
 						M.setRiding((Rideable)P);
 					else
@@ -863,13 +1183,13 @@ public class RoomLoader
 
 	public void DBReadCatalogs()
 	{
-		DBReadContent("CATALOG_MOBS",null,null,null,true,false);
-		DBReadContent("CATALOG_ITEMS",null,null,null,true,false);
+		DBReadContent("CATALOG_MOBS",null,null,null,noLiveReadRoomFlags);
+		DBReadContent("CATALOG_ITEMS",null,null,null,noLiveReadRoomFlags);
 	}
 
 	public void DBReadSpace()
 	{
-		DBReadContent("SPACE",null,null,null,true,false);
+		DBReadContent("SPACE",null,null,null,noLiveReadRoomFlags);
 	}
 
 	public int[] DBCountRoomMobsItems(final String roomID)
@@ -947,11 +1267,20 @@ public class RoomLoader
 		return false;
 	}
 
-	public void DBReadContent(final String thisRoomID, final Room thisRoom, Map<String, Room> rooms, final RoomnumberSet unloadedRooms, final boolean setStatus, final boolean makeLive)
+	public void DBReadContent(final String thisRoomID,
+							  final Room thisRoom,
+							  Map<String, Room> rooms,
+							  final RoomnumberSet unloadedRooms,
+							  final Set<ReadRoomDisableFlag> disableFlags)
 	{
 		final boolean debug=Log.debugChannelOn()&&(CMSecurity.isDebugging(CMSecurity.DbgFlag.DBROOMPOP));
 		if(debug||(Log.debugChannelOn()&&(CMSecurity.isDebugging(CMSecurity.DbgFlag.DBROOMS))))
 			Log.debugOut("RoomLoader","Reading content of "+((thisRoomID!=null)?thisRoomID:"ALL"));
+
+		final boolean setStatus = (disableFlags == null) || (!disableFlags.contains(ReadRoomDisableFlag.STATUS));
+		final boolean makeLive = (disableFlags == null) || (!disableFlags.contains(ReadRoomDisableFlag.LIVE));
+		final boolean readMobs = (disableFlags == null) || (!disableFlags.contains(ReadRoomDisableFlag.MOBS));
+		final boolean readItems = (disableFlags == null) || (!disableFlags.contains(ReadRoomDisableFlag.ITEMS));
 
 		final StuffClass stuff=new StuffClass();
 		Hashtable<String,PhysicalAgent> itemNums=null;
@@ -963,170 +1292,70 @@ public class RoomLoader
 		final boolean space=((thisRoomID!=null)&&(thisRoomID.equals("SPACE")));
 
 		DBConnection D=null;
-		// now grab the items
-		try
+
+		if(readItems)
 		{
-			D=DB.DBFetch();
-			if(setStatus)
-				CMProps.setUpLowVar(CMProps.Str.MUDSTATUS,"Booting: Counting Items");
-			final ResultSet R=D.query("SELECT * FROM CMROIT"+((thisRoomID==null)?"":" WHERE CMROID='"+thisRoomID+"'"));
-			if(setStatus)
-				recordCount=DB.getRecordCount(D,R);
-			updateBreak=CMath.s_int("1"+zeroes.substring(0,(""+(recordCount/100)).length()-1));
-			while(R.next())
+			// now grab the items
+			try
 			{
-				currentRecordPos=R.getRow();
-				final String roomID=DBConnections.getRes(R,"CMROID");
-				if((unloadedRooms!=null)&&(unloadedRooms.contains(roomID)))
-					continue;
-				if((!catalog)&&(roomID.startsWith("CATALOG_")))
-					continue;
-				if((!space)&&(roomID.startsWith("SPACE")))
-					continue;
-				itemNums=stuff.itemNums.get("NUMSFOR"+roomID.toUpperCase());
-				if(itemNums==null)
+				D=DB.DBFetch();
+				if(setStatus)
+					CMProps.setUpLowVar(CMProps.Str.MUDSTATUS,"Booting: Counting Items");
+				final ResultSet R=D.query("SELECT * FROM CMROIT"+((thisRoomID==null)?"":" WHERE CMROID='"+thisRoomID+"'"));
+				if(setStatus)
+					recordCount=DB.getRecordCount(D,R);
+				updateBreak=CMath.s_int("1"+zeroes.substring(0,(""+(recordCount/100)).length()-1));
+				while(R.next())
 				{
-					itemNums=new Hashtable<String,PhysicalAgent>();
-					stuff.itemNums.put("NUMSFOR"+roomID.toUpperCase(),itemNums);
-				}
-				itemLocs=stuff.itemLocs.get("LOCSFOR"+roomID.toUpperCase());
-				if(itemLocs==null)
-				{
-					itemLocs=new Hashtable<Item,String>();
-					stuff.itemLocs.put("LOCSFOR"+roomID.toUpperCase(),itemLocs);
-				}
-				final String itemNum=DBConnections.getRes(R,"CMITNM");
-				final String itemID=DBConnections.getRes(R,"CMITID");
-				final Item newItem=CMClass.getItem(itemID);
-				if(newItem==null)
-					Log.errOut("Room","Couldn't find item '"+itemID+"' for room "+roomID);
-				else
-				{
-					newItem.setDatabaseID(itemNum);
-					itemNums.put(itemNum,newItem);
-					final Room room=(rooms!=null)?rooms.get(roomID):thisRoom;
-					newItem.setOwner(room); // temporary measure to make sure item behavior thread group is properly assigned
-					final String loc=DBConnections.getResQuietly(R,"CMITLO");
-					if(loc.length()>0)
+					currentRecordPos=R.getRow();
+					final String roomID=DBConnections.getRes(R,"CMROID");
+					if((unloadedRooms!=null)&&(unloadedRooms.contains(roomID)))
+						continue;
+					if((!catalog)&&(roomID.startsWith("CATALOG_")))
+						continue;
+					if((!space)&&(roomID.startsWith("SPACE")))
+						continue;
+					itemNums=stuff.itemNums.get("NUMSFOR"+roomID.toUpperCase());
+					if(itemNums==null)
 					{
-						final PhysicalAgent container=itemNums.get(loc);
-						if(container instanceof Container)
-							newItem.setContainer((Container)container);
-						else
-							itemLocs.put(newItem,loc);
+						itemNums=new Hashtable<String,PhysicalAgent>();
+						stuff.itemNums.put("NUMSFOR"+roomID.toUpperCase(),itemNums);
 					}
-					try
+					itemLocs=stuff.itemLocs.get("LOCSFOR"+roomID.toUpperCase());
+					if(itemLocs==null)
 					{
-						if(catalog)
+						itemLocs=new Hashtable<Item,String>();
+						stuff.itemLocs.put("LOCSFOR"+roomID.toUpperCase(),itemLocs);
+					}
+					final String itemNum=DBConnections.getRes(R,"CMITNM");
+					final String itemID=DBConnections.getRes(R,"CMITID");
+					final Item newItem=CMClass.getItem(itemID);
+					if(newItem==null)
+						Log.errOut("Room","Couldn't find item '"+itemID+"' for room "+roomID);
+					else
+					{
+						newItem.setDatabaseID(itemNum);
+						itemNums.put(itemNum,newItem);
+						final Room room=(rooms!=null)?rooms.get(roomID):thisRoom;
+						newItem.setOwner(room); // temporary measure to make sure item behavior thread group is properly assigned
+						final String loc=DBConnections.getResQuietly(R,"CMITLO");
+						if(loc.length()>0)
 						{
-							String text=DBConnections.getResQuietly(R,"CMITTX");
-							final int x=text.lastIndexOf("<CATALOGDATA");
-							if((x>0)&&(text.indexOf("</CATALOGDATA>",x)>0))
-							{
-								cataData=stuff.cataData.get("CATADATAFOR"+roomID.toUpperCase());
-								if(cataData==null)
-								{
-									cataData=new Hashtable<String,String>();
-									stuff.cataData.put("CATADATAFOR"+roomID.toUpperCase(),cataData);
-								}
-								cataData.put(itemNum,text.substring(x));
-								text=text.substring(0,x);
-							}
-							newItem.setMiscText(text);
+							final PhysicalAgent container=itemNums.get(loc);
+							if((newItem instanceof SpaceObject.SpaceGateway)
+							&&(container instanceof SpaceObject))
+								((SpaceObject)newItem).setKnownTarget((SpaceObject)container);
+							else
+							if(container instanceof Container)
+								newItem.setContainer((Container)container);
+							else
+								itemLocs.put(newItem,loc);
 						}
-						else
-							newItem.setMiscText(DBConnections.getResQuietly(R,"CMITTX"));
-						if(newItem instanceof SpaceObject)
+						try
 						{
-							CMLib.map().addObjectToSpace((SpaceObject)newItem, ((SpaceObject) newItem).coordinates());
-						}
-						newItem.basePhyStats().setRejuv((int)DBConnections.getLongRes(R,"CMITRE"));
-						newItem.setUsesRemaining((int)DBConnections.getLongRes(R,"CMITUR"));
-						newItem.basePhyStats().setLevel((int)DBConnections.getLongRes(R,"CMITLV"));
-						newItem.basePhyStats().setAbility((int)DBConnections.getLongRes(R,"CMITAB"));
-						newItem.basePhyStats().setHeight((int)DBConnections.getLongRes(R,"CMHEIT"));
-						newItem.recoverPhyStats();
-					}
-					catch (final Exception e)
-					{
-						Log.errOut("RoomLoader", e);
-						itemNums.remove(itemNum);
-					}
-				}
-				if(((currentRecordPos%updateBreak)==0)&&(setStatus))
-					CMProps.setUpLowVar(CMProps.Str.MUDSTATUS,"Booting: Loading Items ("+currentRecordPos+" of "+recordCount+")");
-			}
-		}
-		catch(final SQLException sqle)
-		{
-			Log.errOut("Room",sqle);
-		}
-		finally
-		{
-			DB.DBDone(D);
-		}
-
-		// now grab the inhabitants
-		try
-		{
-			D=DB.DBFetch();
-			if(setStatus)
-				CMProps.setUpLowVar(CMProps.Str.MUDSTATUS,"Booting: Counting MOBS");
-			final ResultSet R=D.query("SELECT * FROM CMROCH"+((thisRoomID==null)?"":" WHERE CMROID='"+thisRoomID+"'"));
-			if(setStatus)
-				recordCount=DB.getRecordCount(D,R);
-			updateBreak=CMath.s_int("1"+zeroes.substring(0,(""+(recordCount/100)).length()-1));
-			while(R.next())
-			{
-				currentRecordPos=R.getRow();
-				final String roomID=DBConnections.getRes(R,"CMROID");
-				if((unloadedRooms!=null)&&(unloadedRooms.contains(roomID)))
-					continue;
-				if((!catalog)&&(roomID.startsWith("CATALOG_")))
-					continue;
-				if((!space) && roomID.equals("SPACE"))
-					continue;
-				final String NUMID=DBConnections.getRes(R,"CMCHNM");
-				final String MOBID=DBConnections.getRes(R,"CMCHID");
-
-				itemNums=stuff.itemNums.get("NUMSFOR"+roomID.toUpperCase());
-				if(itemNums==null)
-				{
-					itemNums=new Hashtable<String,PhysicalAgent>();
-					stuff.itemNums.put("NUMSFOR"+roomID.toUpperCase(),itemNums);
-				}
-				mobRides=stuff.mobRides.get("RIDESFOR"+roomID.toUpperCase());
-				if(mobRides==null)
-				{
-					mobRides=new Hashtable<MOB, String>();
-					stuff.mobRides.put("RIDESFOR"+roomID.toUpperCase(),mobRides);
-				}
-
-				final MOB newMOB=CMClass.getMOB(MOBID);
-				if(newMOB==null)
-					Log.errOut("Room","Couldn't find MOB '"+MOBID+"' in room " + roomID);
-				else
-				{
-					final Room room=(rooms!=null)?rooms.get(roomID):thisRoom;
-					newMOB.setLocation(room); // temporary measure to make sure thread group is properly assigned
-					newMOB.setDatabaseID(NUMID);
-					itemNums.put(NUMID,newMOB);
-					if(thisRoom!=null)
-					{
-						newMOB.setStartRoom(thisRoom);
-						newMOB.setLocation(thisRoom);
-					}
-					try
-					{
-						if((CMProps.getBoolVar(CMProps.Bool.MOBNOCACHE))
-						&&(!catalog)
-						&&(NUMID.indexOf(MOBID+"@")>=0))
-							newMOB.setMiscText("%DBID>"+roomID+NUMID.substring(NUMID.indexOf('@')));
-						else
-						{
-							String text=DBConnections.getResQuietly(R,"CMCHTX");
 							if(catalog)
 							{
+								String text=DBConnections.getResQuietly(R,"CMITTX");
 								final int x=text.lastIndexOf("<CATALOGDATA");
 								if((x>0)&&(text.indexOf("</CATALOGDATA>",x)>0))
 								{
@@ -1136,44 +1365,161 @@ public class RoomLoader
 										cataData=new Hashtable<String,String>();
 										stuff.cataData.put("CATADATAFOR"+roomID.toUpperCase(),cataData);
 									}
-									cataData.put(NUMID,text.substring(x));
+									cataData.put(itemNum,text.substring(x));
 									text=text.substring(0,x);
 								}
+								newItem.setMiscText(text);
 							}
-							newMOB.setMiscText(text);
+							else
+								newItem.setMiscText(DBConnections.getResQuietly(R,"CMITTX"));
+							if(newItem instanceof SpaceObject)
+							{
+								CMLib.space().addObjectToSpace((SpaceObject)newItem, ((SpaceObject) newItem).coordinates());
+							}
+							newItem.basePhyStats().setRejuv((int)DBConnections.getLongRes(R,"CMITRE"));
+							newItem.setUsesRemaining((int)DBConnections.getLongRes(R,"CMITUR"));
+							newItem.basePhyStats().setLevel((int)DBConnections.getLongRes(R,"CMITLV"));
+							newItem.basePhyStats().setAbility((int)DBConnections.getLongRes(R,"CMITAB"));
+							newItem.basePhyStats().setHeight((int)DBConnections.getLongRes(R,"CMHEIT"));
+							newItem.recoverPhyStats();
 						}
-						newMOB.basePhyStats().setLevel(((int)DBConnections.getLongRes(R,"CMCHLV")));
-						newMOB.basePhyStats().setAbility((int)DBConnections.getLongRes(R,"CMCHAB"));
-						newMOB.basePhyStats().setRejuv((int)DBConnections.getLongRes(R,"CMCHRE"));
-						final String ride=DBConnections.getRes(R,"CMCHRI");
-						if((ride!=null)&&(ride.length()>0))
-							mobRides.put(newMOB,ride);
-						if(newMOB instanceof SpaceObject)
+						catch (final Exception e)
 						{
-							CMLib.map().addObjectToSpace((SpaceObject)newMOB, ((SpaceObject) newMOB).coordinates());
+							Log.errOut("RoomLoader", e);
+							itemNums.remove(itemNum);
 						}
-						newMOB.recoverCharStats();
-						newMOB.recoverPhyStats();
-						newMOB.recoverMaxState();
-						newMOB.resetToMaxState();
 					}
-					catch (final Exception e)
-					{
-						Log.errOut("RoomLoader", e);
-						itemNums.remove(NUMID);
-					}
+					if(((currentRecordPos%updateBreak)==0)&&(setStatus))
+						CMProps.setUpLowVar(CMProps.Str.MUDSTATUS,"Booting: Loading Items ("+currentRecordPos+" of "+recordCount+")");
 				}
-				if(((currentRecordPos%updateBreak)==0)&&(setStatus))
-					CMProps.setUpLowVar(CMProps.Str.MUDSTATUS,"Booting: Loading MOBs ("+currentRecordPos+" of "+recordCount+")");
+			}
+			catch(final SQLException sqle)
+			{
+				Log.errOut("Room",sqle);
+			}
+			finally
+			{
+				DB.DBDone(D);
 			}
 		}
-		catch(final SQLException sqle)
+
+		if(readMobs)
 		{
-			Log.errOut("Room",sqle);
-		}
-		finally
-		{
-			DB.DBDone(D);
+			// now grab the inhabitants
+			try
+			{
+				D=DB.DBFetch();
+				if(setStatus)
+					CMProps.setUpLowVar(CMProps.Str.MUDSTATUS,"Booting: Counting MOBS");
+				final ResultSet R=D.query("SELECT * FROM CMROCH"+((thisRoomID==null)?"":" WHERE CMROID='"+thisRoomID+"'"));
+				if(setStatus)
+					recordCount=DB.getRecordCount(D,R);
+				updateBreak=CMath.s_int("1"+zeroes.substring(0,(""+(recordCount/100)).length()-1));
+				while(R.next())
+				{
+					currentRecordPos=R.getRow();
+					final String roomID=DBConnections.getRes(R,"CMROID");
+					if((unloadedRooms!=null)&&(unloadedRooms.contains(roomID)))
+						continue;
+					if((!catalog)&&(roomID.startsWith("CATALOG_")))
+						continue;
+					if((!space) && roomID.equals("SPACE"))
+						continue;
+					final String NUMID=DBConnections.getRes(R,"CMCHNM");
+					final String MOBID=DBConnections.getRes(R,"CMCHID");
+
+					itemNums=stuff.itemNums.get("NUMSFOR"+roomID.toUpperCase());
+					if(itemNums==null)
+					{
+						itemNums=new Hashtable<String,PhysicalAgent>();
+						stuff.itemNums.put("NUMSFOR"+roomID.toUpperCase(),itemNums);
+					}
+					mobRides=stuff.mobRides.get("RIDESFOR"+roomID.toUpperCase());
+					if(mobRides==null)
+					{
+						mobRides=new Hashtable<MOB, String>();
+						stuff.mobRides.put("RIDESFOR"+roomID.toUpperCase(),mobRides);
+					}
+
+					final MOB newMOB=CMClass.getMOB(MOBID);
+					if(newMOB==null)
+						Log.errOut("Room","Couldn't find MOB '"+MOBID+"' in room " + roomID);
+					else
+					{
+						final Room room=(rooms!=null)?rooms.get(roomID):thisRoom;
+						newMOB.setLocation(room); // temporary measure to make sure thread group is properly assigned
+						newMOB.setDatabaseID(NUMID);
+						itemNums.put(NUMID,newMOB);
+						if(thisRoom!=null)
+						{
+							newMOB.setStartRoom(thisRoom);
+							newMOB.setLocation(thisRoom);
+						}
+						try
+						{
+							if((CMProps.getBoolVar(CMProps.Bool.MOBNOCACHE))
+							&&(!catalog)
+							&&(NUMID.indexOf(MOBID+"@")>=0))
+								newMOB.setMiscText("%DBID>"+roomID+NUMID.substring(NUMID.indexOf('@')));
+							else
+							{
+								String text=DBConnections.getResQuietly(R,"CMCHTX");
+								if(catalog)
+								{
+									final int x=text.lastIndexOf("<CATALOGDATA");
+									if((x>0)&&(text.indexOf("</CATALOGDATA>",x)>0))
+									{
+										cataData=stuff.cataData.get("CATADATAFOR"+roomID.toUpperCase());
+										if(cataData==null)
+										{
+											cataData=new Hashtable<String,String>();
+											stuff.cataData.put("CATADATAFOR"+roomID.toUpperCase(),cataData);
+										}
+										cataData.put(NUMID,text.substring(x));
+										text=text.substring(0,x);
+									}
+								}
+								newMOB.setMiscText(text);
+							}
+							newMOB.basePhyStats().setLevel(((int)DBConnections.getLongRes(R,"CMCHLV")));
+							newMOB.basePhyStats().setAbility((int)DBConnections.getLongRes(R,"CMCHAB"));
+							newMOB.basePhyStats().setRejuv((int)DBConnections.getLongRes(R,"CMCHRE"));
+							final String ride=DBConnections.getRes(R,"CMCHRI");
+							if((ride!=null)&&(ride.length()>0))
+								mobRides.put(newMOB,ride);
+							if(newMOB instanceof SpaceObject)
+							{
+								CMLib.space().addObjectToSpace((SpaceObject)newMOB, ((SpaceObject) newMOB).coordinates());
+							}
+							if(!newMOB.isGeneric())
+							{
+								final int oldRejuv = newMOB.basePhyStats().rejuv();
+								CMLib.leveler().fillOutMOB(newMOB, newMOB.basePhyStats().level());
+								newMOB.basePhyStats().setRejuv(oldRejuv);
+							}
+							newMOB.recoverCharStats();
+							newMOB.recoverPhyStats();
+							newMOB.recoverMaxState();
+							newMOB.resetToMaxState();
+						}
+						catch (final Exception e)
+						{
+							Log.errOut("RoomLoader", e);
+							itemNums.remove(NUMID);
+						}
+					}
+					if(((currentRecordPos%updateBreak)==0)&&(setStatus))
+						CMProps.setUpLowVar(CMProps.Str.MUDSTATUS,"Booting: Loading MOBs ("+currentRecordPos+" of "+recordCount+")");
+				}
+			}
+			catch(final SQLException sqle)
+			{
+				Log.errOut("Room",sqle);
+			}
+			finally
+			{
+				DB.DBDone(D);
+			}
 		}
 		if(thisRoom!=null)
 		{
@@ -1252,10 +1598,11 @@ public class RoomLoader
 		if(rooms!=null)
 		{
 			CMProps.setBoolAllVar(CMProps.Bool.POPULATIONSTARTED, true);
+			recordCount = rooms.size();
 			for(final Map.Entry<String,Room> entry : rooms.entrySet())
 			{
 				if((((++currentRecordPos)%updateBreak)==0)&&(setStatus))
-					CMProps.setUpLowVar(CMProps.Str.MUDSTATUS,"Booting: Populating Rooms ("+(currentRecordPos)+" of "+recordCount+")");
+					CMProps.setUpLowVar(CMProps.Str.MUDSTATUS,"Booting: Populating Rooms ("+(currentRecordPos)+" of "+((recordCount==1)?"?":Integer.toString(recordCount))+")");
 				final Room room=entry.getValue();
 				if(debug)
 					Log.debugOut("RoomLoader","Populating room: "+room.roomID());
@@ -1282,6 +1629,269 @@ public class RoomLoader
 				contents.add(thisItem);
 		}
 		return contents;
+	}
+
+	public List<Room> DBReadAreaNavStructure(final String areaName)
+	{
+		final List<Room> rooms = new ArrayList<Room>();
+		DBConnection D = null;
+		try
+		{
+			final Area fakeArea = CMClass.getAreaType("StdArea");
+			fakeArea.setName(areaName);
+			D = DB.DBFetch();
+			final TreeMap<String, Room> areaRooms = new TreeMap<String, Room>();
+			final Set<String> idStarts = new TreeSet<String>();
+			ResultSet R = D.query("SELECT CMROID, CMLOID, CMROTX FROM CMROOM WHERE CMAREA='" + DB.injectionClean(areaName) + "'");
+			while (R.next())
+			{
+				final String roomID = R.getString("CMROID");
+				final int x = roomID.indexOf('#');
+				if(x<0)
+					idStarts.add(roomID);
+				else
+					idStarts.add(roomID.substring(0,x));
+				Room room = CMClass.getLocale(R.getString("CMLOID"));
+				if(room instanceof AutoGenArea)
+					room = CMClass.getLocale("StdGrid");
+				if (room != null)
+				{
+					room.setRoomID(roomID);
+					room.setArea(fakeArea);
+					rooms.add(room);
+					room.setMiscText(R.getString("CMROTX"));
+					room.delAllBehaviors();
+					areaRooms.put(roomID, room);
+				}
+			}
+			R.close();
+			final StringBuilder whereClause = new StringBuilder("");
+			for(final String idStart : idStarts)
+			{
+				if(whereClause.length() > 0)
+					whereClause.append(" OR ");
+				whereClause.append("CMROID LIKE '").append(idStart).append("%'");
+			}
+			R = D.query("SELECT * FROM CMROEX WHERE " + whereClause.toString());
+			while (R.next())
+			{
+				final String roomID = R.getString("CMROID");
+				final Room room = areaRooms.get(roomID);
+				if (room != null)
+				{
+					final String exitID = R.getString("CMEXID");
+					final Exit exit = CMClass.getExit(exitID);
+					if (exit != null)
+					{
+						final String nextRoomID = R.getString("CMNRID");
+						if (nextRoomID.length() > 0)
+						{
+							Room nextRoom = areaRooms.get(nextRoomID);
+							if(nextRoom == null)
+								nextRoom = CMLib.map().getRoom(nextRoomID);
+							if(nextRoom != null)
+							{
+								final int dir  = R.getInt("CMDIRE");
+								room.setRawExit(dir, exit);
+								room.setRawDoor(dir, nextRoom);
+							}
+						}
+					}
+				}
+			}
+			R.close();
+		}
+		catch (final SQLException sqle)
+		{
+			Log.errOut("Area", sqle);
+		}
+		finally
+		{
+			DB.DBDone(D);
+		}
+		return rooms;
+	}
+
+	protected List<String> DBReadAreaRoomIDs(final String areaName)
+	{
+		final List<String> lst=new ArrayList<String>();
+		DBConnection D=null;
+		try
+		{
+			D=DB.DBFetch();
+			final ResultSet R=D.query("SELECT CMROID FROM CMROOM WHERE CMAREA='"+DB.injectionClean(areaName)+"'");
+			while(R.next())
+			{
+				final String roomID=R.getString("CMROID");
+				lst.add(roomID);
+			}
+			R.close();
+		}
+		catch(final SQLException sqle)
+		{
+			Log.errOut("Area",sqle);
+		}
+		finally
+		{
+			DB.DBDone(D);
+		}
+		return lst;
+	}
+
+	public RoomContent[] DBReadAreaMobs(final String name)
+	{
+		final List<RoomContent> lst=new ArrayList<RoomContent>();
+		final List<String> roomIDs = DBReadAreaRoomIDs(name);
+		final GenericBuilder buildLib = CMLib.coffeeMaker();
+		DBConnection D=null;
+		try
+		{
+			D=DB.DBFetch();
+			for(final String roomID : roomIDs)
+			{
+				final ResultSet R=D.query("SELECT * FROM CMROCH WHERE CMROID='"+DB.injectionClean(roomID)+"'");
+				while(R.next())
+				{
+					int buildHash = 0;
+					final String classID = DB.getRes(R, "CMCHID");
+					final String text = DB.getRes(R, "CMCHTX");
+					final String qName = buildLib.getQuickName(classID, text);
+					buildHash = classID.hashCode() ^ text.hashCode();
+					buildHash ^= (int)DB.getLongRes(R, "CMCHLV");
+					buildHash ^= (int)DB.getLongRes(R, "CMCHAB");
+					final int finalHash = buildHash;
+					final RoomContent C=new RoomContent()
+					{
+						final String roomId = roomID;
+						final String roomKey = DB.getRes(R, "CMCHNM");
+						final String classId = classID;
+						final String name = qName;
+						final int hashCode = finalHash;
+
+						@Override
+						public String ID()
+						{
+							return classId;
+						}
+
+						@Override
+						public String name()
+						{
+							return name;
+						}
+
+						@Override
+						public String roomID()
+						{
+							return roomId;
+						}
+
+						@Override
+						public String dbKey()
+						{
+							return roomKey;
+						}
+
+						@Override
+						public int contentHash()
+						{
+							return hashCode;
+						}
+					};
+					lst.add(C);
+
+				}
+				R.close();
+			}
+		}
+		catch(final SQLException sqle)
+		{
+			Log.errOut("Area",sqle);
+		}
+		finally
+		{
+			DB.DBDone(D);
+		}
+		return lst.toArray(new RoomContent[lst.size()]);
+	}
+
+	public RoomContent[] DBReadAreaItems(final String name)
+	{
+		final List<RoomContent> lst=new ArrayList<RoomContent>();
+		final List<String> roomIDs = DBReadAreaRoomIDs(name);
+		final GenericBuilder buildLib = CMLib.coffeeMaker();
+		DBConnection D=null;
+		try
+		{
+			D=DB.DBFetch();
+			for(final String roomID : roomIDs)
+			{
+				final ResultSet R=D.query("SELECT * FROM CMROIT WHERE CMROID='"+DB.injectionClean(roomID)+"'");
+				while(R.next())
+				{
+					int buildHash = 0;
+					final String classID = DB.getRes(R, "CMITID");
+					final String text = DB.getRes(R, "CMITTX");
+					final String qName = buildLib.getQuickName(classID, text);
+					buildHash = classID.hashCode() ^ text.hashCode();
+					buildHash ^= (int)DB.getLongRes(R, "CMITLV");
+					buildHash ^= (int)DB.getLongRes(R, "CMITAB");
+					buildHash ^= (int)DB.getLongRes(R, "CMITUR");
+					buildHash ^= (int)DB.getLongRes(R, "CMHEIT");
+					final int finalHash = buildHash;
+					final RoomContent C=new RoomContent()
+					{
+						final String roomId = roomID;
+						final String roomKey = DB.getRes(R, "CMITNM");
+						final String classId = classID;
+						final String name = qName;
+						final int hashCode = finalHash;
+
+						@Override
+						public String ID()
+						{
+							return classId;
+						}
+
+						@Override
+						public String name()
+						{
+							return name;
+						}
+
+						@Override
+						public String roomID()
+						{
+							return roomId;
+						}
+
+						@Override
+						public String dbKey()
+						{
+							return roomKey;
+						}
+
+						@Override
+						public int contentHash()
+						{
+							return hashCode;
+						}
+					};
+					lst.add(C);
+
+				}
+				R.close();
+			}
+		}
+		catch(final SQLException sqle)
+		{
+			Log.errOut("Area",sqle);
+		}
+		finally
+		{
+			DB.DBDone(D);
+		}
+		return lst.toArray(new RoomContent[lst.size()]);
 	}
 
 	protected String getShortID(final Environmental E)
@@ -1394,47 +2004,58 @@ public class RoomLoader
 		if((!room.isSavable())||(room.amDestroyed()))
 			return;
 
-		if(Log.debugChannelOn()&&(CMSecurity.isDebugging(CMSecurity.DbgFlag.CMROEX)||CMSecurity.isDebugging(CMSecurity.DbgFlag.DBROOMS)))
+		if(Log.debugChannelOn()
+		&&(CMSecurity.isDebugging(CMSecurity.DbgFlag.CMROEX)
+			||CMSecurity.isDebugging(CMSecurity.DbgFlag.DBROOMS)))
 			Log.debugOut("RoomLoader","Starting exit update for room "+room.roomID());
 		final List<DBPreparedBatchEntry> statements=new Vector<DBPreparedBatchEntry>();
-		final boolean useBulkInserts = DB.useBulkInserts();
-		final StringBuilder bulkSQL = new StringBuilder("");
-		final List<String> bulkClobs = new ArrayList<String>();
-		statements.add(new DBPreparedBatchEntry("DELETE FROM CMROEX WHERE CMROID='"+room.roomID()+"'"));
+		final Map<Integer,Pair<String,String>> existingExits = this.readRoomExitIDsMap(room.roomID());
 		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 		{
-			Exit thisExit=room.getRawExit(d);
-			Room thisRoom=room.rawDoors()[d];
+			Exit linkE=room.getRawExit(d);
+			Room linkR=room.rawDoors()[d];
 
-			if((thisExit!=null)&&(!thisExit.isSavable()))
-				thisExit=null;
-			if((thisRoom!=null)&&(!thisRoom.isSavable()))
-				thisRoom=null;
-			if((thisRoom!=null)||(thisExit!=null))
+			if((linkE!=null)&&(!linkE.isSavable()))
+				linkE=null;
+			if((linkR!=null)
+			&&(!linkR.isSavable())
+			&&(!linkR.ID().equals("ThinRoom")))
+				linkR=null;
+			final Integer dirO = Integer.valueOf(d);
+			if((linkR!=null)||(linkE!=null))
 			{
-				CMLib.map().registerWorldObjectLoaded(room.getArea(), room, thisExit);
-				final String fullSQL ="INSERT INTO CMROEX ("
-						+"CMROID, "
-						+"CMDIRE, "
-						+"CMEXID, "
-						+"CMEXTX, "
-						+"CMNRID"
-						+") values ("
-						+"'"+room.roomID()+"',"
-						+d+","
-						+"'"+((thisExit==null)?" ":thisExit.ID())+"',"
-						+"?,"
-						+"'"+((thisRoom==null)?" ":thisRoom.roomID())+"')";
-				final String exitText = (thisExit==null)?" ":thisExit.text();
-				if(!useBulkInserts)
-					statements.add(new DBPreparedBatchEntry(fullSQL,exitText));
+				CMLib.map().registerWorldObjectLoaded(room.getArea(), room, linkE);
+				final String fullSQL;
+				if(!existingExits.containsKey(dirO))
+				{
+					fullSQL ="INSERT INTO CMROEX ("
+							+"CMROID, "
+							+"CMDIRE, "
+							+"CMEXID, "
+							+"CMEXTX, "
+							+"CMNRID"
+							+") values ("
+							+"'"+room.roomID()+"',"
+							+d+","
+							+"'"+((linkE==null)?" ":linkE.ID())+"',"
+							+"?,"
+							+"'"+((linkR==null)?" ":linkR.roomID())+"')";
+				}
 				else
 				{
-					final DBPreparedBatchEntry entry = doBulkInsert(bulkSQL,bulkClobs,fullSQL,exitText);
-					if(entry != null)
-						statements.add(entry);
+					fullSQL ="UPDATE CMROEX "
+							+"SET CMEXID='"+((linkE==null)?" ":linkE.ID())+"',"
+							+"CMEXTX=?,"
+							+"CMNRID='"+((linkR==null)?" ":linkR.roomID())+"' "
+							+"WHERE CMROID='"+room.roomID()+"' AND CMDIRE="+d;
 				}
+				final String exitText = (linkE==null)?" ":linkE.text();
+				statements.add(new DBPreparedBatchEntry(fullSQL,exitText));
 			}
+			else
+			if(existingExits.containsKey(dirO))
+				statements.add(new DBPreparedBatchEntry("DELETE FROM CMROEX WHERE CMROID='"+room.roomID()+"' AND CMDIRE="+d));
+			existingExits.remove(dirO);
 		}
 		if(room instanceof GridLocale)
 		{
@@ -1448,7 +2069,9 @@ public class RoomLoader
 					continue;
 				if(R.getGridParent()!=null)
 					R=R.getGridParent();
-				if((R!=null)&&(R.isSavable())&&(!done.contains(R.roomID())))
+				if((R!=null)
+				&&(R.isSavable())
+				&&(!done.contains(R.roomID())))
 				{
 					done.add(R.roomID());
 					final HashSet<String> oldStrs=new HashSet<String>();
@@ -1466,35 +2089,43 @@ public class RoomLoader
 					final StringBuffer exitStr=new StringBuffer("");
 					for (final String string : oldStrs)
 						exitStr.append(string);
-					final String fullSQL =
-					"INSERT INTO CMROEX ("
-					+"CMROID, "
-					+"CMDIRE, "
-					+"CMEXID, "
-					+"CMEXTX, "
-					+"CMNRID"
-					+") values ("
-					+"'"+room.roomID()+"',"
-					+(256+(++ordinal))+","
-					+"'Open',"
-					+"?,"
-					+"'"+R.roomID()+"')";
-					final String exitText = exitStr.toString();
-					if(!useBulkInserts)
-						statements.add(new DBPreparedBatchEntry(fullSQL,exitText));
+					final Integer dirO = Integer.valueOf(256+(++ordinal));
+					final String fullSQL;
+					if(!existingExits.containsKey(dirO))
+					{
+						fullSQL ="INSERT INTO CMROEX ("
+								+"CMROID, "
+								+"CMDIRE, "
+								+"CMEXID, "
+								+"CMEXTX, "
+								+"CMNRID"
+								+") values ("
+								+"'"+room.roomID()+"',"
+								+dirO.intValue()+","
+								+"'Open',"
+								+"?,"
+								+"'"+R.roomID()+"')";
+					}
 					else
 					{
-						final DBPreparedBatchEntry entry = doBulkInsert(bulkSQL,bulkClobs,fullSQL,exitText);
-						if(entry != null)
-							statements.add(entry);
+						fullSQL ="UPDATE CMROEX "
+								+"SET CMEXID='Open',"
+								+"CMEXTX=?,"
+								+"CMNRID='"+R.roomID()+"' "
+								+"WHERE CMROID='"+room.roomID()+"' AND CMDIRE="+dirO.intValue();
 					}
+					existingExits.remove(dirO);
+					final String exitText = exitStr.toString();
+						statements.add(new DBPreparedBatchEntry(fullSQL,exitText));
 				}
 			}
+			for(final Integer dir : existingExits.keySet())
+				statements.add(new DBPreparedBatchEntry("DELETE FROM CMROEX WHERE CMROID='"+room.roomID()+"' AND CMDIRE="+dir.intValue()));
 		}
-		if((bulkSQL.length()>0) && useBulkInserts)
-			statements.add(new DBPreparedBatchEntry(bulkSQL.toString(),bulkClobs.toArray(new String[0])));
 		DB.updateWithClobs(statements);
-		if(Log.debugChannelOn()&&(CMSecurity.isDebugging(CMSecurity.DbgFlag.CMROEX)||CMSecurity.isDebugging(CMSecurity.DbgFlag.DBROOMS)))
+		if(Log.debugChannelOn()
+		&&(CMSecurity.isDebugging(CMSecurity.DbgFlag.CMROEX)
+			||CMSecurity.isDebugging(CMSecurity.DbgFlag.DBROOMS)))
 			Log.debugOut("RoomLoader","Finished exit update for room "+room.roomID());
 	}
 
@@ -1515,7 +2146,7 @@ public class RoomLoader
 		final String mobID=this.getShortID(thisMOB);
 		thisMOB.setDatabaseID(mobID);
 		if(thisMOB.riding()!=null)
-			ride=this.getShortID(thisMOB.riding());
+			ride="*"+this.getShortID(thisMOB.riding());
 		else
 		if(thisMOB.amFollowing()!=null)
 			ride=this.getShortID(thisMOB.amFollowing());
@@ -1681,10 +2312,8 @@ public class RoomLoader
 		+"CMROID='"+room.roomID()+"' "
 		+"WHERE CMROID='"+oldID+"'");
 
-		DB.update(
-		"UPDATE CMCHAR SET "
-		+"CMROID='"+room.roomID()+"' "
-		+"WHERE CMROID='"+oldID+"'");
+		CMLib.database().DBUpdatePlayerStartRooms(oldID, room.roomID());
+
 		if(Log.debugChannelOn()&&(CMSecurity.isDebugging(CMSecurity.DbgFlag.CMROOM)||CMSecurity.isDebugging(CMSecurity.DbgFlag.DBROOMS)))
 			Log.debugOut("RoomLoader","Done recreating room "+room.roomID());
 	}
@@ -1765,7 +2394,7 @@ public class RoomLoader
 	{
 		if((roomID==null)||(!item.isSavable())||(item.amDestroyed()))
 			return;
-		synchronized(roomID.toUpperCase().intern())
+		synchronized(CMClass.getSync("SYNC"+roomID.toUpperCase()))
 		{
 			DBDeleteRoomItem(roomID,item);
 			if(Log.debugChannelOn()&&(CMSecurity.isDebugging(CMSecurity.DbgFlag.CMROIT)||CMSecurity.isDebugging(CMSecurity.DbgFlag.DBROOMS)))
@@ -1832,8 +2461,20 @@ public class RoomLoader
 	{
 		return new XVector<String>(
 			"DELETE FROM CMROEX WHERE CMROID='"+roomID+"'",
+			"DELETE FROM CMROEX WHERE CMNRID='"+roomID+"'",
 			"DELETE FROM CMROCH WHERE CMROID='"+roomID+"'",
 			"DELETE FROM CMROIT WHERE CMROID='"+roomID+"'"
+		);
+	}
+
+	protected List<String> getRoomDeleteQueries(final String roomID)
+	{
+		return new XVector<String>(
+			"SELECT * FROM CMROCH WHERE CMROID='"+roomID+"'",
+			"SELECT * FROM CMROEX WHERE CMROID='"+roomID+"'",
+			"SELECT * FROM CMROEX WHERE CMNRID='"+roomID+"'",
+			"SELECT * FROM CMROIT WHERE CMROID='"+roomID+"'",
+			"SELECT * FROM CMROOM WHERE CMROID='"+roomID+"'"
 		);
 	}
 
@@ -1841,12 +2482,28 @@ public class RoomLoader
 	{
 		if(!room.isSavable())
 			return;
-		if(Log.debugChannelOn()&&(CMSecurity.isDebugging(CMSecurity.DbgFlag.CMROCH)||CMSecurity.isDebugging(CMSecurity.DbgFlag.DBROOMS)))
+		if(Log.debugChannelOn()
+		&&(CMSecurity.isDebugging(CMSecurity.DbgFlag.CMROCH)
+				||CMSecurity.isDebugging(CMSecurity.DbgFlag.CMROEX)
+				||CMSecurity.isDebugging(CMSecurity.DbgFlag.CMROIT)
+				||CMSecurity.isDebugging(CMSecurity.DbgFlag.DBROOMS)))
 			Log.debugOut("RoomLoader","Destroying room "+room.roomID());
-		DB.update(getRoomDeleteStrings(room.roomID()).toArray(new String[0]));
-		DB.update("DELETE FROM CMROOM WHERE CMROID='"+room.roomID()+"'");
+		int total = 1;
+		while(total>0)
+		{
+			for(final String update : getRoomDeleteStrings(room.roomID()))
+				DB.update(update);
+			DB.update("DELETE FROM CMROOM WHERE CMROID='"+room.roomID()+"'");
+			total = 0;
+			for(final String query : getRoomDeleteQueries(room.roomID()))
+				total += (DB.queryRows(query)>0?1:0);
+		}
 		room.destroy();
-		if(Log.debugChannelOn()&&(CMSecurity.isDebugging(CMSecurity.DbgFlag.CMROCH)||CMSecurity.isDebugging(CMSecurity.DbgFlag.DBROOMS)))
+		if(Log.debugChannelOn()
+		&&(CMSecurity.isDebugging(CMSecurity.DbgFlag.CMROCH)
+				||CMSecurity.isDebugging(CMSecurity.DbgFlag.CMROEX)
+				||CMSecurity.isDebugging(CMSecurity.DbgFlag.CMROIT)
+				||CMSecurity.isDebugging(CMSecurity.DbgFlag.DBROOMS)))
 			Log.debugOut("RoomLoader","Done gestroying room "+room.roomID());
 	}
 

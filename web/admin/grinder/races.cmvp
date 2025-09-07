@@ -1,10 +1,12 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
 <META HTTP-EQUIV="Pragma" CONTENT="no-cache">
 @if?!Authenticate@ @AddFile?/grinder/failedlogin.cmvp@ @else@
-@if?!CheckAuthCode?AUTH_CMDQUESTS=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
+@if?!CheckAuthCode?AUTH_CMDRACES=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <html>
+	<META CHARSET="utf-8"/>
 <head>
     <link rel="grinder icon" href="/images/grinder.ico" >
+    <link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
     <title>Races List</title>
     <script language=JavaScript>
     <!--
@@ -64,7 +66,7 @@
     @RaceNext?ALL@
         @if?!CheckReqParm?RACE=GenRace@
             <TR>
-            <TD><a href="javascript:Race('@RaceID@','')"><FONT COLOR=WHITE><B>@RaceID@</B></FONT></a></TD>
+            <TD><a href="javascript:Race('@RaceID@','')"><FONT COLOR="#FFFF8F"><U><B>@RequestParameter?RACE&ELLIPSE=20@</B></U></FONT></a></TD>
             <TD><FONT COLOR=WHITE><B>@RaceData?CAT@</B></FONT></a></TD>
             <TD><FONT COLOR=WHITE><B>@if?RaceData?ISGENERIC@Yes@endif@</B></FONT></a></TD>
             <TD><FONT COLOR=WHITE><B>@RaceData?WEIGHT@ lbs</B></FONT></a></TD>
@@ -75,7 +77,10 @@
        @endif@
     @back@
     <TR>
-    <TD COLSPAN=4><a href="javascript:if(document.RESOURCES.NEWRACE.value!='')Race(document.RESOURCES.NEWRACE.value,'&NEWRACE='+document.RESOURCES.NEWRACE.value)"><FONT COLOR=WHITE><B>Create New:</a> <INPUT TYPE=TEXT NAME=NEWRACE SIZE=70></B></FONT></TD>
+    <TD COLSPAN=4>
+    	<a href="javascript:if(document.RESOURCES.NEWRACE.value!='')Race(document.RESOURCES.NEWRACE.value,'&NEWRACE='+document.RESOURCES.NEWRACE.value)">
+    	<FONT COLOR=CYAN><B><U>Create New:</U></a> <INPUT TYPE=TEXT NAME=NEWRACE SIZE=70></B></FONT>
+    </TD>
     </TR>
     </TABLE>
     <P>

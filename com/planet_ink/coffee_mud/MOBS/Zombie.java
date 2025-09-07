@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,12 +44,12 @@ public class Zombie extends Undead
 	{
 
 		super();
-		username="a zombie";
+		_name="a zombie";
 		setDescription("decayed and rotting, a dead body has been brought back to life...");
 		setDisplayText("a zombie slowly moves about.");
 		setMoney(10);
 		basePhyStats.setWeight(30);
-		baseCharStats().setMyRace(CMClass.getRace("Undead"));
+		baseCharStats().setMyRace(CMClass.getRace("Zombie"));
 		baseCharStats().getMyRace().startRacing(this,false);
 
 		basePhyStats().setDamage(8);

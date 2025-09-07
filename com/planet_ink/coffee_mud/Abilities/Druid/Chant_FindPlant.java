@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ public class Chant_FindPlant extends Chant
 	@Override
 	public String displayText()
 	{
-		return L("(Finding "+lookingFor+")");
+		return displayText;
 	}
 
 	@Override
@@ -69,10 +69,14 @@ public class Chant_FindPlant extends Chant
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_TRACKING;
+		return Ability.FLAG_TRACKING | Ability.FLAG_DIVINING;
 	}
 
-	protected String lookingFor="plants";
+	private static String DEFAULT_LOOKING_FOR=CMLib.lang().L("plants");
+	private static String DEFAULT_DISPLAYTEXT=CMLib.lang().L("(Looking for plants)");
+
+	protected String lookingFor=DEFAULT_LOOKING_FOR;
+	protected String displayText=DEFAULT_DISPLAYTEXT;
 	protected List<Room> theTrail=null;
 	protected int nextDirection=-2;
 	public int whatImLookingFor=-1;
@@ -189,7 +193,7 @@ public class Chant_FindPlant extends Chant
 			return "";
 		final Room room=R;
 		if(room.myResource()==whatImLookingFor)
-			return "There seems to be "+lookingFor+" around here.\n\r";
+			return L("There seems to be @x1 around here.\n\r",lookingFor);
 		return "";
 	}
 
@@ -203,6 +207,7 @@ public class Chant_FindPlant extends Chant
 			if(d.equalsIgnoreCase(s))
 			{
 				lookingFor=d.toLowerCase();
+				this.displayText = L("(Finding @x1)",lookingFor);
 				whatImLookingFor=c;
 				break;
 			}
@@ -221,6 +226,7 @@ public class Chant_FindPlant extends Chant
 		flags = CMLib.tracking().newFlags()
 				.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
 				.plus(TrackingLibrary.TrackingFlag.NOAIR)
+				.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 				.plus(TrackingLibrary.TrackingFlag.NOWATER);
 		return flags;
 	}
@@ -236,14 +242,21 @@ public class Chant_FindPlant extends Chant
 	{
 		final ArrayList<Room> rooms=new ArrayList<Room>();
 		TrackingLibrary.TrackingFlags flags = getTrackingFlags();
+		flags.plus(TrackingLibrary.TrackingFlag.PASSABLE);
 		final int range = 50+(2*super.getXLEVELLevel(mob))+(10*super.getXMAXRANGELevel(mob));
-		final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mobRoom,flags,range);
-		for (final Room R : checkSet)
-		{
-			if(itsHere(target,R).length()>0)
-				rooms.add(R);
-		}
+		final List<Room> trashRooms = new ArrayList<Room>();
+		if(CMLib.tracking().getRadiantRoomsToTarget(mobRoom, trashRooms, flags, new TrackingLibrary.RFilter() {
+			@Override
+			public boolean isFilteredOut(final Room hostR, Room R, final Exit E, final int dir)
+			{
+				R=CMLib.map().getRoom(R);
+				if(itsHere(target,R).length()>0)
+					return false;
+				return true;
+			}
 
+		}, range))
+			rooms.add(trashRooms.get(trashRooms.size()-1));
 		flags = getTrackingFlags();
 		if(rooms.size()>0)
 			theTrail=CMLib.tracking().findTrailToAnyRoom(mobRoom,rooms,flags,range);
@@ -259,7 +272,7 @@ public class Chant_FindPlant extends Chant
 
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already trying to @x1",name()));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already trying to @x1",name()));
 			return false;
 		}
 		final List<Ability> V=CMLib.flags().flaggedAffects(mob,Ability.FLAG_TRACKING);
@@ -303,7 +316,8 @@ public class Chant_FindPlant extends Chant
 
 		if((success)&&(theTrail!=null))
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("<T-NAME> begin(s) to @x1s!",name().toLowerCase()):L("^S<S-NAME> chant(s) for @x1.^?",lookingFor));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					auto?L("<T-NAME> begin(s) to @x1s!",name().toLowerCase()):L("^S<S-NAME> chant(s) for @x1.^?",lookingFor));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,6 +62,12 @@ public class Spell_Augury extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	public int classificationCode()
 	{
 		return Ability.ACODE_SPELL|Ability.DOMAIN_DIVINATION;
@@ -72,7 +78,7 @@ public class Spell_Augury extends Spell
 	{
 		if((commands.size()<1)&&(givenTarget==null))
 		{
-			mob.tell(L("Divine the fate of which direction?"));
+			commonTelL(mob,"Divine the fate of which direction?");
 			return false;
 		}
 		final String targetName=CMParms.combine(commands,0);
@@ -90,12 +96,12 @@ public class Spell_Augury extends Spell
 		}
 		else
 		{
-			mob.tell(L("Divine the fate of which direction?"));
+			commonTelL(mob,"Divine the fate of which direction?");
 			return false;
 		}
 		if((exit==null)||(room==null))
 		{
-			mob.tell(L("You couldn't go that way if you wanted to!"));
+			commonTelL(mob,"You couldn't go that way if you wanted to!");
 			return false;
 		}
 
@@ -106,7 +112,7 @@ public class Spell_Augury extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),auto?"":L("^S<S-NAME> point(s) <S-HIS-HER> finger @x1, incanting.^?",CMLib.directions().getDirectionName(dirCode)));
+			final CMMsg msg=CMClass.getMsg(mob,null,this,somaticCastCode(mob,null,auto),auto?"":L("^S<S-NAME> point(s) <S-HIS-HER> finger @x1, incanting.^?",CMLib.directions().getDirectionName(dirCode)));
 			if(mob.location().okMessage(mob,msg))
 			{
 				boolean aggressiveMonster=false;
@@ -128,14 +134,13 @@ public class Spell_Augury extends Spell
 				}
 				mob.location().send(mob,msg);
 				if((aggressiveMonster)
-				||CMLib.flags().isDeadlyOrMaliciousEffect(room)
-				||CMLib.flags().isDeadlyOrMaliciousEffect(exit)
+				|| CMLib.flags().isDeadlyOrMaliciousEffect(room)
+				|| CMLib.flags().isDeadlyOrMaliciousEffect(exit)
 				||((opExit!=null)&&(CMLib.flags().isDeadlyOrMaliciousEffect(opExit))))
-					mob.tell(L("You feel going that way would be bad."));
+					commonTelL(mob,"You feel going that way would be bad.");
 				else
-					mob.tell(L("You feel going that way would be ok."));
+					commonTelL(mob,"You feel going that way would be ok.");
 			}
-
 		}
 		else
 			beneficialVisualFizzle(mob,null,L("<S-NAME> point(s) <S-HIS-HER> finger @x1, incanting, but then loses concentration.",CMLib.directions().getDirectionName(dirCode)));

@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -74,36 +75,45 @@ public class Archon extends StdCharClass implements ArchonOnly
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"AnimalTaming",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"AnimalTrading",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"AnimalTraining",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"AnimalSpeak", false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Blah", false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Drunken", false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Domesticating",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"InstrumentMaking",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"PlantLore",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Scrapping",false);
 
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"AstroEngineering",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Welding",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Irrigation",100,"",true,true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"AstroEngineering",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Welding",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Irrigation",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Math",100,"",true,SecretFlag.SECRET);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"PigLatin",100,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Common",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Resistance",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Multiwatch",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_MatrixPossess",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Wrath",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Hush",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Freeze",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Record",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_CRecord",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Infect",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Stinkify",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Banish",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Shame",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Accuse",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Metacraft",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Injure",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Amputation",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_MarkOOC",100,"",true,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Chant_AlterTime",true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Chant_MoveSky",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Common",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_Resistance",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Multiwatch",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_MatrixPossess",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Wrath",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Hush",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Freeze",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Record",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_CRecord",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Infect",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Stinkify",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Banish",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Shame",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Accuse",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Metacraft",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_Injure",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Amputation",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Scarring",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_MarkOOC",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_LLMIFY",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Archon_InstanceDisplay",100,"",true,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Chant_AlterTime",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Spell_Majesty",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Chant_MoveSky",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Fighter_Bulldog",true);
 	}
 
 	@Override
@@ -127,11 +137,13 @@ public class Archon extends StdCharClass implements ArchonOnly
 	}
 
 	public static final String[] ARCHON_IMMUNITIES=
-		{
+	{
 		"Spell_Scry",
 		"Thief_Listen",
 		"Spell_Claireaudience",
 		"Spell_Clairevoyance",
+		"Spell_GreaterClaireaudience",
+		"Spell_GreaterClairevoyance",
 		"Spell_Enthrall",
 		"Spell_Charm",
 		"Skill_Befriend",
@@ -139,7 +151,7 @@ public class Archon extends StdCharClass implements ArchonOnly
 		"Chant_StoneFriend",
 		"Thief_Steal",
 		"Thief_PlantItem"
-		};
+	};
 
 	@Override
 	public boolean okMessage(final Environmental myHost, final CMMsg msg)
@@ -181,6 +193,7 @@ public class Archon extends StdCharClass implements ArchonOnly
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

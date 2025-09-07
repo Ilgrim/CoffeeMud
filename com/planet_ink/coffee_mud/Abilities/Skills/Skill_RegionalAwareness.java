@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -125,7 +125,9 @@ public class Skill_RegionalAwareness extends StdSkill
 		case Room.DOMAIN_OUTDOORS_SPACEPORT:
 			return 'P';
 		case Room.DOMAIN_INDOORS_STONE:
-			return 'W';
+			if((room.phyStats().weight()>2)&&(room.maxRange()>4))
+				return '=';
+			return 'w';
 		case Room.DOMAIN_INDOORS_WOOD:
 			return 'y';
 		case Room.DOMAIN_INDOORS_CAVE:
@@ -184,12 +186,17 @@ public class Skill_RegionalAwareness extends StdSkill
 		case Room.DOMAIN_OUTDOORS_SPACEPORT:
 			return '@';
 		case Room.DOMAIN_INDOORS_UNDERWATER:
+			if((room.basePhyStats().weight()>2)&&(room.maxRange()>4))
+				return '=';
 			return '~';
 		case Room.DOMAIN_INDOORS_AIR:
 			return ' ';
 		case Room.DOMAIN_INDOORS_WATERSURFACE:
 			return '~';
 		case Room.DOMAIN_INDOORS_STONE:
+			if((room.basePhyStats().weight()>2)&&(room.maxRange()>4))
+				return '=';
+			//$FALL-THROUGH$
 		case Room.DOMAIN_INDOORS_WOOD:
 		case Room.DOMAIN_INDOORS_CAVE:
 		case Room.DOMAIN_INDOORS_MAGIC:
@@ -200,7 +207,7 @@ public class Skill_RegionalAwareness extends StdSkill
 		}
 	}
 
-	public String[] getMiniMap(final Room room, final int diameter, final boolean openOnly)
+	public String[] getMiniMap(final MOB mob, final Room room, final int diameter, final boolean openOnly)
 	{
 		final char[][] map=new char[diameter][diameter];
 		for(int i=0;i<diameter;i++)
@@ -215,10 +222,11 @@ public class Skill_RegionalAwareness extends StdSkill
 		TrackingLibrary.TrackingFlags flags;
 		flags = CMLib.tracking().newFlags()
 					.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
+					.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 					.plus(TrackingLibrary.TrackingFlag.NOAIR);
 		if(openOnly)
 			flags = flags.plus(TrackingLibrary.TrackingFlag.OPENONLY);
-
+		final boolean canSeeHidden = CMSecurity.isAllowed(mob, mob.location(), CMSecurity.SecFlag.CMDROOMS);
 		CMLib.tracking().getRadiantRooms(room,rooms,flags,null,diameter,null);
 		rmap[diameter/2][diameter/2]=room;
 		map[diameter/2][diameter/2]='*';
@@ -237,16 +245,23 @@ public class Skill_RegionalAwareness extends StdSkill
 				{
 					final Room R2=rmap[i2][i3];
 					if(R2!=null)
-					for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 					{
-						if((R2.getRoomInDir(d)==R)
-						&&(!closedPaths.contains(R2))
-						&&(R2.getExitInDir(d)!=null))
+						for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 						{
-							parentR=R2;
-							parentDir=d;
-							xy=Directions.adjustXYByDirections(i3,i2,d);
-							break;
+							if((R2.getRoomInDir(d)==R)
+							&&(!closedPaths.contains(R2)))
+							{
+								final Exit E = R2.getExitInDir(d);
+								if((E != null)
+								&&((!CMLib.flags().isHidden(E))||canSeeHidden)
+								&&((!CMLib.flags().isInvisible(E))||canSeeHidden||CMLib.flags().canSeeInvisible(mob)))
+								{
+									parentR=R2;
+									parentDir=d;
+									xy=Directions.adjustXYByDirections(i3,i2,d);
+									break;
+								}
+							}
 						}
 					}
 				}
@@ -294,7 +309,7 @@ public class Skill_RegionalAwareness extends StdSkill
 		final Session sess = mob.session();
 		if(auto && (givenTarget instanceof Room) && (asLevel>0))
 		{
-			final String[] miniMap=getMiniMap((Room)givenTarget, asLevel, false);
+			final String[] miniMap=getMiniMap(mob, (Room)givenTarget, asLevel, false);
 			if(commands!=null)
 			{
 				for(final String s : miniMap)
@@ -335,7 +350,7 @@ public class Skill_RegionalAwareness extends StdSkill
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				final String[] miniMap=getMiniMap(mob.location(), 2+(adjustedLevel(mob,asLevel)/10), true);
+				final String[] miniMap=getMiniMap(mob,mob.location(), 2+(adjustedLevel(mob,asLevel)/10), true);
 				if(sess != null)
 				{
 					for(final String s : miniMap)

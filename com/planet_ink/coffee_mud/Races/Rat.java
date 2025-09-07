@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Vector;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -142,6 +142,14 @@ public class Rat extends Rodent
 	}
 
 	@Override
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
+	{
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.setStat(CharStats.STAT_STRENGTH,affectedMOB.baseCharStats().getStat(CharStats.STAT_STRENGTH));
+		affectableStats.setStat(CharStats.STAT_MAX_STRENGTH_ADJ,affectedMOB.baseCharStats().getStat(CharStats.STAT_MAX_STRENGTH_ADJ));
+	}
+
+	@Override
 	public List<RawMaterial> myResources()
 	{
 		synchronized(resources)
@@ -158,7 +166,7 @@ public class Rat extends Rodent
 		}
 		final Vector<RawMaterial> rsc=new XVector<RawMaterial>(resources);
 		final RawMaterial meat=makeResource
-		(L("some @x1 flesh",name().toLowerCase()),RawMaterial.RESOURCE_MEAT);
+								(L("some @x1 flesh",name().toLowerCase()),RawMaterial.RESOURCE_MEAT);
 		if((CMLib.dice().rollPercentage()<10)&&(!CMSecurity.isDisabled(CMSecurity.DisFlag.AUTODISEASE)))
 		{
 			final Ability A=CMClass.getAbility("Disease_SARS");

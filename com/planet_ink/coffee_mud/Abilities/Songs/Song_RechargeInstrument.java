@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2020-2020 Bo Zimmerman
+   Copyright 2020-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,8 +43,6 @@ public class Song_RechargeInstrument extends Song
 
 	private final static String localizedName = CMLib.lang().L("Recharge Instrument");
 
-	private static int RECHARGE_AMT = 5;
-
 	@Override
 	public String name()
 	{
@@ -63,21 +61,25 @@ public class Song_RechargeInstrument extends Song
 		return 100;
 	}
 
+	@Override
 	protected boolean skipStandardSongInvoke()
 	{
 		return true;
 	}
 
+	@Override
 	protected boolean mindAttack()
 	{
 		return abstractQuality() == Ability.QUALITY_MALICIOUS;
 	}
 
+	@Override
 	protected boolean skipStandardSongTick()
 	{
 		return true;
 	}
 
+	@Override
 	protected boolean skipSimpleStandardSongTickToo()
 	{
 		return true;
@@ -133,22 +135,24 @@ public class Song_RechargeInstrument extends Song
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				if(((Wand)target).usesRemaining() >= ((Wand)target).maxUses())
+				if(((Wand)target).getCharges() >= ((Wand)target).getMaxCharges())
 				{
 					mob.location().show(mob,target,CMMsg.MSG_OK_VISUAL,L("<T-NAME> glow(s) brightly then disintigrates!"));
 					target.destroy();
 				}
 				else
 				{
+					final double pct = CMath.div(mob.charStats().getStat(CharStats.STAT_CHARISMA), CMProps.getIntVar(CMProps.Int.BASEMAXSTAT));
+					final int rechargeAmount = (int)Math.round(CMath.mul(5, pct));
 					boolean willBreak = false;
-					if((((Wand)target).usesRemaining()+RECHARGE_AMT) > ((Wand)target).maxUses())
+					if((((Wand)target).getCharges()+rechargeAmount) > ((Wand)target).getMaxCharges())
 					{
 						willBreak = true;
-						((Wand)target).setUsesRemaining(((Wand)target).maxUses());
+						((Wand)target).setCharges(((Wand)target).getMaxCharges());
 					}
 					else
 					{
-						((Wand)target).setUsesRemaining(((Wand)target).usesRemaining()+RECHARGE_AMT);
+						((Wand)target).setCharges(((Wand)target).getCharges()+rechargeAmount);
 					}
 					if(!(willBreak))
 					{

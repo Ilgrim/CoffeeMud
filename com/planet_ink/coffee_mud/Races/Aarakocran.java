@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -172,26 +172,33 @@ public class Aarakocran extends StdRace
 	public void affectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
 		//super.affectCharStats(affectedMOB, affectableStats); -- the harpy will set to F
-		affectableStats.setStat(CharStats.STAT_DEXTERITY,affectableStats.getStat(CharStats.STAT_DEXTERITY)+2);
-		affectableStats.setStat(CharStats.STAT_MAX_DEXTERITY_ADJ,affectableStats.getStat(CharStats.STAT_MAX_DEXTERITY_ADJ)+2);
-		affectableStats.setStat(CharStats.STAT_MAX_CONSTITUTION_ADJ,affectableStats.getStat(CharStats.STAT_MAX_CONSTITUTION_ADJ)-1);
-		affectableStats.setStat(CharStats.STAT_CONSTITUTION,affectableStats.getStat(CharStats.STAT_CONSTITUTION)-1);
-		affectableStats.setStat(CharStats.STAT_MAX_CHARISMA_ADJ,affectableStats.getStat(CharStats.STAT_MAX_CHARISMA_ADJ)-1);
-		affectableStats.setStat(CharStats.STAT_CHARISMA,affectableStats.getStat(CharStats.STAT_CHARISMA)-1);
+		affectableStats.adjStat(CharStats.STAT_DEXTERITY,2);
+		affectableStats.adjStat(CharStats.STAT_CONSTITUTION,-1);
+		affectableStats.adjStat(CharStats.STAT_CHARISMA,-1);
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
-		if(naturalWeapon==null)
+		//super.affectCharStats(affectedMOB, affectableStats); -- the harpy will set to F
+		affectableStats.adjStat(CharStats.STAT_DEXTERITY,-2);
+		affectableStats.adjStat(CharStats.STAT_CONSTITUTION,+1);
+		affectableStats.adjStat(CharStats.STAT_CHARISMA,+1);
+	}
+
+	@Override
+	public Weapon[] getNaturalWeapons()
+	{
+		if(this.naturalWeaponChoices.length==0)
 		{
-			naturalWeapon=CMClass.getWeapon("StdWeapon");
+			final Weapon naturalWeapon=CMClass.getWeapon("GenWeapon");
 			naturalWeapon.setName(L("some sharp talons"));
 			naturalWeapon.setMaterial(RawMaterial.RESOURCE_BONE);
 			naturalWeapon.setUsesRemaining(1000);
 			naturalWeapon.setWeaponDamageType(Weapon.TYPE_PIERCING);
+			this.naturalWeaponChoices = new Weapon[] { naturalWeapon };
 		}
-		return naturalWeapon;
+		return super.getNaturalWeapons();
 	}
 
 	@Override
@@ -242,7 +249,7 @@ public class Aarakocran extends StdRace
 			return L("^g@x1^g has a few feathers out of place.^N",mob.name(viewer));
 		else
 		if(pct<.99)
-			return L("^g@x1^g has a some ruffled feathers.^N",mob.name(viewer));
+			return L("^g@x1^g has some ruffled feathers.^N",mob.name(viewer));
 		else
 			return L("^c@x1^c is in perfect health.^N",mob.name(viewer));
 	}
@@ -268,6 +275,7 @@ public class Aarakocran extends StdRace
 			outfitChoices.add(p1);
 			final Armor s3=CMClass.getArmor("GenBelt");
 			outfitChoices.add(s3);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -187,7 +187,7 @@ public class Prayer_AuraDivineEdict extends Prayer
 			final MOB M=R.fetchInhabitant(i);
 			if((M!=null)&&(M.isInCombat()))
 			{
-				M.tell(L("@x1 DEMANDS NO FIGHTING!",invoker().getWorshipCharID().toUpperCase()));
+				M.tell(L("@x1 DEMANDS NO FIGHTING!",invoker().charStats().getWorshipCharID().toUpperCase()));
 				M.makePeace(true);
 			}
 		}
@@ -214,7 +214,7 @@ public class Prayer_AuraDivineEdict extends Prayer
 
 		if(target.fetchEffect(ID())!=null)
 		{
-			mob.tell(target,null,null,L("The aura of the divine edict is already with <S-NAME>."));
+			failureTell(mob,target,auto,L("The aura of the divine edict is already with <S-NAME>."));
 			return false;
 		}
 
@@ -230,8 +230,8 @@ public class Prayer_AuraDivineEdict extends Prayer
 			{
 				mob.location().send(mob,msg);
 				godName="THE GODS";
-				if(mob.getWorshipCharID().length()>0)
-					godName=mob.getWorshipCharID().toUpperCase();
+				if(mob.charStats().getWorshipCharID().length()>0)
+					godName=mob.charStats().getWorshipCharID().toUpperCase();
 				beneficialAffect(mob,target,asLevel,0);
 			}
 		}

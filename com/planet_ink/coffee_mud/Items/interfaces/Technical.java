@@ -11,7 +11,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
-import com.planet_ink.coffee_mud.Items.interfaces.TechComponent.ShipDir;
+import com.planet_ink.coffee_mud.Items.interfaces.ShipDirectional.ShipDir;
 import com.planet_ink.coffee_mud.Items.interfaces.Technical.TechType;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
@@ -19,10 +19,12 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -68,10 +70,14 @@ public interface Technical extends Item
 		SHIP_SOFTWARE("Ship Software", "Software"),
 		SHIP_ENVIRO_CONTROL("Ship Environmental System", "Env. System"),
 		SHIP_GENERATOR("Ship Power Generator", "Generator"),
-		SHIP_DAMPENER("Ship Inertial Dampener", "Inertial"),
+		SHIP_DAMPENER("Ship Inertial Dampener", "Dampener"),
+		SHIP_INERTIAL("Ship Inertial Battery", "Inertial"),
 		SHIP_GRAVGEN("Ship Gravity Generator", "Grav. Gen"),
 		SHIP_TRACTOR("Ship Tractor", "Tractor"),
-		SHIP_REPLICATOR("Ship Food Replicator", "Replicat.")
+		SHIP_REPLICATOR("Ship Food Replicator", "Replicat."),
+		SHIP_LAUNCHER("Ship Launcher", "Launcher"),
+		COMP_TORPEDO("Launchable Torpedo", "Torpedo"),
+		COMP_PROBE("Launchable Probe", "Probe"),
 		;
 		private final String	friendlyName;
 		private final String	shortFriendlyName;
@@ -137,6 +143,38 @@ public interface Technical extends Item
 	public TechType getTechType();
 
 	/**
+	 * Gets the Manufacturer ID/Name that made this electrical
+	 * item.  This is important because benefits and detriments
+	 * can come along with the manufacturer.
+	 * @see Technical#setManufacturerName(String)
+	 * @see Manufacturer
+	 * @return the Manufacturer ID/Name that made this
+	 */
+	public String getManufacturerName();
+
+	/**
+	 * Sets the Manufacturer ID/Name that made this electrical
+	 * item.  This is important because benefits and detriments
+	 * can come along with the manufacturer.
+	 * @see Technical#getManufacturerName()
+	 * @see Technical#getFinalManufacturer()
+	 * @see Manufacturer
+	 * @param name the Manufacturer ID/Name that made this
+	 */
+	public void setManufacturerName(String name);
+
+	/**
+	 * Returns the Manufacturer object of the manufacturer that
+	 * made this electrical item.  This is important because
+	 * benefits and detriments can come along with the manufacturer.
+	 * @see Technical#getManufacturerName()
+	 * @see Technical#setManufacturerName(String)
+	 * @see Manufacturer
+	 * @return the Manufacturer that made this electrical item
+	 */
+	public Manufacturer getFinalManufacturer();
+
+	/**
 	 * A TechCommand is an internal message that is only understood between electrical
 	 * objects, typically ship components, but potentially between computer components
 	 * of all sorts.
@@ -145,17 +183,24 @@ public interface Technical extends Item
 	 */
 	public static enum TechCommand
 	{
-		THRUST(TechComponent.ShipDir.class, Double.class),
-		ACCELERATED(TechComponent.ShipDir.class, Double.class),
-		ACCELERATION(TechComponent.ShipDir.class, Double.class, Boolean.class),
+		THRUST(ShipDirectional.ShipDir.class, Double.class),
+		ACCELERATED(ShipDirectional.ShipDir.class, Double.class, Double.class, Double.class),
+		ACCELERATION(ShipDirectional.ShipDir.class, Double.class, Boolean.class),
 		COMPONENTFAILURE(Technical.TechType.class, String[].class),
-		SENSE(),
+		SENSE(TechComponent.class, Boolean.class),
 		AIRREFRESH(Double.class, Integer.class),
 		POWERSET(Long.class),
-		WEAPONTARGETSET(Double.class,Double.class),
-		WEAPONFIRE(),
+		DIRSET(ShipDirectional.ShipDir.class),
+		AIMSET(Double.class,Double.class),
+		TARGETSET(Long.class,Long.class,Long.class),
+		FIRE(),
 		SHIELDSET(ShipDir.class,Integer.class),
-		GRAVITYCHANGE(Boolean.class);
+		GRAVITYCHANGE(Boolean.class),
+		SWSVCALLOW(Software.SWServices.class),
+		SWSVCNEED(Software.SWServices.class, String[].class),
+		SWSVCREQ(Software.SWServices.class, String[].class),
+		SWSVCRES(Software.SWServices.class, String[].class)
+		;
 		private final Class<?>[]	parms;
 
 		private TechCommand(final Class<?>... parms)
@@ -183,7 +228,8 @@ public interface Technical extends Item
 		{
 			if ((parts == null) || (parts.length != parms.length))
 				return "";
-			final StringBuilder str = new StringBuilder(toString());
+			final List<String> fparts=new ArrayList<String>(parts.length);
+			fparts.add(name());
 			for (int i = 0; i < parms.length; i++)
 			{
 				if (parts[i] == null)
@@ -191,8 +237,18 @@ public interface Technical extends Item
 				else
 				if (parms[i] == String[].class)
 				{
-					for (; i < parms.length; i++)
-						str.append(" ").append(parts[i].toString());
+					if(parts[i].getClass() == String[].class)
+					{
+						final List<String> lst = Arrays.asList((String[])parts[i]);
+						fparts.add(CMParms.combineQuoted(lst,0));
+					}
+					else
+					{
+						final StringBuilder str=new StringBuilder("");
+						for (; i < parms.length; i++)
+							str.append(" ").append(parts[i].toString());
+						fparts.add(str.toString().trim());
+					}
 					break;
 				}
 				else
@@ -203,76 +259,75 @@ public interface Technical extends Item
 				{
 					final DecimalFormat df = new DecimalFormat("#");
 					df.setMaximumFractionDigits(8);
-					str.append(" ").append(df.format(((Double)parts[i]).doubleValue()));
+					fparts.add(df.format(((Double)parts[i]).doubleValue()));
 				}
 				else
-					str.append(" ").append(parts[i].toString());
+					fparts.add(parts[i].toString());
 			}
-			return str.toString();
+			return CMParms.combineQuoted(fparts,0);
 		}
 
 		/**
 		 * When a tech command of this enum type is received with its parameters,
-		 * the parameters are parsed into a list and passed to this method to
+		 * the parameters are parsed passed to this method to parse into a list and
 		 * confirm their types, translate them to the appropriate types, and
 		 * return the parameters as their original objects in an Object array.
 		 * null is returned if anything goes wrong
-		 * @param parts the command parameters as a string list
+		 * @param partStr the command parameters as a string to parse
 		 * @return the command parameters as their original objects, or null
 		 */
 		@SuppressWarnings({ "unchecked", "rawtypes" })
-		public Object[] confirmAndTranslate(final String[] parts)
+		public Object[] confirmAndTranslate(final String partStr)
 		{
-			if (parts.length != parms.length + 1)
+			final List<String> parts=CMParms.parse(partStr);
+			if (parts.size() != parms.length + 1)
 				return null;
-			final Object[] resp = new Object[parts.length - 1];
+			final Object[] resp = new Object[parts.size() - 1];
 			for (int i = 0; i < parms.length; i++)
 			{
 				if (parms[i].isEnum())
 				{
-					resp[i] = CMath.s_valueOf((Class<? extends Enum>) parms[i], parts[i + 1]);
+					resp[i] = CMath.s_valueOf((Class<? extends Enum>) parms[i], parts.get(i + 1));
 					if (resp[i] == null)
 						return null;
 				}
 				else
 				if (Integer.class.isAssignableFrom(parms[i]) || Long.class.isAssignableFrom(parms[i]))
 				{
-					if (!CMath.isLong(parts[i + 1]))
+					if (!CMath.isLong(parts.get(i + 1)))
 						return null;
 					if (Integer.class.isAssignableFrom(parms[i]))
-						resp[i] = Integer.valueOf(parts[i + 1]);
+						resp[i] = Integer.valueOf(parts.get(i + 1));
 					else
-						resp[i] = Long.valueOf(parts[i + 1]);
+						resp[i] = Long.valueOf(parts.get(i + 1));
 				}
 				else
 				if (Double.class.isAssignableFrom(parms[i]) || Float.class.isAssignableFrom(parms[i]))
 				{
-					if (!CMath.isNumber(parts[i + 1]))
+					if (!CMath.isNumber(parts.get(i + 1)))
 						return null;
 					if (Float.class.isAssignableFrom(parms[i]))
-						resp[i] = Float.valueOf(parts[i + 1]);
+						resp[i] = Float.valueOf(parts.get(i + 1));
 					else
-						resp[i] = Double.valueOf(parts[i + 1]);
+						resp[i] = Double.valueOf(parts.get(i + 1));
 				}
 				else
 				if (Boolean.class.isAssignableFrom(parms[i]))
 				{
-					if (!CMath.isBool(parts[i + 1]))
+					if (!CMath.isBool(parts.get(i + 1)))
 						return null;
-					resp[i] = Boolean.valueOf(parts[i + 1]);
+					resp[i] = Boolean.valueOf(parts.get(i + 1));
 				}
 				else
 				if (String.class.isAssignableFrom(parms[i]))
 				{
-					resp[i] = parts[i + 1];
+					resp[i] = parts.get(i + 1);
 				}
 				else
 				if (String[].class.isAssignableFrom(parms[i]))
 				{
-					final StringBuilder rebuilt = new StringBuilder(parts[i + 1]);
-					for (i = i + 2; i < parts.length; i++)
-						rebuilt.append(" ").append(parts[i]);
-					resp[i] = rebuilt.toString();
+					final List<String> reParsed=CMParms.parse(parts.get(i+1));
+					resp[i] = reParsed.toArray(new String[0]);
 					return resp;
 				}
 			}
@@ -281,15 +336,17 @@ public interface Technical extends Item
 
 		/**
 		 * Returns the techcommand object that matches the first word in this
-		 * parsed command string list.  Only the first entry matters.
+		 * parsed command string.  Only the first entry matters.
 		 * @param parts the entire command string list
 		 * @return the techcommand that matches the first string, or null
 		 */
-		public static TechCommand findCommand(final String[] parts)
+		public static TechCommand findCommand(final String parts)
 		{
-			if (parts.length == 0)
+			if (parts.length() == 0)
 				return null;
-			return (TechCommand) CMath.s_valueOf(TechCommand.class, parts[0].toUpperCase().trim());
+			final int x=parts.indexOf(' ');
+			final String cmd = (x>0)?parts.substring(0,x):parts;
+			return (TechCommand) CMath.s_valueOf(TechCommand.class, cmd.toUpperCase().trim());
 		}
 	}
 }

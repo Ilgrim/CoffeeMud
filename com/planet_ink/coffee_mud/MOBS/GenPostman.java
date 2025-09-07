@@ -1,5 +1,6 @@
 package com.planet_ink.coffee_mud.MOBS;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.ShopKeeper.ViewType;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -18,7 +19,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -47,7 +48,7 @@ public class GenPostman extends StdPostman
 	public GenPostman()
 	{
 		super();
-		username="a generic postman";
+		_name="a generic postman";
 		setDescription("He looks bored and slow.");
 		setDisplayText("A generic postman stands here.");
 	}
@@ -62,14 +63,14 @@ public class GenPostman extends StdPostman
 	public String text()
 	{
 		if(CMProps.getBoolVar(CMProps.Bool.MOBCOMPRESS))
-			miscText=CMLib.encoder().compressString(CMLib.coffeeMaker().getPropertiesStr(this,false));
+			miscText=CMLib.encoder().compressString(CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false));
 		else
-			miscText=CMLib.coffeeMaker().getPropertiesStr(this,false);
+			miscText=CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 		return super.text();
 	}
 
 	@Override
-	public String prejudiceFactors()
+	public String getRawPrejudiceFactors()
 	{
 		return prejudiceFactors;
 	}
@@ -81,7 +82,7 @@ public class GenPostman extends StdPostman
 	}
 
 	@Override
-	public String ignoreMask()
+	public String getRawIgnoreMask()
 	{
 		return ignoreMask;
 	}
@@ -115,7 +116,8 @@ public class GenPostman extends StdPostman
 									 "PREJUDICE",
 									 "POSTCHAIN","POSTMIN","POSTLBS",
 									 "POSTHOLD","POSTNEW","POSTHELD",
-									 "IGNOREMASK","PRICEMASKS","ITEMMASK"};
+									 "IGNOREMASK","PRICEMASKS","ITEMMASK",
+									 "SIVIEWTYPES"};
 
 	@Override
 	public String getStat(final String code)
@@ -127,7 +129,7 @@ public class GenPostman extends StdPostman
 		case 0:
 			return "" + getWhatIsSoldMask();
 		case 1:
-			return prejudiceFactors();
+			return getRawPrejudiceFactors();
 		case 2:
 			return postalChain();
 		case 3:
@@ -141,11 +143,13 @@ public class GenPostman extends StdPostman
 		case 7:
 			return "" + maxMudMonthsHeld();
 		case 8:
-			return ignoreMask();
+			return getRawIgnoreMask();
 		case 9:
-			return CMParms.toListString(itemPricingAdjustments());
+			return CMParms.toListString(getRawItemPricingAdjustments());
 		case 10:
 			return this.getWhatIsSoldZappermask();
+		case 11:
+			return CMParms.toListString(viewFlags());
 		default:
 			return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
 		}
@@ -191,6 +195,15 @@ public class GenPostman extends StdPostman
 			break;
 		case 10:
 			this.setWhatIsSoldZappermask(val.trim());
+			break;
+		case 11:
+			viewFlags().clear();
+			for(final String s : CMParms.parseCommas(val.toUpperCase().trim(), true))
+			{
+				final ViewType V=(ViewType)CMath.s_valueOf(ViewType.class, s);
+				if(V!=null)
+					viewFlags().add(V);
+			}
 			break;
 		default:
 			CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);

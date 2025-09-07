@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -34,9 +34,10 @@ import java.util.*;
 /**
  * Library for configureing and managing the rules for what resource
  * components (magic dust, tools, etc) are required every time a
- * particular skill is used.  Normally this would be part of the
- * skill itself, but since this feature was added so late, it's
- * separate.
+ * particular skill is used.
+ *
+ * Normally this would be part of the skill itself, but since
+ * this feature was added so late, it's separate.
  *
  *  Also here are common skill limit utilities, for determining
  *  how many common skills a player can learn.
@@ -67,7 +68,17 @@ public interface AbilityComponents extends CMLibrary
 	 * @param mithrilOK true to allow mithril as a metal substitute
 	 * @return a list of sample items
 	 */
-	public List<Item> componentsSample(List<AbilityComponent> req, boolean mithrilOK);
+	public List<Item> makeComponentsSample(List<AbilityComponent> req, boolean mithrilOK);
+
+	/**
+	 * Returns a dirty approximation of the minimal resources in the component
+	 * requirement that match the given mob.  Named items are skipped.
+	 *
+	 * @param mob the mob trying to meet the requirements
+	 * @param req the requirements to be met
+	 * @return null if something goes wrong, or the minimal required resource Items
+	 */
+	public List<Item> makeComponents(final MOB mob, final List<AbilityComponent> req);
 
 	/**
 	 * If the ability component recipe used to build the list of found
@@ -185,10 +196,49 @@ public interface AbilityComponents extends CMLibrary
 	public String getAbilityComponentCodedString(List<AbilityComponent> comps);
 
 	/**
+	 * If the source of the given message has event-triggered ability
+	 * components, this will handle any steps in them, possibly causing
+	 * an ability/skill to be invoked.
+	 *
+	 * @param msg the event to check
+	 */
+	public void handleAbilityComponentTriggers(final CMMsg msg);
+
+	/**
+	 * If the given mob has event triggered ability components that
+	 * require action during a tick, this will manage that.
+	 *
+	 * @param mob the mob who might needs to do something
+	 */
+	public void tickAbilityComponentTriggers(final MOB mob);
+
+	/**
+	 * If the given mob is eligible to automatically run through
+	 * a component trigger automatically, this method will kick it off.
+	 *
+	 * @param mob the non-player mob
+	 * @param A the ability to kick off
+	 */
+	public void startAbilityComponentTrigger(final MOB mob, final Ability A);
+
+	/**
+	 * If a component trigger allows otherwise non-qualifying participants,
+	 * this will allow it to add other participants to the message
+	 * listener for their main triggerer and key, using the INCLUDE
+	 * trigger directive.
+	 *
+	 * @param mob the mob to be an assistant
+	 * @param assistingM the mob being assisted, with their triggerer
+	 * @param key the key to the trigger
+	 */
+	public void addAssistingTriggerer(final MOB mob, final MOB assistingM, final Object key);
+
+	/**
 	 * Creates a new blank ability component object
+	 * @param abilityID the ability id to based this component on
 	 * @return a new blank ability component object
 	 */
-	public AbilityComponent createBlankAbilityComponent();
+	public AbilityComponent createBlankAbilityComponent(String abilityID);
 
 	/**
 	 * Alters and saved the ability components definition to on the
@@ -254,6 +304,26 @@ public interface AbilityComponents extends CMLibrary
 	 * @return the character-class based common skill ability limits
 	 */
 	public AbilityLimits getSpecialSkillRemainders(MOB studentM);
+
+
+	/**
+	 * Returns the social set of the given base name.
+	 *
+	 * @see AbilityComponents#getComponentSocials()
+	 *
+	 * @param named the social base name
+	 * @return null, or the social set
+	 */
+	public List<Social> getSocialsSet(String named);
+
+	/**
+	 * Gets the unique socials applicable to components.
+	 *
+	 * @see AbilityComponents#getSocialsSet(String)
+	 *
+	 * @return the component socials map
+	 */
+	public Map<String,List<Social>> getComponentSocials();
 
 	/**
 	 * Ability Limits object, denoting how many of different types

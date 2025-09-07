@@ -161,11 +161,16 @@
 #or 'prev' to require a previous quest, if multiple found.
 #$MULTIPLE=$CHOOSE=YES,NO,PREV
 #
+#$CATEGORY=($HIDDEN)=
+#
 #!QUESTMAKER_END_SCRIPT Normal Dispel #1
 
 set name $QUEST_ID
 set display $QUEST_NAME
 set author $#AUTHOR
+set questtype normal_dispel1
+set category $CATEGORY
+set instructions $QUEST_INSTRUCTIONSSTRING
 
 set wait 1
 set interval 1
@@ -188,8 +193,17 @@ set duration 0
 <FILE><NAME>$QUEST_ID_announcer.script</NAME>
 <DATA>
 ONCE_PROG 100
+	MPQSET * INSTRUCTIONS $i in $a wants you to '$QUEST_INSTRUCTIONSSTRING'
 	if EVAL('$QUEST_ANNOUNCECHANNEL' != '')
 		$QUEST_ANNOUNCECHANNEL $QUEST_NOTIFYSTRING -- Come see me for more information.
+	endif
+~
+
+SPEECH_PROG quest quests quest? quests?
+	if ISLIKE($n '$QUEST_CRITERIA') and ISPC($n) and ( EVAL('$MULTIPLE' != 'PREV') or QUESTWINNER($n previous) ) and !QUESTSCRIPTED($n *)
+		if EVAL('$MULTIPLE' == 'YES') OR !QUESTWINNER($n *)
+			sayto "$n" $QUEST_NOTIFYSTRING -- say '^yi accept^?' or '^yi accept $QUEST_NAME^?' to take on this quest.
+		endif
 	endif
 ~
 
@@ -231,23 +245,32 @@ ALL_GREET_PROG 100
 	endif
 ~
 
-SPEECH_PROG p i accept $QUEST_NAME
-	if ISLIKE($n '$QUEST_CRITERIA') and ISPC($n) and ( EVAL('$MULTIPLE' != 'PREV') or QUESTWINNER($n previous) ) and !QUESTSCRIPTED($n *)
-		if  EVAL('$MULTIPLE' == 'YES') OR !QUESTWINNER($n *)
-			mpqset * STATISTICS ACCEPTED
-			sayto "$n" $QUEST_INSTRUCTIONSSTRING
-			mpscript $n INDIVIDUAL SAVABLE STATIC=LOAD=$QUEST_ID_playertrack.script
+FUNCTION_PROG CAN_ACCEPT
+	if ISLIKE($n '$QUEST_CRITERIA') and ISPC($n) and ( EVAL('$MULTIPLE' != 'PREV') or QUESTWINNER($n previous) )
+		if EVAL('$MULTIPLE' == 'YES') OR !QUESTWINNER($n *)
+			if !QUESTSCRIPTED($n *)
+				RETURN TRUE
+			endif
 		endif
 	endif
+	RETURN CANCEL
 ~
 
+FUNCTION_PROG DO_ACCEPT
+	mpqset * STATISTICS ACCEPTED
+	mpscript $n INDIVIDUAL SAVABLE STATIC=LOAD=$QUEST_ID_playertrack.script
+~
+
+SPEECH_PROG p i accept $QUEST_NAME
+	if CALLFUNC(CAN_ACCEPT)
+		sayto "$n" $QUEST_INSTRUCTIONSSTRING
+		MPCALLFUNC DO_ACCEPT
+	endif
+~
 SPEECH_PROG p i accept
-	if ISLIKE($n '$QUEST_CRITERIA') and ISPC($n) and ( EVAL('$MULTIPLE' != 'PREV') or QUESTWINNER($n previous) ) and !QUESTSCRIPTED($n *)
-		if  EVAL('$MULTIPLE' == 'YES') OR !QUESTWINNER($n *)
-			mpqset * STATISTICS ACCEPTED
-			sayto "$n" $QUEST_INSTRUCTIONSSTRING
-			mpscript $n INDIVIDUAL SAVABLE STATIC=LOAD=$QUEST_ID_playertrack.script
-		endif
+	if CALLFUNC(CAN_ACCEPT)
+		sayto "$n" $QUEST_INSTRUCTIONSSTRING
+		MPCALLFUNC DO_ACCEPT
 	endif
 ~
 </DATA></FILE>
@@ -264,11 +287,13 @@ RAND_PROG 25
 	IF !isquestmobalive(1 '$QUEST_ID')
 		MPENDQUEST '$QUEST_ID'
 	else
-		if QVAR(* REMAINING == '')
-			MPENDQUEST $i
-		else
-			mpsetvar $i TIME_REMAINING $%QVAR(* REMAINING)%
-		endif
+		IF QVAR(* DURATION != '0')
+			if QVAR(* REMAINING == '')
+				MPENDQUEST $i
+			else
+				mpsetvar $i TIME_REMAINING $%QVAR(* REMAINING)%
+			endif
+		ENDIF
 	ENDIF
 ~
 

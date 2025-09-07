@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -147,7 +147,7 @@ public class Prayer_BladeBarrier extends Prayer
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
 		super.affectPhyStats(affected,affectableStats);
-		affectableStats.setArmor(affectableStats.armor()-1 - (adjustedLevel(invoker(),0)/10));
+		affectableStats.setArmor(affectableStats.armor()-1 - (adjustedLevel((MOB)affected,0)/10));
 	}
 
 	@Override
@@ -159,7 +159,7 @@ public class Prayer_BladeBarrier extends Prayer
 
 		if(target.fetchEffect(ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> already <S-HAS-HAVE> @x1.",name().toLowerCase()));
+			failureTell(mob,target,auto,L("<S-NAME> already <S-HAS-HAVE> @x1.",name().toLowerCase()));
 			return false;
 		}
 
@@ -170,7 +170,8 @@ public class Prayer_BladeBarrier extends Prayer
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L(auto?"":"^S<S-NAME> "+prayWord(mob)+" for divine protection!  ")+startStr());
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					L(auto?"":"^S<S-NAME> @x1 for divine protection!  ",prayWord(mob))+startStr());
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

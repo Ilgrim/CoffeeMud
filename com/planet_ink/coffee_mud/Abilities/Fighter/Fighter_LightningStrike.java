@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -58,15 +58,15 @@ public class Fighter_LightningStrike extends MonkSkill
 
 	private static final String[] triggerStrings =I(new String[] {"LIGHTNINGSTRIKE","LSTRIKE"});
 	@Override
-	public int abstractQuality()
-	{
-		return Ability.QUALITY_MALICIOUS;
-	}
-
-	@Override
 	public String[] triggerStrings()
 	{
 		return triggerStrings;
+	}
+
+	@Override
+	public int abstractQuality()
+	{
+		return Ability.QUALITY_MALICIOUS;
 	}
 
 	@Override
@@ -212,11 +212,14 @@ public class Fighter_LightningStrike extends MonkSkill
 		if(success)
 		{
 			invoker=mob;
-			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE|(auto?CMMsg.MASK_ALWAYS:0),auto?"":L("^F^<FIGHT^><S-NAME> unleash(es) a flurry of lightning strikes against <T-NAMESELF>!^</FIGHT^>^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE|(auto?CMMsg.MASK_ALWAYS:0),
+					auto?"":L("^F^<FIGHT^><S-NAME> unleash(es) a flurry of lightning strikes against <T-NAMESELF>!^</FIGHT^>^?"));
 			CMLib.color().fixSourceFightColor(msg);
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
+				if(msg.value()>0)
+					return maliciousFizzle(mob,target,L("<T-NAME> fight(s) off <S-YOUPOSS> strike."));
 				final int num=getXLEVELLevel(mob)+CMLib.ableMapper().qualifyingClassLevel(mob,this);
 				final Room R=target.location();
 				for(int i=0;(i<num) && (target.location()==R);i++)
@@ -232,7 +235,7 @@ public class Fighter_LightningStrike extends MonkSkill
 			}
 		}
 		else
-			return maliciousFizzle(mob,target,L("<S-NAME> attempt(s) to flurry <T-NAMESELF> with lighting strikes, but fail(s)."));
+			return maliciousFizzle(mob,target,L("<S-NAME> attempt(s) to flurry <T-NAMESELF> with lightning strikes, but fail(s)."));
 
 		// return whether it worked
 		return success;

@@ -5,6 +5,7 @@ import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftParms;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftingActivity;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftorType;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
@@ -23,7 +24,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,13 +63,19 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 	}
 
 	@Override
+	public CraftorType getCraftorType()
+	{
+		return CraftorType.General;
+	}
+
+	@Override
 	public String supportedResourceString()
 	{
 		return "BONE|IVORY";
 	}
 
 	@Override
-	public String parametersFormat()
+	public String getRecipeFormat()
 	{
 		return
 		"ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\tMATERIALS_REQUIRED\tITEM_BASE_VALUE\t"
@@ -79,7 +86,7 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 
 	//protected static final int RCP_FINALNAME=0;
 	//protected static final int RCP_LEVEL=1;
-	//protected static final int RCP_TICKS=2;
+	protected static final int	RCP_TICKS		= 2;
 	protected static final int	RCP_WOOD		= 3;
 	protected static final int	RCP_VALUE		= 4;
 	protected static final int	RCP_CLASSTYPE	= 5;
@@ -92,7 +99,7 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			if(buildingI==null)
 				unInvoke();
@@ -101,7 +108,7 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 	}
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return "scrimshaw.txt";
 	}
@@ -109,7 +116,7 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 	@Override
 	protected List<List<String>> loadRecipes()
 	{
-		return super.loadRecipes(parametersFile());
+		return super.loadRecipes(getRecipeFilename());
 	}
 
 	@Override
@@ -130,17 +137,21 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 						if(activity == CraftingActivity.LEARNING)
 						{
 							commonEmote(mob,L("<S-NAME> fail(s) to learn how to make @x1.",buildingI.name()));
+							dropALoser(mob,buildingI);
 							buildingI.destroy();
 						}
 						else
-							commonTell(mob,L("<S-NAME> mess(es) up scrimshawing @x1.",buildingI.name(mob)));
+						{
+							commonTelL(mob,"<S-NAME> mess(es) up scrimshawing @x1.",buildingI.name(mob));
+							dropALoser(mob,buildingI);
+						}
 					}
 					else
 					{
 						if(activity == CraftingActivity.MENDING)
 						{
 							buildingI.setUsesRemaining(100);
-							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.MENDER, 1, this);
+							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.MENDER, 1, this, buildingI);
 						}
 						else
 						if(activity==CraftingActivity.LEARNING)
@@ -151,7 +162,7 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 						else
 						{
 							dropAWinner(mob,buildingI);
-							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this);
+							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this, buildingI);
 							if(key!=null)
 							{
 								dropAWinner(mob,key);
@@ -184,12 +195,13 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 		if(I instanceof Rideable)
 		{
 			final Rideable R=(Rideable)I;
-			final int rideType=R.rideBasis();
+			final Rideable.Basis rideType=R.rideBasis();
 			switch(rideType)
 			{
-			case Rideable.RIDEABLE_SLEEP:
-			case Rideable.RIDEABLE_SIT:
-			case Rideable.RIDEABLE_TABLE:
+			case FURNITURE_SLEEP:
+			case FURNITURE_SIT:
+			case FURNITURE_TABLE:
+			case FURNITURE_HOOK:
 				return true;
 			default:
 				return false;
@@ -230,7 +242,7 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 		if((!(E instanceof Item))||(!mayICraft((Item)E)))
 		{
 			if(!quiet)
-				commonTell(mob,L("That's not a scrimshawable item."));
+				commonTelL(mob,"That's not a scrimshawable item.");
 			return false;
 		}
 		return true;
@@ -245,12 +257,12 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new Vector<Item>(0));
+		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new ArrayList<CraftedItem>(0));
 	}
 
 	@Override
 	protected boolean autoGenInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto,
-								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<Item> crafted)
+								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<CraftedItem> crafted)
 	{
 		final List<String> originalCommands = new XVector<String>(commands);
 		if(super.checkStop(mob, commands))
@@ -264,8 +276,8 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 		randomRecipeFix(mob,addRecipes(mob,loadRecipes()),commands,autoGenerate);
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Scrim what? Enter \"scrim list\" for a list, \"scrim info <item>\", \"scrim scan\","
-						+ " \"scrim learn <item>\" to gain recipes, \"scrim mend <item>\", or \"scrim stop\" to cancel."));
+			commonTelL(mob,"Scrim what? Enter \"scrim list\" for a list, \"scrim info <item>\", \"scrim scan\","
+						+ " \"scrim learn <item>\" to gain recipes, \"scrim mend <item>\", or \"scrim stop\" to cancel.");
 			return false;
 		}
 		if((!auto)
@@ -282,7 +294,7 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 		String startStr=null;
 		bundling=false;
 		int duration=4;
-		if(str.equalsIgnoreCase("list"))
+		if(str.equalsIgnoreCase("list") && (autoGenerate <= 0))
 		{
 			String mask=CMParms.combine(commands,1);
 			boolean allFlag=false;
@@ -294,12 +306,12 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 			final int[] cols={
 				CMLib.lister().fixColWidth(23,mob.session()),
 				CMLib.lister().fixColWidth(3,mob.session()),
-				CMLib.lister().fixColWidth(10,mob.session())
+				CMLib.lister().fixColWidth(9,mob.session())
 			};
 			final StringBuffer buf=new StringBuffer("");
-			buf.append(L("@x1 @x2 @x3 ",CMStrings.padRight(L("Item"),cols[0]),CMStrings.padRight(L("Lvl"),cols[1]),CMStrings.padRight(L("Bone req"), cols[2])));
-			buf.append(L("@x1 @x2 @x3\n\r",CMStrings.padRight(L("Item"),cols[0]),CMStrings.padRight(L("Lvl"),cols[1]),L("Bone req")));
-			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipeNames(recipes, mask, true);
+			buf.append(L("^H@x1 @x2 @x3 ",CMStrings.padRight(L("Item"),cols[0]),CMStrings.padRight(L("Lvl"),cols[1]),CMStrings.padRight(L("Bone req"), cols[2])));
+			buf.append(L("@x1 @x2 @x3^N\n\r",CMStrings.padRight(L("Item"),cols[0]),CMStrings.padRight(L("Lvl"),cols[1]),L("Bone req")));
+			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipes(recipes, mask, true);
 			int col=0;
 			final int numCols=2;
 			for(int r=0;r<listRecipes.size();r++)
@@ -315,11 +327,11 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 						col++;
 						if(col>=numCols)
 						{
-							buf.append(CMStrings.padRight(item,cols[0])+" "+CMStrings.padRight(""+level,cols[1])+" "+wood+"\n\r");
+							buf.append("^w"+CMStrings.padRight(item,cols[0])+"^N "+CMStrings.padRight(""+level,cols[1])+" "+wood+"\n\r");
 							col=0;
 						}
 						else
-							buf.append(CMStrings.padRight(item,cols[0])+" "+CMStrings.padRight(""+level,cols[1])+" "+CMStrings.padRight(wood,cols[2])+" ");
+							buf.append("^w"+CMStrings.padRight(item,cols[0])+"^N "+CMStrings.padRight(""+level,cols[1])+" "+CMStrings.padRight(wood,cols[2])+" ");
 					}
 				}
 			}
@@ -379,7 +391,9 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 			}
 			final String recipeName=CMParms.combine(commands,0);
 			List<String> foundRecipe=null;
-			final List<List<String>> matches=matchingRecipeNames(recipes,recipeName,true);
+			final List<List<String>> matches=matchingRecipes(recipes,recipeName,false);
+			if(matches.size()==0)
+				matches.addAll(matchingRecipes(recipes,recipeName,true));
 			for(int r=0;r<matches.size();r++)
 			{
 				final List<String> V=matches.get(r);
@@ -396,7 +410,7 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 			}
 			if(foundRecipe==null)
 			{
-				commonTell(mob,L("You don't know how to scrim a '@x1'.  Try \"scrim list\" for a list.",recipeName));
+				commonTelL(mob,"You don't know how to scrim a '@x1'.  Try \"scrim list\" for a list.",recipeName);
 				return false;
 			}
 
@@ -467,26 +481,26 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 
 			final MaterialLibrary.DeadResourceRecord deadMats;
 			if((componentsFoundList.size() > 0)||(autoGenerate>0))
-				deadMats = new MaterialLibrary.DeadResourceRecord();
+				deadMats = deadRecord;
 			else
 			{
 				deadMats = CMLib.materials().destroyResources(mob.location(),woodRequired,
 						data[0][FOUND_CODE],data[0][FOUND_SUB],data[1][FOUND_CODE],data[1][FOUND_SUB]);
 			}
 			final MaterialLibrary.DeadResourceRecord deadComps = CMLib.ableComponents().destroyAbilityComponents(componentsFoundList);
-			final int lostValue=autoGenerate>0?0:(deadMats.lostValue + deadComps.lostValue);
+			final int lostValue=autoGenerate>0?0:(deadMats.getLostValue() + deadComps.getLostValue());
 			buildingI=CMClass.getItem(foundRecipe.get(RCP_CLASSTYPE));
 			final Item buildingI=this.buildingI;
 			if(buildingI==null)
 			{
-				commonTell(mob,L("There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE)));
+				commonTelL(mob,"There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE));
 				return false;
 			}
 			duration=getDuration(CMath.s_int(foundRecipe.get(RCP_TICKS)),mob,CMath.s_int(foundRecipe.get(RCP_LEVEL)),4);
 			buildingI.setMaterial(super.getBuildingMaterial(woodRequired, data, compData));
 			String itemName=determineFinalName(foundRecipe.get(RCP_FINALNAME),buildingI.material(),deadMats,deadComps);
 			if(bundling)
-				itemName="a "+woodRequired+"# "+itemName;
+				itemName=CMLib.english().startWithAorAn(woodRequired+"# "+itemName);
 			else
 				itemName=CMLib.english().startWithAorAn(itemName);
 			buildingI.setName(itemName);
@@ -503,7 +517,7 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 			final String spell=(foundRecipe.size()>RCP_SPELL)?foundRecipe.get(RCP_SPELL).trim():"";
 			if(bundling)
 				buildingI.setBaseValue(lostValue);
-			addSpells(buildingI,spell,deadMats.lostProps,deadComps.lostProps);
+			addSpellsOrBehaviors(buildingI,spell,deadMats.getLostProps(),deadComps.getLostProps());
 			key=null;
 
 			if((misctype.equalsIgnoreCase("statue"))
@@ -559,6 +573,11 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 			{
 				setRideBasis((Rideable)buildingI,misctype);
 			}
+			if(buildingI instanceof Wand)
+			{
+				((Wand)buildingI).setMaxCharges(capacity);
+				((Wand)buildingI).setCharges(capacity);
+			}
 			if(buildingI.ID().endsWith("Dice"))
 			{
 				buildingI.basePhyStats().setAbility(capacity);
@@ -588,7 +607,7 @@ public class ScrimShaw extends EnhancedCraftingSkill implements ItemCraftor, Men
 
 		if(autoGenerate>0)
 		{
-			crafted.add(buildingI);
+			crafted.add(new CraftedItem(buildingI,null,duration));
 			return true;
 		}
 

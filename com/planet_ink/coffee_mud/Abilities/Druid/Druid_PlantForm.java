@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -78,6 +78,12 @@ public class Druid_PlantForm extends StdAbility
 	protected int canTargetCode()
 	{
 		return 0;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_POLYMORPHING;
 	}
 
 	public Race newRace=null;
@@ -153,7 +159,12 @@ public class Druid_PlantForm extends StdAbility
 		if(newRace!=null)
 		{
 			final int oldCat=affected.baseCharStats().ageCategory();
-			affectableStats.setMyRace(newRace);
+			if(affectableStats.getMyRace()!=newRace)
+			{
+				affectableStats.getMyRace().unaffectCharStats(affected, affectableStats);
+				affectableStats.setMyRace(newRace);
+				newRace.affectCharStats(affected, affectableStats);
+			}
 			affectableStats.setWearableRestrictionsBitmap(affectableStats.getWearableRestrictionsBitmap()|affectableStats.getMyRace().forbiddenWornBits());
 			if(affected.baseCharStats().getStat(CharStats.STAT_AGE)>0)
 				affectableStats.setStat(CharStats.STAT_AGE,newRace.getAgingChart()[oldCat]);
@@ -214,8 +225,7 @@ public class Druid_PlantForm extends StdAbility
 			{
 				if((R.domainType()&Room.INDOORS)>0)
 					return Ability.QUALITY_INDIFFERENT;
-				if((R.domainType()==Room.DOMAIN_OUTDOORS_CITY)
-				||(R.domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT))
+				if(CMLib.flags().isACityRoom(R))
 					return Ability.QUALITY_INDIFFERENT;
 			}
 			if(target instanceof MOB)
@@ -242,7 +252,7 @@ public class Druid_PlantForm extends StdAbility
 		for(final Enumeration<Ability> a=mob.effects();a.hasMoreElements();)
 		{
 			final Ability A=a.nextElement();
-			if((A!=null)&&(A instanceof Druid_PlantForm))
+			if((A instanceof Druid_PlantForm))
 				return true;
 		}
 		return false;
@@ -251,23 +261,28 @@ public class Druid_PlantForm extends StdAbility
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		for(final Enumeration<Ability> a=mob.personalEffects();a.hasMoreElements();)
+		MOB targetM=mob;
+		if((auto)&&(givenTarget instanceof MOB))
+			targetM=(MOB)givenTarget;
+		final Room R=targetM.location();
+		if(R==null)
+			return false;
+		for(final Enumeration<Ability> a=targetM.personalEffects();a.hasMoreElements();)
 		{
 			final Ability A=a.nextElement();
-			if((A!=null)&&(A instanceof Druid_PlantForm))
+			if((A instanceof Druid_PlantForm))
 			{
 				A.unInvoke();
 				return true;
 			}
 		}
 
-		if((mob.location().domainType()&Room.INDOORS)>0)
+		if((!auto)&&(R.domainType()&Room.INDOORS)>0)
 		{
 			mob.tell(L("You must be outdoors to take on your plant form."));
 			return false;
 		}
-		if((mob.location().domainType()==Room.DOMAIN_OUTDOORS_CITY)
-		||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT))
+		if((!auto)&&CMLib.flags().isACityRoom(R))
 		{
 			mob.tell(L("You must be in the wild to take on your plant form."));
 			return false;
@@ -277,7 +292,9 @@ public class Druid_PlantForm extends StdAbility
 		int classLevel=qualClassLevel-CMLib.ableMapper().qualifyingLevel(mob,this);
 		if(qualClassLevel<0)
 			classLevel=30;
-		final String choice=(mob.isMonster()||(commands.size()==0))?getRaceName(classLevel-1):CMParms.combine(commands,0);
+		final String choice=(mob.isMonster()||(commands.size()==0)||(mob!=targetM))?
+				getRaceName(classLevel-1):
+				CMParms.combine(commands,0);
 		if(choice.trim().length()>0)
 		{
 			final StringBuffer buf=new StringBuffer(L("Plant Forms:\n\r"));
@@ -322,12 +339,12 @@ public class Druid_PlantForm extends StdAbility
 		if(success)
 		{
 			final CMMsg msg=CMClass.getMsg(mob,null,this,CMMsg.MSG_OK_ACTION,null);
-			if(mob.location().okMessage(mob,msg))
+			if(R.okMessage(mob,msg))
 			{
-				mob.location().send(mob,msg);
-				beneficialAffect(mob,mob,asLevel,Ability.TICKS_FOREVER);
+				R.send(mob,msg);
+				beneficialAffect(mob,targetM,asLevel,Ability.TICKS_FOREVER);
 				raceName=CMStrings.capitalizeAndLower(CMLib.english().startWithAorAn(raceName.toLowerCase()));
-				mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> take(s) on @x1 form.",raceName.toLowerCase()));
+				R.show(targetM,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> take(s) on @x1 form.",raceName.toLowerCase()));
 				CMLib.utensils().confirmWearability(mob);
 			}
 		}

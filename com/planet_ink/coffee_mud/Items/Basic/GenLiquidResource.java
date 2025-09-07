@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ public class GenLiquidResource extends GenDrink implements RawMaterial, Drink
 		setDescription("");
 		setMaterial(RawMaterial.RESOURCE_FRESHWATER);
 		disappearsAfterDrinking=false;
-		basePhyStats().setWeight(0);
+		basePhyStats().setWeight(1);
 		setCapacity(0);
 		recoverPhyStats();
 	}
@@ -73,6 +73,14 @@ public class GenLiquidResource extends GenDrink implements RawMaterial, Drink
 	{
 		super.setMaterial(newValue);
 		decayTime=0;
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name()))
+			return CMStrings.removeColors(name());
+		return L("some @x1",RawMaterial.CODES.NAME(material()).toLowerCase());
 	}
 
 	@Override
@@ -140,27 +148,28 @@ public class GenLiquidResource extends GenDrink implements RawMaterial, Drink
 	@Override
 	public String getStat(final String code)
 	{
-		if(super.isStat(code))
-			return super.getStat(code);
-		else
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
+			if(this.domainSource()==null)
+				return "";
 			return this.domainSource();
 		case 1:
+			if(this.getSubType()==null)
+				return "";
 			return this.getSubType();
 		default:
-			return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
+			if(super.isStat(code))
+				return super.getStat(code);
+			else
+				return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
 		}
 	}
 
 	@Override
 	public void setStat(final String code, final String val)
 	{
-		if(super.isStat(code))
-			super.setStat(code, val);
-		else
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			setDomainSource(val);
@@ -169,13 +178,15 @@ public class GenLiquidResource extends GenDrink implements RawMaterial, Drink
 			this.setSubType(val);
 			break;
 		default:
-			CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);
+			if(super.isStat(code))
+				super.setStat(code, val);
+			else
+				CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);
 			break;
 		}
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<MYCODES.length;i++)
 		{
@@ -211,7 +222,19 @@ public class GenLiquidResource extends GenDrink implements RawMaterial, Drink
 		final String[] codes=getStatCodes();
 		for(int i=0;i<codes.length;i++)
 		{
-			if(!E.getStat(codes[i]).equals(getStat(codes[i])))
+			final String eval=E.getStat(codes[i]);
+			final String myval=getStat(codes[i]);
+			if(eval == null)
+			{
+				if(myval==null)
+					return true;
+				return false;
+			}
+			else
+			if(myval==null)
+				return false;
+			else
+			if(!eval.equals(myval))
 				return false;
 		}
 		return true;

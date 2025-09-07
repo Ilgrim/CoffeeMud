@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -56,6 +56,19 @@ public interface TriggeredAffect extends Ability
 	public final static int TRIGGER_DROP_PUTIN=64;
 	/** denotes a property whose affects are triggered by hitting somethign with the thing*/
 	public final static int TRIGGER_HITTING_WITH=128;
+
+	public final static String[] TRIGGER_DESC = new String[] {
+		"ALWAYS",
+		"ENTER",
+		"BEING_HIT",
+		"WEAR_WIELD",
+		"GET",
+		"USE",
+		"PUT",
+		"MOUNT",
+		"DROP_PUTIN",
+		"HITTING_WITH"
+	};
 
 	/**
 	 * This method returns a mask of TRIGGER_* constants denoting what triggers the properties

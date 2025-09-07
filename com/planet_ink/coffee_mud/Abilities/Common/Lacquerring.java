@@ -2,7 +2,6 @@ package com.planet_ink.coffee_mud.Abilities.Common;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
-import com.planet_ink.coffee_mud.Abilities.ThinAbility;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -19,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -71,7 +70,7 @@ public class Lacquerring extends PaintingSkill
 	}
 
 	@Override
-	protected String getRecipeFile()
+	public String getRecipeFilename()
 	{
 		return "lacquering.txt";
 	}
@@ -118,12 +117,12 @@ public class Lacquerring extends PaintingSkill
 	{
 		if(super.checkStop(mob, commands))
 			return true;
-		final List<List<String>> recipes = addRecipes(mob,super.loadRecipes(getRecipeFile()));
+		final List<List<String>> recipes = CMLib.utensils().addExtRecipes(mob,ID(),super.loadRecipes(getRecipeFilename()));
 		writing=CMParms.combine(commands,0).toLowerCase();
 		List<String> finalRecipe = null;
 		if(writing.equalsIgnoreCase("list"))
 		{
-			final StringBuilder colors=new StringBuilder(L("^NColors you can choose: "));
+			final StringBuilder colors=new StringBuilder();
 			for(final List<String> list : recipes)
 			{
 				final String name=list.get(RCP_COLOR);
@@ -133,12 +132,12 @@ public class Lacquerring extends PaintingSkill
 				&&((exp<=super.getXLEVELLevel(mob))))
 					colors.append(name).append(", ");
 			}
-			commonTell(mob,colors.substring(0,colors.length()-2)+".\n\r");
+			commonTelL(mob,"^NColors you can choose: @x1^N.\n\r",colors.substring(0,colors.length()-2));
 			return false;
 		}
 		if(commands.size()<2)
 		{
-			commonTell(mob,L("You must specify what you want to lacqer, and color to it to be or the word REMOVE, or specify LIST."));
+			commonTelL(mob,"You must specify what you want to lacqer, and color to it to be or the word REMOVE, or specify LIST.");
 			return false;
 		}
 		Item target=mob.fetchItem(null,Wearable.FILTER_UNWORNONLY,commands.get(0));
@@ -146,7 +145,8 @@ public class Lacquerring extends PaintingSkill
 			target=mob.location().findItem(null, commands.get(0));
 		if((target!=null)&&(CMLib.flags().canBeSeenBy(target,mob)))
 		{
-			final Set<MOB> followers=mob.getGroupMembers(new TreeSet<MOB>());
+			/*
+			final Set<MOB> followers=mob.getGroupMembers(new XTreeSet<MOB>());
 			boolean ok=false;
 			for(final MOB M : followers)
 			{
@@ -154,14 +154,16 @@ public class Lacquerring extends PaintingSkill
 					ok=true;
 			}
 			if(!ok)
+			*/
+			if(CMLib.ableParms().getCraftingBrand(target).length()==0)
 			{
-				commonTell(mob,L("You aren't allowed to work on '@x1'.",(commands.get(0))));
+				commonTelL(mob,"You aren't allowed to work on '@x1'.  It must be a crafted item.",target.name(mob));
 				return false;
 			}
 		}
 		if((target==null)||(!CMLib.flags().canBeSeenBy(target,mob)))
 		{
-			commonTell(mob,L("You don't seem to have a '@x1'.",(commands.get(0))));
+			commonTelL(mob,"You don't seem to have a '@x1'.",(commands.get(0)));
 			return false;
 		}
 		commands.remove(commands.get(0));
@@ -175,7 +177,7 @@ public class Lacquerring extends PaintingSkill
 			&&((target.material()&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_WOODEN))
 		||(!target.isGeneric()))
 		{
-			commonTell(mob,L("You can't lacquer that material."));
+			commonTelL(mob,"You can't lacquer that material.");
 			return false;
 		}
 
@@ -196,7 +198,7 @@ public class Lacquerring extends PaintingSkill
 		}
 		if((finalRecipe == null) && (!writing.equalsIgnoreCase("remove")))
 		{
-			commonTell(mob,L("You can't lacquer anything '@x1'. Try LACQUER LIST for a list, or use REMOVE as the color.",writing));
+			commonTelL(mob,"You can't lacquer anything '@x1'. Try LACQUER LIST for a list, or use REMOVE as the color.",writing);
 			return false;
 		}
 

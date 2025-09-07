@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ public class Surveying extends CommonSkill
 				final MOB mob=(MOB)affected;
 				final int expertise=super.getXLEVELLevel(mob);
 				if(catalogI==null)
-					commonTell(mob,L("You mess up your surveying."));
+					commonTelL(mob,"You mess up your surveying.");
 				else
 				{
 					final String subject;
@@ -137,20 +137,20 @@ public class Surveying extends CommonSkill
 							msgBuilder.append(L("^HPct Visited: ^N")).append(mob.playerStats().percentVisited(mob,A)).append("\n\r");
 						if(expertise > 1)
 						{
-							msgBuilder.append(L("^HMedian Lvl : ^N")).append(A.getAreaIStats()[Area.Stats.MED_LEVEL.ordinal()]).append("\n\r");
+							msgBuilder.append(L("^HMedian Lvl : ^N")).append(A.getIStat(Area.Stats.MED_LEVEL)).append("\n\r");
 							if(A.getPlayerLevel()>0)
 								msgBuilder.append(L("^HPlayer Lvl : ^N")).append(A.getPlayerLevel()).append("\n\r");
 						}
 						if(expertise > 2)
 						{
-							msgBuilder.append(L("^HLevel Range: ^N")).append(A.getAreaIStats()[Area.Stats.MIN_LEVEL.ordinal()])
-									  .append("-").append(A.getAreaIStats()[Area.Stats.MAX_LEVEL.ordinal()]).append("\n\r");
+							msgBuilder.append(L("^HLevel Range: ^N")).append(A.getIStat(Area.Stats.MIN_LEVEL))
+									  .append("-").append(A.getIStat(Area.Stats.MAX_LEVEL)).append("\n\r");
 						}
 						if(expertise > 3)
 						{
 							final Faction F=CMLib.factions().getFaction(CMLib.factions().getAlignmentID());
 							if(F!=null)
-								msgBuilder.append(L("^HMed Align. : ^N")).append(F.fetchRangeName(A.getAreaIStats()[Area.Stats.MED_ALIGNMENT.ordinal()])).append("\n\r");
+								msgBuilder.append(L("^HMed Align. : ^N")).append(F.fetchRangeName(A.getIStat(Area.Stats.MED_ALIGNMENT))).append("\n\r");
 						}
 						if(expertise > 4)
 						{
@@ -158,9 +158,9 @@ public class Surveying extends CommonSkill
 							if(F!=null)
 							{
 								msgBuilder.append(L("^HAlign Range: ^N"))
-									.append(F.fetchRangeName(A.getAreaIStats()[Area.Stats.MIN_ALIGNMENT.ordinal()]))
+									.append(F.fetchRangeName(A.getIStat(Area.Stats.MIN_ALIGNMENT)))
 									.append("-")
-									.append(F.fetchRangeName(A.getAreaIStats()[Area.Stats.MAX_ALIGNMENT.ordinal()])).append("\n\r");
+									.append(F.fetchRangeName(A.getIStat(Area.Stats.MAX_ALIGNMENT))).append("\n\r");
 							}
 						}
 						if(expertise > 5)
@@ -186,7 +186,8 @@ public class Surveying extends CommonSkill
 						{
 							for(final String roomType : rTypesV.keySet())
 							{
-								msgBuilder.append("^H"+L(CMStrings.padRight(roomType, 11))).append("^N: ").append(rTypesV.get(roomType)[0]).append("\n\r");
+								msgBuilder.append("^H"+CMStrings.padRight(roomType, 11))
+											.append("^N: ").append(rTypesV.get(roomType)[0]).append("\n\r");
 							}
 						}
 
@@ -219,8 +220,8 @@ public class Surveying extends CommonSkill
 								String nextRoomNumber = nextR.roomID();
 								if(nextRoomNumber.startsWith(area.Name()+"#"))
 									nextRoomNumber=nextRoomNumber.substring(area.Name().length());
-								msgBuilder.append(CMStrings.padRight(L("^HExit "+Directions.instance().getDirectionName(d)),10))
-										.append(": ^N").append(nextR.displayText());
+								msgBuilder.append(CMStrings.padRight(L("^HExit @x1",Directions.instance().getDirectionName(d)),10))
+										.append(": ^N").append(nextR.displayText(null));
 								if(expertise > 0)
 									msgBuilder.append(" (").append(nextRoomNumber).append(")");
 								if(expertise > 6)
@@ -245,7 +246,7 @@ public class Surveying extends CommonSkill
 								if(item.container()==null)
 									viewItems.add(item);
 							}
-							final StringBuilder itemStr=CMLib.lister().lister(mob,viewItems,false,null,null,true,false);
+							final String itemStr=CMLib.lister().lister(mob,viewItems,false,null,null,true,false);
 							if(itemStr.length()>0)
 								msgBuilder.append("\n\r").append(itemStr);
 							else
@@ -279,7 +280,7 @@ public class Surveying extends CommonSkill
 									final String displayText=mob2.displayText(mob);
 									if((displayText.length()>0)
 									&&(CMLib.flags().canBeSeenBy(mob2,mob)))
-										roomMobs.add(CMStrings.endWithAPeriod(CMStrings.capitalizeFirstLetter(displayText)));
+										roomMobs.add(CMStrings.endWithAPeriod(CMStrings.capitalizeFirstLetter(displayText), '.'));
 								}
 							}
 							if(roomMobs.size()==0)
@@ -358,18 +359,18 @@ public class Surveying extends CommonSkill
 		&&(I.material()!=RawMaterial.RESOURCE_HIDE))
 		{
 			if(!quiet)
-				commonTell(mob,L("You can't write in @x1.",I.name(mob)));
+				commonTelL(mob,"You can't write in @x1.",I.name(mob));
 			return false;
 		}
 		if(!CMLib.flags().isReadable(I))
 		{
 			if(!quiet)
-				commonTell(mob,L("@x1 is not even readable!",CMStrings.capitalizeFirstLetter(I.name(mob))));
+				commonTelL(mob,"@x1 is not even readable!",CMStrings.capitalizeFirstLetter(I.name(mob)));
 			return false;
 		}
-		if(I instanceof Recipe)
+		if(I instanceof Recipes)
 		{
-			commonTell(mob,L("@x1 isn't a catalog!",CMStrings.capitalizeAndLower(I.name(mob))));
+			commonTelL(mob,"@x1 isn't a catalog!",CMStrings.capitalizeAndLower(I.name(mob)));
 			return false;
 		}
 		/*
@@ -377,7 +378,7 @@ public class Surveying extends CommonSkill
 		if((brand==null)||(brand.length()==0))
 		{
 			if(!quiet)
-				commonTell(mob,L("You aren't permitted to add surveying entries to @x1.",I.name(mob)));
+				commonTelL(mob,"You aren't permitted to add surveying entries to @x1.",I.name(mob));
 			return false;
 		}
 		*/
@@ -387,7 +388,7 @@ public class Surveying extends CommonSkill
 			if(!Titling.getCatalogType(I).equals(Titling.getCatalogEntryType(fullyE)))
 			{
 				if(!quiet)
-					commonTell(mob,L("@x1 is not a proper catalog for surveying!",CMStrings.capitalizeFirstLetter(I.name(mob)),fullyE.name()));
+					commonTelL(mob,"@x1 is not a proper catalog for surveying!",CMStrings.capitalizeFirstLetter(I.name(mob)),fullyE.name());
 			}
 		}
 		return true;
@@ -433,8 +434,8 @@ public class Surveying extends CommonSkill
 			return true;
 		if(commands.size()<1)
 		{
-			commonTell(mob,L("You must specify what you want to catalog ROOM or AREA, and, optionally, where to add the entry.  If you do "
-					+ "not specify the catalog, one prepared with the Titling skill will be automatically selected from your inventory."));
+			commonTelL(mob,"You must specify what you want to catalog ROOM or AREA, and, optionally, where to add the entry.  If you do "
+					+ "not specify the catalog, one prepared with the Titling skill will be automatically selected from your inventory.");
 			return false;
 		}
 		Physical physP=null;
@@ -445,7 +446,7 @@ public class Surveying extends CommonSkill
 			physP=mob.location().getArea();
 		else
 		{
-			commonTell(mob,L("'@x1' is neither the word ROOM nor AREA.",commands.get(0)));
+			commonTelL(mob,"'@x1' is neither the word ROOM nor AREA.",commands.get(0));
 			return false;
 		}
 		Item catalogI=null;
@@ -455,7 +456,7 @@ public class Surveying extends CommonSkill
 			catalogI=this.findCatalogBook(mob, physP);
 			if(catalogI==null)
 			{
-				commonTell(mob,L("You need to specify a proper catalog for '@x1'.",physP.name(mob)));
+				commonTelL(mob,"You need to specify a proper catalog for '@x1'.",physP.name(mob));
 				return false;
 			}
 		}
@@ -475,19 +476,19 @@ public class Surveying extends CommonSkill
 		}
 		if(physP==null)
 		{
-			commonTell(mob,L("You don't seem to have a '@x1'.",itemName));
+			commonTelL(mob,"You don't seem to have a '@x1'.",itemName);
 			return false;
 		}
 		if(catalogI==null)
 		{
-			commonTell(mob,L("You don't seem to have a proper catalog."));
+			commonTelL(mob,"You don't seem to have a proper catalog.");
 			return false;
 		}
 
 		final Ability writeA=mob.fetchAbility("Skill_Write");
 		if(writeA==null)
 		{
-			commonTell(mob,L("You must know how to write to entitle."));
+			commonTelL(mob,"You must know how to write to entitle.");
 			return false;
 		}
 

@@ -11,6 +11,8 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary.CompiledZMask;
+import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary.CompiledZMaskEntry;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -32,7 +34,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class Prop_ReqEntry extends Property implements TriggeredAffect
+public class Prop_ReqEntry extends Property implements TriggeredAffect, Deity.DeityWorshipper
 {
 	@Override
 	public String ID()
@@ -52,10 +54,13 @@ public class Prop_ReqEntry extends Property implements TriggeredAffect
 		return Ability.CAN_ROOMS|Ability.CAN_AREAS|Ability.CAN_EXITS;
 	}
 
-	private boolean noFollow=false;
-	private boolean noSneak=false;
-	private String maskS="";
-	private String message="";
+	private boolean			noFollow	= false;
+	private boolean			noSneak		= false;
+	private boolean			actual		= false;
+	private String			maskS		= "";
+	private String			message		= "";
+	private CompiledZMask	mask		= null;
+	protected String[]		event		= new String[0];
 
 	@Override
 	public long flags()
@@ -74,32 +79,68 @@ public class Prop_ReqEntry extends Property implements TriggeredAffect
 	{
 		noFollow=false;
 		noSneak=false;
+		mask=null;
 		maskS=txt;
 		message="";
-		final Vector<String> parms=CMParms.parse(txt);
+		event=new String[0];
+		final Vector<String> parms=CMParms.parse(txt.toUpperCase());
 		String s;
-		for(final Enumeration<String> p=parms.elements();p.hasMoreElements();)
+		final List<String> maskV = new ArrayList<String>();
+		boolean lastWasMask=false;
+		for(int i=0;i<parms.size();i++)
 		{
-			s=p.nextElement();
-			if("NOFOLLOW".startsWith(s.toUpperCase()))
+			s=parms.get(i);
+			if("NOFOLLOW".startsWith(s))
 			{
-				maskS=CMStrings.replaceFirst(maskS, s, "");
 				noFollow=true;
+				lastWasMask=false;
 			}
 			else
-			if(s.toUpperCase().startsWith("NOSNEAK"))
+			if(s.startsWith("NOSNEAK"))
 			{
-				maskS=CMStrings.replaceFirst(maskS, s, "");
 				noSneak=true;
+				lastWasMask=false;
 			}
 			else
-			if((s.toUpperCase().startsWith("MESSAGE"))
+			if(s.startsWith("ACTUAL"))
+			{
+				actual=true;
+				lastWasMask=false;
+			}
+			else
+			if((s.startsWith("MESSAGE"))
 			&&(s.substring(7).trim().startsWith("=")))
 			{
-				message=s.substring(7).trim().substring(1);
-				maskS=CMStrings.replaceFirst(maskS, s, "");
+				final Vector<String> ulparms=CMParms.parse(txt);
+				message=ulparms.get(i).substring(7).trim().substring(1);
+				lastWasMask=false;
 			}
+			else
+			if((s.startsWith("EVENT"))
+			&&(s.substring(4).trim().startsWith("=")))
+			{
+				final Vector<String> ulparms=CMParms.parse(txt);
+				final String eventStr = ulparms.get(i).substring(4).trim().substring(1);
+				if(eventStr.trim().length()>0)
+				{
+					event = CMParms.parseCommas(eventStr, true).toArray(event);
+					if(event.length>0)
+						event[0] = event[0].toUpperCase().trim();
+				}
+			}
+			else
+			if(s.startsWith("+")||s.startsWith("-"))
+			{
+				maskV.add(s);
+				lastWasMask=true;
+			}
+			else
+			if(lastWasMask)
+				maskV.add(s);
 		}
+		maskS=CMParms.combineQuoted(maskV,0).trim();
+		if(maskS.length()>0)
+			mask=CMLib.masking().getPreCompiledMask(maskS);
 		super.setMiscText(txt);
 	}
 
@@ -107,6 +148,74 @@ public class Prop_ReqEntry extends Property implements TriggeredAffect
 	public String accountForYourself()
 	{
 		return "Entry restricted as follows: "+CMLib.masking().maskDesc(maskS);
+	}
+
+	protected boolean executeEvent(final CMMsg msg)
+	{
+		if((this.event==null)||(this.event.length==0)||("BLOCK".startsWith(event[0])))
+			return false; // normal zap (cancel message)
+		if("ACCUSE".startsWith(event[0]))
+		{
+			final LegalBehavior B =CMLib.law().getLegalBehavior(msg.source().location());
+			final Area A = CMLib.law().getLegalObject(msg.source().location());
+			if((A!=null)&&(B!=null))
+			{
+				B.accuse(A, msg.source(), null, Arrays.copyOfRange(event, 1, event.length));
+				return true;
+			}
+		}
+		return false; // normal zap (cancel message)
+	}
+
+	@Override
+	public String getWorshipCharID()
+	{
+		if(mask==null)
+			return "";
+		MaskingLibrary.ZapperKey key=MaskingLibrary.ZapperKey._DEITY;
+		for(final CompiledZMaskEntry[] entries : mask.entries())
+		{
+			for(final CompiledZMaskEntry entry : entries)
+			{
+				if(entry.maskType()==MaskingLibrary.ZapperKey._OR)
+					key=(key==MaskingLibrary.ZapperKey._DEITY)?MaskingLibrary.ZapperKey.DEITY:MaskingLibrary.ZapperKey._DEITY;
+				else
+				if(entry.maskType()==key)
+				{
+					for(final Object o : entry.parms())
+					{
+						if((o instanceof String)
+						&&(!"ANY".equalsIgnoreCase((String)o)))
+							return (String)o;
+					}
+				}
+			}
+		}
+		return "";
+	}
+
+	@Override
+	public void setWorshipCharID(final String newVal)
+	{
+	}
+
+	@Override
+	public void setDeityName(final String newDeityName)
+	{
+	}
+
+	@Override
+	public String deityName()
+	{
+		return getWorshipCharID();
+	}
+
+	@Override
+	public Deity getMyDeity()
+	{
+		if (getWorshipCharID().length() == 0)
+			return null;
+		return CMLib.map().getDeity(getWorshipCharID());
 	}
 
 	public boolean passesMuster(final MOB mob)
@@ -117,7 +226,9 @@ public class Prop_ReqEntry extends Property implements TriggeredAffect
 			return true;
 		if(CMLib.flags().isSneaking(mob)&&(!noSneak))
 			return true;
-		return CMLib.masking().maskCheck(maskS,mob,false);
+		if(mask==null)
+			return true;
+		return CMLib.masking().maskCheck(mask,mob,actual);
 	}
 
 	@Override
@@ -147,11 +258,11 @@ public class Prop_ReqEntry extends Property implements TriggeredAffect
 						return super.okMessage(myHost,msg);
 				}
 				msg.source().tell((message.length()==0)?L("You can not go that way."):message);
-				return false;
+				return executeEvent(msg);
 			}
 			else
-			if((msg.target() instanceof Rideable)
-			&&(msg.amITarget(affected)))
+			if(((msg.target() instanceof Rideable)&&(msg.amITarget(affected))
+			||(msg.tool()==affected)))
 			{
 				switch(msg.targetMinor())
 				{
@@ -178,7 +289,7 @@ public class Prop_ReqEntry extends Property implements TriggeredAffect
 								return super.okMessage(myHost,msg);
 						}
 						msg.source().tell((message.length()==0)?L("You are not permitted in there."):message);
-						return false;
+						return executeEvent(msg);
 					}
 				default:
 					break;

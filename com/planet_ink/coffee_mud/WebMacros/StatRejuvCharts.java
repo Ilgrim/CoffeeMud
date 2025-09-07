@@ -3,6 +3,7 @@ package com.planet_ink.coffee_mud.WebMacros;
 import com.planet_ink.coffee_web.interfaces.*;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMProps.Str;
 import com.planet_ink.coffee_mud.core.CMath.CompiledFormula;
 import com.planet_ink.coffee_mud.core.CMath.CompiledOperation;
 import com.planet_ink.coffee_mud.core.collections.*;
@@ -21,7 +22,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -150,13 +151,23 @@ public class StatRejuvCharts extends StdWebMacro
 		for(final Enumeration<CharClass> c=CMClass.charClasses();c.hasMoreElements();)
 		{
 			final CharClass C1=c.nextElement();
-			hpformulas.put(C1, CMath.compileMathExpression(C1.getHitPointsFormula()));
-			mnformulas.put(C1, CMath.compileMathExpression(C1.getManaFormula()));
-			mvformulas.put(C1, CMath.compileMathExpression(C1.getMovementFormula()));
+			hpformulas.put(C1, CMath.compileMathExpression(C1.getHitPointsFormula()+CMProps.getVar(Str.FORMULA_CLASSHPADD)));
+			mnformulas.put(C1, CMath.compileMathExpression(C1.getManaFormula()+CMProps.getVar(Str.FORMULA_CLASSMNADD)));
+			mvformulas.put(C1, CMath.compileMathExpression(C1.getMovementFormula()+CMProps.getVar(Str.FORMULA_CLASSMVADD)));
 		}
 
 		for(int l=1;l<=MAX_LEVEL;l+=SKIP_LEVEL)
 		{
+			if(l==1)
+			{
+				for(int s=4;s<=MAX_STAT;s+=SKIP_STAT)
+				{
+					hitpointcharts[l][s]=sh;
+					manacharts[l][s]=sm;
+					movementcharts[l][s]=sv;
+				}
+				continue;
+			}
 			for(int s=4;s<=MAX_STAT;s+=SKIP_STAT)
 			{
 				int num=0;

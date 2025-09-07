@@ -15,15 +15,19 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
+import java.lang.ref.WeakReference;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary.RFilter;
+import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary.RFilters;
 import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary.TrackingFlag;
 import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary.TrackingFlags;
+import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary.TrailFlag;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,6 +55,11 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 	protected Map<TrackingFlags,RFilters>	trackingFilters		= new Hashtable<TrackingFlags,RFilters>();
 	protected static final TrackingFlags	EMPTY_FLAGS			= new DefaultTrackingFlags();
 	protected static final RFilters			EMPTY_FILTERS		= new DefaultRFilters();
+
+	protected boolean						debug				= false;
+
+	protected final static int AREA_TRAILS_TIME_MS = 300;
+	protected final static int AREA_TRAIL_TIMEOUT_MS = 5000;
 
 	protected static class RFilterNode
 	{
@@ -186,6 +195,13 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 		}
 
 		@Override
+		public TrackingFlags plus(final TrackingFlags flags)
+		{
+			addAll(flags);
+			return this;
+		}
+
+		@Override
 		public TrackingFlags copyOf()
 		{
 			final DefaultTrackingFlags newFlags = new DefaultTrackingFlags();
@@ -219,13 +235,6 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 		{
 			return hashCode;
 		}
-
-		@Override
-		public TrackingFlags plus(final TrackingFlags flags)
-		{
-			addAll(flags);
-			return this;
-		}
 	}
 
 	@Override
@@ -235,7 +244,7 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 		final Ability A=CMClass.getAbility("Skill_Track");
 		if(A!=null)
 		{
-			A.invoke(mob,CMParms.parse("\""+CMLib.map().getExtendedRoomID(destR)+"\" "),destR,true,0);
+			A.invoke(mob,CMParms.parse("\""+CMLib.map().getExtendedRoomID(destR)+"\" NPC"),destR,true,0);
 			return true;
 		}
 		return false;
@@ -255,23 +264,23 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 	protected List<String> getOpenCommandSet(final int direction)
 	{
 		final Integer dir=Integer.valueOf(direction);
-		if(!directionCommandSets.containsKey(dir))
+		if(!openCommandSets.containsKey(dir))
 		{
-			final Vector<String> V=new ReadOnlyVector<String>(CMParms.parse("OPEN "+CMLib.directions().getDirectionName(direction)));
-			directionCommandSets.put(dir, V);
+			final Vector<String> V=new ReadOnlyVector<String>(CMParms.parse(I("OPEN")+" "+CMLib.directions().getDirectionName(direction)));
+			openCommandSets.put(dir, V);
 		}
-		return directionCommandSets.get(dir);
+		return openCommandSets.get(dir);
 	}
 
 	protected List<String> getCloseCommandSet(final int direction)
 	{
 		final Integer dir=Integer.valueOf(direction);
-		if(!directionCommandSets.containsKey(dir))
+		if(!closeCommandSets.containsKey(dir))
 		{
-			final Vector<String> V=new ReadOnlyVector<String>(CMParms.parse("CLOSE "+CMLib.directions().getDirectionName(direction)));
-			directionCommandSets.put(dir, V);
+			final Vector<String> V=new ReadOnlyVector<String>(CMParms.parse(I("CLOSE")+" "+CMLib.directions().getDirectionName(direction)));
+			closeCommandSets.put(dir, V);
 		}
-		return directionCommandSets.get(dir);
+		return closeCommandSets.get(dir);
 	}
 
 	@Override
@@ -285,74 +294,87 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 	{
 		if((radiant==null)||(radiant.size()==0))
 		{
-			radiant=new Vector<Room>();
+			radiant=new ArrayList<Room>();
 			getRadiantRooms(location,radiant,flags,destRoom,maxRadius,null);
 			if(!radiant.contains(location))
 				radiant.add(0,location);
 		}
 		else
 		{
-			final List<Room> radiant2=new Vector<Room>(radiant.size());
-			int r=0;
-			boolean foundLocation=false;
-			Room O;
-			for(;r<radiant.size();r++)
-			{
-				O=radiant.get(r);
-				radiant2.add(O);
-				if((!foundLocation)&&(O==location))
-					foundLocation=true;
-				if(O==destRoom)
-					break;
-			}
-			if(!foundLocation)
+			int destIndex = radiant.indexOf(destRoom);
+			if(destIndex < 0)
+				return null;
+			if(!radiant.contains(location))
 			{
 				radiant.add(0,location);
-				radiant2.add(0,location);
+				destIndex++;
 			}
-			if(r>=radiant.size())
-				return null;
-			radiant=radiant2;
+			if(destIndex<radiant.size()-1)
+				radiant = new ArrayList<Room>(radiant.subList(0, destIndex + 1));
 		}
 		if((radiant.size()>0)&&(destRoom==radiant.get(radiant.size()-1)))
 		{
-			List<Room> thisTrail=new Vector<Room>();
-			final HashSet<Room> tried=new HashSet<Room>();
-			thisTrail.add(destRoom);
-			tried.add(destRoom);
-			Room R=null;
-			int index=radiant.size()-2;
-			if(destRoom!=location)
+			if(destRoom == location)
+				return new XVector<Room>(location);
+			final Map<Room, Integer> indexMap = new HashMap<Room, Integer>(radiant.size());
+			for (int i = 0; i < radiant.size(); i++)
+				indexMap.put(radiant.get(i), Integer.valueOf(i));
+			final Map<Room,List<Room>> incoming = new HashMap<Room,List<Room>>(radiant.size());
+			for(final Room R : radiant)
 			{
-				while(index>=0)
+				for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
 				{
-					int best=-1;
-					for(int i=index;i>=0;i--)
+					final Room nR = R.getRoomInDir(d);
+					final Exit nE = R.getExitInDir(d);
+					if((nR != null)&&(nE != null))
 					{
-						R=radiant.get(i);
-						for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+						if(indexMap.containsKey(nR))
 						{
-							if((R.getRoomInDir(d)==thisTrail.get(thisTrail.size()-1))
-							&&(R.getExitInDir(d)!=null)
-							&&(!tried.contains(R)))
-								best=i;
+							if(!incoming.containsKey(nR))
+								incoming.put(nR, new ArrayList<Room>(4));
+							incoming.get(nR).add(R);
 						}
 					}
-					if(best>=0)
+				}
+			}
+
+			List<Room> thisTrail=new Vector<Room>();
+			final Set<Room> tried=new HashSet<Room>();
+			thisTrail.add(destRoom);
+			tried.add(destRoom);
+
+			while(true)
+			{
+				final Room currR = thisTrail.get(thisTrail.size() - 1);
+				final List<Room> incomingRooms = incoming.get(currR);
+				int bestIndex = Integer.MAX_VALUE;
+				Room nextR = null;
+				if(incomingRooms != null)
+				{
+					for (final Room R : incomingRooms)
 					{
-						R=radiant.get(best);
-						thisTrail.add(R);
-						tried.add(R);
-						if(R==location)
-							break;
-						index=best-1;
+						if(!tried.contains(R))
+						{
+							final int index = indexMap.get(R).intValue();
+							if(index < bestIndex)
+							{
+								bestIndex = index;
+								nextR = R;
+							}
+						}
 					}
-					else
-					{
-						thisTrail.clear();
-						thisTrail=null;
+				}
+				if(nextR != null)
+				{
+					thisTrail.add(nextR);
+					tried.add(nextR);
+					if (nextR == location)
 						break;
-					}
+				}
+				else
+				{
+					thisTrail = null;
+					break;
 				}
 			}
 			return thisTrail;
@@ -361,16 +383,21 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 	}
 
 	@Override
-	public void markToWanderHomeLater(final MOB M)
+	public void markToWanderHomeLater(final MOB M, final int ticks)
 	{
-		final Ability A=CMClass.getAbility("WanderHomeLater");
-		if(A!=null)
+		if((M == null)||(M.getStartRoom()==null))
+			return;
+		Ability A=M.fetchEffect("WanderHomeLater");
+		if(A == null)
 		{
-			A.setMiscText("ONCE=true");
+			A=CMClass.getAbility("WanderHomeLater");
+			A.setMiscText("ONCE=true MINTICKS="+ticks+" MAXTICKS="+ticks);
 			M.addEffect(A);
 			A.setSavable(false);
 			A.makeLongLasting();
 		}
+		else
+			A.setMiscText("ONCE=true MINTICKS="+ticks+" MAXTICKS="+ticks);
 	}
 
 	@Override
@@ -394,7 +421,13 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 			pick=CMLib.dice().roll(1,destRooms.size(),-1);
 			destRoom=destRooms.get(pick);
 			destRooms.remove(pick);
-			final List<Room> thisTrail=findTrailToRoom(location,destRoom,flags,maxRadius,radiant);
+			final TrackingFlags finalFlags = flags.copyOf();
+			if(destRoom.getArea() == location.getArea())
+				finalFlags.add(TrackingFlag.AREAONLY);
+			List<Room> thisTrail=findTrailToRoom(location,destRoom,finalFlags,maxRadius,radiant);
+			if((destRoom.getArea() == location.getArea())
+			&&((thisTrail==null)||(thisTrail.size()==0)))
+				thisTrail=findTrailToRoom(location,destRoom,flags,maxRadius,radiant);
 			if((thisTrail!=null)
 			&&((finalTrail==null)||(thisTrail.size()<finalTrail.size())))
 				finalTrail=thisTrail;
@@ -464,15 +497,19 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 	@Override
 	public int radiatesFromDir(final Room room, final List<Room> rooms)
 	{
+		final Map<Room,Integer> moveSet = new HashMap<Room,Integer>();
+		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+		{
+			final Room cR = room.getRoomInDir(d);
+			if(cR != null)
+				moveSet.put(cR, Integer.valueOf(d));
+		}
 		for(final Room R : rooms)
 		{
 			if(R==room)
 				return -1;
-			for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
-			{
-				if(R.getRoomInDir(d)==room)
-					return Directions.getOpDirectionCode(d);
-			}
+			if(moveSet.containsKey(R))
+				return moveSet.get(R).intValue();
 		}
 		return -1;
 	}
@@ -494,23 +531,37 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 	}
 
 	@Override
-	public void getRadiantRooms(final Room room, final List<Room> rooms, TrackingFlags flags, final Room radiateTo, final int maxDepth, final Set<Room> ignoreRooms)
+	public List<Area> getRadiantAreas(final Area area, final int maxDepth)
+	{
+		final List<Area> V=new Vector<Area>();
+		getRadiantAreas(area,V,null,maxDepth,null);
+		return V;
+	}
+
+	private RFilters convertTrackingFlagsToFilters(final TrackingFlags flags)
 	{
 		if(flags == null)
-			flags = EMPTY_FLAGS;
-		RFilters filters=trackingFilters.get(flags);
-		if(filters==null)
+			return EMPTY_FILTERS;
+		RFilters filters = trackingFilters.get(flags);
+		if(filters == null)
 		{
-			if(flags.size()==0)
-				filters=EMPTY_FILTERS;
+			if(flags.size() == 0)
+				filters = EMPTY_FILTERS;
 			else
 			{
-				filters=new DefaultRFilters();
+				filters = new DefaultRFilters();
 				for(final TrackingFlag flag : flags)
 					filters.plus(flag.myFilter);
 			}
 			trackingFilters.put(flags, filters);
 		}
+		return filters;
+	}
+
+	@Override
+	public void getRadiantRooms(final Room room, final List<Room> rooms, final TrackingFlags flags, final Room radiateTo, final int maxDepth, final Set<Room> ignoreRooms)
+	{
+		final RFilters filters=convertTrackingFlagsToFilters(flags);
 		getRadiantRooms(room, rooms, filters, radiateTo, maxDepth, ignoreRooms);
 	}
 
@@ -523,60 +574,200 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 	@Override
 	public void getRadiantRooms(final Room room, final List<Room> rooms, final RFilters filters, final Room radiateTo, final int maxDepth, final Set<Room> ignoreRooms)
 	{
-		int depth=0;
 		if(room==null)
 			return;
 		if(rooms.contains(room))
 			return;
-		final HashSet<Room> H=new HashSet<Room>(1000);
-		rooms.add(room);
+		if(rooms instanceof ArrayList<?>)
+			((ArrayList<Room>)rooms).ensureCapacity(4096);
+		else
 		if(rooms instanceof Vector<?>)
-			((Vector<Room>)rooms).ensureCapacity(200);
-		if(ignoreRooms != null)
-			H.addAll(ignoreRooms);
-		for(int r=0;r<rooms.size();r++)
-			H.add(rooms.get(r));
+			((Vector<Room>)rooms).ensureCapacity(4096);
+		final HashSet<Room> visited = new HashSet<Room>(4096);
+		if (ignoreRooms != null)
+			visited.addAll(ignoreRooms);
+		rooms.add(room);
+		visited.add(room);
+
+		final Deque<Room> queue = new ArrayDeque<Room>(1024);
+		queue.addLast(room);
+		final WorldMap map=CMLib.map();
+		final int numDirections = Directions.NUM_DIRECTIONS()-1;
+		int depth = 0;
+		while ((!queue.isEmpty()) && (depth < maxDepth))
+		{
+			final int levelSize = queue.size();
+			depth++;
+			for(int i=0;i<levelSize;i++)
+			{
+				final Room R = queue.pollFirst();
+				for(int d=numDirections;d>=0;d--)
+				{
+					Room nR = R.getRoomInDir(d);
+					final Exit nE = R.getExitInDir(d);
+					if((nR==null)||(nE==null))
+						continue;
+					nR = map.getRoom(nR);
+					if((nR==null)
+					||(visited.contains(nR))
+					||(filters.isFilteredOut(R, nR, nE, d)))
+						continue;
+					rooms.add(nR);
+					visited.add(nR);
+					queue.addLast(nR);
+					if(nR == radiateTo)
+						return;
+				}
+			}
+		}
+	}
+
+	protected void getRadiantAreas(final Area area, final List<Area> areas, final Area radiateTo, final int maxDepth, final Set<Area> ignoreAreas)
+	{
+		//TODO this can maybe be improved by the a db query?
+		int depth=0;
+		if(area==null)
+			return;
+		if(areas.contains(area))
+			return;
+		final Set<Area> H=new HashSet<Area>();
+		areas.add(area);
+		if(areas instanceof Vector<?>)
+			((Vector<Area>)areas).ensureCapacity(10);
+		if(ignoreAreas != null)
+			H.addAll(ignoreAreas);
+		for(int r=0;r<areas.size();r++)
+			H.add(areas.get(r));
 		int min=0;
-		int size=rooms.size();
+		int size=areas.size();
+		Area A1=null;
 		Room R1=null;
 		Room R=null;
 		Exit E=null;
 
-		int r=0;
+		int a=0;
 		int d=0;
 		final WorldMap map=CMLib.map();
 		while(depth<maxDepth)
 		{
-			for(r=min;r<size;r++)
+			for(a=min;a<size;a++)
 			{
-				R1=rooms.get(r);
-				for(d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+				A1=areas.get(a);
+				for(final Enumeration<Room> rs=A1.getProperMap();rs.hasMoreElements();)
 				{
-					R=R1.getRoomInDir(d);
-					E=R1.getExitInDir(d);
+					R1 = rs.nextElement();
+					if(R1 == null)
+						continue;
+					for(d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+					{
+						R=R1.getRoomInDir(d);
+						E=R1.getExitInDir(d);
 
-					if((R==null)||(E==null))
-						continue;
-					R=map.getRoom(R);
-					if((R==null)
-					||(H.contains(R))
-					||(filters.isFilteredOut(R1, R, E, d)))
-						continue;
-					rooms.add(R);
-					H.add(R);
-					if(R==radiateTo) // R can't be null here, so if they are equal, time to go!
-						return;
+						if((R==null)||(E==null))
+							continue;
+						R=map.getRoom(R);
+						if((R==null)
+						||(H.contains(R.getArea())))
+							continue;
+						areas.add(R.getArea());
+						H.add(R.getArea());
+						if(R.getArea()==radiateTo) // R can't be null here, so if they are equal, time to go!
+							return;
+					}
 				}
 			}
 			min=size;
-			size=rooms.size();
+			size=areas.size();
 			if(min==size)
 				return;
 			depth++;
 		}
 	}
 
-	protected boolean getRadiantRoomsToTarget(final Room room, final List<Room> rooms, TrackingFlags flags, final RFilter radiateTo, final int maxDepth)
+	@Override
+	public Enumeration<Room> getRadiantRoomsEnum(final Room room, final RFilters filters, final Room radiateTo, final int maxDepth, final Set<Room> ignoreRooms)
+	{
+		if(room==null)
+			return new EmptyEnumeration<Room>();
+
+		final Set<Room> Hs=new HashSet<Room>(1000);
+		final LinkedList<Room> Rs = new LinkedList<Room>();
+		Rs.add(room);
+		if(ignoreRooms != null)
+			Hs.addAll(ignoreRooms);
+		for(int r=0;r<Rs.size();r++)
+			Hs.add(Rs.get(r));
+		return new Enumeration<Room>()
+		{
+			final LinkedList<Room> rooms=Rs;
+			final Set<Room> H=Hs;
+			final WorldMap map=CMLib.map();
+			final boolean noFilter = filters==null;
+			final RFilters filter = filters;
+
+			int depth=0;
+			Room R1=null;
+			Room R=null;
+			Exit E=null;
+			int min=0;
+			int r=0;
+			int d=0;
+			boolean finished=false;
+
+			@Override
+			public boolean hasMoreElements()
+			{
+				return rooms.size()>0;
+			}
+			@Override
+			public Room nextElement()
+			{
+				if((!finished)
+				&&(rooms.size()>0)
+				&&(depth<maxDepth)
+				&&(min==0))
+				{
+					final int newMin=rooms.size();
+					for(r=min;r<newMin;r++)
+					{
+						R1=rooms.get(r);
+						for(d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+						{
+							R=R1.getRoomInDir(d);
+							E=R1.getExitInDir(d);
+							if((R!=null)&&(E!=null))
+							{
+								R=map.getRoom(R);
+								if((R!=null)
+								&&(!H.contains(R))
+								&&((noFilter)||(!filter.isFilteredOut(R1, R, E, d))))
+								{
+									rooms.add(R);
+									H.add(R);
+									if(R==radiateTo) // R can't be null here, so if they are equal, time to go!
+									{
+										finished=true;
+										break;
+									}
+								}
+							}
+						}
+					}
+					min=newMin;
+					if(min==rooms.size())
+						finished=true;
+					depth++;
+				}
+				if(!hasMoreElements())
+					throw new java.util.NoSuchElementException();
+				min--; // super important!
+				return rooms.removeFirst();
+			}
+		};
+	}
+
+	@Override
+	public boolean getRadiantRoomsToTarget(final Room room, final List<Room> rooms, TrackingFlags flags, final RFilter radiateTo, final int maxDepth)
 	{
 		if(flags == null)
 			flags = EMPTY_FLAGS;
@@ -703,31 +894,6 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 	}
 
 	@Override
-	public boolean isAnAdminHere(final Room R, final boolean sysMsgsOnly)
-	{
-		final Set<MOB> mobsThere=CMLib.players().getPlayersHere(R);
-		if(mobsThere.size()>0)
-		{
-			try
-			{
-				for(final MOB inhab : mobsThere)
-				{
-					if((inhab.session()!=null)
-					&&(CMSecurity.isAllowed(inhab,R,CMSecurity.SecFlag.CMDMOBS)||CMSecurity.isAllowed(inhab,R,CMSecurity.SecFlag.CMDROOMS))
-					&&(CMLib.flags().isInTheGame(inhab, true))
-					&&((!sysMsgsOnly) || inhab.isAttributeSet(MOB.Attrib.SYSOPMSGS)))
-						return true;
-				}
-			}
-			catch(final java.util.ConcurrentModificationException e)
-			{
-				return isAnAdminHere(R,sysMsgsOnly);
-			}
-		}
-		return false;
-	}
-
-	@Override
 	public boolean beMobile(final MOB mob,
 							final boolean dooropen,
 							final boolean wander,
@@ -756,7 +922,7 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 		if(((mob instanceof Rideable)&&(((Rideable)mob).numRiders()>0))
 		||((mob.amFollowing()!=null)
 			&&(CMLib.tracking().areNearEachOther(mob,mob.amFollowing())
-				||CMLib.tracking().areNearEachOther(mob,mob.amUltimatelyFollowing()))))
+				||CMLib.tracking().areNearEachOther(mob,mob.getGroupLeader()))))
 		{
 			if(status!=null)
 				status[0]=Tickable.STATUS_NOT;
@@ -765,7 +931,7 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 
 		Room oldRoom=mob.location();
 
-		if(isAnAdminHere(oldRoom, true))
+		if(CMLib.hunt().isAnAdminHere(oldRoom, true))
 		{
 			if(status!=null)
 				status[0]=Tickable.STATUS_NOT;
@@ -782,7 +948,8 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 
 		if(oldRoom == null)
 		{
-			if((!mob.amDead())&&(!mob.amDestroyed()))
+			if((!mob.amDead())
+			&&(!mob.amDestroyed()))
 			{
 				if(mob.isPlayer()
 				&& (mob.getStartRoom()!=null))
@@ -806,7 +973,7 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 			final Exit nextExit=oldRoom.getExitInDir(direction);
 			if((nextRoom!=null)&&(nextExit!=null))
 			{
-				if(isAnAdminHere(nextRoom, true))
+				if(CMLib.hunt().isAnAdminHere(nextRoom, true))
 				{
 					direction=-1;
 					continue;
@@ -814,9 +981,14 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 
 				final Exit opExit=nextRoom.getExitInDir(Directions.getOpDirectionCode(direction));
 				if(flags.isTrapped(nextExit)
-				||(flags.isHidden(nextExit)&&(!flags.canSeeHidden(mob))&&(!flags.canSeeHiddenItems(mob)))
-				||(flags.isInvisible(nextExit)&&(!flags.canSeeInvisible(mob))))
+				||(flags.isHidden(nextExit)
+					&&(!flags.canSeeHidden(mob))
+					&&(!flags.canSeeHiddenItems(mob)))
+				||(flags.isInvisible(nextExit)
+					&&(!flags.canSeeInvisible(mob))))
+				{
 					direction=-1;
+				}
 				else
 				if((opExit!=null)&&(flags.isTrapped(opExit)))
 					direction=-1;
@@ -824,21 +996,26 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 				if((oldRoom.domainType()!=nextRoom.domainType())
 				&&(!flags.isInFlight(mob))
 				&&((nextRoom.domainType()==Room.DOMAIN_INDOORS_AIR)
-				||(nextRoom.domainType()==Room.DOMAIN_OUTDOORS_AIR)))
+					||(nextRoom.domainType()==Room.DOMAIN_OUTDOORS_AIR)))
+				{
 					direction=-1;
+				}
 				else
 				if((oldRoom.domainType()!=nextRoom.domainType())
 				&&(!flags.isSwimming(mob))
 				&&(flags.isUnderWateryRoom(nextRoom)))
 					direction=-1;
 				else
-				if((!wander)&&(!oldRoom.getArea().Name().equals(nextRoom.getArea().Name())))
+				if((!wander)
+				&&(!oldRoom.getArea().Name().equals(nextRoom.getArea().Name())))
 					direction=-1;
 				else
-				if((roomobject)&&(rooms!=null)&&(rooms.contains(nextRoom)))
+				if((roomobject)
+				&&(rooms!=null)&&(rooms.contains(nextRoom)))
 					direction=-1;
 				else
-				if((roomprefer)&&(rooms!=null)&&(!rooms.contains(nextRoom)))
+				if((roomprefer)
+				&&(rooms!=null)&&(!rooms.contains(nextRoom)))
 					direction=-1;
 				else
 					break;
@@ -878,9 +1055,12 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 		boolean reclose=false;
 		boolean relock=false;
 		// handle doors!
-		if(nextExit.hasADoor()&&(!nextExit.isOpen())&&(dooropen))
+		if(nextExit.hasADoor()
+		&&(!nextExit.isOpen())
+		&&(dooropen))
 		{
-			if((nextExit.hasALock())&&(nextExit.isLocked()))
+			if((nextExit.hasALock())
+			&&(nextExit.isLocked()))
 			{
 				CMMsg msg=CMClass.getMsg(mob,nextExit,null,CMMsg.MSG_OK_VISUAL,CMMsg.MSG_OK_VISUAL,CMMsg.MSG_OK_VISUAL,null);
 				if(oldRoom.okMessage(mob,msg))
@@ -917,13 +1097,16 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 			final List<String> V=getDirectionCommandSet(direction);
 			if(A.proficiency()<50)
 				A.setProficiency(CMLib.dice().roll(1,50,A.adjustedLevel(mob,0)*15));
-			final CharState oldState=(CharState)mob.curState().copyOf();
+			final CharState state = mob.curState();
+			final int[] oldStateVals = new int[] {state.getMana(), state.getMovement() } ;
 			A.invoke(mob,V,null,false,0);
-			mob.curState().setMana(oldState.getMana());
-			mob.curState().setMovement(oldState.getMovement());
+			state.setMana(oldStateVals[0]);
+			state.setMovement(oldStateVals[1]);
 		}
 		else
-		if(((nextRoom.ID().indexOf("Surface")>0)||(flags.isClimbing(nextExit))||(flags.isClimbing(nextRoom)))
+		if(((nextRoom.ID().indexOf("Surface")>0)
+			||(flags.isClimbing(nextExit))
+			||(flags.isClimbing(nextRoom)))
 		&&(!flags.isClimbing(mob))
 		&&(!flags.isInFlight(mob))
 		&&((mob.fetchAbility("Skill_Climb")!=null)||(mob.fetchAbility("Power_SuperClimb")!=null)))
@@ -934,13 +1117,15 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 			final List<String> V=getDirectionCommandSet(direction);
 			if(A.proficiency()<50)
 				A.setProficiency(CMLib.dice().roll(1,50,A.adjustedLevel(mob,0)*15));
-			final CharState oldState=(CharState)mob.curState().copyOf();
+			final CharState state = mob.curState();
+			final int[] oldStateVals = new int[] {state.getMana(), state.getMovement() } ;
 			A.invoke(mob,V,null,false,0);
-			mob.curState().setMana(oldState.getMana());
-			mob.curState().setMovement(oldState.getMovement());
+			state.setMana(oldStateVals[0]);
+			state.setMovement(oldStateVals[1]);
 		}
 		else
-		if((mob.fetchAbility("Thief_Sneak")!=null)&&(sneakIfAble))
+		if((mob.fetchAbility("Thief_Sneak")!=null)
+		&&(sneakIfAble))
 		{
 			final Ability A=mob.fetchAbility("Thief_Sneak");
 			final List<String> V=getDirectionCommandSet(direction);
@@ -951,11 +1136,11 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 				if(A2!=null)
 					A2.setProficiency(CMLib.dice().roll(1,50,A.adjustedLevel(mob,0)*15));
 			}
-			final int oldMana=mob.curState().getMana();
-			final int oldMove=mob.curState().getMovement();
+			final CharState state = mob.curState();
+			final int[] oldStateVals = new int[] {state.getMana(), state.getMovement() } ;
 			A.invoke(mob,V,null,false,0);
-			mob.curState().setMana(oldMana);
-			mob.curState().setMovement(oldMove);
+			state.setMana(oldStateVals[0]);
+			state.setMovement(oldStateVals[1]);
 		}
 		else
 		{
@@ -998,12 +1183,14 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 		if(R==null)
 			return;
 		int tries=0;
-		while((M.location()==R)&&((++tries)<10)&&((!mindPCs)||(R.numPCInhabitants()>0)))
+		while((M.location()==R)
+		&&((++tries)<10)
+		&&((!mindPCs)||(R.numPCInhabitants()==0)))
 		{
 			if(((M instanceof Rideable)&&(((Rideable)M).numRiders()>0))
 			||((M.amFollowing()!=null)
 				&&(CMLib.tracking().areNearEachOther(M,M.amFollowing())
-					||CMLib.tracking().areNearEachOther(M,M.amUltimatelyFollowing()))))
+					||CMLib.tracking().areNearEachOther(M,M.getGroupLeader()))))
 				return;
 			beMobile(M,true,true,false,false,false,null,null);
 		}
@@ -1026,7 +1213,7 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 		if((whichM==null)||(nearM==null))
 			return false;
 		final Room whichR=whichM.location();
-		final Room nearR=whichM.location();
+		final Room nearR=nearM.location();
 		if((whichR==null)||(nearR==null))
 			return false;
 		if(whichR==nearR)
@@ -1053,7 +1240,9 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 		if(R==null)
 			return false;
 		int tries=0;
-		while((M.location()==R)&&((++tries)<10)&&((!mindPCs)||(R.numPCInhabitants()>0)))
+		while((M.location()==R)
+		&&((++tries)<10)
+		&&((!mindPCs)||(R.numPCInhabitants()==0)))
 			beMobile(M,true,true,false,false,false,null,null);
 		if(M.location()==R)
 			return false;
@@ -1129,9 +1318,8 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 				((Room)enterMsg.target()).show(M,null,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> wanders in."));
 			else
 			{
-				final String inDir=((toHere instanceof BoardableShip)||(toHere.getArea() instanceof BoardableShip))?
-						CMLib.directions().getShipDirectionName(dir):CMLib.directions().getDirectionName(dir);
-						((Room)enterMsg.target()).show(M,null,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> wanders in from @x1.",inDir));
+				final String inDir=CMLib.directions().getFromDirectionName(dir, CMLib.flags().getDirType(toHere));
+				((Room)enterMsg.target()).show(M,null,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> wanders in from @x1.",inDir));
 			}
 			((Room)enterMsg.target()).executeMsg(M, enterMsg);
 			if(M.location()!=((Room)enterMsg.target()))
@@ -1153,15 +1341,14 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 			toHere.show(M,null,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> wanders in."));
 		else
 		{
-			final String inDir=((toHere instanceof BoardableShip)||(toHere.getArea() instanceof BoardableShip))?
+			final String inDir=((toHere instanceof Boardable)||(toHere.getArea() instanceof Boardable))?
 					CMLib.directions().getShipDirectionName(dir):CMLib.directions().getDirectionName(dir);
 			toHere.show(M,null,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> wanders in from @x1.",inDir));
 		}
 		toHere.bringMobHere(M,true);
 	}
 
-	@Override
-	public void forceEntry(final MOB M, final Room toHere, final boolean andFollowers, final boolean forceLook, final String msg)
+	protected void forceEntry(final MOB M, final Room toHere, final boolean andFollowers, final boolean forceLook, final String msg)
 	{
 		if(toHere==null)
 			return;
@@ -1218,6 +1405,68 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 			CMLib.commands().postLook(M, true);
 	}
 
+	private class RideFallChecker implements Runnable
+	{
+
+		private final MOB mob;
+		private volatile int count=0;
+
+		public RideFallChecker(final MOB mob)
+		{
+			this.mob=mob;
+		}
+
+		@Override
+		public void run()
+		{
+			final MOB M;
+			synchronized(mob)
+			{
+				M=mob;
+			}
+			final WorldMap map=CMLib.map();
+			final Rideable ride=M.riding();
+			if(ride!=null)
+			{
+				final Room R=M.location();
+				if(R!=null)
+				{
+					if(map.roomLocation(ride) != map.roomLocation(M))
+					{
+						if((map.areaLocation(ride) != map.areaLocation(M))
+						&&(count>1))
+							M.setRiding(null);
+						else
+						if(++count>=20)
+							M.setRiding(null);
+						else
+						{
+							// keep checking
+							CMLib.threads().scheduleRunnable(this, 99);
+							return;
+						}
+					}
+				}
+			}
+		}
+
+		@Override
+		public int hashCode()
+		{
+			return mob.hashCode();
+		}
+	}
+
+	@Override
+	public boolean doFallenOffCheck(final MOB mob)
+	{
+		if((mob==null)||(mob.riding()==null))
+			return false;
+		final RideFallChecker checker = new RideFallChecker(mob);
+		CMLib.threads().scheduleRunnable(checker, 99);
+		return false;
+	}
+
 	public void ridersBehind(final List<Rider> riders, final Room sourceRoom, final Room destRoom, final int directionCode, final boolean flee, final boolean running)
 	{
 		if(riders!=null)
@@ -1234,7 +1483,7 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 					{
 						if(rMOB.riding()!=null)
 						{
-							final String inDir=((sourceRoom instanceof BoardableShip)||(sourceRoom.getArea() instanceof BoardableShip))?
+							final String inDir=((sourceRoom instanceof Boardable)||(sourceRoom.getArea() instanceof Boardable))?
 									CMLib.directions().getShipDirectionName(directionCode):CMLib.directions().getDirectionName(directionCode);
 							rMOB.tell(L("You ride @x1 @x2.",rMOB.riding().name(),inDir));
 						}
@@ -1257,7 +1506,12 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 				final Item rItem=(Item)rider;
 				if((rItem.owner()==sourceRoom)
 				||(rItem.owner()==destRoom))
-					destRoom.moveItemTo(rItem);
+				{
+					if(rider instanceof NavigableItem)
+						((NavigableItem)rider).navigate(directionCode);
+					else
+						destRoom.moveItemTo(rItem);
+				}
 				else
 					rItem.setRiding(null);
 			}
@@ -1283,6 +1537,32 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 			}
 		}
 		return riders;
+	}
+
+	@Override
+	public MOB createNavigationMob(final NavigableItem ship)
+	{
+		if(ship == null)
+			return null;
+		final Room thisR = CMLib.map().roomLocation(ship.getBoardableItem());
+		final MOB mob = CMClass.getFactoryMOB(ship.name(),ship.phyStats().level(),thisR);
+		if(thisR == null)
+			return null;
+		mob.setRiding(ship);
+		if(ship.navBasis() == Rideable.Basis.WATER_BASED)
+		{
+			mob.basePhyStats().setDisposition(mob.basePhyStats().disposition()|PhyStats.IS_SWIMMING);
+			mob.phyStats().setDisposition(mob.basePhyStats().disposition());
+		}
+		if((ship instanceof PrivateProperty)
+		&&(((PrivateProperty)ship).getOwnerName()!=null)
+		&&(((PrivateProperty)ship).getOwnerName().length()>0))
+		{
+			final Clan clan = CMLib.clans().fetchClanAnyHost(((PrivateProperty)ship).getOwnerName());
+			if(clan != null)
+				mob.setClan(clan.name(), clan.getAutoPosition());
+		}
+		return mob;
 	}
 
 	public List<Rider> ridersAhead(final Rider theRider, final Room sourceRoom, final Room destRoom, final int directionCode, final boolean flee, final boolean running)
@@ -1316,12 +1596,17 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 			riding=r.next();
 			if((riding instanceof Item)
 			&&((sourceRoom).isContent((Item)riding)))
-				destRoom.moveItemTo((Item)riding);
+			{
+				if(riding instanceof NavigableItem)
+					((NavigableItem)riding).navigate(directionCode);
+				else
+					destRoom.moveItemTo((Item)riding);
+			}
 			else
 			if((riding instanceof MOB)
 			&&((sourceRoom).isInhabitant((MOB)riding)))
 			{
-				final String inDir=((sourceRoom instanceof BoardableShip)||(sourceRoom.getArea() instanceof BoardableShip))?
+				final String inDir=((sourceRoom instanceof Boardable)||(sourceRoom.getArea() instanceof Boardable))?
 						CMLib.directions().getShipDirectionName(directionCode):CMLib.directions().getDirectionName(directionCode);
 				((MOB)riding).tell(L("You are ridden @x1.",inDir));
 				if(!move(((MOB)riding),directionCode,false,false,true,false,running))
@@ -1390,19 +1675,19 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 		final CMFlagLibrary flags=CMLib.flags();
 		final int opDir=thisRoom.getReverseDir(directionCode);
 		final Exit opExit=((opDir < 0)||(destRoom==null)) ? null : destRoom.getExitInDir(opDir);
-		final boolean useShipDirs=((thisRoom instanceof BoardableShip)||(thisRoom.getArea() instanceof BoardableShip));
-		final String dirName=useShipDirs?CMLib.directions().getShipDirectionName(directionCode):CMLib.directions().getDirectionName(directionCode);
-		final String fromDir=useShipDirs?CMLib.directions().getFromShipDirectionName(opDir):CMLib.directions().getFromCompassDirectionName(opDir);
+		final Directions.DirType dirType=flags.getDirType(thisRoom);
+		final String dirName=CMLib.directions().getDirectionName(directionCode, dirType);
+		final String fromDir=CMLib.directions().getFromDirectionName(opDir, dirType);
 		final String directionName;
 		if((exit instanceof PrepositionExit)&&(((PrepositionExit)exit).getExitPreposition().length()>0))
 			directionName=((PrepositionExit)exit).getExitPreposition();
 		else
-			directionName=(directionCode==Directions.GATE)&&(exit!=null)?"through "+exit.name():dirName.toLowerCase();
+			directionName=(directionCode==Directions.GATE)&&(exit!=null)?L("through @x1",exit.name()):dirName.toLowerCase();
 		final String otherDirectionPhrase;
 		if((exit instanceof PrepositionExit)&&(((PrepositionExit)exit).getEntryPreposition().length()>0))
 			otherDirectionPhrase=((PrepositionExit)exit).getEntryPreposition();
 		else
-			otherDirectionPhrase=L("from "+((opDir==Directions.GATE)&&(exit!=null)?exit.name():fromDir));
+			otherDirectionPhrase=L("from @x1",((opDir==Directions.GATE)&&(exit!=null)?exit.name():fromDir));
 
 		final int generalMask=always?CMMsg.MASK_ALWAYS:0;
 		final int leaveCode;
@@ -1418,27 +1703,28 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 
 		final CMMsg enterMsg;
 		final CMMsg leaveMsg;
-		if((mob.riding()!=null)
-		&&(mob.riding().mobileRideBasis()))
+		final Rideable ride=mob.riding();
+		if((ride!=null)
+		&&(ride.mobileRideBasis()))
 		{
-			final String enterStr=L("<S-NAME> @x1 @x2 in @x3.",mob.riding().rideString(mob),mob.riding().name(),otherDirectionPhrase);
+			final String enterStr=L("<S-NAME> @x1 @x2 in @x3.",ride.rideString(mob),ride.name(),otherDirectionPhrase);
 			enterMsg=CMClass.getMsg(mob,destRoom,exit,generalMask|CMMsg.MSG_ENTER,null,CMMsg.MSG_ENTER,null,CMMsg.MSG_ENTER,enterStr);
 			if(flee)
-				leaveMsg=CMClass.getMsg(mob,thisRoom,opExit,leaveCode,L("You flee @x1.",directionName),leaveCode,null,leaveCode,L("<S-NAME> flee(s) with @x1 @x2.",mob.riding().name(),directionName));
+				leaveMsg=CMClass.getMsg(mob,thisRoom,opExit,leaveCode,L("You flee @x1.",directionName),leaveCode,null,leaveCode,L("<S-NAME> flee(s) with @x1 @x2.",ride.name(),directionName));
 			else
-				leaveMsg=CMClass.getMsg(mob,thisRoom,opExit,leaveCode,null,leaveCode,null,leaveCode,L("<S-NAME> @x1 @x2 @x3.",mob.riding().rideString(mob),mob.riding().name(),directionName));
+				leaveMsg=CMClass.getMsg(mob,thisRoom,opExit,leaveCode,null,leaveCode,null,leaveCode,L("<S-NAME> @x1 @x2 @x3.",ride.rideString(mob),ride.name(),directionName));
 		}
 		else
 		{
 			final String arriveWord=flags.getPresentDispositionVerb(mob,CMFlagLibrary.ComingOrGoing.ARRIVES);
-			final String arriveStr=L("<S-NAME> "+arriveWord+" @x1.",otherDirectionPhrase);
+			final String arriveStr=L("<S-NAME> @x1 @x2.",arriveWord,otherDirectionPhrase);
 			enterMsg=CMClass.getMsg(mob,destRoom,exit,generalMask|CMMsg.MSG_ENTER,null,CMMsg.MSG_ENTER,null,CMMsg.MSG_ENTER,arriveStr);
 			if(flee)
 				leaveMsg=CMClass.getMsg(mob,thisRoom,opExit,leaveCode,L("You flee @x1.",directionName),leaveCode,null,leaveCode,L("<S-NAME> flee(s) @x1.",directionName));
 			else
 			{
 				final String leaveWord=flags.getPresentDispositionVerb(mob,CMFlagLibrary.ComingOrGoing.LEAVES);
-				final String leaveStr=L("<S-NAME> "+leaveWord+" @x1.",directionName);
+				final String leaveStr=L("<S-NAME> @x1 @x2.",leaveWord,directionName);
 				leaveMsg=CMClass.getMsg(mob,thisRoom,opExit,leaveCode,null,leaveCode,null,leaveCode,leaveStr);
 			}
 		}
@@ -1472,9 +1758,9 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 		if(!mob.okMessage(mob,enterMsg)&&(!gotoAllowed))
 			return false;
 
-		if(mob.riding()!=null)
+		if(ride!=null)
 		{
-			if((!mob.riding().okMessage(mob,enterMsg))&&(!gotoAllowed))
+			if((!ride.okMessage(mob,enterMsg))&&(!gotoAllowed))
 				return false;
 		}
 		else
@@ -1487,7 +1773,10 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 				for(int i=0;i<expense;i++)
 					CMLib.combat().expendEnergy(mob,true);
 			}
-			if((!flee)&&(!always)&&(mob.curState().getMovement()<=0)&&(!gotoAllowed))
+			if((!flee)
+			&&(!always)
+			&&(mob.curState().getMovement()<=0)
+			&&(!gotoAllowed))
 			{
 				mob.tell(L("You are too tired."));
 				return false;
@@ -1533,6 +1822,7 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 			exit.executeMsg(mob,enterMsg);
 		if(mob.location()!=null)
 			mob.location().delInhabitant(mob);
+
 		((Room)leaveMsg.target()).send(mob,leaveMsg);
 
 		if(enterMsg.target()==null)
@@ -1581,7 +1871,7 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 								thisRoom.show(follower,null,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> remain(s) on guard here."));
 							else
 							{
-								final String inDir=((thisRoom instanceof BoardableShip)||(thisRoom.getArea() instanceof BoardableShip))?
+								final String inDir=((thisRoom instanceof Boardable)||(thisRoom.getArea() instanceof Boardable))?
 										CMLib.directions().getShipDirectionName(directionCode):CMLib.directions().getDirectionName(directionCode);
 								follower.tell(L("You follow @x1 @x2.",mob.name(follower),inDir));
 								boolean tryStand=false;
@@ -1698,11 +1988,12 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 					final Rider R=riders.get(i);
 					if(CMLib.map().roomLocation(R)!=thatRoom)
 					{
-						if((((Rideable)I).rideBasis()!=Rideable.RIDEABLE_SIT)
-						&&(((Rideable)I).rideBasis()!=Rideable.RIDEABLE_TABLE)
-						&&(((Rideable)I).rideBasis()!=Rideable.RIDEABLE_ENTERIN)
-						&&(((Rideable)I).rideBasis()!=Rideable.RIDEABLE_SLEEP)
-						&&(((Rideable)I).rideBasis()!=Rideable.RIDEABLE_LADDER))
+						if((((Rideable)I).rideBasis()!=Rideable.Basis.FURNITURE_SIT)
+						&&(((Rideable)I).rideBasis()!=Rideable.Basis.FURNITURE_TABLE)
+						&&(((Rideable)I).rideBasis()!=Rideable.Basis.FURNITURE_HOOK)
+						&&(((Rideable)I).rideBasis()!=Rideable.Basis.ENTER_IN)
+						&&(((Rideable)I).rideBasis()!=Rideable.Basis.FURNITURE_SLEEP)
+						&&(((Rideable)I).rideBasis()!=Rideable.Basis.LADDER))
 						{
 							if((R instanceof MOB)
 							&&(CMLib.flags().isInTheGame((MOB)R,true)))
@@ -1750,19 +2041,21 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 			}
 		}
 		if(dir<0)
-		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 		{
-			final Exit e=R.getExitInDir(d);
-			final Room r=R.getRoomInDir(d);
-			if((e!=null)&&(r!=null))
+			for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 			{
-				if((CMLib.flags().canBeSeenBy(e,mob))
-				&&(((CMLib.english().containsString(e.name(),desc))
-				||(CMLib.english().containsString(e.displayText(),desc))
-				||(CMLib.english().containsString(r.displayText(),desc))
-				||(CMLib.english().containsString(e.description(),desc)))))
+				final Exit e=R.getExitInDir(d);
+				final Room r=R.getRoomInDir(d);
+				if((e!=null)&&(r!=null))
 				{
-					dir=d; break;
+					if((CMLib.flags().canBeSeenBy(e,mob))
+					&&(((CMLib.english().containsString(e.name(),desc))
+					||(CMLib.english().containsString(e.displayText(),desc))
+					||(CMLib.english().containsString(r.displayText(),desc))
+					||(CMLib.english().containsString(e.description(),desc)))))
+					{
+						dir=d; break;
+					}
 				}
 			}
 		}
@@ -1777,13 +2070,12 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 		final Room R2=mob.location();
 		if(R2==null)
 			return -1;
-		final int dir=-1;
 		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 		{
 			if(R2.getRoomInDir(d)==R)
 				return d;
 		}
-		return dir;
+		return -1;
 	}
 
 	@Override
@@ -1794,7 +2086,8 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 		List<Integer> shortest=finalSets.get(0);
 		for(int i=1;i<finalSets.size();i++)
 		{
-			if(finalSets.get(i).size()<shortest.size())
+			if((finalSets.get(i).size()<shortest.size())
+			&&(finalSets.get(i).size()>0))
 				shortest=finalSets.get(i);
 		}
 		return shortest;
@@ -1866,6 +2159,18 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 	protected Room getWhere(final String where, final List<Room> set)
 	{
 		Room R2=CMLib.map().getRoom(where);
+		if(R2 == null)
+		{
+			for(int i=0;i<set.size();i++)
+			{
+				final Room R=set.get(i);
+				if((""+R).equals(where))
+				{
+					R2=R;
+					break;
+				}
+			}
+		}
 		if(R2==null)
 		{
 			for(final Enumeration<Area> a=CMLib.map().areas();a.hasMoreElements();)
@@ -1925,12 +2230,13 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 	}
 
 	@Override
-	public boolean canValidTrail(final Room R1, final List<Room> set, final String where, final int radius, final Set<Room> ignoreRooms, final int maxMins)
+	public boolean canValidTrail(final Room startR, final List<Room> radiantV, final String where, final int radius,
+								 final Set<Room> ignoreRooms, final int maxSecs)
 	{
-		final Room R2=getWhere(where,set);
+		final Room R2=getWhere(where,radiantV);
 		if(R2==null)
 			return false;
-		int foundAt=getIndexEnsureSet(R1,R2,set,radius,ignoreRooms);
+		int foundAt=getIndexEnsureSet(startR,R2,radiantV,radius,ignoreRooms);
 		if(foundAt<0)
 			return false;
 		Room checkR=R2;
@@ -1939,15 +2245,15 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 		final HashSet<Area> areasDone=new HashSet<Area>();
 		boolean didSomething=false;
 		final long startTime = System.currentTimeMillis();
-		while(checkR!=R1)
+		while(checkR!=startR)
 		{
 			final long waitTime = System.currentTimeMillis() - startTime;
-			if(waitTime > (1000 * 60 * (maxMins)))
+			if(waitTime > (1000 * (maxSecs)))
 				return false;
 			didSomething=false;
 			for(int r=foundAt-1;r>=0;r--)
 			{
-				final Room R=set.get(r);
+				final Room R=radiantV.get(r);
 				if(getRoomDirection(R,checkR,trailV)>=0)
 				{
 					trailV.add(R);
@@ -1966,29 +2272,35 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 	}
 
 	@Override
-	public String getTrailToDescription(final Room R1, final List<Room> set, final String where, final boolean areaNames, final boolean confirm, final int radius, final Set<Room> ignoreRooms, final int maxMins)
+	public String getTrailToDescription(final Room startR, final List<Room> radiantV, final String where,
+										final Set<TrailFlag> trailFlags, final int radius, final Set<Room> ignoreRooms,
+										String delimeter, final int maxSecs)
 	{
-		final Room R2=getWhere(where,set);
+		if(delimeter==null)
+			delimeter=" ";
+		final Room R2=getWhere(where,radiantV);
 		if(R2==null)
 			return L("Unable to determine '@x1'.",where);
-		int foundAt=getIndexEnsureSet(R1,R2,set,radius,ignoreRooms);
+		int foundAt=getIndexEnsureSet(startR,R2,radiantV,radius,ignoreRooms);
 		if(foundAt<0)
 			return L("You can't get to '@x1' from here.",R2.roomID());
+		final boolean confirm = trailFlags != null && trailFlags.contains(TrailFlag.CONFIRM);
+		final boolean areaNames = trailFlags != null && trailFlags.contains(TrailFlag.AREANAMES);
 		Room checkR=R2;
 		final List<Room> trailV=new ArrayList<Room>();
 		trailV.add(R2);
 		final HashSet<Area> areasDone=new HashSet<Area>();
 		boolean didSomething=false;
 		final long startTime = System.currentTimeMillis();
-		while(checkR!=R1)
+		while(checkR!=startR)
 		{
 			final long waitTime = System.currentTimeMillis() - startTime;
-			if(waitTime > (1000 * 60 * (maxMins)))
+			if(waitTime > (1000 *(maxSecs)))
 				return L("You can't get there from here.");
 			didSomething=false;
 			for(int r=foundAt-1;r>=0;r--)
 			{
-				final Room R=set.get(r);
+				final Room R=radiantV.get(r);
 				if(getRoomDirection(R,checkR,trailV)>=0)
 				{
 					trailV.add(R);
@@ -2009,7 +2321,7 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 		{
 			final Room R=trailV.get(s);
 			final Room RA=trailV.get(s-1);
-			theDirTrail.add(CMLib.directions().getDirectionChar(getRoomDirection(R,RA,empty))+" ");
+			theDirTrail.add(CMLib.directions().getDirectionChar(getRoomDirection(R,RA,empty)));
 		}
 		final StringBuffer theTrail=new StringBuffer("");
 		if(confirm)
@@ -2030,9 +2342,9 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 			else
 			{
 				if(lastNum==1)
-					theTrail.append(lastDir+" ");
+					theTrail.append(lastDir+delimeter);
 				else
-					theTrail.append(Integer.toString(lastNum)+lastDir+" ");
+					theTrail.append(Integer.toString(lastNum)+lastDir+delimeter);
 				lastDir=s;
 				lastNum=1;
 			}
@@ -2043,7 +2355,9 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 		else
 		if(lastNum>0)
 			theTrail.append(Integer.toString(lastNum)+lastDir);
-
+		if((theTrail.length()>delimeter.length())
+		&&(theTrail.substring(theTrail.length()-delimeter.length()).equals(delimeter)))
+			theTrail.delete(theTrail.length()-delimeter.length(), theTrail.length());
 		if((confirm)&&(trailV.size()>1))
 		{
 			for(int i=0;i<trailV.size();i++)
@@ -2062,8 +2376,8 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 		}
 		if((areaNames)&&(areasDone.size()>0))
 		{
-			theTrail.append("\n\r"+CMStrings.padRight(L("Areas"),30)+":");
-			for (final Area A : areasDone)
+			theTrail.append("\n\r"+CMStrings.padLeft(L("Areas crossed"),30)+":");
+			for(final Area A : areasDone)
 			{
 				theTrail.append(" \""+A.name()+"\",");
 			}
@@ -2086,7 +2400,7 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 			if((I!=null)
 			&&(I instanceof Rideable)
 			&&(CMLib.flags().canBeSeenBy(I,mob))
-			&&(((Rideable)I).rideBasis()==Rideable.RIDEABLE_LADDER))
+			&&(((Rideable)I).rideBasis()==Rideable.Basis.LADDER))
 				return (Rideable)I;
 		}
 		return null;
@@ -2169,7 +2483,7 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 				{
 					final Room R=room.getRoomInDir(dir);
 					if((R!=null)
-					&&(R.getArea() instanceof BoardableShip))
+					&&(R.getArea() instanceof Boardable))
 						hasBoat=true;
 				}
 			}
@@ -2177,7 +2491,7 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 			for(int i=0;i<mob.numItems();i++)
 			{
 				final Item I=mob.getItem(i);
-				if((I!=null)&&(I instanceof Rideable)&&(((Rideable)I).rideBasis()==Rideable.RIDEABLE_WATER))
+				if((I!=null)&&(I instanceof Rideable)&&(((Rideable)I).rideBasis()==Rideable.Basis.WATER_BASED))
 				{
 					hasBoat = true;
 					break;
@@ -2231,9 +2545,9 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 		if((P==null)||(room==null))
 			return;
 
-		Room R=room.getRoomInDir(Directions.DOWN);
-		if(reverseSink)
-			R=room.getRoomInDir(Directions.UP);
+		final Room R=(reverseSink) ?
+				room.getRoomInDir(Directions.UP) :
+				room.getRoomInDir(Directions.DOWN);
 		if((R==null)
 		||((R.domainType()!=Room.DOMAIN_INDOORS_UNDERWATER)
 		   &&(R.domainType()!=Room.DOMAIN_OUTDOORS_UNDERWATER)))
@@ -2350,6 +2664,7 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 						T=CMLib.law().getLandTitle(R);
 					if((R==null)
 					||(T==null)
+					||((ownerName!=null)&&(!T.getOwnerName().equalsIgnoreCase(ownerName)))
 					||(H.contains(R))
 					||(R.roomID().length()==0))
 						continue;
@@ -2367,7 +2682,7 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 	}
 
 	@Override
-	public Room getCalculatedAdjacentRoom(final PairVector<Room,int[]> rooms, final Room R, final int dir)
+	public Room getCalculatedAdjacentGridRoom(final PairVector<Room,int[]> rooms, final Room R, final int dir)
 	{
 		final int[] lookForCoords = Directions.adjustXYZByDirections(0, 0, 0, dir);
 		for(int i=0;i<rooms.size();i++)
@@ -2377,5 +2692,1564 @@ public class MUDTracker extends StdLibrary implements TrackingLibrary
 				return rooms.getFirst(i);
 		}
 		return null;
+	}
+
+	protected void getRadiantRoomsOld(final Room room, final List<Room> rooms, final RFilters filters, final Room radiateTo, final int maxDepth, final Set<Room> ignoreRooms)
+	{
+		int depth=0;
+		if(room==null)
+			return;
+		if(rooms.contains(room))
+			return;
+		final HashSet<Room> H=new HashSet<Room>(1000);
+		rooms.add(room);
+		if(rooms instanceof Vector<?>)
+			((Vector<Room>)rooms).ensureCapacity(200);
+		if(ignoreRooms != null)
+			H.addAll(ignoreRooms);
+		for(int r=0;r<rooms.size();r++)
+			H.add(rooms.get(r));
+		int min=0;
+		int size=rooms.size();
+		Room R1=null;
+		Room R=null;
+		Exit E=null;
+
+		int r=0;
+		int d=0;
+		final WorldMap map=CMLib.map();
+		while(depth<maxDepth)
+		{
+			for(r=min;r<size;r++)
+			{
+				R1=rooms.get(r);
+				for(d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+				{
+					R=R1.getRoomInDir(d);
+					E=R1.getExitInDir(d);
+
+					if((R==null)||(E==null))
+						continue;
+					R=map.getRoom(R);
+					if((R==null)
+					||(H.contains(R))
+					||(filters.isFilteredOut(R1, R, E, d)))
+						continue;
+					rooms.add(R);
+					H.add(R);
+					if(R==radiateTo) // R can't be null here, so if they are equal, time to go!
+						return;
+				}
+			}
+			min=size;
+			size=rooms.size();
+			if(min==size)
+				return;
+			depth++;
+		}
+	}
+
+	@Override
+	public List<Room> findTrailToRoomOld(final Room location, final Room destRoom, final TrackingFlags flags, final int maxRadius, List<Room> radiant)
+	{
+		if((radiant==null)||(radiant.size()==0))
+		{
+			radiant=new ArrayList<Room>();
+			final RFilters filters = this.convertTrackingFlagsToFilters(flags);
+			getRadiantRoomsOld(location,radiant,filters,destRoom,maxRadius,null);
+			if(!radiant.contains(location))
+				radiant.add(0,location);
+		}
+		else
+		{
+			final List<Room> radiant2=new ArrayList<Room>(radiant.size());
+			int r=0;
+			boolean foundLocation=false;
+			Room O;
+			for(;r<radiant.size();r++)
+			{
+				O=radiant.get(r);
+				radiant2.add(O);
+				if((!foundLocation)&&(O==location))
+					foundLocation=true;
+				if(O==destRoom)
+					break;
+			}
+			if(!foundLocation)
+			{
+				radiant.add(0,location);
+				radiant2.add(0,location);
+			}
+			if(r>=radiant.size())
+				return null;
+			radiant=radiant2;
+		}
+		if((radiant.size()>0)&&(destRoom==radiant.get(radiant.size()-1)))
+		{
+			List<Room> thisTrail=new Vector<Room>();
+			final HashSet<Room> tried=new HashSet<Room>();
+			thisTrail.add(destRoom);
+			tried.add(destRoom);
+			Room R=null;
+			int index=radiant.size()-2;
+			if(destRoom!=location)
+			{
+				while(index>=0)
+				{
+					int best=-1;
+					for(int i=index;i>=0;i--)
+					{
+						R=radiant.get(i);
+						for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+						{
+							if((R.getRoomInDir(d)==thisTrail.get(thisTrail.size()-1))
+							&&(R.getExitInDir(d)!=null)
+							&&(!tried.contains(R)))
+								best=i;
+						}
+					}
+					if(best>=0)
+					{
+						R=radiant.get(best);
+						thisTrail.add(R);
+						tried.add(R);
+						if(R==location)
+							break;
+						index=best-1;
+					}
+					else
+					{
+						thisTrail.clear();
+						thisTrail=null;
+						break;
+					}
+				}
+			}
+			return thisTrail;
+		}
+		return null;
+	}
+
+	/* ===================================================================================================================== */
+	/* ====================================================Area Based Code================================================== */
+	/* ===================================================================================================================== */
+
+	protected List<Room> findTrailToIntraAreaRoom(final Room location, final Room destRoom, final TrackingFlags flags)
+	{
+		final List<Room> radiantRooms = new ArrayList<Room>();
+		TrackingFlags narrow = flags;
+		if ((!narrow.contains(TrackingFlag.AREAONLY))
+		&& (location.getArea().Name().equals(destRoom.getArea().Name())))
+		{
+			narrow = flags.copyOf();
+			narrow.add(TrackingFlag.AREAONLY);
+		}
+		getRadiantRooms(location, radiantRooms, narrow, destRoom, Math.max(50,location.getArea().properSize()), null);
+		return this.findTrailToRoom(location, destRoom, flags, radiantRooms.size(), radiantRooms);
+	}
+
+	protected List<String> findDupTrail(final Map<?,List<String>> others, final List<String> list)
+	{
+		for(final Object o : others.keySet())
+		{
+			final List<String> otherList = others.get(o);
+			if(otherList.size()==list.size())
+			{
+				boolean found=true;
+				for(int i=0;i<list.size();i++)
+					found = found && otherList.get(i).equals(list.get(i));
+				if(found)
+					return otherList;
+			}
+		}
+		return list;
+	}
+
+	protected List<Room> tryFindTrailToIntraAreaRoom(final TrackLink prevLink, final TrackLink link, final Room lastRoom, final Room targetCrossingR, final TrackingFlags flags)
+	{
+		List<Room> miniTrail = null;
+		if ((prevLink != null) && (!CMProps.getBoolVar(CMProps.Bool.MAPFINDSNOCACHE)))
+		{
+			if (!link.trailCache.containsKey(prevLink))
+				link.trailCache.put(prevLink, new Hashtable<TrackingFlags, List<String>>());
+			final Map<TrackingFlags, List<String>> trailCache = link.trailCache.get(prevLink);
+			final WorldMap map = CMLib.map();
+			if (trailCache.containsKey(flags))
+			{
+				final List<String> roomIds = trailCache.get(flags);
+				miniTrail = new ArrayList<Room>(roomIds.size());
+				for(final String roomId : roomIds)
+				{
+					final Room room = map.getRoom(roomId);
+					if (room != null)
+						miniTrail.add(room);
+					else
+					{
+						trailCache.remove(flags);
+						miniTrail = null;
+						break;
+					}
+				}
+			}
+			else
+			{
+				miniTrail = findTrailToIntraAreaRoom(lastRoom, targetCrossingR, flags);
+				if(miniTrail != null)
+				{
+					final List<String> miniTrailIds = new ArrayList<String>(miniTrail.size());
+					for(final Room R : miniTrail)
+					{
+						final String roomId = map.getExtendedRoomID(R);
+						if(roomId.length()>0)
+							miniTrailIds.add(roomId);
+					}
+					if(miniTrailIds.size() == miniTrail.size())
+					{
+						final List<String> miniTrail2 = findDupTrail(trailCache, miniTrailIds);
+						trailCache.put(flags, miniTrail2);
+					}
+				}
+				else
+					trailCache.put(flags, new ArrayList<String>(0));
+			}
+		}
+		else
+			miniTrail = findTrailToIntraAreaRoom(lastRoom, targetCrossingR, flags);
+		return miniTrail;
+	}
+
+	protected int getApproximateDistance(final Room fromR, final Room toR)
+	{
+		if((fromR == toR)||(fromR == null)||(toR == null))
+			return 0;
+		final TrackEnum a = getAreaLinkTrail(fromR, toR, null, null);
+		if(!a.hasMoreElements())
+			return -1;
+		final List<TrackLink> aTrail = a.nextElement();
+		if(aTrail.size()==0)
+			return 0;
+		int distance = 0;
+		final TrackLink prevLink = aTrail.get(0);
+		distance += Math.sqrt(prevLink.group.groupRoomIDs.roomCountAllAreas());
+		for(int i=1;i<aTrail.size();i++)
+		{
+			final TrackLink link = aTrail.get(i);
+			if(link.group.innerTrailWeights.containsKey(prevLink)
+			&&link.group.innerTrailWeights.get(prevLink).containsKey(link))
+				distance += link.group.innerTrailWeights.get(prevLink).get(link).intValue();
+			else
+				distance += Math.sqrt(link.group.groupRoomIDs.roomCountAllAreas());
+		}
+		return distance;
+	}
+
+	protected void validateRadiantAreaGroups(final PairList<String,AreaRoomGroup> list, final List<Room> doubleCheck)
+	{
+		if((doubleCheck != null) && (doubleCheck.size()>0))
+		{
+			int errorCode = 0;
+			for(final Room R : doubleCheck)
+			{
+				final String roomID = CMLib.map().getExtendedRoomID(R);
+				final AreaTrackData data = getAreaTrackData(R.getArea());
+				if (data == null)
+				{
+					//Log.errOut("Tracking", "No area tracking data found for room " + roomID);
+					errorCode = 1;
+					continue;
+				}
+				final AreaRoomGroup roomGroup = data.roomMap.get(roomID.toLowerCase());
+				if (roomGroup.fullData.roomMap.get(roomID.toLowerCase())!=roomGroup)
+				{
+					//Log.errOut("Tracking", "Radiant group mapped does not contain room " + roomID);
+					errorCode = 2;
+					continue;
+				}
+				final int x = list.indexOfSecond(roomGroup);
+				if (x < 0)
+				{
+					//Log.errOut("Tracking", "No radiant group found for room " + roomID);
+					errorCode = 3;
+					continue;
+				}
+			}
+			if(errorCode>0)
+				Log.errOut("Tracking", "Radiant area groups validation failed ("+errorCode+") for area: " + list.getFirst(0));
+		}
+	}
+
+	protected void testAreaDataIntegrity(final AreaTrackData data)
+	{
+		final Set<TrackLink> outerLinks = new HashSet<TrackLink>();
+		final Set<String> allRoomIDs = new HashSet<String>();
+		for(final Enumeration<String> r = CMLib.map().getArea(data.areaName).getProperRoomnumbers().getRoomIDs();r.hasMoreElements();)
+		{
+			final String roomID = r.nextElement();
+			int found = 0;
+			for(final AreaRoomGroup group : data.groups)
+			{
+				if(group.groupRoomIDs.contains(roomID))
+					found++;
+				outerLinks.addAll(group.outerLinks);
+				for(final String rid : new XArrayList<String>(group.groupRoomIDs.getRoomIDs()))
+					allRoomIDs.add(rid.toLowerCase());
+			}
+			if (found == 0)
+				Log.errOut("AreaTrackData", "Room " + roomID + " in area " + data.areaName + " not found in any group!");
+			else
+			if (found > 1)
+				Log.errOut("AreaTrackData", "Room " + roomID + " in area " + data.areaName + " found in multiple groups!");
+		}
+		for(final Enumeration<String> r = CMLib.map().getArea(data.areaName).getProperRoomnumbers().getRoomIDs();r.hasMoreElements();)
+		{
+			final String rid = r.nextElement();
+			if (!allRoomIDs.contains(rid.toLowerCase()))
+			{
+				Log.errOut("AreaTrackData", "Room " + rid + " in area " + data.areaName + " not found in any group!");
+				continue;
+			}
+			final Room R = CMLib.map().getRoom(rid);
+			if(R instanceof GridLocale)
+				continue; // grid rooms are handled separately
+
+			for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
+			{
+				final Room nR = R.getRoomInDir(d);
+				final Exit nE = R.getExitInDir(d);
+				if((nR != null)
+				&&(nE != null)
+				&&((nR.roomID().length()>0)||((nR.getGridParent()!=null)&&(!nR.getGridParent().roomID().isEmpty()))))
+				{
+					final String nrId = CMLib.map().getExtendedRoomID(nR);
+					if(allRoomIDs.contains(nrId.toLowerCase()))
+						continue;
+					int foundLevel = 0;
+					boolean found=false;
+					for (final TrackLink link : outerLinks)
+					{
+						if (link.homeRoomID.equalsIgnoreCase(rid))
+						{
+							foundLevel++;
+							if(link.destRoomID.equalsIgnoreCase(nrId))
+							{
+								foundLevel++;
+								if(link.destDirCode == d)
+								{
+									found = true;
+									outerLinks.remove(link);
+									break;
+								}
+							}
+						}
+					}
+					if(!found)
+					{
+						Log.errOut("IntegrityCheck", "Room " + rid  + " has exit to room " + nrId + ", but no link found! ("+foundLevel+")");
+						final AreaRoomGroup group = data.roomMap.get(rid.toLowerCase());
+						if(group != null)
+							Log.errOut("IntegrityCheck", "Room " + rid  + " does have a group in the area ("+group.groupRoomIDs.contains(rid)+", "+group.groupRoomIDs.roomCountAllAreas()+")");
+					}
+				}
+			}
+		}
+	}
+
+	protected void logGroupLinks(final AreaRoomGroup group)
+	{
+		final StringBuilder str = new StringBuilder("group "+group.fullData.areaName+" links: \n\r");
+		for(final TrackLink link : group.outerLinks)
+			str.append(link.homeRoomID + "->" + link.destRoomID+", ");
+		str.append("\n\rGroup rooms:\n\r");
+		for(final Enumeration<String> r= group.groupRoomIDs.getRoomIDs();r.hasMoreElements();)
+			str.append(r.nextElement() + ", ");
+		str.append("\n\r----\n\r");
+		Log.sysOut(str.toString());
+	}
+
+	protected void dumpTrail(final List<TrackLink> allAreaTrails)
+	{
+		final StringBuilder str = new StringBuilder();
+		TrackLink priorLink = null;
+		for(final TrackLink p : allAreaTrails)
+		{
+			if (p == null)
+				str.append("null, ");
+			else
+			{
+				Integer z = null;
+				try
+				{
+					z = p.group.innerTrailWeights.get(priorLink).get(p);
+				}
+				catch(final Exception e)
+				{}
+				str.append("("+p.homeRoomID + "->" + p.destRoomID + "="+z+"), ");
+			}
+			priorLink = p;
+		}
+		Log.sysOut(str.toString());
+	}
+
+	@Override
+	public List<Room> findTrailToRoomByAreas(final Room location, final Room destRoom, final TrackingFlags flags, final List<Room> doubleCheck)
+	{
+		if((location == null) || (destRoom == null))
+			return null;
+		if(location.getArea() == destRoom.getArea())
+			return findTrailToIntraAreaRoom(location, destRoom, flags);
+		final RFilters filters=convertTrackingFlagsToFilters(flags);
+		List<Room> shortest = this.getRadiantRooms(location, filters, 2);
+		final int radiantSize = shortest.size();
+		if(radiantSize<2)
+			return null;
+		shortest = null;
+		final TrackLink prevLink = null;
+		int tries = 0;
+		for(final TrackEnum t = getAreaLinkTrail(location, destRoom, flags, doubleCheck);t.hasMoreElements();)
+		{
+			final List<TrackLink> trail = t.nextElement();
+			tries++;
+			Room lastRoom = location;
+			final List<Room> finalTrail = new Vector<Room>();
+			for(final TrackLink link : trail)
+			{
+				if((link == trail.get(trail.size()-1))&&(lastRoom.getArea() == destRoom.getArea()))
+					break;
+				final Room targetCrossingR = CMLib.map().getRoom(link.homeRoomID);
+				final Room destCrossingR = CMLib.map().getRoom(link.destRoomID);
+				if(targetCrossingR == null)
+				{
+					t.addFailedLink(link);
+					Log.errOut("No target crossing room found for link: "+link.homeRoomID+" -> "+link.destRoomID);
+					finalTrail.clear();
+					break;
+				}
+				List<Room> miniTrail;
+				if(lastRoom == targetCrossingR)
+					miniTrail = new XArrayList<Room>(lastRoom);
+				else
+				{
+					miniTrail = tryFindTrailToIntraAreaRoom(prevLink, link, lastRoom, targetCrossingR, flags);
+					if(miniTrail == null)
+					{
+						t.addFailedLink(link);
+						Log.errOut("Tracking", "No trail from " + CMLib.map().getExtendedRoomID(lastRoom) + " to " + CMLib.map().getExtendedRoomID(targetCrossingR));
+						finalTrail.clear();
+						break;
+					}
+					Collections.reverse(miniTrail);
+				}
+
+				if(targetCrossingR != destCrossingR)
+				{
+					final int dir = link.destDirCode;
+					final Room R=targetCrossingR.getRoomInDir(dir);
+					final Exit E=targetCrossingR.getExitInDir(dir);
+					if((R!=null)
+					&&(R.getArea().Name().equals(link.destAreaID))
+					&&(R==destCrossingR)
+					&&(!filters.isFilteredOut(targetCrossingR, R, E, dir)))
+					{
+						lastRoom = R;
+						finalTrail.addAll(miniTrail);
+					}
+					else
+					{
+						t.addFailedLink(link);
+						Log.errOut("Tracking", "Transition filter failure from " + CMLib.map().getExtendedRoomID(targetCrossingR) + " to " + CMLib.map().getExtendedRoomID(destCrossingR));
+						finalTrail.clear();
+						break;
+					}
+				}
+			}
+			if((finalTrail.size()>0)
+			&&(lastRoom != null)
+			&&(lastRoom.getArea() == destRoom.getArea()))
+			{
+				final List<Room> miniTrail;
+				miniTrail = findTrailToIntraAreaRoom(lastRoom, destRoom, flags);
+				if(miniTrail != null)
+				{
+					Collections.reverse(miniTrail);
+					finalTrail.addAll(miniTrail);
+					Collections.reverse(finalTrail);
+					if(finalTrail.get(0) == destRoom)
+					{
+						if((shortest == null)||(finalTrail.size()<shortest.size()))
+							shortest = finalTrail;
+						return shortest;
+					}
+				}
+			}
+		}
+		//if(shortest != null)
+		//	return shortest;
+
+		Log.errOut("Tracking", "findTrailToRoom failed to find trail from " + location.roomID() + " to " + destRoom.roomID() + " with flags: " + flags.toString()+" after "+ tries+" tries.");
+		return new Vector<Room>();
+	}
+
+	protected AreaTrackData buildFakeAreaTrail(final Area A)
+	{
+		final AreaTrackData t = new AreaTrackData(A.Name());
+		for(final Enumeration<String> r = A.getProperRoomnumbers().getRoomIDs();r.hasMoreElements();)
+		{
+			final String roomId = r.nextElement();
+			final Room R = CMLib.map().getRoom(roomId);
+			if(R == null)
+				continue;
+			final AreaRoomGroup group = new AreaRoomGroup(t);
+			group.fullData = t;
+			group.groupRoomIDs.add(roomId);
+			group.diameter = 1;
+			t.centerRoom = R;
+			t.groups.add(group);
+			t.roomMap.put(roomId.toLowerCase(), group);
+			for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
+			{
+				final Room nR = R.getRoomInDir(d);
+				if((nR != null)
+				&&(nR!=R)
+				&&((nR.roomID().length()>0)
+					||((nR.getGridParent()!=null)&&(nR.getGridParent().roomID().length()>0))))
+				{
+					final TrackLink link = new TrackLink();
+					link.homeRoomID = CMLib.map().getExtendedRoomID(R);
+					link.destRoomID = CMLib.map().getExtendedRoomID(nR);
+					link.destDirCode = d;
+					//link.linkBackToHome = nR.getRoomInDir(Directions.getOpDirectionCode(d))==R;
+					link.destAreaID = nR.getArea().Name();
+					link.group = group;
+					group.outerLinks.add(link);
+				}
+			}
+		}
+		t.diameter = 1;
+		t.numProperIDRooms = A.numberOfProperIDedRooms();
+		return t;
+	}
+
+
+	/**
+	 * An areas tracking data and tracking-derived info.
+	 */
+	protected static class AreaTrackData
+	{
+		String		areaName			= "";
+		Room		centerRoom			= null;
+		int			numProperIDRooms	= 0;
+		public int	diameter			= 0;
+
+		// these are the member room groups and their links
+		final List<AreaRoomGroup>			groups	= new LinkedList<AreaRoomGroup>();
+		final Map<String, AreaRoomGroup>	roomMap	= Collections.synchronizedMap(new TreeMap<String, AreaRoomGroup>());
+
+		public AreaTrackData(final String name)
+		{
+			this.areaName = name;
+		}
+	}
+
+	/**
+	 * Represents a group of inter-connected rooms within an area,
+	 * and their links to other groups, either in the same area
+	 * or in other areas.
+	 */
+	protected static class AreaRoomGroup
+	{
+		AreaTrackData			fullData		= null;
+		// this groups room ids
+		final RoomnumberSet		groupRoomIDs	= (RoomnumberSet) CMClass.getCommon("DefaultRoomnumberSet");
+		public int				diameter		= 0; // the diameter of this group, in sqrt(number of rooms)
+
+		/**
+		 * this groups incoming links from OTHER groups to this one.  It is built during the
+		 * getRadiantAreaGroups() method, which is the first step in area trail-building.
+		 */
+		final Set<TrackLink>	incomingLinks	= new WeakSHashSet<TrackLink>();
+		/**
+		 * this groups outward-facing links to other groups, either in the same area or in other areas.
+		 */
+		final List<TrackLink>	outerLinks		= new Vector<TrackLink>();
+
+		/**
+		 * For all outward-facing links in this group, these are the weights from one of these
+		 * links to the other links in this group, denoting the distances from inner (but outward
+		 * facing) links to each other.  This is used when crossing a group.
+		 */
+		final Map<TrackLink, Map<TrackLink, Integer>>	innerTrailWeights	= new Hashtable<TrackLink, Map<TrackLink, Integer>>();
+
+		public AreaRoomGroup(final AreaTrackData fullData)
+		{
+			super();
+			this.fullData = fullData;
+		}
+
+		@Override
+		public synchronized boolean equals(final Object o)
+		{
+			return o == this;
+		}
+
+		@Override
+		public int hashCode()
+		{
+			return super.hashCode();
+		}
+	}
+
+	/**
+	 * A link between a room in one area group and a room in another group, in the same area or in another area.
+	 */
+	private static class TrackLink
+	{
+		int				destDirCode	= -1;	// the direction code of the link, from home room to destination room
+		boolean			backLinked	= false; // whether this link has a perfect mirror link somewhere that goes back to its home room
+		String			destAreaID	= null;  // the area that this link links to
+		String			homeRoomID	= null;  // the room that this link originates from
+		String			destRoomID	= null;  // the room that this link leads to
+		AreaRoomGroup	group		= null;  // the group that this link belongs to
+
+		WeakReference<AreaRoomGroup>	destGroup	= new WeakReference<AreaRoomGroup>(null);
+		// the group that this link leads to, which is built during the getRadiantAreaGroups() method.
+
+		/*
+		 *  A cache of calculated trails from OTHER links to this one, used to save time during the final trail building.
+		 */
+		final Map<TrackLink,Map<TrackingFlags,List<String>>> trailCache = new TreeMap<TrackLink,Map<TrackingFlags,List<String>>>();
+	}
+
+	private static interface TrackEnum extends Enumeration<List<TrackLink>>
+	{
+		public void addFailedLink(final TrackLink link);
+
+		public static final TrackEnum emptyEnum = new TrackEnum()
+		{
+			@Override
+			public boolean hasMoreElements()
+			{
+				return false;
+			}
+
+			@Override
+			public List<TrackLink> nextElement()
+			{
+				return null;
+			}
+
+			@Override
+			public void addFailedLink(final TrackLink link)
+			{
+			}
+		};
+	}
+
+	private static class WeightedTrail implements Comparable<WeightedTrail>
+	{
+		final PairList<AreaRoomGroup, TrackLink> path;
+		final int cost;
+
+		public WeightedTrail(final PairList<AreaRoomGroup, TrackLink> p, final int c)
+		{
+			path = p;
+			cost = c;
+		}
+
+		@Override
+		public int compareTo(final WeightedTrail o)
+		{
+			return Integer.compare(cost, o.cost);
+		}
+	}
+
+	protected PairList<String,AreaRoomGroup> getRadiantAreaGroups(final AreaRoomGroup fromGroup, final AreaRoomGroup toGroup, final List<Room> doubleCheck)
+	{
+		if(fromGroup == null)
+			return null;
+		final PairList<String,AreaRoomGroup> radiantGroups = new PairVector<String, AreaRoomGroup>();
+		if(fromGroup == toGroup)
+			return radiantGroups;
+		final Set<AreaRoomGroup> processed = new HashSet<AreaRoomGroup>();
+		final Set<AreaRoomGroup> found = new HashSet<AreaRoomGroup>();
+		final LinkedList<AreaRoomGroup> groupsToDo = new LinkedList<AreaRoomGroup>();
+		boolean foundTo = false;
+		groupsToDo.add(fromGroup);
+		while(groupsToDo.size()>0)
+		{
+			final AreaRoomGroup nextGroup = groupsToDo.removeFirst();
+			if(processed.contains(nextGroup))
+				continue;
+			processed.add(nextGroup);
+			final String currentArea = nextGroup.fullData.areaName;
+			radiantGroups.add(new Pair<String, AreaRoomGroup>(currentArea, nextGroup));
+			for(final TrackLink nextLink : nextGroup.outerLinks)
+			{
+				final Area nextArea = CMLib.map().getArea(nextLink.destAreaID);
+				final AreaTrackData nextAreaData = getAreaTrackData(nextArea);
+				AreaRoomGroup destGroup = nextLink.destGroup.get();
+				if(destGroup == null)
+				{
+					nextLink.destGroup = new WeakReference<AreaRoomGroup>(nextAreaData.roomMap.get(nextLink.destRoomID.toLowerCase()));
+					destGroup = nextLink.destGroup.get();
+				}
+				if(destGroup != null)
+				{
+					if(!destGroup.incomingLinks.contains(nextLink))
+						destGroup.incomingLinks.add(nextLink);
+					if((!processed.contains(destGroup))
+					&&(!found.contains(destGroup)))
+					{
+						found.add(destGroup);
+						groupsToDo.add(destGroup);
+					}
+				}
+				else
+					Log.errOut("Tracking", "No forward group found for "+nextLink.homeRoomID+"->"+nextLink.destRoomID+" in "+nextArea.Name()+" from "+currentArea);
+			}
+			if(nextGroup == toGroup)
+				foundTo = true;
+		}
+		if(!foundTo)
+			Log.errOut("Tracking", "No trail found to "+toGroup.fullData.areaName+" from "+fromGroup.fullData.areaName);
+		return radiantGroups;
+	}
+
+	protected TrackEnum findAreaLinkTrails(final AreaRoomGroup targetGrp, final AreaRoomGroup startGrp, final PairList<String, AreaRoomGroup> radiantTrails, final TrackingFlags flags, final List<Room> doubleCheck)
+	{
+		final long startTime = System.currentTimeMillis();
+		return new TrackEnum()
+		{
+			private final AreaRoomGroup						targetGroup	= targetGrp;
+			private final AreaRoomGroup						startGroup	= startGrp;
+			private final PairList<String, AreaRoomGroup>	areaTrails	= radiantTrails;
+			private final PriorityQueue<WeightedTrail>		queue		= new PriorityQueue<WeightedTrail>();
+			private List<TrackLink>							nextTrail	= null;
+			private final Set<TrackLink>					failedLinks	= new HashSet<TrackLink>();
+			private int										triedTrails	= 0;
+			private final RFilters 							filters 	= convertTrackingFlagsToFilters(flags);
+
+			private final Map<AreaRoomGroup, Map<TrackLink, Integer>>	dist = new HashMap<AreaRoomGroup, Map<TrackLink, Integer>>();
+
+			private int	maxDiam;
+			{
+				maxDiam=0;
+				for(int i=0; i<areaTrails.size(); i++)
+				{
+					final int d = areaTrails.getSecond(i).diameter;
+					if(d>maxDiam)
+						maxDiam=d;
+				}
+				maxDiam+=1;
+				final PairList<AreaRoomGroup, TrackLink> initialPath = new PairArrayList<AreaRoomGroup, TrackLink>();
+				initialPath.add(targetGroup, null);
+				final Map<TrackLink, Integer> initialSub = new HashMap<TrackLink, Integer>();
+				initialSub.put(null, Integer.valueOf(0));
+				dist.put(targetGroup, initialSub);
+				queue.add(new WeightedTrail(initialPath, 0));
+			}
+
+			private void computeNext()
+			{
+				while ((nextTrail == null) && (!queue.isEmpty()))
+				{
+					final WeightedTrail pc = queue.poll();
+					if(debug)
+						dumpTrail(new XVector<TrackLink>(pc.path.secondIterator()));
+					final PairList<AreaRoomGroup, TrackLink> backwardPath = pc.path;
+					boolean skipPath = false;
+					for (int i = 0; i < backwardPath.size(); i++)
+					{
+						final TrackLink tl = backwardPath.get(i).second;
+						if (tl != null && failedLinks.contains(tl))
+						{
+							skipPath = true;
+							break;
+						}
+					}
+					if (skipPath)
+						continue;
+					final AreaRoomGroup currentGroup = backwardPath.get(backwardPath.size()-1).first;
+					final TrackLink currenEntry = backwardPath.get(backwardPath.size()-1).second;
+					final int currentCost = pc.cost;
+					final Map<TrackLink, Integer> subDist = dist.get(currentGroup);
+					final int oldCost = subDist.get(currenEntry).intValue();
+					if (currentCost > oldCost)
+						continue; // already found a better path to this group
+					if(currentGroup == startGroup)
+					{
+						final List<TrackLink> trail = new ArrayList<TrackLink>();
+						for(int j=backwardPath.size()-2; j>=0; j--)
+						{
+							final TrackLink forwardLink=backwardPath.get(j+1).second;
+							trail.add(forwardLink);
+						}
+						nextTrail = trail;
+						continue;
+					}
+					final List<TrackLink> sortedInLinks = new XArrayList<TrackLink>(currentGroup.incomingLinks);
+					Collections.sort(sortedInLinks, new Comparator<TrackLink>()
+					{
+						@Override
+						public int compare(final TrackLink o1, final TrackLink o2)
+						{
+							final int x1 = areaTrails.indexOfSecond(o1.group);
+							final int x2 = areaTrails.indexOfSecond(o2.group);
+							return Integer.compare(x1, x2);
+						}
+					});
+					final long currentTime = System.currentTimeMillis() - startTime;
+					if((triedTrails==0)||(failedLinks.size()==triedTrails))
+					{
+						if(currentTime>AREA_TRAIL_TIMEOUT_MS)
+						{
+							Log.errOut("Tracking", "Area trail search FULL timed out after "+currentTime+" ms for "+startGroup.fullData.areaName+" to "+targetGroup.fullData.areaName);
+							return;
+						}
+					}
+					else
+					{
+						if(currentTime>AREA_TRAILS_TIME_MS)
+							return;
+					}
+					for(final TrackLink inLink : sortedInLinks)
+					{
+						final Room homeR = CMLib.map().getRoom(inLink.homeRoomID);
+						final Room destR = CMLib.map().getRoom(inLink.destRoomID);
+						final Exit E = (homeR != null) ? homeR.getExitInDir(inLink.destDirCode) : null;
+						if ((homeR == null)
+						|| (destR == null)
+						|| (E == null)
+						|| filters.isFilteredOut(homeR, destR, E, inLink.destDirCode))
+							continue;
+
+						final AreaRoomGroup incomingGroup = inLink.group;
+						if(backwardPath.containsFirst(incomingGroup) || failedLinks.contains(inLink))
+							continue;
+						int addCost = 0;
+						if(backwardPath.size()>1)
+						{
+							addCost = currentGroup.diameter;
+							if(inLink.backLinked)
+							{
+								TrackLink potentialLink = null;
+								for(final TrackLink l : currentGroup.outerLinks)
+								{
+									if((l.homeRoomID.equals(inLink.destRoomID))
+									&&(l.destRoomID.equals(inLink.homeRoomID))
+									&&(l.destDirCode == Directions.getOpDirectionCode(inLink.destDirCode)))
+									{
+										potentialLink = l;
+										break;
+									}
+								}
+								if(potentialLink != null)
+								{
+									final TrackLink exitLink = backwardPath.get(backwardPath.size()-1).second;
+									TrackLink potentialExitLink = null;
+									for(final TrackLink l : currentGroup.outerLinks)
+									{
+										if((l.homeRoomID.equals(exitLink.destRoomID))
+										&&(l.destRoomID.equals(exitLink.homeRoomID))
+										&&(l.destDirCode == Directions.getOpDirectionCode(exitLink.destDirCode)))
+										{
+											potentialExitLink = l;
+											break;
+										}
+									}
+									if((potentialExitLink != null)
+									&& currentGroup.innerTrailWeights.containsKey(potentialLink)
+									&& currentGroup.innerTrailWeights.get(potentialLink).containsKey(potentialExitLink))
+										addCost = currentGroup.innerTrailWeights.get(potentialLink).get(potentialExitLink).intValue();
+								}
+							}
+						}
+						final int newCost=currentCost+addCost+maxDiam;//(backwardPath.size()*maxDiam);
+						final TrackLink nextEntry = inLink;
+						Map<TrackLink, Integer> nextSub = dist.get(incomingGroup);
+						if(nextSub == null)
+						{
+							nextSub = new HashMap<TrackLink, Integer>();
+							dist.put(incomingGroup, nextSub);
+						}
+						if((!nextSub.containsKey(nextEntry))||(newCost<nextSub.get(nextEntry).intValue()))
+						{
+							nextSub.put(nextEntry, Integer.valueOf(newCost));
+							final PairList<AreaRoomGroup, TrackLink> nextPath = new PairArrayList<AreaRoomGroup, TrackLink>(backwardPath);
+							nextPath.add(incomingGroup, nextEntry);
+							queue.add(new WeightedTrail(nextPath, newCost));
+						}
+					}
+				}
+			}
+
+			@Override
+			public boolean hasMoreElements()
+			{
+				computeNext();
+				return nextTrail != null;
+			}
+
+			@Override
+			public List<TrackLink> nextElement()
+			{
+				computeNext();
+				if(nextTrail == null)
+					throw new NoSuchElementException();
+				final List<TrackLink> result = nextTrail;
+				nextTrail = null;
+				triedTrails++;
+				return result;
+			}
+
+			@Override
+			public void addFailedLink(final TrackLink link)
+			{
+				if(link != null)
+					failedLinks.add(link);
+			}
+		};
+	}
+
+	protected AreaRoomGroup getRoomTrackLinksGroup(final Room R)
+	{
+		if(R==null)
+			return null;
+		final AreaTrackData areaTrackData = getAreaTrackData(R.getArea());
+		if(areaTrackData == null)
+			return null;
+		return areaTrackData.roomMap.get(CMLib.map().getExtendedRoomID(R).toLowerCase());
+	}
+
+	protected TrackEnum getAreaLinkTrail(final Room fromR, final Room toR, final TrackingFlags flags, final List<Room> doubleCheck)
+	{
+		if((fromR == null)||(toR==null)||(fromR==toR))
+			return TrackEnum.emptyEnum;
+		final AreaRoomGroup fromGroup = getRoomTrackLinksGroup(fromR);
+		final AreaRoomGroup toGroup = getRoomTrackLinksGroup(toR);
+		if ((fromGroup == null) || (toGroup == null))
+		{
+			Log.errOut("Tracking", "No area group found for room "+CMLib.map().getExtendedRoomID((fromGroup != null)?fromR:toR));
+			return TrackEnum.emptyEnum;
+		}
+		final PairList<String, AreaRoomGroup> areaTrails = this.getRadiantAreaGroups(fromGroup, toGroup, doubleCheck);
+		//final int toDex = areaTrails.indexOfSecond(toGroup);
+		if((areaTrails != null) && (areaTrails.size()>0))
+		{
+			validateRadiantAreaGroups(areaTrails, doubleCheck);
+			return findAreaLinkTrails(toGroup, fromGroup, areaTrails, flags, doubleCheck);
+		}
+		else
+			Log.errOut("No area trail found from "+fromGroup.fullData.areaName+" to "+toGroup.fullData.areaName);
+		return TrackEnum.emptyEnum;
+	}
+
+	protected Map<Room, Integer> getBFSDistances(final Room start, final Pair<Room,int[]> maxDistPair, final Map<Room, Room> parents, final AreaRoomGroup group, final AreaTrackData otherGroups, final Room breakRoom)
+	{
+		final Map<Room, Integer> distances = new HashMap<Room,Integer>();
+		final LinkedList<Room> queue = new LinkedList<Room>();
+		final Set<Room> visited = new HashSet<Room>();
+		final Map<Room,List<TrackLink>> outerMaybe = new HashMap<Room,List<TrackLink>>();
+		queue.add(start);
+		visited.add(start);
+		distances.put(start, Integer.valueOf(0));
+		final WorldMap map = CMLib.map();
+		while (!queue.isEmpty())
+		{
+			final Room R = queue.removeFirst();
+			for(int d = 0; d < Directions.NUM_DIRECTIONS(); d++)
+			{
+				final Room nR = R.getRoomInDir(d);
+				final Exit nE = R.getExitInDir(d);
+				if((nR != null)
+				&& (nE != null)
+				&& (!visited.contains(nR))
+				&&((nR.roomID().length()>0)
+					||((nR.getGridParent()!=null)&&(nR.getGridParent().roomID().length()>0)))
+				)
+				{
+					if((parents==null)||(!parents.containsKey(nR)))
+					{
+						if((nR.getArea().Name().equals(start.getArea().Name()))
+						&&(nR.getRoomInDir(Directions.getOpDirectionCode(d)) == R))
+						{
+							if(outerMaybe.containsKey(nR)&&(group != null))
+								group.outerLinks.removeAll(outerMaybe.get(nR));
+							visited.add(nR);
+							queue.add(nR);
+							if(parents != null)
+								parents.put(nR, R);
+							if(nR == breakRoom)
+								return distances;
+							final int distance = distances.get(R).intValue() + 1;
+							distances.put(nR, Integer.valueOf(distance));
+							if(maxDistPair != null)
+							{
+								if(distance > maxDistPair.second[0])
+								{
+									maxDistPair.second[0] = distance;
+									maxDistPair.first = nR;
+								}
+							}
+						}
+						else
+						if(group != null)
+						{
+							final TrackLink link = new TrackLink();
+							link.homeRoomID = map.getExtendedRoomID(R);
+							link.destRoomID = map.getExtendedRoomID(nR);
+							link.destDirCode = d;
+							link.backLinked = nR.getRoomInDir(Directions.getOpDirectionCode(d))==R;
+							link.destAreaID = nR.getArea().Name();
+							link.group = group;
+							group.outerLinks.add(link);
+							if(nR.getArea().Name().equals(start.getArea().Name()))
+							{
+								if(!outerMaybe.containsKey(nR))
+									outerMaybe.put(nR, new ArrayList<TrackLink>());
+								outerMaybe.get(nR).add(link);
+							}
+						}
+					}
+					else
+					if((otherGroups!=null)
+					&&(!visited.contains(nR))
+					&&(nR.getArea().Name().equals(start.getArea().Name())))
+					{
+						visited.add(nR);
+						final String targetRoomID = map.getExtendedRoomID(nR);
+						final AreaRoomGroup destGroup = otherGroups.roomMap.get(targetRoomID.toLowerCase());
+						if((destGroup != null)&&(destGroup != group)&&(group != null))
+						{
+							final TrackLink link = new TrackLink();
+							link.homeRoomID = map.getExtendedRoomID(R);
+							link.destRoomID = map.getExtendedRoomID(nR);
+							link.destDirCode = d;
+							link.backLinked = nR.getRoomInDir(Directions.getOpDirectionCode(d))==R;
+							link.destAreaID = nR.getArea().Name();
+							link.group = group;
+							link.destGroup = new WeakReference<AreaRoomGroup>(destGroup);
+							group.outerLinks.add(link);
+						}
+					}
+				}
+			}
+		}
+		return distances;
+	}
+
+	protected Pair<Room,int[]> isAreafullRoom(Room R, final int minRooms)
+	{
+		if((R == null)
+		||((R.roomID().length()==0)
+			&& ((R.getGridParent() == null) || (R.getGridParent().roomID().length() == 0))))
+			return null;
+		if(R instanceof GridLocale)
+		{
+			final Room R2 = ((GridLocale)R).getFirstGridChild();
+			if(R2 != null)
+				R = R2;
+		}
+		final Pair<Room,int[]> maxDistPair = new Pair<Room,int[]>(null, new int[] {-1});
+		final Map<Room, Integer> distances = getBFSDistances(R, maxDistPair, null, null, null, null);
+		if(distances.size() >= minRooms)
+			return maxDistPair;
+		return null;
+	}
+
+	protected void buildInnerWeights(final AreaRoomGroup group, final Map<String,Room> thinAreaRoomsMap)
+	{
+		if(group == null)
+			return;
+		group.innerTrailWeights.clear();
+		for(final TrackLink link : group.outerLinks)
+		{
+			if(!group.innerTrailWeights.containsKey(link))
+				group.innerTrailWeights.put(link, new Hashtable<TrackLink, Integer>());
+			final Map<TrackLink, Integer> innerWeights = group.innerTrailWeights.get(link);
+			for(final TrackLink otherLink : group.outerLinks)
+			{
+				if(link == otherLink)
+					continue;
+				if(!innerWeights.containsKey(otherLink))
+				{
+					final Room startRoom;
+					if(thinAreaRoomsMap != null)
+						startRoom = thinAreaRoomsMap.get(link.homeRoomID);
+					else
+						startRoom = CMLib.map().getRoom(link.homeRoomID);
+					final Room endRoom;
+					if(thinAreaRoomsMap != null)
+						endRoom = thinAreaRoomsMap.get(otherLink.homeRoomID);
+					else
+						endRoom = CMLib.map().getRoom(otherLink.homeRoomID);
+					if((startRoom == null)||(endRoom == null))
+						continue;
+					final Map<Room,Room> parents = new HashMap<Room,Room>();
+					parents.put(startRoom, null);
+					getBFSDistances(startRoom, null, parents, null, null, endRoom);
+					final List<Room> path = new ArrayList<Room>();
+					Room current = endRoom;
+					while (current != null)
+					{
+						path.add(current);
+						current = parents.get(current);
+					}
+					innerWeights.put(otherLink, Integer.valueOf(path.size()));
+				}
+			}
+		}
+	}
+
+	protected AreaRoomGroup buildAreaGroup(final AreaTrackData areaData, Room startR, final Pair<Room,int[]> maxDist, final Map<Room, Room> parents, final Map<String,Room> thinAreaRoomsMap, final int groupNum)
+	{
+		final AreaRoomGroup group = new AreaRoomGroup(areaData);
+		areaData.groups.add(group);
+		group.groupRoomIDs.add(CMLib.map().getExtendedRoomID(startR));
+		final Set<Room> oldParents = new HashSet<Room>(parents.keySet());
+		getBFSDistances(startR, maxDist, parents, group, areaData, null);
+		parents.put(startR, null);
+		if(startR instanceof GridLocale)
+		{
+			final Room chR = ((GridLocale)startR).getFirstGridChild();
+			if(chR!=null)
+			{
+				startR = chR;
+				if(parents.containsKey(startR))
+					return null;
+				parents.put(startR,null);
+				group.groupRoomIDs.add(CMLib.map().getExtendedRoomID(startR));
+			}
+		}
+		for(final Room RR : new XArrayList<Room>(parents.keySet()))
+		{
+			if(!oldParents.contains(RR))
+			{
+				final Room gridParent = RR.getGridParent();
+				if ((gridParent != null)
+				&& (!parents.containsKey(gridParent))
+				&& (!oldParents.contains(gridParent)))
+				{
+					group.groupRoomIDs.add(CMLib.map().getExtendedRoomID(gridParent));
+					parents.put(gridParent, null);
+					oldParents.add(gridParent);
+				}
+				group.groupRoomIDs.add(CMLib.map().getExtendedRoomID(RR));
+			}
+		}
+		if(group.outerLinks.size()>1)
+			buildInnerWeights(group, thinAreaRoomsMap);
+		final Enumeration<String> r = group.groupRoomIDs.getRoomIDs();
+		if(!r.hasMoreElements())
+			return null;
+		int numRooms = 0;
+		for (;r.hasMoreElements();)
+		{
+			areaData.roomMap.put(r.nextElement().toLowerCase(), group);
+			numRooms++;
+		}
+		group.diameter = (int)Math.round(Math.ceil(Math.sqrt(numRooms)));
+		return group;
+	}
+
+	protected AreaTrackData getCachedAreaTrackData(final String areaName)
+	{
+		@SuppressWarnings("unchecked")
+		Map<String, AreaTrackData> centerMap = (Map<String, AreaTrackData>)Resources.getResource("SYSTEM_MAP_AREATRACKDATA");
+		if(centerMap == null) {
+			centerMap = new java.util.concurrent.ConcurrentHashMap<String,AreaTrackData>();
+			Resources.submitResource("SYSTEM_MAP_AREATRACKDATA", centerMap);
+		}
+
+		final AreaTrackData oldTrail = centerMap.get(areaName);
+		if((oldTrail != null)
+		&& (oldTrail.centerRoom != null))
+			return oldTrail;
+		return null;
+	}
+
+	protected AreaTrackData getAreaTrackData(final Area A)
+	{
+		if(A == null)
+			return null;
+		final int numberOfProperIDedRooms = A.numberOfProperIDedRooms();
+		if(numberOfProperIDedRooms < 1)
+			return null;
+
+		@SuppressWarnings("unchecked")
+		Map<String, AreaTrackData> centerMap = (Map<String, AreaTrackData>)Resources.getResource("SYSTEM_MAP_AREATRACKDATA");
+		if(centerMap == null) {
+			centerMap = new java.util.concurrent.ConcurrentHashMap<String,AreaTrackData>();
+			Resources.submitResource("SYSTEM_MAP_AREATRACKDATA", centerMap);
+		}
+
+		AreaTrackData oldTrail = centerMap.get(A.Name());
+		if((oldTrail != null)
+		&& (oldTrail.numProperIDRooms == numberOfProperIDedRooms)
+		&& (oldTrail.centerRoom != null))
+			return oldTrail;
+		synchronized (CMClass.getSync(A.Name()))
+		{
+			oldTrail = centerMap.get(A.Name());
+			if((oldTrail != null)
+			&& (oldTrail.numProperIDRooms == numberOfProperIDedRooms)
+			&& (oldTrail.centerRoom != null))
+				return oldTrail;
+
+			if(numberOfProperIDedRooms == 1)
+			{
+				final Room R = CMLib.map().getRoom(A.getProperRoomnumbers().getRoomIDs().nextElement());
+				if(R instanceof GridLocale)
+					((GridLocale)R).getAllRooms();
+				else
+				{
+					final AreaTrackData t = buildFakeAreaTrail(A);
+					centerMap.put(A.Name(), t);
+					return t;
+				}
+			}
+
+			int groupNum = 0;
+			Room goodStartR = null;
+			int minSize = numberOfProperIDedRooms;
+			Map<String,Room> thinAreaRoomsMap = null;
+			if((CMath.bset(A.flags(), Area.FLAG_THIN)))//&&(A.getCachedRoomnumbers().roomCountAllAreas() < numberOfProperIDedRooms))
+			{
+				thinAreaRoomsMap = new TreeMap<String,Room>();
+				for(final Room R : CMLib.database().DBReadAreaNavStructure(A.Name()))
+				{
+					final String roomID = CMLib.map().getExtendedRoomID(R);
+					if(roomID.length()>0)
+					{
+						thinAreaRoomsMap.put(roomID, R);
+						if(R instanceof GridLocale)
+							for(final Room R2 : ((GridLocale)R).getAllRooms())
+								thinAreaRoomsMap.put(CMLib.map().getExtendedRoomID(R2), R2);
+					}
+				}
+			}
+			while((goodStartR == null) && (minSize > 1))
+			{
+				minSize /= 2;
+				final Enumeration<Room> r = (thinAreaRoomsMap != null) ? new IteratorEnumeration<Room>(thinAreaRoomsMap.values().iterator()): A.getCompleteMap();
+				Pair<Room,int[]> maxDistPair = null;
+				for(; r.hasMoreElements();)
+				{
+					final Room R = r.nextElement();
+					if(((maxDistPair = isAreafullRoom(R, minSize)) != null)
+					&&(maxDistPair.first!=null))
+					{
+						goodStartR = maxDistPair.first;
+						break;
+					}
+				}
+			}
+			if(goodStartR==null)
+			{
+				final AreaTrackData t = buildFakeAreaTrail(A);
+				centerMap.put(A.Name(), t);
+				return t;
+			}
+			Room approxCenter = null;
+			final Map<Room, Room> parents = new HashMap<Room, Room>();
+			final AreaTrackData areaData = new AreaTrackData(A.Name());
+			final Pair<Room,int[]> maxDistData = new Pair<Room,int[]>(null,new int[] {-1});
+			buildAreaGroup(areaData, goodStartR, maxDistData, parents, thinAreaRoomsMap, groupNum);
+
+			final List<Room> path = new ArrayList<Room>();
+			Room current = maxDistData.first;
+			while (current != null)
+			{
+				path.add(current);
+				current = parents.get(current);
+			}
+			if(path.size()!=0)
+			{
+				approxCenter = path.get(path.size() / 2);
+				if(approxCenter != null)
+					areaData.centerRoom = approxCenter;
+				else
+					areaData.centerRoom = goodStartR;
+			}
+			else
+				areaData.centerRoom = goodStartR;
+			areaData.diameter = maxDistData.second[0];
+			areaData.numProperIDRooms = numberOfProperIDedRooms;
+			final Enumeration<Room> r = (thinAreaRoomsMap != null) ? new IteratorEnumeration<Room>(thinAreaRoomsMap.values().iterator()): A.getCompleteMap();
+			for(;r.hasMoreElements();)
+			{
+				final Room R = r.nextElement();
+				if((R != null)
+				&&(!parents.containsKey(R))
+				&&((R.roomID().length()>0)
+					||((R.getGridParent()!=null)&&(R.getGridParent().roomID().length()>0))))
+				{
+					buildAreaGroup(areaData, R, null, parents, thinAreaRoomsMap, ++groupNum);
+				}
+			}
+			centerMap.put(A.Name(), areaData);
+			for(final AreaRoomGroup group : areaData.groups)
+			{
+				for(final TrackLink link : group.outerLinks)
+				{
+					if(link.destGroup.get() == null)
+						link.destGroup = new WeakReference<AreaRoomGroup>(areaData.roomMap.get(link.destRoomID.toLowerCase()));
+				}
+			}
+			if((thinAreaRoomsMap != null)&&(thinAreaRoomsMap.size()>0))
+				CMLib.map().emptyAreaAndDestroyRooms(thinAreaRoomsMap.values().iterator().next().getArea());
+			//testAreaDataIntegrity(areaData);
+			return areaData;
+		}
+	}
+
+	/* ===================================================================================================================== */
+
+	@Override
+	public void initializeClass()
+	{
+		for(final TrackingFlag tf : TrackingFlag.values())
+		{
+			switch(tf)
+			{
+			case NOHOMES: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return CMLib.law().getLandTitle(R) != null;
+					}
+				};
+				break;
+			case OPENONLY: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return (!E.isOpen()) || ((E.phyStats().disposition()&PhyStats.IS_UNHELPFUL)>0);
+					}
+				};
+				break;
+			case UNLOCKEDONLY: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return (E.hasALock() && E.isLocked()) || ((E.phyStats().disposition()&PhyStats.IS_UNHELPFUL)>0);
+					}
+				};
+				break;
+			case PASSABLE: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return (E.phyStats().disposition()&PhyStats.IS_UNHELPFUL)>0;
+					}
+				};
+				break;
+			case AREAONLY: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return (R!=null)&&(hostR!=null)&&(hostR.getArea()!=R.getArea());
+					}
+				};
+				break;
+			case NOTHINAREAS: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return (R!=null)&&(hostR!=null)&&(R.getArea()!=null)
+						&&(CMath.bset(R.getArea().flags(), Area.FLAG_THIN));
+					}
+				};
+				break;
+			case NOHIDDENAREAS: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return ((R!=null)&&(CMLib.flags().isHidden(R)))
+							|| ((R!=null)&&(R.getArea()!=null)&&(CMLib.flags().isHidden(R.getArea())));
+					}
+				};
+				break;
+			case NOEMPTYGRIDS: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return (R.getGridParent() != null) && (R.getGridParent().roomID().length() == 0);
+					}
+				};
+				break;
+			case NOAIR: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return (R.domainType() == Room.DOMAIN_INDOORS_AIR) || (R.domainType() == Room.DOMAIN_OUTDOORS_AIR);
+					}
+				};
+				break;
+			case NOPRIVATEPROPERTY: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						final LegalLibrary law=CMLib.law();
+						final LandTitle title = law.getLandTitle(R);
+						return  (title == null) || (title.getOwnerName() == null) || (title.getOwnerName().length()==0);
+					}
+				};
+				break;
+			case NOWATER: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return CMLib.flags().isWateryRoom(R);
+					}
+				};
+				break;
+			case WATERSURFACEONLY: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return !CMLib.flags().isWaterySurfaceRoom(R);
+					}
+				};
+				break;
+			case DRIVEABLEONLY: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return !CMLib.flags().isDrivableRoom(R);
+					}
+				};
+				break;
+			case WATERSURFACEORSHOREONLY: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						if(R==null)
+							return true;
+						if((R.domainType()==Room.DOMAIN_OUTDOORS_AIR)
+						||(R.domainType()==Room.DOMAIN_INDOORS_AIR))
+							return true;
+						if(CMLib.flags().isWaterySurfaceRoom(R)
+						|| (R.ID().equals("Shore"))
+						|| (R.domainType() == Room.DOMAIN_OUTDOORS_SEAPORT)
+						|| (R.domainType() == Room.DOMAIN_INDOORS_SEAPORT)
+						|| (R.domainType() == Room.DOMAIN_INDOORS_CAVE_SEAPORT))
+							return false;
+						boolean foundWater=false;
+						for(final int dir2 : Directions.CODES())
+						{
+							final Room R2=R.getRoomInDir(dir2);
+							if((R2!=null)&&(CMLib.flags().isWaterySurfaceRoom(R2)))
+								foundWater=true;
+						}
+						return (!foundWater);
+					}
+				};
+				break;
+			case SHOREONLY: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						if(R==null)
+							return true;
+						if((R.domainType()==Room.DOMAIN_OUTDOORS_AIR)
+						|| (R.domainType()==Room.DOMAIN_INDOORS_AIR)
+						|| (CMLib.flags().isWaterySurfaceRoom(R) ))
+							return true;
+						if((R.ID().equals("Shore"))
+						|| (R.domainType() == Room.DOMAIN_OUTDOORS_SEAPORT)
+						|| (R.domainType() == Room.DOMAIN_INDOORS_SEAPORT)
+						|| (R.domainType() == Room.DOMAIN_INDOORS_CAVE_SEAPORT))
+							return false;
+						boolean foundWater=false;
+						for(final int dir2 : Directions.CODES())
+						{
+							final Room R2=R.getRoomInDir(dir2);
+							if((R2!=null)&&(CMLib.flags().isWaterySurfaceRoom(R2)))
+								foundWater=true;
+						}
+						return (!foundWater);
+					}
+				};
+				break;
+			case UNDERWATERONLY: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return !CMLib.flags().isUnderWateryRoom(R);
+					}
+				};
+				break;
+			case FLOORSONLY: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return (R.getRoomInDir(Directions.DOWN)!=null);
+					}
+				};
+				break;
+			case CEILINGSSONLY: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return (R.getRoomInDir(Directions.UP)!=null);
+					}
+				};
+				break;
+			case NOCLIMB: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return (CMLib.flags().isClimbing(R) || CMLib.flags().isClimbing(E));
+					}
+				};
+				break;
+			case NOCRAWL: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return (CMLib.flags().isCrawlable(R) || CMLib.flags().isCrawlable(E));
+					}
+				};
+				break;
+			case OUTDOORONLY: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return (R.domainType() & Room.INDOORS) != 0;
+					}
+				};
+				break;
+			case INDOORONLY: tf.myFilter=new RFilter()
+				{
+					@Override
+					public boolean isFilteredOut(final Room hostR, final Room R, final Exit E, final int dir)
+					{
+						return (R.domainType() & Room.INDOORS) == 0;
+					}
+				};
+				break;
+			}
+		}
 	}
 }

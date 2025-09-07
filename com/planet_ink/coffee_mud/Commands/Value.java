@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ public class Value extends StdCommand
 		throws java.io.IOException
 	{
 		final Vector<String> origCmds=new XVector<String>(commands);
-		final Environmental shopkeeper=CMLib.english().parseShopkeeper(mob,commands,"Value what with whom?");
+		final Environmental shopkeeper=CMLib.english().parseShopkeeper(mob,commands,"with", "Value what with whom?");
 		if(shopkeeper==null)
 			return false;
 		if(commands.size()==0)
@@ -101,9 +101,12 @@ public class Value extends StdCommand
 		for(int v=0;v<itemsV.size();v++)
 		{
 			final Item thisThang=itemsV.get(v);
-			final CMMsg newMsg=CMClass.getMsg(mob,shopkeeper,thisThang,CMMsg.MSG_VALUE,null);
-			if(mob.location().okMessage(mob,newMsg))
-				mob.location().send(mob,newMsg);
+			final CMMsg msg=CMClass.getMsg(mob,shopkeeper,thisThang,CMMsg.MSG_VALUE,null);
+			if(mob.location().okMessage(mob,msg))
+				mob.location().send(mob,msg);
+			else
+			if(itemsV.size()==1)
+				CMLib.commands().postCommandRejection(msg.source(),msg.target(),msg.tool(),origCmds);
 		}
 		return false;
 	}

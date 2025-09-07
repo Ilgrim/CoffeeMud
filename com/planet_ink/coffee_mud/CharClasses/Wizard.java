@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2007-2020 Bo Zimmerman
+   Copyright 2007-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -76,6 +76,8 @@ public class Wizard extends Mage
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_Shield",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Spell_IronGrip",false);
 
+		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Skill_ImprovedRevoke",false);
+
 		for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
 		{
 			final Ability A=a.nextElement();
@@ -105,7 +107,7 @@ public class Wizard extends Mage
 	@Override
 	public String getOtherBonusDesc()
 	{
-		return L("Can memorize any spell for casting without expending a training point.");
+		return L("Can memorize any spell for casting without expending a training session.");
 	}
 
 	@Override

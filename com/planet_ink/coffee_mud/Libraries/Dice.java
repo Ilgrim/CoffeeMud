@@ -6,7 +6,7 @@ import com.planet_ink.coffee_mud.core.CMProps;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -79,8 +79,8 @@ public class Dice extends StdLibrary implements DiceLibrary
 	@Override
 	public int rollHP(final int level, int code)
 	{
-		if(code<0)
-			code=0;
+		if(code<=0)
+			code=CMProps.getMobHPBase();
 		// new old style
 		if(code<32768)
 			return (int)Math.round(CMath.parseMathExpression(baseNpcHitpointsFormula, new double[]{level,code,0,0,0,0,0,0,0,0,0},0.0));
@@ -117,21 +117,36 @@ public class Dice extends StdLibrary implements DiceLibrary
 	}
 
 	@Override
-    public long plusOrMinus(final long range)
+	public void scramble(final Object[] objs)
+	{
+		if(objs.length<2)
+			return;
+		final int sz=objs.length;
+		for(int i=0;i<sz;i++)
+		{
+			final int k=i+randomizer.nextInt(sz-i);
+			final Object o=objs[k];
+			objs[k]=objs[i];
+			objs[i]=o;
+		}
+	}
+
+	@Override
+	public long plusOrMinus(final long range)
 	{
 		final long l=randomizer.nextLong() % range;
 		return randomizer.nextBoolean()?l:-l;
 	}
 
 	@Override
-    public int plusOrMinus(final int range)
+	public int plusOrMinus(final int range)
 	{
 		final int l=randomizer.nextInt() % range;
 		return randomizer.nextBoolean()?l:-l;
 	}
 
 	@Override
-    public double plusOrMinus(final double range)
+	public double plusOrMinus(final double range)
 	{
 		final double l=randomizer.nextDouble() * range;
 		return randomizer.nextBoolean()?l:-l;

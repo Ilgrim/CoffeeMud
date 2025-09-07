@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ public class Plains extends StdRoom
 	{
 		super();
 		name="the grass";
-		basePhyStats.setWeight(2);
+		setMovementCost(2);
 		recoverPhyStats();
 	}
 
@@ -62,6 +62,7 @@ public class Plains extends StdRoom
 		Integer.valueOf(RawMaterial.RESOURCE_RICE),
 		Integer.valueOf(RawMaterial.RESOURCE_SMURFBERRIES),
 		Integer.valueOf(RawMaterial.RESOURCE_GREENS),
+		Integer.valueOf(RawMaterial.RESOURCE_VEGETABLE),
 		Integer.valueOf(RawMaterial.RESOURCE_CARROTS),
 		Integer.valueOf(RawMaterial.RESOURCE_TOMATOES),
 		Integer.valueOf(RawMaterial.RESOURCE_BEANS),

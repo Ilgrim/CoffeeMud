@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -100,6 +100,7 @@ public class Chant_BloodyWater extends Chant
 
 	final TrackingLibrary.TrackingFlags flags = CMLib.tracking().newFlags()
 												.plus(TrackingLibrary.TrackingFlag.AREAONLY)
+												.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 												.plus(TrackingLibrary.TrackingFlag.UNDERWATERONLY);
 
 	@Override
@@ -114,7 +115,7 @@ public class Chant_BloodyWater extends Chant
 				{
 					mob.tell(L("You are no longer sensing the bloody water."));
 					if(!mob.amDead())
-						CMLib.tracking().wanderAway(mob,true,false);
+						CMLib.tracking().wanderAway(mob,false,false);
 				}
 			}
 			else
@@ -177,7 +178,7 @@ public class Chant_BloodyWater extends Chant
 						for(final Enumeration<MOB> m= R.inhabitants();m.hasMoreElements();)
 						{
 							final MOB M = m.nextElement();
-							if(CMLib.flags().isAnimalIntelligence(M)
+							if(CMLib.flags().isAnAnimal(M)
 							&&(bloodyMobs.size()<limit)
 							&&(M.isMonster())
 							&&((M.amFollowing()==null)||(M.amFollowing().isMonster()))

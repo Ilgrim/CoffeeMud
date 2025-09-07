@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@ public class Lantern extends LightSource
 		basePhyStats().setWeight(5);
 		setMaterial(RawMaterial.RESOURCE_STEEL);
 		durationTicks=DURATION_TICKS;
+		durationTickDown=DURATION_TICKS;
 		this.destroyedWhenBurnedOut=false;
 		this.goesOutInTheRain=false;
 		baseGoldValue=60;
@@ -74,7 +75,7 @@ public class Lantern extends LightSource
 							return false;
 						}
 						final Drink thePuddle=(Drink)msg.tool();
-						if(!thePuddle.containsDrink())
+						if(!thePuddle.containsLiquid())
 						{
 							mob.tell(L("@x1 is empty.",thePuddle.name()));
 							return false;
@@ -102,10 +103,10 @@ public class Lantern extends LightSource
 				{
 					final Drink thePuddle=(Drink)msg.tool();
 					int amountToTake=1;
-					if(!thePuddle.containsDrink())
+					if(!thePuddle.containsLiquid())
 						amountToTake=0;
 					thePuddle.setLiquidRemaining(thePuddle.liquidRemaining()-amountToTake);
-					setDuration(DURATION_TICKS);
+					super.durationTickDown =  DURATION_TICKS;
 					setDescription("The lantern still looks like it has some oil in it.");
 				}
 				break;

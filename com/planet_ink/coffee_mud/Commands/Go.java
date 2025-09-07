@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,9 +52,9 @@ public class Go extends StdCommand
 	public boolean standIfNecessary(final MOB mob, final List<String> commands, final int metaFlags, final boolean giveMsg)
 		throws java.io.IOException
 	{
-		if(CMLib.flags().isFlying(mob))
+		final boolean wasStanding = CMLib.flags().isStanding(mob);
+		if(CMLib.flags().isFlying(mob) && wasStanding)
 			return true;
-		final boolean wasStanding = CMLib.flags().isStanding(mob) && (!CMLib.flags().isSleeping(mob));
 		if((ifneccvec==null)||(ifneccvec.size()!=2))
 		{
 			ifneccvec=new Vector<String>();
@@ -92,8 +92,8 @@ public class Go extends StdCommand
 		if(R==null)
 			return false;
 
-		final boolean inAShip =(R instanceof BoardableShip)||(R.getArea() instanceof BoardableShip);
-		final String validDirs = inAShip?Directions.SHIP_NAMES_LIST() : Directions.NAMES_LIST();
+		final Directions.DirType dirType = CMLib.flags().getDirType(R);
+		final String validDirs = Directions.NAMES_LIST(dirType);
 		final boolean running = mob.isAttributeSet(MOB.Attrib.AUTORUN);
 
 		int direction=-1;
@@ -128,9 +128,9 @@ public class Go extends StdCommand
 		if(direction<0)
 		{
 			if(mob.isMonster())
-				direction=CMLib.directions().getGoodDirectionCode(whereStr);
+				direction=CMLib.directions().getGoodDirectionCode(CMStrings.removePunctuation(whereStr));
 			else
-				direction=(inAShip)?CMLib.directions().getGoodShipDirectionCode(whereStr):CMLib.directions().getGoodCompassDirectionCode(whereStr);
+				direction=CMLib.directions().getGoodDirectionCode(CMStrings.removePunctuation(whereStr), dirType);
 		}
 		if(direction<0)
 		{
@@ -171,6 +171,19 @@ public class Go extends StdCommand
 
 			boolean doneAnything=false;
 			final List<List<String>> prequeCommands=new ArrayList<List<String>>();
+
+
+			for(int v=1;v<commands.size();v++)
+			{
+				final String[] cs = commands.get(v).split(",");
+				if(cs.length>1)
+				{
+					commands.remove(v);
+					for(int i=cs.length-1;i>=0;i--)
+						if(cs[i].trim().length()>0)
+							commands.add(v, cs[i]);
+				}
+			}
 			for(int v=1;v<commands.size();v++)
 			{
 				int num=1;
@@ -193,9 +206,9 @@ public class Go extends StdCommand
 				}
 
 				if(mob.isMonster())
-					direction=CMLib.directions().getGoodDirectionCode(s);
+					direction=CMLib.directions().getGoodDirectionCode(CMStrings.removePunctuation(s));
 				else
-					direction=(inAShip)?CMLib.directions().getGoodShipDirectionCode(s):CMLib.directions().getGoodCompassDirectionCode(s);
+					direction=CMLib.directions().getGoodDirectionCode(CMStrings.removePunctuation(s), dirType);
 				if(direction>=0)
 				{
 					doneAnything=true;
@@ -216,7 +229,7 @@ public class Go extends StdCommand
 						{
 							final Vector<String> V=new Vector<String>();
 							V.add(doing);
-							V.add(inAShip?CMLib.directions().getShipDirectionName(direction):CMLib.directions().getDirectionName(direction));
+							V.add(CMLib.directions().getDirectionName(direction, dirType));
 							prequeCommands.add(V);
 						}
 					}
@@ -251,6 +264,15 @@ public class Go extends StdCommand
 		if((mob!=null)&&(mob.isAttributeSet(MOB.Attrib.AUTORUN)))
 			cost /= 4.0;
 		return CMProps.getCommandActionCost(ID(), cost);
+	}
+
+	@Override
+	public double combatActionsCost(final MOB mob, final List<String> cmds)
+	{
+		double cost=CMath.div(CMProps.getIntVar(CMProps.Int.DEFCMDTIME),100.0);
+		if((mob!=null)&&(mob.isAttributeSet(MOB.Attrib.AUTORUN)))
+			cost /= 4.0;
+		return CMProps.getCommandCombatActionCost(ID(), cost);
 	}
 
 	@Override

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ public class Chant_LocatePlants extends Chant
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_TRACKING;
+		return Ability.FLAG_TRACKING | Ability.FLAG_DIVINING;
 	}
 
 	protected List<Room> theTrail=null;
@@ -168,7 +168,7 @@ public class Chant_LocatePlants extends Chant
 
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already trying to find plant life."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already trying to find plant life."));
 			return false;
 		}
 		final List<Ability> V=CMLib.flags().flaggedAffects(mob,Ability.FLAG_TRACKING);
@@ -189,16 +189,23 @@ public class Chant_LocatePlants extends Chant
 		TrackingLibrary.TrackingFlags flags;
 		flags = CMLib.tracking().newFlags()
 				.plus(TrackingLibrary.TrackingFlag.NOAIR)
+				.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 				.plus(TrackingLibrary.TrackingFlag.NOWATER);
 		final ArrayList<Room> rooms=new ArrayList<Room>();
 		final int range=50 + super.getXLEVELLevel(mob)+(2*super.getXMAXRANGELevel(mob));
-		final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,range);
-		for (final Room R : checkSet)
-		{
-			if(plantsHere(mob,R).length()>0)
-				rooms.add(R);
-		}
+		final List<Room> trashRooms = new ArrayList<Room>();
+		if(CMLib.tracking().getRadiantRoomsToTarget(mob.location(), trashRooms, flags, new TrackingLibrary.RFilter() {
+			@Override
+			public boolean isFilteredOut(final Room hostR, Room R, final Exit E, final int dir)
+			{
+				R=CMLib.map().getRoom(R);
+				if(plantsHere(mob,R).length()>0)
+					return false;
+				return true;
+			}
 
+		}, range))
+			rooms.add(trashRooms.get(trashRooms.size()-1));
 		if(rooms.size()>0)
 		{
 			//TrackingLibrary.TrackingFlags flags;

@@ -1,5 +1,6 @@
 package com.planet_ink.coffee_mud.Libraries.interfaces;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.CostDef.Cost;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -18,7 +19,7 @@ import java.io.IOException;
 import java.net.SocketException;
 import java.util.*;
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -140,9 +141,9 @@ public interface CharCreationLibrary extends CMLibrary
 	 * @param mob the mob who is trying to train
 	 * @param abilityCode the ability code the mob wants to train
 	 * @param quiet true to not give verbal errors
-	 * @return negative number for error, or the number of trains required
+	 * @return null for error, or the number of trains required and type
 	 */
-	public int getTrainingCost(MOB mob, int abilityCode, boolean quiet);
+	public Cost getTrainingCost(MOB mob, int abilityCode, boolean quiet);
 
 	/**
 	 * Returns whether the given mob can change to the given class (that is,
@@ -185,6 +186,17 @@ public interface CharCreationLibrary extends CMLibrary
 	public boolean isAvailableRace(Race R);
 
 	/**
+	 * Checks for an account wide tattoo from the player, account,
+	 * clan, etc.
+	 *
+	 * @param mob the mob to check
+	 * @param fullID the tattoo id
+	 * @return true if found, false otherwise
+	 */
+	public boolean isTattooedLike(final MOB mob, final String fullID);
+
+
+	/**
 	 * Returns whether the given character class may be selected by a user.
 	 * @param C the CharClass to check
 	 * @return true if it's selectable, false otherwise
@@ -195,11 +207,12 @@ public interface CharCreationLibrary extends CMLibrary
 	 * Returns the list of all races that the given mob can choose
 	 * into, given their currrent state, and the given theme.  The mob is
 	 * optional, at which point it is only checking base race rules and theme.
+	 * @param mob the mob who wants to do some racing
 	 * @param theme the theme to filter the races by
 	 * @see CharCreationLibrary#canChangeToThisClass(MOB, CharClass, int)
 	 * @return the list of races that the mob may choose.
 	 */
-	public List<Race> raceQualifies(int theme);
+	public List<Race> raceQualifies(MOB mob, int theme);
 
 	/**
 	 * Returns whether the given name is a valid,  legitimate,
@@ -352,6 +365,12 @@ public interface CharCreationLibrary extends CMLibrary
 	public Room getDefaultBodyRoom(MOB mob);
 
 	/**
+	 * Returns an enumeration of all possible body room ids
+	 * @return an enumeration of all possible body room ids
+	 */
+	public Enumeration<String> getBodyRoomIDs();
+
+	/**
 	 * Based on the rules of the system, this method returns the number of
 	 * bonus stat points available to players to allocate, if the system
 	 * lets them do such a thing.
@@ -368,6 +387,30 @@ public interface CharCreationLibrary extends CMLibrary
 	 * @return a random fansty name
 	 */
 	public String generateRandomName(int minSyllable, int maxSyllable);
+
+	/**
+	 * Returns the maximum weight the given mob can carry.
+	 *
+	 * @param mob the mob who wants to carry stuff
+	 * @return the maximum weight they can carry
+	 */
+	public int getMaxCarry(final MOB mob);
+
+	/**
+	 * Returns the maximum items the given mob can carry.
+	 *
+	 * @param mob the mob who wants to carry stuff
+	 * @return the maximum items they can carry
+	 */
+	public int getMaxItems(final MOB mob);
+
+	/**
+	 * Returns the maximum followers the given mob can have
+	 *
+	 * @param mob the mob who wants followers
+	 * @return the maximum followers the mob can have
+	 */
+	public int getMaxFollowers(final MOB mob);
 
 	/**
 	 * Completes the given session and mobs login by putting the mob into the given start room

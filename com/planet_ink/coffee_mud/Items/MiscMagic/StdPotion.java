@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,9 +59,29 @@ public class StdPotion extends StdDrink implements Potion
 	}
 
 	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a potion");
+	}
+
+	@Override
 	public boolean isDrunk()
 	{
-		return (getSpellList().toUpperCase().indexOf(";DRUNK") >= 0);
+		return (getSpellList()!=null)
+				&&(getSpellList().toUpperCase().indexOf(";DRUNK") >= 0);
+	}
+
+	@Override
+	public void recoverPhyStats()
+	{
+		super.recoverPhyStats();
+		if(((phyStats().disposition()&PhyStats.IS_BONUS)==0)
+		&&(!isDrunk())
+		&&(getSpellList()!=null)
+		&&(getSpellList().length()>0))
+			phyStats().setDisposition(phyStats().disposition()|PhyStats.IS_BONUS);
 	}
 
 	@Override
@@ -164,8 +184,10 @@ public class StdPotion extends StdDrink implements Potion
 				theSpells.addElement(A);
 			}
 		}
-		me.setBaseValue(baseValue);
-		me.recoverPhyStats();
+		if(me instanceof Item)
+			((Item)me).setBaseValue(baseValue);
+		if(me instanceof Physical)
+			((Physical)me).recoverPhyStats();
 		return theSpells;
 	}
 

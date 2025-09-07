@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -124,13 +124,13 @@ public class Prayer_Refuge extends Prayer
 			&&(msg.target()==I)
 			&&((msg.source()==I.owner())||(I.owner() instanceof Room))
 			&&(msg.sourceMessage()!=null)
-			&&(CMLib.english().containsString(CMStrings.getSayFromMessage(msg.sourceMessage()).toUpperCase(), "REFUGE")))
+			&&(CMLib.english().containsString(CMStrings.getSayFromMessage(msg.sourceMessage()), "REFUGE")))
 			{
 				final Room newRoom=this.getRefuge(I);
 				if((newRoom!=null)&&(newRoom!=msg.source().location()))
 				{
 					final Set<MOB> h=properTargets(msg.source(),null,false);
-					if(h==null)
+					if((h==null)||(h.size()==0))
 						return;
 					final Room thisRoom=msg.source().location();
 					final Ability thisA=this;

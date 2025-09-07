@@ -27,7 +27,7 @@ import java.net.Socket;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,18 +62,6 @@ public class HealthScanProgram extends GenSoftware
 		recoverPhyStats();
 	}
 
-	@Override
-	public String getParentMenu()
-	{
-		return "";
-	}
-
-	@Override
-	public String getInternalName()
-	{
-		return "";
-	}
-
 	public boolean isAlive(final MOB M)
 	{
 		// there you have it, the definition of "life" -- is biological, and can reproduce
@@ -91,8 +79,7 @@ public class HealthScanProgram extends GenSoftware
 		if(R==null)
 			return "";
 		final StringBuilder str=new StringBuilder("");
-		final char gender=(char)M.charStats().getStat(CharStats.STAT_GENDER);
-		final String genderName=(gender=='M')?"male":(gender=='F')?"female":"neuter";
+		final String genderName=M.charStats().realGenderName();
 		str.append(M.name(viewerM)+" is a "+genderName+" "+M.charStats().getMyRace().name()+".\n\r");
 		final String age=CMLib.flags().getAge(M);
 		if(!CMSecurity.isDisabled(CMSecurity.DisFlag.ALL_AGEING))
@@ -115,7 +102,7 @@ public class HealthScanProgram extends GenSoftware
 				final List<String> spreadList=new ArrayList<String>();
 				for(final int i : spreadBits)
 					spreadList.add(DiseaseAffect.SPREAD_DESCS[i]);
-				str.append(CMLib.english().toEnglishStringList(spreadList.toArray(new String[0])));
+				str.append(CMLib.english().toEnglishStringList(spreadList.toArray(new String[0]),true));
 			}
 			str.append(".\n\r");
 		}
@@ -166,13 +153,13 @@ public class HealthScanProgram extends GenSoftware
 	}
 
 	@Override
-	public boolean checkActivate(final MOB mob, final String message)
+	protected boolean checkActivate(final MOB mob, final String message)
 	{
 		return checkTyping(mob, message);
 	}
 
 	@Override
-	public boolean checkDeactivate(final MOB mob, final String message)
+	protected boolean checkDeactivate(final MOB mob, final String message)
 	{
 		return super.checkDeactivate(mob, message);
 	}
@@ -207,7 +194,7 @@ public class HealthScanProgram extends GenSoftware
 	}
 
 	@Override
-	public boolean checkTyping(final MOB mob, final String message)
+	protected boolean checkTyping(final MOB mob, final String message)
 	{
 		if(!super.checkTyping(mob, message))
 			return false;
@@ -237,25 +224,27 @@ public class HealthScanProgram extends GenSoftware
 	}
 
 	@Override
-	public boolean checkPowerCurrent(final int value)
+	protected boolean checkPowerCurrent(final int value)
 	{
 		return super.checkPowerCurrent(value);
 	}
 
 	@Override
-	public void onActivate(final MOB mob, final String message)
+	protected void onActivate(final MOB mob, final String message)
 	{
-		onTyping(mob, message);
+		super.onActivate(mob, message);
+		if((message!=null)&&(message.length()>0))
+			onTyping(mob, message);
 	}
 
 	@Override
-	public void onDeactivate(final MOB mob, final String message)
+	protected void onDeactivate(final MOB mob, final String message)
 	{
 		super.onDeactivate(mob, message);
 	}
 
 	@Override
-	public void onTyping(final MOB mob, final String message)
+	protected void onTyping(final MOB mob, final String message)
 	{
 		super.onTyping(mob, message);
 		MOB M=null;
@@ -270,7 +259,7 @@ public class HealthScanProgram extends GenSoftware
 	}
 
 	@Override
-	public void onPowerCurrent(final int value)
+	protected void onPowerCurrent(final int value)
 	{
 		super.onPowerCurrent(value);
 	}

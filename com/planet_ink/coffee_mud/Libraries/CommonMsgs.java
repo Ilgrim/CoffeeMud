@@ -1,5 +1,6 @@
 package com.planet_ink.coffee_mud.Libraries;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.Readable;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -8,6 +9,7 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.Session.SessionPing;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
@@ -23,7 +25,7 @@ import java.io.IOException;
 import java.lang.ref.WeakReference;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,15 +47,44 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		return "CommonMsgs";
 	}
 
-	protected final static int LOOK_LONG=0;
-	protected final static int LOOK_NORMAL=1;
-	protected final static int LOOK_BRIEFOK=2;
-
 	// this needs to be global to work right
 	protected final List<WeakReference<MsgMonitor>>
 			globalMonitors = new SLinkedList<WeakReference<MsgMonitor>>();
 
 	protected Ability awarenessA=null;
+	protected VaryNode varyRoot = new VaryNode();
+	{
+		for(final VariationCode code : VariationCode.values())
+		{
+			VaryNode here = varyRoot;
+			for(int i=0;i<=code.name().length();i++)
+			{
+				if (i == code.name().length())
+				{
+					here.code=code;
+					break;
+				}
+				final char c = code.name().charAt(i);
+				final int hx = Character.toUpperCase(c) - 'A';
+				final int lx = Character.toLowerCase(c) - 'A';
+				if ((hx < 0) || (lx >= here.next.length))
+					break;
+				VaryNode next = here.next[hx];
+				if(next == null)
+				{
+					next = new VaryNode();
+					here.next[hx]=next;
+					here.next[lx]=next;
+				}
+				here=next;
+			}
+		}
+	}
+	private class VaryNode
+	{
+		public VaryNode[] next = new VaryNode[60];
+		public VariationCode code = null;
+	}
 
 	@Override
 	public boolean handleUnknownCommand(final MOB mob, final List<String> command)
@@ -177,20 +208,25 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		return Boolean.FALSE;
 	}
 
-	@Override
-	public boolean forceStandardCommand(final MOB mob, final String command, final List<String> parms)
+	protected boolean forceStandardCommand(final MOB mob, final String command, final List<String> parms, final boolean quietly)
 	{
 		try
 		{
 			final Command C=CMClass.getCommand(command);
 			if(C!=null)
-				return C.execute(mob,parms,MUDCmdProcessor.METAFLAG_FORCED);
+				return C.execute(mob,parms,MUDCmdProcessor.METAFLAG_FORCED|(quietly?MUDCmdProcessor.METAFLAG_QUIETLY:0));
 		}
 		catch(final IOException e)
 		{
 			Log.errOut("CommonMsgs",e);
 		}
 		return false;
+	}
+
+	@Override
+	public boolean forceStandardCommand(final MOB mob, final String command, final List<String> parms)
+	{
+		return forceStandardCommand(mob, command, parms, false);
 	}
 
 	@Override
@@ -249,6 +285,12 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 	}
 
 	@Override
+	public StringBuilder getEquipmentLong(final MOB viewer, final MOB mob)
+	{
+		return (StringBuilder)forceInternalCommand(mob,"Equipment",viewer,Boolean.TRUE);
+	}
+
+	@Override
 	public StringBuilder getInventory(final MOB viewer, final MOB mob)
 	{
 		return new StringBuilder(forceInternalCommand(mob,"Inventory",viewer).toString());
@@ -260,51 +302,70 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		forceInternalCommand(mob,"Channel",Boolean.valueOf(systemMsg),channelName,message);
 	}
 
-	protected MOB nonClanTalkerM = null;
 	protected Room talkLocationR = null;
 
 	@Override
-	public void postChannel(final String channelName, final Iterable<Pair<Clan,Integer>> clanList, final String message, final boolean systemMsg)
+	public void postChannel(final String channelName, final Iterable<Pair<Clan,Integer>> clanList, final String message, final boolean systemMsg, final MOB mob)
 	{
 		MOB talker = null;
+		boolean destroyTheTalker = false;
 		try
 		{
 			if((talkLocationR == null)
 			||(talkLocationR.amDestroyed()))
-			{
 				talkLocationR = CMLib.map().getRandomRoom();
-			}
-
-			if(clanList != null)
+			if((clanList != null)
+			&&(clanList.iterator().hasNext()))
 			{
-				talker=CMClass.getFactoryMOB();
+				final Iterator<Pair<Clan,Integer>> pc = clanList.iterator();
+				Pair<Clan,Integer> P = pc.next();
+				if(!pc.hasNext())
+					talker = P.first.getClanTalker();
+				else
+				if(clanList == CMLib.clans().clanRoles())
+					talker = CMLib.clans().getAllClanTalker();
+				else
+				{
+					talker = CMClass.getFactoryMOB();
+					talker.setName("^</B^>");
+					talker.basePhyStats().setDisposition(PhyStats.IS_GOLEM);
+					talker.phyStats().setDisposition(PhyStats.IS_GOLEM);
+					talker.setClan(P.first.clanID(),P.second.intValue());
+					for(;pc.hasNext();)
+					{
+						P = pc.next();
+						talker.setClan(P.first.clanID(),P.second.intValue());
+					}
+					destroyTheTalker = true;
+				}
+				talker.setSoulMate(mob);
+				talker.setLocation(talkLocationR);
+				// never destroy the clans factory mob!
+			}
+			if(talker == null)
+			{
+				talker=CMClass.getFactoryMOB(); // not factory because he lasts forever
 				talker.setName("^</B^>");
 				talker.setLocation(talkLocationR);
 				talker.basePhyStats().setDisposition(PhyStats.IS_GOLEM);
 				talker.phyStats().setDisposition(PhyStats.IS_GOLEM);
-				for(final Pair<Clan,Integer> c : clanList)
-					talker.setClan(c.first.clanID(),c.second.intValue());
-			}
-			else
-			if(nonClanTalkerM!=null)
-			{
-				talker=nonClanTalkerM;
-			}
-			else
-			{
-				talker=CMClass.getMOB("StdMOB"); // not factory because he lasts forever
-				talker.setName("^</B^>");
-				talker.setLocation(talkLocationR);
-				talker.basePhyStats().setDisposition(PhyStats.IS_GOLEM);
-				talker.phyStats().setDisposition(PhyStats.IS_GOLEM);
-				nonClanTalkerM=talker;
+				talker.setSoulMate(mob);
+				destroyTheTalker = true;
 			}
 			postChannel(talker,channelName,message,systemMsg);
 		}
 		finally
 		{
-			if ((talker != null) && (talker != nonClanTalkerM))
-				talker.destroy();
+			if(talker != null)
+			{
+				talker.setSoulMate(null);
+				if (destroyTheTalker)
+				{
+					talker.basePhyStats().setDisposition(0);
+					talker.phyStats().setDisposition(0);
+					talker.destroy();
+				}
+			}
 		}
 	}
 
@@ -409,7 +470,7 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			cmds.add("IFNECESSARY");
 		if(quietly)
 			cmds.add("QUIETLY");
-		forceStandardCommand(mob,"Stand",cmds);
+		forceStandardCommand(mob,"Stand",cmds, quietly);
 	}
 
 	@Override
@@ -446,6 +507,132 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		postSay(mob,null,text,false,false);
 	}
 
+	protected void postTell(final MOB mob, final MOB target, final String text)
+	{
+		String targetName=target.name();
+		if(targetName.indexOf('@')>=0)
+		{
+			final String mudName=targetName.substring(targetName.indexOf('@')+1);
+			targetName=targetName.substring(0,targetName.indexOf('@'));
+			if(!CMLib.intermud().isAnyNonCM1Online())
+				mob.tell(L("Intermud is unavailable."));
+			else
+				CMLib.intermud().imudTell(mob,targetName,mudName,text);
+		}
+		else
+		{
+			final boolean ignore=(
+				(target.playerStats()!=null)
+				&&(target.playerStats().isIgnored("TELL",mob)));
+			CMMsg msg=null;
+			final Session targetSession = target.session();
+			final String ding = (targetSession != null && targetSession.isAfk())? "\u0007" : "";
+			if(((!CMLib.flags().isSeeable(mob))||(!CMLib.flags().isSeeable(target))))
+			{
+				msg=CMClass.getMsg(mob,target,null,
+						CMMsg.MSG_TELL,L("^t^<TELL \"@x1\"^>You tell <T-NAME> '@x2'^</TELL^>^?^.",CMStrings.removeColors(target.name(mob)),text),
+						CMMsg.MSG_TELL,L("^t^<TELL \"@x1\"^><S-NAME> tell(s) you '@x2'^</TELL^>^?^.",CMStrings.removeColors(mob.name(target)),text)+ding,
+						CMMsg.NO_EFFECT,null);
+			}
+			else
+			{
+				msg=CMClass.getMsg(mob,target,null,
+						CMMsg.MSG_TELL,L("^t^<TELL \"@x1\"^>You tell @x2 '@x3'^</TELL^>^?^.",CMStrings.removeColors(target.name(mob)),target.name(mob),text),
+						CMMsg.MSG_TELL,L("^t^<TELL \"@x1\"^>@x2 tell(s) you '@x3'^</TELL^>^?^.",CMStrings.removeColors(mob.name(target)),mob.Name(),text)+ding,
+						CMMsg.NO_EFFECT,null);
+			}
+			if((mob.location().okMessage(mob,msg))
+			&&((ignore)||((target.location()!=null)&&(target.location().okMessage(target,msg)))))
+			{
+				final String player=CMStrings.removeAllButLettersAndDigits(CMStrings.removeColors(mob.name(target)));
+				if((mob.session()!=null)&&(mob.session().getClientTelnetMode(Session.TELNET_GMCP)))
+				{
+					mob.session().sendGMCPEvent("comm.channel", "{\"chan\":\"tell\",\"msg\":\""+
+							MiniJSON.toJSONString(CMStrings.unWWrap(CMLib.coffeeFilter().fullOutFilter(null, mob, mob, target, null,
+									CMStrings.removeColors(msg.sourceMessage()).trim(), false)))
+							+"\",\"player\":\""+player+"\"}");
+				}
+				mob.executeMsg(mob,msg);
+				if((mob!=target)&&(!ignore))
+				{
+					if((target.session()!=null)
+					&&(target.session().getClientTelnetMode(Session.TELNET_GMCP)))
+					{
+						target.session().sendGMCPEvent("comm.channel", "{\"chan\":\"tell\",\"msg\":\""+
+								MiniJSON.toJSONString(CMStrings.unWWrap(CMLib.coffeeFilter().fullOutFilter(null, target, mob, target, null,
+										CMStrings.removeColors(msg.targetMessage()), false)).trim())
+								+"\",\"player\":\""+player+"\"}");
+					}
+					target.executeMsg(target,msg);
+
+					if((CMProps.isUsingAccountSystem())
+					&& (target.playerStats()!=null)
+					&& (target.playerStats().getAccount() != null)
+					&& (target.playerStats().getAccount().isSet(PlayerAccount.AccountFlag.AUTOTELLNOTIFY)))
+					{
+						final PlayerAccount acct = target.playerStats().getAccount();
+						for(final Session S : CMLib.sessions().allIterableAllHosts())
+						{
+							final MOB M = S.mob();
+							if((M != null)
+							&&(M != mob)
+							&&(M != target)
+							&&(M.playerStats() != null)
+							&&(M.playerStats().getAccount() == acct)
+							&&(target.session() != S))
+								S.println(L("\n\r^H@x1 has received a TELL.\n\r",target.name(M)));
+						}
+					}
+
+					String targetMessage=msg.targetMessage();
+					if(msg.trailerMsgs()!=null)
+					{
+						for(final CMMsg msg2 : msg.trailerMsgs())
+						{
+							if((msg!=msg2)
+							&&(target.okMessage(target,msg2)))
+							{
+								target.executeMsg(target,msg2);
+								if((msg.targetMinor()==msg2.targetMinor())
+								&&(msg.targetMessage()!=null)
+								&&(msg.targetMessage().length()>0))
+									targetMessage=msg2.targetMessage();
+							}
+						}
+						msg.trailerMsgs().clear();
+						if(msg.trailerRunnables()!=null)
+						{
+							for(final Runnable r : msg.trailerRunnables())
+								CMLib.threads().executeRunnable(r);
+							msg.trailerRunnables().clear();
+						}
+					}
+					if((!mob.isMonster())&&(!target.isMonster()))
+					{
+						if(mob.playerStats()!=null)
+						{
+							final String cleanedForStack = CMStrings.removeColors(CMStrings.replaceAll(msg.sourceMessage(),"^^","%5E"));
+							mob.playerStats().setReplyTo(target,PlayerStats.REPLY_TELL);
+							mob.playerStats().addTellStack(mob.Name(), target.Name(), CMLib.coffeeFilter().fullOutFilter(mob.session(),mob,mob,target,null,cleanedForStack,false));
+						}
+						if(target.playerStats()!=null)
+						{
+							target.playerStats().setReplyTo(mob,PlayerStats.REPLY_TELL);
+							String str=targetMessage;
+							if((msg.tool() instanceof Ability)
+							&&((((Ability)msg.tool()).classificationCode() & Ability.ALL_ACODES)==Ability.ACODE_LANGUAGE)
+							&&(target.fetchEffect(msg.tool().ID()) != null)
+							&&(msg.sourceMinor()!=CMMsg.TYP_TEACH))
+								str=CMStrings.substituteSayInMessage(str,CMStrings.getSayFromMessage(msg.sourceMessage()));
+							final String cleanedForStack = CMStrings.removeColors(CMStrings.replaceAll(str,"^^","%5E"));
+							target.playerStats().addTellStack(mob.Name(), target.Name(), CMLib.coffeeFilter().fullOutFilter(target.session(),target,mob,target,null,cleanedForStack,false));
+						}
+					}
+				}
+			}
+		}
+	}
+
 	@Override
 	public void postSay(final MOB mob, final MOB target, String text, final boolean isPrivate, final boolean tellFlag)
 	{
@@ -458,103 +645,13 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		if((isPrivate)&&(target!=null))
 		{
 			if(tellFlag)
-			{
-				String targetName=target.name();
-				if(targetName.indexOf('@')>=0)
-				{
-					final String mudName=targetName.substring(targetName.indexOf('@')+1);
-					targetName=targetName.substring(0,targetName.indexOf('@'));
-					if((!(CMLib.intermud().i3online()))&&(!(CMLib.intermud().imc2online())))
-						mob.tell(L("Intermud is unavailable."));
-					else
-						CMLib.intermud().i3tell(mob,targetName,mudName,text);
-				}
-				else
-				{
-					final boolean ignore=((target.playerStats()!=null)&&(target.playerStats().isIgnored(mob)));
-					CMMsg msg=null;
-					if(((!CMLib.flags().isSeeable(mob))||(!CMLib.flags().isSeeable(target))))
-					{
-						msg=CMClass.getMsg(mob,target,null,
-								CMMsg.MSG_TELL,L("^t^<TELL \"@x1\"^>You tell <T-NAME> '@x2'^</TELL^>^?^.",CMStrings.removeColors(target.name(mob)),text),
-								CMMsg.MSG_TELL,L("^t^<TELL \"@x1\"^><S-NAME> tell(s) you '@x2'^</TELL^>^?^.",CMStrings.removeColors(mob.name(target)),text),
-								CMMsg.NO_EFFECT,null);
-					}
-					else
-					{
-						msg=CMClass.getMsg(mob,target,null,
-								CMMsg.MSG_TELL,L("^t^<TELL \"@x1\"^>You tell @x2 '@x3'^</TELL^>^?^.",CMStrings.removeColors(target.name(mob)),target.name(mob),text),
-								CMMsg.MSG_TELL,L("^t^<TELL \"@x1\"^>@x2 tell(s) you '@x3'^</TELL^>^?^.",CMStrings.removeColors(mob.name(target)),mob.Name(),text),
-								CMMsg.NO_EFFECT,null);
-					}
-					if((mob.location().okMessage(mob,msg))
-					&&((ignore)||((target.location()!=null)&&(target.location().okMessage(target,msg)))))
-					{
-						if((mob.session()!=null)&&(mob.session().getClientTelnetMode(Session.TELNET_GMCP)))
-						{
-							mob.session().sendGMCPEvent("comm.channel", "{\"chan\":\"tell\",\"msg\":\""+
-									MiniJSON.toJSONString(CMLib.coffeeFilter().fullOutFilter(null, mob, mob, target, null, CMStrings.removeColors(msg.sourceMessage()), false))
-									+"\",\"player\":\""+mob.name(target)+"\"}");
-						}
-						mob.executeMsg(mob,msg);
-						if((mob!=target)&&(!ignore))
-						{
-							if((target.session()!=null)&&(target.session().getClientTelnetMode(Session.TELNET_GMCP)))
-							{
-								target.session().sendGMCPEvent("comm.channel", "{\"chan\":\"tell\",\"msg\":\""+
-										MiniJSON.toJSONString(CMLib.coffeeFilter().fullOutFilter(null, target, mob, target, null, CMStrings.removeColors(msg.targetMessage()), false))
-										+"\",\"player\":\""+mob.name(target)+"\"}");
-							}
-							target.executeMsg(target,msg);
-							String targetMessage=msg.targetMessage();
-							if(msg.trailerMsgs()!=null)
-							{
-								for(final CMMsg msg2 : msg.trailerMsgs())
-								{
-									if((msg!=msg2)
-									&&(target.okMessage(target,msg2)))
-									{
-										target.executeMsg(target,msg2);
-										if((msg.targetMinor()==msg2.targetMinor())
-										&&(msg.targetMessage()!=null)
-										&&(msg.targetMessage().length()>0))
-											targetMessage=msg2.targetMessage();
-									}
-								}
-								msg.trailerMsgs().clear();
-								if(msg.trailerRunnables()!=null)
-								{
-									for(final Runnable r : msg.trailerRunnables())
-										CMLib.threads().executeRunnable(r);
-									msg.trailerRunnables().clear();
-								}
-							}
-							if((!mob.isMonster())&&(!target.isMonster()))
-							{
-								if(mob.playerStats()!=null)
-								{
-									mob.playerStats().setReplyTo(target,PlayerStats.REPLY_TELL);
-									mob.playerStats().addTellStack(CMLib.coffeeFilter().fullOutFilter(mob.session(),mob,mob,target,null,CMStrings.removeColors(msg.sourceMessage()),false));
-								}
-								if(target.playerStats()!=null)
-								{
-									target.playerStats().setReplyTo(mob,PlayerStats.REPLY_TELL);
-									String str=targetMessage;
-									if((msg.tool() instanceof Ability)
-									&&((((Ability)msg.tool()).classificationCode() & Ability.ALL_ACODES)==Ability.ACODE_LANGUAGE)
-									&&(target.fetchEffect(msg.tool().ID()) != null)
-									&&(msg.sourceMinor()!=CMMsg.TYP_TEACH))
-										str=CMStrings.substituteSayInMessage(str,CMStrings.getSayFromMessage(msg.sourceMessage()));
-									target.playerStats().addTellStack(CMLib.coffeeFilter().fullOutFilter(target.session(),target,mob,target,null,CMStrings.removeColors(str),false));
-								}
-							}
-						}
-					}
-				}
-			}
+				postTell(mob, target, text);
 			else
 			{
-				final CMMsg msg=CMClass.getMsg(mob,target,null,CMMsg.MSG_SPEAK,L("^T^<SAY \"@x1\"^><S-NAME> say(s) '@x2' to <T-NAMESELF>.^</SAY^>^?",CMStrings.removeColors(target.name(mob)),text),CMMsg.MSG_SPEAK,L("^T^<SAY \"@x1\"^><S-NAME> say(s) '@x2' to <T-NAMESELF>.^</SAY^>^?",CMStrings.removeColors(mob.name(target)),text),CMMsg.NO_EFFECT,null);
+				final CMMsg msg=CMClass.getMsg(mob,target,null,
+						CMMsg.MSG_SPEAK,L("^T^<SAY \"@x1\"^><S-NAME> say(s) '@x2' to <T-NAMESELF>.^</SAY^>^?",CMStrings.removeColors(target.name(mob)),text),
+						CMMsg.MSG_SPEAK,L("^T^<SAY \"@x1\"^><S-NAME> say(s) '@x2' to <T-NAMESELF>.^</SAY^>^?",CMStrings.removeColors(mob.name(target)),text),
+						CMMsg.NO_EFFECT,null);
 				gmcpSaySend("say",mob, target, msg);
 				if(location.okMessage(mob,msg))
 					location.send(mob,msg);
@@ -563,8 +660,13 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		else
 		if(!isPrivate)
 		{
-			final String str=L("<S-NAME> say(s) '@x1'"+((target==null)?"^</SAY^>":" to <T-NAMESELF>.^</SAY^>^?"),text);
-			final CMMsg msg=CMClass.getMsg(mob,target,null,CMMsg.MSG_SPEAK,"^T^<SAY \""+CMStrings.removeColors((target==null)?mob.name(target):target.name(mob))+"\"^>"+str,"^T^<SAY \""
+			final String str;
+			if(target == null)
+				str=L("<S-NAME> say(s) '@x1'^</SAY^>",text);
+			else
+				str=L("<S-NAME> say(s) '@x1' to <T-NAMESELF>.^</SAY^>^?",text);
+			final CMMsg msg=CMClass.getMsg(mob,target,null,
+					CMMsg.MSG_SPEAK,"^T^<SAY \""+CMStrings.removeColors((target==null)?mob.name(target):target.name(mob))+"\"^>"+str,"^T^<SAY \""
 					+CMStrings.removeColors(mob.name(target))+"\"^>"+str,"^T^<SAY \""+CMStrings.removeColors(mob.name(target))+"\"^>"+str);
 			gmcpSaySend("say",mob, target, msg);
 			if(location.okMessage(mob,msg))
@@ -574,11 +676,13 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 
 	protected void gmcpSaySend(final String sayName, final MOB mob, final MOB target, final CMMsg msg)
 	{
+		final String player=CMStrings.removeAllButLettersAndDigits(CMStrings.removeColors(mob.name(target)));
 		if((mob.session()!=null)&&(mob.session().getClientTelnetMode(Session.TELNET_GMCP)))
 		{
 			mob.session().sendGMCPEvent("comm.channel", "{\"chan\":\""+sayName+"\",\"msg\":\""+
-					MiniJSON.toJSONString(CMLib.coffeeFilter().fullOutFilter(null, mob, mob, target, null, CMStrings.removeColors(msg.sourceMessage()), false))
-					+"\",\"player\":\""+mob.name(target)+"\"}");
+					MiniJSON.toJSONString(CMStrings.unWWrap(CMLib.coffeeFilter().fullOutFilter(null, mob, mob, target, null,
+							CMStrings.removeColors(msg.sourceMessage()), false)).trim())
+					+"\",\"player\":\""+player+"\"}");
 		}
 		final Room R=mob.location();
 		if(R!=null)
@@ -588,8 +692,9 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			if((M!=null)&&(M!=msg.source())&&(M.session()!=null)&&(M.session().getClientTelnetMode(Session.TELNET_GMCP)))
 			{
 				M.session().sendGMCPEvent("comm.channel", "{\"chan\":\""+sayName+"\",\"msg\":\""+
-						MiniJSON.toJSONString(CMLib.coffeeFilter().fullOutFilter(null, M, mob, target, null, CMStrings.removeColors(msg.othersMessage()), false))
-						+"\",\"player\":\""+mob.name(target)+"\"}");
+						MiniJSON.toJSONString(CMStrings.unWWrap(CMLib.coffeeFilter().fullOutFilter(null, M, mob, target, null,
+								CMStrings.removeColors(msg.othersMessage()), false))).trim()
+						+"\",\"player\":\""+player+"\"}");
 			}
 		}
 	}
@@ -822,11 +927,12 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		if((mob==null)||(CMSecurity.isDisabled(CMSecurity.DisFlag.ALL_AGEING)))
 			return;
 		final long minutesEllapsed=(millisSinceLast / 60000);
-		mob.setAgeMinutes(mob.getAgeMinutes()+minutesEllapsed); // this is really minutes
+		if(minutesEllapsed > 0)
+			mob.setAgeMinutes(mob.getAgeMinutes()+minutesEllapsed); // this is really minutes
 		if((minutesEllapsed>0)
 		&&((!CMLib.flags().isCloaked(mob))
 		  ||(!CMSecurity.isAllowed(mob, mob.location(), CMSecurity.SecFlag.CMDROOMS))))
-			CMLib.players().bumpPrideStat(mob,AccountStats.PrideStat.MINUTES_ON, (int)minutesEllapsed);
+			CMLib.players().bumpPrideStat(mob,PrideStats.PrideStat.MINUTES_ON, (int)minutesEllapsed);
 
 		final PlayerStats stats = mob.playerStats();
 		if(stats==null)
@@ -842,12 +948,11 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			final int bday=birthDay[PlayerStats.BIRTHDEX_DAY];
 			final int bmonth=birthDay[PlayerStats.BIRTHDEX_MONTH];
 			while((currYear>birthDay[PlayerStats.BIRTHDEX_LASTYEARCELEBRATED])
-			||((currYear==birthDay[PlayerStats.BIRTHDEX_LASTYEARCELEBRATED])&&((month>bmonth)||((month==bmonth)&&(day>=bday)))))
+			||((currYear==birthDay[PlayerStats.BIRTHDEX_LASTYEARCELEBRATED])
+				&&((month>bmonth)||((month==bmonth)&&(day>=bday)))))
 			{
 				if(CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.IMMORT))
-				{
 					birthDay[PlayerStats.BIRTHDEX_YEAR]++;
-				}
 				else
 				{
 					if((month==bmonth)
@@ -859,7 +964,8 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 					mob.recoverPhyStats();
 					mob.recoverMaxState();
 				}
-				if(CMSecurity.isDisabled(CMSecurity.DisFlag.SLOW_AGEING) || (birthDay[PlayerStats.BIRTHDEX_LASTYEARCELEBRATED]==currYear))
+				if(CMSecurity.isDisabled(CMSecurity.DisFlag.SLOW_AGEING)
+				|| (birthDay[PlayerStats.BIRTHDEX_LASTYEARCELEBRATED]==currYear))
 					birthDay[PlayerStats.BIRTHDEX_LASTYEARCELEBRATED]++;
 				else
 					birthDay[PlayerStats.BIRTHDEX_LASTYEARCELEBRATED]=currYear;
@@ -940,6 +1046,7 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			handleBeingExitLookedAt(msg);
 	}
 
+	@Override
 	public String makeContainerTypes(final Container E)
 	{
 		if(E.containTypes()>0)
@@ -974,6 +1081,8 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		}
 		else
 			level=""+item.phyStats().level();
+		final int mobLevel = (mob!=null)?mob.phyStats().level():0;
+		final int mobInt = (mob!=null)?mob.charStats().getStat(CharStats.STAT_INTELLIGENCE):0;
 		double divider=100.0;
 		if(item.phyStats().weight()<10)
 			divider=4.0;
@@ -984,16 +1093,16 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		if(item.phyStats().weight()<150)
 			divider=20.0;
 		String weight=null;
-		if((mob!=null)&&(mob.charStats().getStat(CharStats.STAT_INTELLIGENCE)<10))
+		if((mob!=null)&&(mobInt<10))
 		{
-			final double l=Math.floor(CMath.div(item.phyStats().level(),divider));
+			final double l=Math.floor(CMath.div(item.phyStats().weight(),divider));
 			weight=(int)Math.round(CMath.mul(l,divider))+"-"+(int)Math.round(CMath.mul(l,divider)+(divider-1.0));
 		}
 		else
-		if((mob!=null)&&(mob.charStats().getStat(CharStats.STAT_INTELLIGENCE)<18))
+		if((mob!=null)&&(mobInt<18))
 		{
 			divider=divider/2.0;
-			final double l=Math.floor(CMath.div(item.phyStats().level(),divider));
+			final double l=Math.floor(CMath.div(item.phyStats().weight(),divider));
 			weight=(int)Math.round(CMath.mul(l,divider))+"-"+(int)Math.round(CMath.mul(l,divider)+(divider-1.0));
 		}
 		else
@@ -1021,28 +1130,28 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			&&(!CMLib.flags().isABonusItems(item))
 			&&(item.rawSecretIdentity().length()>0)
 			&&(item.basePhyStats().weight()>1)
-			&&((mob==null)||(mob.charStats().getStat(CharStats.STAT_INTELLIGENCE)>3)))
+			&&((mob==null)||(mobInt>3)))
 				response.append(L("It appears to be a bundle of `@x1`.  ",item.rawSecretIdentity()));
 
-			if((mob!=null)&&(mob.charStats().getStat(CharStats.STAT_INTELLIGENCE)<10))
+			if((mob!=null)&&(mobInt<10))
 				response.append(L("It is mostly made of a kind of @x1.  ",RawMaterial.Material.findByMask(item.material()&RawMaterial.MATERIAL_MASK).noun()));
 			else
 			if((item instanceof RawMaterial)&&(((RawMaterial)item).getSubType().length()>0))
 				response.append(L("It is mostly made of @x1.  ",((RawMaterial)item).getSubType().toLowerCase()));
 			else
 				response.append(L("It is mostly made of @x1.  ",RawMaterial.CODES.NAME(item.material()).toLowerCase()));
-			if(item instanceof Recipe)
+			if(item instanceof RecipesBook)
 			{
-				final String[] recipeCodeLines = ((Recipe)item).getRecipeCodeLines();
+				final String[] recipeCodeLines = ((RecipesBook)item).getRecipeCodeLines();
 				final int usedPages = (recipeCodeLines == null) ? 0 : recipeCodeLines.length;
-				final int totalRecipePages = ((Recipe)item).getTotalRecipePages();
+				final int totalRecipePages = ((RecipesBook)item).getTotalRecipePages();
 				final int remainingRecipePages = totalRecipePages - usedPages;
-				if(((Recipe)item).getTotalRecipePages()>1)
+				if(((RecipesBook)item).getTotalRecipePages()>1)
 					response.append( L("There are @x1 blank pages remaining out of @x2 total.  ",""+remainingRecipePages,""+totalRecipePages));
 			}
 			if((item instanceof Container)
 			&&(((Container)item).capacity()>=item.phyStats().weight())
-			&&((mob==null)||(mob.charStats().getStat(CharStats.STAT_INTELLIGENCE)>7)))
+			&&((mob==null)||(mobInt>7)))
 			{
 				final Container C=(Container)item;
 				String suffix="";
@@ -1055,10 +1164,10 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 					response.append(L("It is a container@x1.  ",suffix));
 				else
 					response.append(L("It is a container@x1 that can hold @x2.  ",suffix,this.makeContainerTypes(C)));
-				if((mob==null)||(mob.charStats().getStat(CharStats.STAT_INTELLIGENCE)>10))
+				if((mob==null)||(mobInt>10))
 				{
 
-					final double error = 5.0*(18.0 - ((mob==null)?18:mob.charStats().getStat(CharStats.STAT_INTELLIGENCE)));
+					final double error = 5.0*(18.0 - ((mob==null)?18:mobInt));
 					int finalCap = C.capacity() - C.basePhyStats().weight();
 					if((error > 0) && (finalCap > 0))
 					{
@@ -1073,9 +1182,9 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			if((item instanceof Drink)
 			&&(!CMath.bset(item.material(), RawMaterial.MATERIAL_LIQUID))
 			&&(!CMath.bset(item.material(), RawMaterial.MATERIAL_GAS))
-			&&((mob==null)||(mob.charStats().getStat(CharStats.STAT_INTELLIGENCE)>4)))
+			&&((mob==null)||(mobInt>4)))
 			{
-				if(!((Drink)item).containsDrink())
+				if(!((Drink)item).containsLiquid())
 					response.append(L("It is empty.  "));
 				else
 				if(((Drink)item).liquidHeld()>0)
@@ -1092,7 +1201,7 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 							final Item I=V.get(v);
 							if((I instanceof Drink)
 							&&(I instanceof RawMaterial)
-							&&(((Drink)I).containsDrink()))
+							&&(((Drink)I).containsLiquid()))
 							{
 								remain+=((Drink)I).liquidRemaining();
 								if(((Drink)I).thirstQuenched() > sipSize)
@@ -1119,15 +1228,16 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 							break;
 						}
 					}
-					final String[] nstrs=new String[] {
-						"sip",
-						"swallow",
-						"quaff",
-						"swig",
-						"gulp",
-						"guzzle"
-					};
-					final String drNoun=nstrs[drNDex];
+					String drNoun = "";
+					switch(drNDex)
+					{
+					case 0: drNoun = L("sip"); break;
+					case 1: drNoun = L("swallow"); break;
+					case 2: drNoun = L("quaff"); break;
+					case 3: drNoun = L("swig"); break;
+					case 4: drNoun = L("gulp"); break;
+					case 5: drNoun = L("guzzle"); break;
+					}
 					final int adjSize=(int)Math.round(CMath.div(namts[drNDex] , sipSize));
 					final int[] aamts=new int[] {
 						2,
@@ -1145,25 +1255,54 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 							break;
 						}
 					}
-					final String[] astrs=new String[] {
-						"tiny",
-						"small",
-						"average",
-						"large",
-						"huge",
-						"humongous"
-					};
-					final String drAdj=astrs[drADex];
+					String drAdj = "";
+					switch(drADex)
+					{
+					case 0: drAdj = L("tiny"); break;
+					case 1: drAdj = L("small"); break;
+					case 2: drAdj = L("average"); break;
+					case 3: drAdj = L("large"); break;
+					case 4: drAdj = L("huge"); break;
+					case 5: drAdj = L("humongous"); break;
+					}
 					final int numSips = remain / sipSize;
 					if(numSips <= 1)
-						response.append(L("There is about 1 "+drAdj+" "+drNoun+" remaining.  "));
+						response.append(L("There is about 1 @x1 @x2 remaining.  ",drAdj,drNoun));
 					else
-						response.append(L("There are about @x1 "+drAdj+" "+drNoun+"(s) remaining.  ",""+numSips));
+						response.append(L("There are about @x1 @x2 @x3(s) remaining.  ",""+numSips,drAdj,drNoun));
+				}
+			}
+			else
+			if((item instanceof LiquidHolder)
+			&&(!CMath.bset(item.material(), RawMaterial.MATERIAL_LIQUID))
+			&&(!CMath.bset(item.material(), RawMaterial.MATERIAL_GAS))
+			&&((mob==null)||(mobInt>4)))
+			{
+				if(!((LiquidHolder)item).containsLiquid())
+					response.append(L("It is empty.  "));
+				else
+				if(((LiquidHolder)item).liquidHeld()>0)
+				{
+					int remain = ((LiquidHolder)item).liquidRemaining();
+					final int type = ((LiquidHolder)item).liquidType();
+					if(item instanceof Container)
+					{
+						final List<Item> V=((Container)item).getContents();
+						for(int v=0;v<V.size();v++)
+						{
+							final Item I=V.get(v);
+							if((I instanceof LiquidHolder)
+							&&(I instanceof RawMaterial)
+							&&(((LiquidHolder)I).containsLiquid()))
+								remain+=((Drink)I).liquidRemaining();
+						}
+					}
+					response.append(L("It appears to contain @x1 @x2 remaining.  ",""+remain,RawMaterial.CODES.NAME(type).toLowerCase()));
 				}
 			}
 			else
 			if((item instanceof Food)
-			&&((mob==null)||(mob.charStats().getStat(CharStats.STAT_INTELLIGENCE)>4))
+			&&((mob==null)||(mobInt>4))
 			&&(((Food)item).nourishment()>0))
 			{
 				final int remain = ((Food)item).nourishment();
@@ -1178,7 +1317,7 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 					1000,
 					5000
 				};
-				int eatNDex=namts.length;
+				int eatNDex=namts.length-1;
 				for(int i=0;i<namts.length;i++)
 				{
 					if(namts[i]>biteSize)
@@ -1187,15 +1326,16 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 						break;
 					}
 				}
-				final String[] nstrs=new String[] {
-					"crumb",
-					"nibble",
-					"bite",
-					"morsel",
-					"mouthful",
-					"gorging"
-				};
-				final String eatNoun=nstrs[eatNDex];
+				String eatNoun = "";
+				switch(eatNDex)
+				{
+				case 0: eatNoun = L("crumb"); break;
+				case 1: eatNoun = L("nibble"); break;
+				case 2: eatNoun = L("bite"); break;
+				case 3: eatNoun = L("morsel"); break;
+				case 4: eatNoun = L("mouthful"); break;
+				case 5: eatNoun = L("gorging"); break;
+				}
 				final int adjSize=(int)Math.round(CMath.div(namts[eatNDex] , biteSize));
 				final int[] aamts=new int[] {
 					2,
@@ -1204,7 +1344,7 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 					5,
 					10
 				};
-				int eatADex=aamts.length;
+				int eatADex=aamts.length-1;
 				for(int i=0;i<aamts.length;i++)
 				{
 					if(aamts[i]>adjSize)
@@ -1213,20 +1353,21 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 						break;
 					}
 				}
-				final String[] astrs=new String[] {
-					"tiny",
-					"small",
-					"average",
-					"large",
-					"huge",
-					"humongous"
-				};
-				final String eatAdj=astrs[eatADex];
+				String eatAdj= "";
+				switch(eatADex)
+				{
+				case 0: eatAdj = L("tiny"); break;
+				case 1: eatAdj = L("small"); break;
+				case 2: eatAdj = L("average"); break;
+				case 3: eatAdj = L("large"); break;
+				case 4: eatAdj = L("huge"); break;
+				case 5: eatAdj = L("humongous"); break;
+				}
 				final int numBites = remain / biteSize;
 				if(numBites <= 1)
-					response.append(L("There is about 1 "+eatAdj+" "+eatNoun+" remaining.  "));
+					response.append(L("There is about 1 @x1 @x2 remaining.  ",eatAdj,eatNoun));
 				else
-					response.append(L("There are about @x1 "+eatAdj+" "+eatNoun+"(s) remaining.  ",""+numBites));
+					response.append(L("There are about @x1 @x2 @x3(s) remaining.  ",""+numBites,eatAdj,eatNoun));
 			}
 
 			if(item instanceof Ammunition)
@@ -1234,7 +1375,7 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			else
 			if(item instanceof Weapon)
 			{
-				if((mob==null)||mob.charStats().getStat(CharStats.STAT_INTELLIGENCE)>10)
+				if((mob==null)||mobInt>10)
 				{
 					response.append(L("It is a "));
 					if((item.rawLogicalAnd())&&CMath.bset(item.rawProperLocationBitmap(),Wearable.WORN_WIELD|Wearable.WORN_HELD))
@@ -1248,8 +1389,16 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			}
 			else
 			if((item instanceof Armor)
-			&&((mob==null)||mob.charStats().getStat(CharStats.STAT_INTELLIGENCE)>10))
+			&&((mob==null)||mobInt>10))
 			{
+				if(item.rawWornCode() != Wearable.IN_INVENTORY)
+				{
+					if(item.phyStats().height()>0)
+						response.append(L(" It is a size @x1, and is being ",""+item.phyStats().height()));
+					else
+						response.append(L(" It is your size, and is being "));
+				}
+				else
 				if(item.phyStats().height()>0)
 					response.append(L(" It is a size @x1, and is ",""+item.phyStats().height()));
 				else
@@ -1266,20 +1415,31 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 						final String wornString=codes.name(wornCode);
 						if(wornString.length()>0)
 						 {
-							response.append(CMStrings.capitalizeAndLower(wornString)+" ");
+							response.append(CMStrings.capitalizeAndLower(wornString));
 							if(item.rawLogicalAnd())
-								response.append(L("and "));
+								response.append(L(" and "));
 							else
-								response.append(L("or "));
+								response.append(L(" or "));
 						}
 					}
 				}
-				if(response.toString().endsWith(" and "))
+				if(response.toString().endsWith(L(" and ")))
 					response.delete(response.length()-5,response.length());
 				else
-				if(response.toString().endsWith(" or "))
+				if(response.toString().endsWith(L(" or ")))
 					response.delete(response.length()-4,response.length());
 				response.append(".  ");
+				if(mobLevel >= item.phyStats().level()+CMath.div(100.0, mobInt<=0?1:mobInt))
+				{
+					final short layer=((Armor)item).getClothingLayer();
+					if(layer!=0)
+					{
+						if(layer < 0)
+							response.append(L("It is worn @x1 layers beneath other clothing.  ",""+(-layer)));
+						else
+							response.append(L("It is worn @x1 layers over other clothing.  ",""+(layer)));
+					}
+				}
 			}
 		}
 		return response.toString();
@@ -1292,6 +1452,65 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		if(item.expirationDate() < System.currentTimeMillis())
 			return "*IMMINENT*";
 		return ""+CMLib.time().date2EllapsedTime((item.expirationDate()-System.currentTimeMillis()), TimeUnit.MINUTES, false);
+	}
+
+	protected String getRiderAddendum(final Rider iR)
+	{
+		String addendum="";
+		final Rideable rR=iR.riding();
+		if(rR==null)
+		{
+			addendum += L(""
+			+ "Ride  : null\n\r");
+		}
+		else
+		{
+			final Room R=CMLib.map().roomLocation(iR);
+			final Room rrR=CMLib.map().roomLocation(rR);
+			if(R==rrR)
+			{
+				addendum += L(""
+				+ "Ride  : @x1\n\r",
+				""+R.getContextName(rR));
+			}
+			else
+			{
+				addendum += L(""
+				+ "Ride  : @x1\n\r",
+				""+rrR.getContextName(rR)+"@"+CMLib.map().getExtendedRoomID(rrR));
+			}
+		}
+		return addendum;
+	}
+
+	@SuppressWarnings("rawtypes")
+	protected String getFollowAddendum(final Followable iF)
+	{
+		String addendum="";
+		final Followable rR=iF.amFollowing();
+		if(rR==null)
+		{
+			addendum += L(""
+			+ "Follow: null\n\r");
+		}
+		else
+		{
+			final Room R=CMLib.map().roomLocation(iF);
+			final Room rrR=CMLib.map().roomLocation(rR);
+			if(R==rrR)
+			{
+				addendum += L(""
+				+ "Follow: @x1\n\r",
+				""+R.getContextName(rR));
+			}
+			else
+			{
+				addendum += L(""
+				+ "Ride  : @x1\n\r",
+				""+rrR.getContextName(rR)+"@"+CMLib.map().getExtendedRoomID(rrR));
+			}
+		}
+		return addendum;
 	}
 
 	protected void handleBeingItemLookedAt(final CMMsg msg)
@@ -1343,7 +1562,8 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 				+ "Armor : @x1\n\r",
 					""+item.phyStats().armor());
 			}
-
+			if(item instanceof Rider)
+				addendum += getRiderAddendum(item);
 			buf.append(L("\n\r"
 			+ "Type  : @x1\n\r"
 			+ "Rejuv : @x2\n\r"
@@ -1364,7 +1584,8 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			""+item.basePhyStats().weight(),
 			""+item.basePhyStats().ability(),
 			""+item.basePhyStats().level(),
-			dispossessionTimeLeftString(item)+decayTime,
+			(dispossessionTimeLeftString(item)+decayTime)
+				+ (CMLib.flags().isSavable(item)?" (saveable)":" (NOT savable)"),
 			spells.toString(),
 			""+item.text().length(),
 			item.text()
@@ -1384,19 +1605,19 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			if((contitem.isOpen())
 			&&((contitem.capacity()>0)
 				||(contitem.hasContent())
-				||((contitem instanceof Drink)&&(((Drink)contitem).containsDrink()))))
+				||((contitem instanceof Drink)&&(((Drink)contitem).containsLiquid()))))
 			{
 				if((contitem.hasContent())
-				||((contitem instanceof Drink)&&(((Drink)contitem).containsDrink())))
+				||((contitem instanceof Drink)&&(((Drink)contitem).containsLiquid())))
 					buf.append(item.name()+" contains:^<!ENTITY container \""+CMStrings.removeColors(item.name())+"\"^>"+(mob.isAttributeSet(MOB.Attrib.COMPRESS)?" ":"\n\r"));
 				final List<Item> newItems=new ArrayList<Item>(0);
-				if((item instanceof Drink)
-				&&(((Drink)item).liquidRemaining()>0))
+				if((item instanceof LiquidHolder)
+				&&(((LiquidHolder)item).liquidRemaining()>0))
 				{
 					final RawMaterial l=(RawMaterial)CMClass.getItem("GenLiquidResource");
-					final int myResource=((Drink)item).liquidType();
+					final int myResource=((LiquidHolder)item).liquidType();
 					l.setMaterial(myResource);
-					((Drink)l).setLiquidType(myResource);
+					((LiquidHolder)l).setLiquidType(myResource);
 					l.setBaseValue(RawMaterial.CODES.VALUE(myResource));
 					l.basePhyStats().setWeight(1);
 					final String name=RawMaterial.CODES.NAME(myResource).toLowerCase();
@@ -1466,12 +1687,12 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			if(me.isPlayer())
 			{
 				if(CMProps.getIntVar(CMProps.Int.RP_INTRODUCE_PC)!=0)
-					CMLib.leveler().postRPExperience(speaker, me, L(""), CMProps.getIntVar(CMProps.Int.RP_INTRODUCE_PC), false);
+					CMLib.leveler().postRPExperience(speaker, "INTRODUCTION:", me, "", CMProps.getIntVar(CMProps.Int.RP_INTRODUCE_PC), false);
 			}
 			else
 			{
 				if(CMProps.getIntVar(CMProps.Int.RP_INTRODUCE_NPC)!=0)
-					CMLib.leveler().postRPExperience(speaker, me, L(""), CMProps.getIntVar(CMProps.Int.RP_INTRODUCE_NPC), false);
+					CMLib.leveler().postRPExperience(speaker, "INTRODUCTION:", me, "", CMProps.getIntVar(CMProps.Int.RP_INTRODUCE_NPC), false);
 			}
 			if(me.playerStats()!=null)
 				me.playerStats().introduceTo(speaker.Name());
@@ -1494,7 +1715,7 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 				if(CMProps.getIntVar(CMProps.Int.RP_SAY_PC)!=0)
 				{
 					pStats.setLastRolePlayXPTime(System.currentTimeMillis());
-					CMLib.leveler().postRPExperience(speaker, me, "", CMProps.getIntVar(CMProps.Int.RP_SAY_PC), false);
+					CMLib.leveler().postRPExperience(speaker, "COMMAND:Say", me, "", CMProps.getIntVar(CMProps.Int.RP_SAY_PC), false);
 				}
 			}
 			else
@@ -1502,7 +1723,7 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 				if(CMProps.getIntVar(CMProps.Int.RP_SAY_NPC)!=0)
 				{
 					pStats.setLastRolePlayXPTime(System.currentTimeMillis());
-					CMLib.leveler().postRPExperience(speaker, me, "", CMProps.getIntVar(CMProps.Int.RP_SAY_NPC), false);
+					CMLib.leveler().postRPExperience(speaker, "COMMAND:Say", me, "", CMProps.getIntVar(CMProps.Int.RP_SAY_NPC), false);
 				}
 			}
 		}
@@ -1582,24 +1803,20 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			msg.source().tell(smell.toString());
 	}
 
-	protected void handleBeingRoomLookedAt(final CMMsg msg)
+	@Override
+	public String getFullRoomView(final MOB mob, final Room room, final LookView lookCode, final boolean doMXP)
 	{
-		final MOB mob=msg.source();
-		final Session sess = mob.session();
-		if(sess==null)
-			return; // no need for monsters to build all this data
-
-		final Room room=(Room)msg.target();
-		int lookCode=LOOK_LONG;
-		if(msg.targetMinor()!=CMMsg.TYP_EXAMINE)
-			lookCode=((msg.sourceMessage()==null)||mob.isAttributeSet(MOB.Attrib.COMPRESS))?LOOK_BRIEFOK:LOOK_NORMAL;
-
-		sess.setStat("ROOMLOOK", ""+room.hashCode()); // for gmcp/protocol notifications
-
+		if((mob == null) || (room == null))
+			return "";
+		final CMFlagLibrary flags = CMLib.flags();
 		final StringBuilder finalLookStr=new StringBuilder("");
 		boolean sysmsgs=mob.isAttributeSet(MOB.Attrib.SYSOPMSGS);
-		final boolean compress=mob.isAttributeSet(MOB.Attrib.COMPRESS) || (CMath.bset(room.phyStats().sensesMask(), PhyStats.SENSE_ALWAYSCOMPRESSED));
-		final boolean useName = (lookCode==LOOK_BRIEFOK) && compress && mob.isAttributeSet(MOB.Attrib.BRIEF);
+		final boolean minimal = (lookCode == LookView.LOOK_MINIMAL);
+		final boolean compress= minimal
+								|| mob.isAttributeSet(MOB.Attrib.COMPRESS)
+								|| (CMath.bset(room.phyStats().sensesMask(), PhyStats.SENSE_ALWAYSCOMPRESSED));
+		final boolean useBrief = minimal || ((lookCode==LookView.LOOK_BRIEFOK) && mob.isAttributeSet(MOB.Attrib.BRIEF));
+		final boolean useName = minimal || (useBrief && compress);
 		if(sysmsgs && (!CMSecurity.isAllowed(mob,room,CMSecurity.SecFlag.SYSMSGS)))
 		{
 			mob.setAttribute(MOB.Attrib.SYSOPMSGS,false);
@@ -1635,13 +1852,13 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			finalLookStr.append("^!"+room.ID()+"^N: "+domType+" "+domCond.toString()+" <"+rscName+"> "+room.basePhyStats().weight()+"mv");
 			finalLookStr.append("\n\r");
 		}
-		if(CMLib.flags().canBeSeenBy(room,mob))
+		if(flags.canBeSeenBy(room,mob))
 		{
-			finalLookStr.append("^O^<RName^>" + room.displayText(mob)+"^</RName^>"+CMLib.flags().getDispositionBlurbs(room,mob)+"^L\n\r");
-			if((lookCode!=LOOK_BRIEFOK)||(!mob.isAttributeSet(MOB.Attrib.BRIEF)))
+			finalLookStr.append("^O^<RName^>" + room.displayText(mob)+"^</RName^>"+flags.getDispositionBlurbs(room,mob)+"^L\n\r");
+			if(!useBrief)
 			{
 				String roomDesc=room.description(mob);
-				if(lookCode==LOOK_LONG)
+				if(lookCode==LookView.LOOK_LONG)
 				{
 					Vector<String> keyWords=null;
 					String word=null;
@@ -1653,12 +1870,14 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 							continue;
 						if((item.container()==null)
 						&&(item.displayText(mob).length()==0)
-						&&(CMLib.flags().canBeSeenBy(item,mob)))
+						&&(flags.canBeSeenBy(item,mob)))
 						{
 							keyWords=CMParms.parse(item.name().toUpperCase());
 							for(int k=0;k<keyWords.size();k++)
 							{
 								word=keyWords.elementAt(k);
+								if(CMLib.english().isAnArticle(word))
+									continue;
 								x=roomDesc.toUpperCase().indexOf(word);
 								while(x>=0)
 								{
@@ -1694,7 +1913,7 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 					roomDesc += getRoomExitsParagraph(mob,room);
 				finalLookStr.append("^L^<RDesc^>" + roomDesc+"^</RDesc^>");
 
-				if((!mob.isMonster())&&(sess.getClientTelnetMode(Session.TELNET_MXP)))
+				if((!mob.isMonster())&&(doMXP))
 					finalLookStr.append(CMLib.protocol().mxpImage(room," ALIGN=RIGHT H=70 W=70"));
 				if(compress)
 					finalLookStr.append("^N  ");
@@ -1705,13 +1924,13 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		final Room mobLocR=mob.location();
 		if((mobLocR!=room)
 		&&(mobLocR!=null)
-		&&(mobLocR.getArea() instanceof BoardableShip))
-			notItem=((BoardableShip)mobLocR.getArea()).getShipItem();
+		&&(mobLocR.getArea() instanceof Boardable))
+			notItem=((Boardable)mobLocR.getArea()).getBoardableItem();
 		else
 			notItem=null;
 
 		final List<Item> viewItems=new ArrayList<Item>(room.numItems());
-		final List<Item> compressedItems=(lookCode==LOOK_LONG) ? null :  new ArrayList<Item>(1);
+		final List<Item> compressedItems=(lookCode==LookView.LOOK_LONG) ? null :  new ArrayList<Item>(1);
 		int itemsInTheDarkness=0;
 		for(int c=0;c<room.numItems();c++)
 		{
@@ -1741,9 +1960,16 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			}
 			if(item.container()==null)
 			{
-				if(CMLib.flags().canBarelyBeSeenBy(item,mob))
+				if(flags.canBarelyBeSeenBy(item,mob))
 					itemsInTheDarkness++;
-				if((compressedItems!=null)&&(compress || CMath.bset(item.phyStats().sensesMask(), PhyStats.SENSE_ALWAYSCOMPRESSED)))
+
+				if(flags.isHiddenInPlainSight(item)
+				&&(!flags.canSeeHidden(mob))
+				&&(lookCode != LookView.LOOK_LONG))
+					continue;
+
+				if((compressedItems!=null)
+				&&(compress || CMath.bset(item.phyStats().sensesMask(), PhyStats.SENSE_ALWAYSCOMPRESSED)))
 					compressedItems.add(item);
 				else
 					viewItems.add(item);
@@ -1752,16 +1978,15 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		final boolean hadCompressedItems = ((compressedItems != null) && (compressedItems.size()>0));
 		if(hadCompressedItems)
 		{
-			final StringBuilder itemStr=CMLib.lister().lister(mob,compressedItems,useName,"RItem"," \"*\"",false,true);
+			final String itemStr=CMLib.lister().lister(mob,compressedItems,useName,"RItem"," \"*\"",false,true);
 			if(itemStr.length()>0)
 				finalLookStr.append(itemStr);
 		}
-		if(CMLib.flags().canBeSeenBy(room,mob)
-		&&((lookCode!=LOOK_BRIEFOK)
-			||(!mob.isAttributeSet(MOB.Attrib.BRIEF))
-			||(hadCompressedItems)))
-				finalLookStr.append("^N\n\r\n\r");
-		final StringBuilder itemStr=CMLib.lister().lister(mob,viewItems,useName,"RItem"," \"*\"",lookCode==LOOK_LONG,compress);
+		if(flags.canBeSeenBy(room,mob)
+		&&(!compress)
+		&&((!useBrief)||(hadCompressedItems)))
+			finalLookStr.append("^N\n\r\n\r");
+		final String itemStr=CMLib.lister().lister(mob,viewItems,useName,"RItem"," \"*\"",lookCode==LookView.LOOK_LONG,compress);
 		if(itemStr.length()>0)
 			finalLookStr.append(itemStr);
 
@@ -1784,48 +2009,88 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 				if((displayText.length()>0)
 				||(sysmsgs))
 				{
-					if(CMLib.flags().canBeSeenBy(mob2,mob))
+					if(flags.canBeSeenBy(mob2,mob))
 					{
-						if((!compress)&&(!mob.isMonster())&&(sess.getClientTelnetMode(Session.TELNET_MXP)))
+						if((!compress)&&(!mob.isMonster())&&(doMXP))
 							finalLookStr.append(CMLib.protocol().mxpImage(mob2," H=10 W=10",""," "));
-						finalLookStr.append("^M^<RMob \""+CMStrings.removeColors(mob2.name())+"\"^>");
-						if(compress)
-							finalLookStr.append(CMLib.flags().getDispositionBlurbs(mob2,mob)+"^M ");
-						if((displayText.length()>0)&&(!useName))
-							finalLookStr.append(CMStrings.endWithAPeriod(CMStrings.capitalizeFirstLetter(displayText)));
+						if(mob2 instanceof ShopKeeper)
+							finalLookStr.append("^M^<RShopM \""+CMStrings.removeColors(mob2.name())+"\"^>");
 						else
-							finalLookStr.append(CMStrings.endWithAPeriod(CMStrings.capitalizeFirstLetter(mob2.name())));
-						finalLookStr.append("^</RMob^>");
+							finalLookStr.append("^M^<RMob \""+CMStrings.removeColors(mob2.name())+"\"^>");
+						if(compress)
+							finalLookStr.append(flags.getDispositionBlurbs(mob2,mob)+"^M ");
+						if((displayText.length()>0)&&(!useName))
+							finalLookStr.append(CMStrings.endWithAPeriod(CMStrings.capitalizeFirstLetter(displayText), '.'));
+						else
+							finalLookStr.append(CMStrings.endWithAPeriod(CMStrings.capitalizeFirstLetter(mob2.name()), '.'));
+						if(mob2 instanceof ShopKeeper)
+							finalLookStr.append("^</RShopM^>");
+						else
+							finalLookStr.append("^</RMob^>");
 						if(sysmsgs)
 							finalLookStr.append("^H("+CMClass.classID(mob2)+")^N ");
 						if(!compress)
-							finalLookStr.append(CMLib.flags().getDispositionBlurbs(mob2,mob)+"^N\n\r");
+							finalLookStr.append(flags.getDispositionBlurbs(mob2,mob)+"^N\n\r");
 						else
 							finalLookStr.append("^N");
 					}
 					else
-					if(CMLib.flags().canBarelyBeSeenBy(mob2,mob))
+					if(flags.canBarelyBeSeenBy(mob2,mob)
+					&&(flags.isSeeable(mob2))
+					&&((!flags.isInvisible(mob2))||(flags.canSeeInvisible(mob2)))
+					&&((!flags.isHidden(mob2))||(flags.canSeeHidden(mob2))))
 						mobsInTheDarkness++;
 				}
 			}
 		}
+		if(finalLookStr.length()>0)
+		{
+			if(itemsInTheDarkness>0)
+				finalLookStr.append(L("      ^IThere is something here, but it's too dark to make out.^?\n\r"));
+			if(mobsInTheDarkness>1)
+				finalLookStr.append(L("^MThe darkness conceals several others.^?\n\r"));
+			else
+			if(mobsInTheDarkness>0)
+				finalLookStr.append(L("^MYou are not alone, but it's too dark to tell.^?\n\r"));
+		}
+		if(compress
+		&& (finalLookStr.length()>0)
+		&& (finalLookStr.charAt(finalLookStr.length()-1)!='\r'))
+			finalLookStr.append("\n\r");
+		return finalLookStr.toString();
+	}
+
+	protected void handleBeingRoomLookedAt(final CMMsg msg)
+	{
+		final MOB mob=msg.source();
+		final Session sess = mob.session();
+		if(sess==null)
+			return; // no need for monsters to build all this data
+
+		final Room room=(Room)msg.target();
+		LookView lookCode=LookView.LOOK_LONG;
+		if(msg.targetMinor()!=CMMsg.TYP_EXAMINE)
+			lookCode=((msg.sourceMessage()==null)||mob.isAttributeSet(MOB.Attrib.COMPRESS))?LookView.LOOK_BRIEFOK:LookView.LOOK_NORMAL;
+
+		sess.doPing(SessionPing.ROOMLOOK, null);
+
+		final String finalLookStr=getFullRoomView(mob, room, lookCode, sess.getClientTelnetMode(Session.TELNET_MXP));
 
 		if(finalLookStr.length()==0)
 			mob.tell(L("You can't see anything!"));
 		else
 		{
-			if(compress)
-				finalLookStr.append("\n\r");
 			mob.tell(finalLookStr.toString());
 			if((CMProps.getIntVar(CMProps.Int.AWARERANGE)>0)
 			&&(!mob.isAttributeSet(MOB.Attrib.AUTOMAP)))
 			{
 				if(awarenessA==null)
 					awarenessA=CMClass.getAbility("Skill_RegionalAwareness");
-				if(awarenessA!=null)
+				final Room mobLocR=mob.location();
+				if((awarenessA!=null)&&(mobLocR != null))
 				{
 					sess.colorOnlyPrintln("", true);
-					final Vector<String> list=new Vector<String>();
+					final List<String> list=new Vector<String>();
 					awarenessA.invoke(mob, list, mobLocR, true, CMProps.getIntVar(CMProps.Int.AWARERANGE));
 					for(final String o : list)
 					{
@@ -1835,13 +2100,6 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 					sess.colorOnlyPrintln("\n\r", true);
 				}
 			}
-			if(itemsInTheDarkness>0)
-				mob.tell(L("      ^IThere is something here, but it's too dark to make out.^?\n\r"));
-			if(mobsInTheDarkness>1)
-				mob.tell(L("^MThe darkness conceals several others.^?\n\r"));
-			else
-			if(mobsInTheDarkness>0)
-				mob.tell(L("^MYou are not alone, but it's too dark to tell.^?\n\r"));
 		}
 	}
 
@@ -1853,7 +2111,7 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		final Vector<Integer> exitDirs=new Vector<Integer>();
 		Room R;
 		Exit E;
-		final boolean useShipNames=((room instanceof BoardableShip)||(room.getArea() instanceof BoardableShip));
+		final Directions.DirType dirType=CMLib.flags().getDirType(room);
 		for(final int dir : Directions.CODES())
 		{
 			E = room.getExitInDir(dir);
@@ -1875,25 +2133,12 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		{
 			str.append("  ^L"+CMStrings.capitalizeFirstLetter(room.displayText(mob)).trim()+" continues ");
 			if(continues.size()==1)
-			{
-				if(useShipNames)
-					str.append(CMLib.directions().getShipInDirectionName(continues.firstElement().intValue())+".");
-				else
-					str.append(CMLib.directions().getInDirectionName(continues.firstElement().intValue())+".");
-			}
+				str.append(CMLib.directions().getInDirectionName(continues.firstElement().intValue(), dirType)+".");
 			else
 			{
 				for(int i=0;i<continues.size()-1;i++)
-				{
-					if(useShipNames)
-						str.append(CMLib.directions().getShipDirectionName(continues.elementAt(i).intValue()).toLowerCase().trim()+", ");
-					else
-						str.append(CMLib.directions().getDirectionName(continues.elementAt(i).intValue()).toLowerCase().trim()+", ");
-				}
-				if(useShipNames)
-					str.append("and "+CMLib.directions().getShipInDirectionName(continues.lastElement().intValue()).trim()+".");
-				else
-					str.append("and "+CMLib.directions().getInDirectionName(continues.lastElement().intValue()).trim()+".");
+					str.append(CMLib.directions().getDirectionName(continues.elementAt(i).intValue(),dirType).toLowerCase().trim()+", ");
+				str.append("and "+CMLib.directions().getInDirectionName(continues.lastElement().intValue(),dirType).trim()+".");
 			}
 		}
 		final boolean style=CMLib.dice().rollPercentage()>50;
@@ -1919,8 +2164,8 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		final Exit exit = room.getExitInDir(dir);
 		if(exit == null)
 			return "";
-		final boolean useShipDirs=(room instanceof BoardableShip)||(room.getArea() instanceof BoardableShip);
-		final String inDirName=useShipDirs?CMLib.directions().getShipInDirectionName(dir):CMLib.directions().getInDirectionName(dir);
+		final Directions.DirType dirType=CMLib.flags().getDirType(room);
+		final String inDirName=CMLib.directions().getInDirectionName(dir, dirType);
 		if(style)
 			return inDirName   + " is " +exit.viewableText(mob, room.getRoomInDir(dir));
 		else
@@ -1948,6 +2193,7 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 	{
 		if(isHygienicMessage(msg))
 		{
+			final String tattooName="SYSTEM_HYGEIENE_MSG";
 			final MOB mob=msg.source();
 			if(mob.playerStats().getHygiene()>(-adjHygiene))
 			{
@@ -1962,7 +2208,12 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			}
 			else
 			if(adjHygiene==0)
+			{
+				if(mob.findTattoo(tattooName) != null)
+					return;
+				mob.addTattoo(tattooName, 20);
 				mob.tell(L("You are already perfectly clean."));
+			}
 			else
 			if((msg.sourceMinor()!=CMMsg.TYP_NOISYMOVEMENT)
 			||(mob.riding()!=null)
@@ -1977,6 +2228,9 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 					||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_UNDERWATER)))
 				{
 					mob.playerStats().adjHygiene(-h);
+					if(mob.findTattoo(tattooName) != null)
+						return;
+					mob.addTattoo(tattooName, 20);
 					mob.tell(L("You can't get any cleaner here."));
 				}
 				else
@@ -2017,73 +2271,89 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		final MOB mob=msg.source();
 		if(CMLib.flags().canBeSeenBy(exit,mob))
 		{
-			if(exit.description(mob).trim().length()>0)
-				mob.tell(exit.description(mob));
-			else
-			if(mob.location()!=null)
+			final Room mobR=mob.location();
+			if(mobR!=null)
 			{
-				Room room=null;
+				Room lookAtR=null;
 				int direction=-1;
 				if(msg.tool() instanceof Room)
-					room=(Room)msg.tool();
+					lookAtR=(Room)msg.tool();
 				else
-				for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 				{
-					if(mob.location().getExitInDir(d)==exit)
+					for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 					{
-						room=mob.location().getRoomInDir(d);
-						break;
+						if(mobR.getExitInDir(d)==exit)
+						{
+							lookAtR=mobR.getRoomInDir(d);
+							break;
+						}
 					}
 				}
-				if(room!=null)
-				for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+				if(lookAtR!=null)
 				{
-					if((mob.location().getRoomInDir(d)==room)
-					&&((mob.location().getExitInDir(d)==exit)))
-						direction=d;
+					for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+					{
+						if((mobR.getRoomInDir(d)==lookAtR)
+						&&((mobR.getExitInDir(d)==exit)))
+							direction=d;
+					}
 				}
-				mob.tell(exit.viewableText(mob,room).toString());
-				if(isAClearExitView(mob,room,exit)&&(direction>=0)&&(room!=null))
+				if(exit.description(mob).trim().length()>0)
+					mob.tell(CMStrings.replaceAll(exit.description(mob),"@x1",exit.viewableText(mob,lookAtR).toString()));
+				else
 				{
-					List<Room> view=null;
-					final Vector<Environmental> items=new Vector<Environmental>();
-					if(room.getGridParent()!=null)
-						view=room.getGridParent().getAllRooms();
-					else
+					// for backward compatibility, this is not allowed for exits with descriptions
+					mob.tell(exit.viewableText(mob,lookAtR).toString());
+					if(isAClearExitView(mob,lookAtR,exit)
+					&&(direction>=0)
+					&&(lookAtR!=null))
 					{
-						view=new Vector<Room>();
-						view.add(room);
-						for(int i=0;i<5;i++)
+						List<Room> view=null;
+						final List<Environmental> items=new ArrayList<Environmental>();
+						if(lookAtR.getGridParent()!=null)
+							view=lookAtR.getGridParent().getAllRooms();
+						else
 						{
-							room=room.getRoomInDir(direction);
-							if(room==null)
-								break;
-							final Exit E=room.getExitInDir(direction);
-							if((isAClearExitView(mob,room,E)))
-								view.add(room);
+							view=new ArrayList<Room>();
+							view.add(lookAtR);
+							for(int i=0;i<5;i++)
+							{
+								lookAtR=lookAtR.getRoomInDir(direction);
+								if(lookAtR==null)
+									break;
+								final Exit E=lookAtR.getExitInDir(direction);
+								if((isAClearExitView(mob,lookAtR,E)))
+									view.add(lookAtR);
+							}
 						}
+						for(int r=0;r<view.size();r++)
+						{
+							lookAtR=view.get(r);
+							if(lookAtR!=mobR)
+							{
+								for(int i=0;i<lookAtR.numItems();i++)
+								{
+									final Item E=lookAtR.getItem(i);
+									if(E!=null)
+										items.add(E);
+								}
+								for(int i=0;i<lookAtR.numInhabitants();i++)
+								{
+									final MOB E=lookAtR.fetchInhabitant(i);
+									if(E!=null)
+										items.add(E);
+								}
+							}
+						}
+						final String seenThatWay=CMLib.lister().lister(msg.source(),items,true,"","",false,true);
+						if(seenThatWay.length()>0)
+							mob.tell(L("Yonder, you can also see: @x1",seenThatWay.toString()));
 					}
-					for(int r=0;r<view.size();r++)
-					{
-						room=view.get(r);
-						for(int i=0;i<room.numItems();i++)
-						{
-							final Item E=room.getItem(i);
-							if(E!=null)
-								items.add(E);
-						}
-						for(int i=0;i<room.numInhabitants();i++)
-						{
-							final MOB E=room.fetchInhabitant(i);
-							if(E!=null)
-								items.add(E);
-						}
-					}
-					final StringBuilder seenThatWay=CMLib.lister().lister(msg.source(),items,true,"","",false,true);
-					if(seenThatWay.length()>0)
-						mob.tell(L("Yonder, you can also see: @x1",seenThatWay.toString()));
 				}
 			}
+			else
+			if(exit.description(mob).trim().length()>0)
+				mob.tell(exit.description(mob));
 			else
 				mob.tell(L("You don't see anything special."));
 			if(mob.isAttributeSet(MOB.Attrib.SYSOPMSGS))
@@ -2109,15 +2379,18 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		{
 			if(viewermob.isAttributeSet(MOB.Attrib.SYSOPMSGS))
 			{
-				myDescription.append("\n\rType :"+viewedmob.ID()
-									+"\n\rRejuv:"+viewedmob.basePhyStats().rejuv()
+				myDescription.append("\n\rType  : "+viewedmob.ID()
+									+"\n\rRejuv : "+viewedmob.basePhyStats().rejuv()
 									+((!viewedmob.isMonster())?", Hunger="+viewedmob.curState().getHunger():"")
-									+"\n\rAbile:"+viewedmob.basePhyStats().ability()
+									+"\n\rAbile : "+viewedmob.basePhyStats().ability()
 									+((!viewedmob.isMonster())?", Thirst="+viewedmob.curState().getThirst():"")
-									+"\n\rLevel:"+viewedmob.basePhyStats().level()
-									+"\n\rDesc : "+viewedmob.description()
-									+"\n\rStart: "+((viewedmob.getStartRoom()==null)?"null":viewedmob.getStartRoom().roomID())
-									+"\n\rMisc : "+viewedmob.text()
+									+"\n\rLevel : "+viewedmob.basePhyStats().level()
+									+((viewedmob.isPlayer())?", Hygeine="+viewedmob.playerStats().getHygiene():"")
+									+"\n\rDesc  : "+viewedmob.description()
+									+"\n\rStart : "+((viewedmob.getStartRoom()==null)?"null":viewedmob.getStartRoom().roomID())
+									+"\n\r"+getRiderAddendum(viewedmob)
+										   +getFollowAddendum(viewedmob)
+									+"Misc  : "+viewedmob.text()
 									+"\n\r");
 			}
 			if(!viewedmob.isMonster())
@@ -2172,8 +2445,8 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 					partsList.add(L("no arms"));
 				if(parts[Race.BODY_GILL] > 0)
 					partsList.add(L("gills"));
-				if(parts[Race.BODY_ANTENNEA] > 0)
-					partsList.add(L("@x1 antennea",""+parts[Race.BODY_ANTENNEA]));
+				if(parts[Race.BODY_ANTENNA] > 0)
+					partsList.add(L("@x1 antenna",""+parts[Race.BODY_ANTENNA]));
 				if(parts[Race.BODY_HEAD]==0)
 					partsList.add(L("no head"));
 				else
@@ -2219,10 +2492,14 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			}
 			if(!viewermob.isMonster())
 				myDescription.append(CMLib.protocol().mxpImage(viewedmob," ALIGN=RIGHT H=70 W=70"));
-			myDescription.append(viewedmob.healthText(viewermob)+"\n\r\n\r");
-			myDescription.append(viewedmob.description(viewermob)+"\n\r\n\r");
+			myDescription.append(CMStrings.capitalizeFirstLetter(viewedmob.healthText(viewermob))+"\n\r\n\r");
+			myDescription.append(CMStrings.capitalizeFirstLetter(viewedmob.description(viewermob))+"\n\r\n\r");
 
-			final StringBuilder eq=CMLib.commands().getEquipment(viewermob,viewedmob);
+			final StringBuilder eq;
+			if(longlook)
+				eq=CMLib.commands().getEquipmentLong(viewermob,viewedmob);
+			else
+				eq=CMLib.commands().getEquipment(viewermob,viewedmob);
 			if(eq.length() > 0)
 			{
 				if((CMProps.getIntVar(CMProps.Int.EQVIEW)>CMProps.Int.EQVIEW_MIXED)
@@ -2231,7 +2508,7 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 				else
 					myDescription.append(viewedmob.charStats().HeShe()+" is wearing:\n\r"+eq.toString());
 			}
-			viewermob.tell(myDescription.toString());
+			viewermob.tell(msg.source(), viewedmob, null, myDescription.toString());
 			if(longlook)
 			{
 				final Command C=CMClass.getCommand("Consider");
@@ -2287,7 +2564,7 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 				if((text!=null)
 				&&(text.length()>0))
 				{
-					if(text.toUpperCase().startsWith("FILE="))
+					if(text.toUpperCase().startsWith(Readable.FILE_PREFIX))
 					{
 						final StringBuffer buf=Resources.getFileResource(text.substring(5),true);
 						if((buf!=null)&&(buf.length()>0))
@@ -2360,7 +2637,11 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 				if(!isMine)
 					CMLib.achievements().possiblyBumpAchievement(mob, Event.GOTITEM, 1, item);
 				if(!CMath.bset(msg.targetMajor(),CMMsg.MASK_OPTIMIZE))
-					mob.location().recoverRoomStats();
+				{
+					final Room R=mob.location();
+					if(R!=null)
+						R.recoverRoomStats();
+				}
 				else
 					mob.phyStats().setWeight(mob.phyStats().weight()+item.recursiveWeight());
 			}
@@ -2369,7 +2650,11 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 				item.setContainer(null);
 				item.unWear();
 				if(!CMath.bset(msg.targetMajor(),CMMsg.MASK_OPTIMIZE))
-					mob.location().recoverRoomStats();
+				{
+					final Room R=mob.location();
+					if(R!=null)
+						R.recoverRoomStats();
+				}
 			}
 		}
 		else
@@ -2377,8 +2662,9 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			item.setContainer(null);
 			if(CMLib.flags().isHidden(item))
 				item.basePhyStats().setDisposition(item.basePhyStats().disposition()&((int)PhyStats.ALLMASK-PhyStats.IS_HIDDEN));
-			if(mob.location().isContent(item))
-				mob.location().delItem(item);
+			final Room R=mob.location();
+			if((R!=null)&&(R.isContent(item)))
+				R.delItem(item);
 			if(!isMine)
 			{
 				mob.addItem(item);
@@ -2388,8 +2674,8 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 					mob.phyStats().setWeight(mob.phyStats().weight()+item.phyStats().weight());
 			}
 			item.unWear();
-			if(!CMath.bset(msg.targetMajor(),CMMsg.MASK_OPTIMIZE))
-				mob.location().recoverRoomStats();
+			if((!CMath.bset(msg.targetMajor(),CMMsg.MASK_OPTIMIZE))&&(R!=null))
+				R.recoverRoomStats();
 			if(item instanceof Coins)
 				((Coins)item).putCoinsBack();
 			if(item instanceof RawMaterial)
@@ -2456,7 +2742,7 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		if(!(msg.target() instanceof Item))
 			return;
 		final Item item=(Item)msg.target();
-		final long wearLocation = (msg.value()<=0)?0:((long)(1<<msg.value())/2);
+		final long wearLocation = (msg.value()<=0)?0:((1L<<msg.value())/2);
 		final MOB mob=msg.source();
 		if(item.canWear(mob,wearLocation))
 		{
@@ -2513,36 +2799,41 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			mob.tell(L("You can't see anything!"));
 			return;
 		}
+		if(room.getArea().getClimateObj().weatherType(room)==Climate.WEATHER_FOG)
+		{
+			mob.tell(L("It is too foggy."));
+			return;
+		}
 
-		final boolean useShipNames=((room instanceof BoardableShip)||(room.getArea() instanceof BoardableShip));
+		final Directions.DirType dirType=CMLib.flags().getDirType(room);
 		final StringBuilder buf=new StringBuilder("^<RExits^>^DObvious exits:^.^N\n\r");
 		String Dir=null;
 		for(final int d : Directions.DISPLAY_CODES())
 		{
 			final Exit exit=room.getExitInDir(d);
 			final Room room2=room.getRoomInDir(d);
-			StringBuilder Say=new StringBuilder("");
+			StringBuilder str=new StringBuilder("");
 			if(exit!=null)
-				Say=exit.viewableText(mob, room2);
+				str=exit.viewableText(mob, room2);
 			else
 			if((room2!=null)&&(mob.isAttributeSet(MOB.Attrib.SYSOPMSGS)))
-				Say.append(room2.roomID()+" via NULL");
-			if(Say.length()>0)
+				str.append(room2.roomID()+" via NULL");
+			if(str.length()>0)
 			{
-				Dir=CMStrings.padRightPreserve(useShipNames?CMLib.directions().getShipDirectionName(d):CMLib.directions().getDirectionName(d),5);
+				Dir=CMStrings.padRightPreserve(CMLib.directions().getDirectionName(d,dirType),5);
 				if((mob.playerStats()!=null)
 				&&(room2!=null)
 				&&(mob.playerStats().hasVisited(room2)))
-					buf.append("^D^<EX^>" + Dir+"^</EX^>:^.^N ^d"+Say+"^.^N\n\r");
+					buf.append("^D^<EX^>" + Dir+"^</EX^>:^.^N ^d"+str+"^.^N\n\r");
 				else
-					buf.append("^U^<EX^>" + Dir+"^</EX^>:^.^N ^u"+Say+"^.^N\n\r");
+					buf.append("^U^<EX^>" + Dir+"^</EX^>:^.^N ^u"+str+"^.^N\n\r");
 			}
 		}
 		boolean noBoardableShips = false;
 		if((mob.location() != room)
 		&&(mob.location() != null)
 		&&(mob.location().getArea()!=room.getArea())
-		&&(mob.location().getArea() instanceof BoardableShip))
+		&&(mob.location().getArea() instanceof Boardable))
 			noBoardableShips = true;
 
 		Item I=null;
@@ -2552,7 +2843,7 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			if((I instanceof Exit)
 			&&(((Exit)I).doorName().length()>0)
 			&&(I.container()==null)
-			&&((!(I instanceof BoardableShip))||(!noBoardableShips)))
+			&&((!(I instanceof Boardable))||(!noBoardableShips)))
 			{
 				final StringBuilder Say=((Exit)I).viewableText(mob, room);
 				if(Say.length()>0)
@@ -2577,20 +2868,25 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		if(!CMLib.flags().canSee(mob))
 			return;
 
-		final boolean useShipNames=((room instanceof BoardableShip)||(room.getArea() instanceof BoardableShip));
+		if(room.getArea().getClimateObj().weatherType(room)==Climate.WEATHER_FOG)
+		{
+			mob.tell(L("It is too foggy."));
+			return;
+		}
+		final Directions.DirType dirType=CMLib.flags().getDirType(room);
 		final StringBuilder buf=new StringBuilder(L("^<RExits^>^D[Exits: "));
 		for(final int d : Directions.DISPLAY_CODES())
 		{
 			final Exit exit=room.getExitInDir(d);
 			if((exit!=null)
 			&&(exit.viewableText(mob, room.getRoomInDir(d)).length()>0))
-				buf.append("^<EX^>"+(useShipNames?CMLib.directions().getShipDirectionName(d):CMLib.directions().getDirectionName(d))+"^</EX^> ");
+				buf.append("^<EX^>"+(CMLib.directions().getDirectionName(d,dirType))+"^</EX^> ");
 		}
 		boolean noBoardableShips = false;
 		if((mob.location() != room)
 		&&(mob.location() != null)
 		&&(mob.location().getArea()!=room.getArea())
-		&&(mob.location().getArea() instanceof BoardableShip))
+		&&(mob.location().getArea() instanceof Boardable))
 			noBoardableShips = true;
 		Item I=null;
 		for(int i=0;i<room.numItems();i++)
@@ -2599,7 +2895,7 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 			if((I instanceof Exit)
 			&&(I.container()==null)
 			&&(((Exit)I).viewableText(mob, room).length()>0)
-			&&((!(I instanceof BoardableShip))||(!noBoardableShips)))
+			&&((!(I instanceof Boardable))||(!noBoardableShips)))
 				buf.append("^<MEX^>"+((Exit)I).doorName()+"^</MEX^> ");
 		}
 		mob.tell(buf.toString().trim()+"]^</RExits^>^.^N");
@@ -2613,72 +2909,92 @@ public class CommonMsgs extends StdLibrary implements CommonCommands
 		boolean addMe = true;
 		while(aligatorDex>=0)
 		{
-			for(final VariationCode code : VariationCode.values())
+			int codeDex = aligatorDex+1;
+			VaryNode n = varyRoot;
+			while (aligatorDex < text.length() && n != null)
 			{
-				if(text.startsWith(code.openTag, aligatorDex))
+				final int x = text.charAt(codeDex)-'A';
+				if((x<0)||(x>=n.next.length))
+					break;
+				n = n.next[x];
+				if((n==null)||(n.code!=null))
+					break;
+				codeDex++;
+			}
+			if((n != null) && (n.code != null))
+			{
+				final VariationCode code=n.code;
+				buf.append(text.substring(curDex, aligatorDex));
+				final int openLen;
+				int y;
+				if(code == VariationCode.MASK)
 				{
-					buf.append(text.substring(curDex, aligatorDex));
-					final int openLen;
-					int y;
-					if(code == VariationCode.MASK)
+					final int x=text.indexOf('>',aligatorDex+1);
+					final int z=text.indexOf(' ',aligatorDex+1);
+					if((z<0)||(x<0)||(z>x))
+						break;
+					final String openTag="<"+text.substring(aligatorDex+1,z)+">";
+					y=text.indexOf("</"+openTag.substring(1),x);
+					if(y<0)
 					{
-						final int x=text.indexOf('>',aligatorDex+1);
-						final int z=text.indexOf(' ',aligatorDex+1);
-						if((z<0)||(x<0)||(z>x))
-							break;
-						final String openTag="<"+text.substring(aligatorDex+1,z)+">";
-						y=text.indexOf("</"+openTag.substring(1),x);
-						if(y<0)
-						{
-							curDex = text.length();
-							y=text.length();
-						}
-						else
-							curDex = y+openTag.length()+1;
-						openLen=x-aligatorDex+1;
-						addMe = CMLib.masking().maskCheck(CMLib.xml().restoreAngleBrackets(text.substring(z,x)), mob, true);
+						curDex = text.length();
+						y=text.length();
 					}
 					else
+						curDex = y+openTag.length()+1;
+					openLen=x-aligatorDex+1;
+					addMe = CMLib.masking().maskCheck(CMLib.xml().restoreAngleBrackets(text.substring(z,x)), mob, true);
+				}
+				else
+				{
+					openLen=code.openTag.length();
+					y=text.indexOf(code.closeTag,aligatorDex+openLen);
+					if(y<0)
 					{
-						openLen=code.openTag.length();
-						y=text.indexOf(code.closeTag,aligatorDex+openLen);
-						if(y<0)
+						curDex = text.length();
+						y=text.length();
+					}
+					else
+						curDex = y+code.closeTag.length();
+					switch(code.c)
+					{
+					case '\n':
+						addMe = !addMe;
+						break;
+					case '\r':
+						addMe = true;
+						break;
+					case 'W':
+						addMe = A.getClimateObj().weatherType(null) == code.num;
+						break;
+					case 'C':
+						addMe = A.getTimeObj().getTODCode().ordinal() == code.num;
+						break;
+					case 'S':
+						addMe = A.getTimeObj().getSeasonCode().ordinal() == code.num;
+						break;
+					case 'M':
+						addMe = ((mob != null) && (CMath.bset(mob.phyStats().disposition(), code.num)));
+						break;
+					case 'V':
+						addMe = ((mob != null) && (mob.playerStats() != null) && (mob.playerStats().hasVisited(room)));
+						break;
+					case 'F':
+						if(mob != null)
 						{
-							curDex = text.length();
-							y=text.length();
+							if(code.num<0)
+								addMe = CMLib.map().getRoomDir(room, mob.lastLocation()) < 0;
+							else
+								addMe = room.getRoomInDir(code.num) == mob.lastLocation();
 						}
 						else
-							curDex = y+code.closeTag.length();
-						switch(code.c)
-						{
-						case '\n':
-							addMe = !addMe;
-							break;
-						case '\r':
-							addMe = true;
-							break;
-						case 'W':
-							addMe = A.getClimateObj().weatherType(null) == code.num;
-							break;
-						case 'C':
-							addMe = A.getTimeObj().getTODCode().ordinal() == code.num;
-							break;
-						case 'S':
-							addMe = A.getTimeObj().getSeasonCode().ordinal() == code.num;
-							break;
-						case 'M':
-							addMe = ((mob != null) && (CMath.bset(mob.phyStats().disposition(), code.num)));
-							break;
-						case 'V':
-							addMe = ((mob != null) && (mob.playerStats() != null) && (mob.playerStats().hasVisited(room)));
-							break;
-						}
+							addMe = code.num < 0;
+						break;
 					}
-					if(addMe)
-						buf.append(parseVariesCodes(mob,A,room,text.substring(aligatorDex+openLen,y)));
-					aligatorDex=curDex-1;
-					break;
 				}
+				if(addMe)
+					buf.append(parseVariesCodes(mob,A,room,text.substring(aligatorDex+openLen,y)));
+				aligatorDex=curDex-1;
 			}
 			if(aligatorDex >= text.length()-1)
 				break;

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ public class GiantScorpion extends StdMOB
 		super();
 		final Random randomizer = new Random(System.currentTimeMillis());
 
-		username="a Giant Scorpion";
+		_name="a Giant Scorpion";
 		setDescription("The giant scorpion has a green carapace and yellowish green legs and pincers. The segmented tail is black, with a vicious stinger on the end.");
 		setDisplayText("A mean giant scorpion hunts.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -63,7 +63,7 @@ public class GiantScorpion extends StdMOB
 
 		basePhyStats().setDamage(10);
 		basePhyStats().setSpeed(2.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(5);
 		basePhyStats().setArmor(70);
 

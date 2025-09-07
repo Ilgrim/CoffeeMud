@@ -16,9 +16,10 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,6 +54,14 @@ public class Chant_Hibernation extends Chant
 	@Override
 	public String displayText()
 	{
+		final int rounds = roundsHibernating;
+		if((rounds<10)
+		&&(!this.deepHibernation))
+		{
+			return localizedStaticDisplay+" ^N"+
+				CMLib.time().date2EllapsedTime(((10 - rounds)*CMProps.getTickMillis())
+					, TimeUnit.SECONDS, true)+"^?";
+		}
 		return localizedStaticDisplay;
 	}
 
@@ -135,8 +144,11 @@ public class Chant_Hibernation extends Chant
 		final MOB mob=(MOB)affected;
 
 		if((msg.amISource(mob))
+		&&(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_ALWAYS)) // prevents endless loops
 		&&(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_CHANNEL))
-		&&((CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOVE))||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_HANDS))||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOUTH))))
+		&&((CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOVE))
+			||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_HANDS))
+			||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOUTH)&&CMath.bset(msg.sourceMajor(),CMMsg.MASK_SOUND))))
 		{
 			if((!deepHibernation)
 			&&(!this.amDestroyed))
@@ -177,9 +189,9 @@ public class Chant_Hibernation extends Chant
 		final MOB mob=(MOB)affected;
 
 		if(tickID!=Tickable.TICKID_MOB)
-			return true;
+			return super.tick(ticking, tickID);
 		if(!proficiencyCheck(null,0,false))
-			return true;
+			return super.tick(ticking, tickID);
 
 		if((!mob.isInCombat())
 		&&(CMLib.flags().isSleeping(mob)))

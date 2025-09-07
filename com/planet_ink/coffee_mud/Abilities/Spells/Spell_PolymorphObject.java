@@ -4,7 +4,7 @@ import com.planet_ink.coffee_mud.core.interfaces.ItemPossessor.Expire;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
-import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.ItemKeyPair;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftedItem;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -81,12 +81,8 @@ public class Spell_PolymorphObject extends Spell
 		if(craftingSkills.size()==0)
 		{
 			final Vector<Ability> V=new Vector<Ability>();
-			for(final Enumeration<Ability> e=CMClass.abilities();e.hasMoreElements();)
-			{
-				final Ability A=e.nextElement();
-				if(A instanceof ItemCraftor)
-					V.addElement((ItemCraftor)A.copyOf());
-			}
+			for(final Enumeration<ItemCraftor> e=CMClass.craftorAbilities();e.hasMoreElements();)
+				V.addElement((ItemCraftor)e.nextElement().copyOf());
 			while(V.size()>0)
 			{
 				int lowest=Integer.MAX_VALUE;
@@ -185,10 +181,10 @@ public class Spell_PolymorphObject extends Spell
 		Item intoI = null;
 		for(final ItemCraftor A : getCraftingSkills())
 		{
-			final List<List<String>> L = A.matchingRecipeNames(intoWhat, false);
+			final List<String> L = A.matchingRecipeNames(intoWhat, false);
 			if((L!=null)&&(L.size()>0))
 			{
-				final ItemKeyPair what=A.craftItem(L.get(0).get(0),targetI.material(),true, false);
+				final CraftedItem what=A.craftItem(L.get(0),targetI.material(),true, false);
 				if((what!=null)&&(what.item!=null))
 				{
 					intoI=what.item;
@@ -200,10 +196,10 @@ public class Spell_PolymorphObject extends Spell
 		{
 			for(final ItemCraftor A : getCraftingSkills())
 			{
-				final List<List<String>> L = A.matchingRecipeNames(intoWhat, true);
+				final List<String> L = A.matchingRecipeNames(intoWhat, true);
 				if((L!=null)&&(L.size()>0))
 				{
-					final ItemKeyPair what=A.craftItem(L.get(0).get(0),targetI.material(),true, false);
+					final CraftedItem what=A.craftItem(L.get(0),targetI.material(),true, false);
 					if((what!=null)&&(what.item!=null))
 					{
 						intoI=what.item;
@@ -215,7 +211,7 @@ public class Spell_PolymorphObject extends Spell
 		if(intoI == null)
 			intoI = mob.findItem(intoWhat);
 		if(intoI == null)
-			intoI = CMLib.map().findFirstRoomItem(mob.location().getArea().getCompleteMap(), mob, intoWhat, true, 5);
+			intoI = CMLib.hunt().findFirstRoomItem(mob.location().getArea().getCompleteMap(), mob, intoWhat, true, 5);
 
 		if(intoI == null)
 		{
@@ -276,7 +272,7 @@ public class Spell_PolymorphObject extends Spell
 		// the reason this costs experience is to make it less valuable than Duplicate
 		// but more valuable than Wish.
 		int experienceToLose=getXPCOSTAdjustment(mob,5+intoI.basePhyStats().level());
-		experienceToLose=-CMLib.leveler().postExperience(mob,null,null,-experienceToLose,false);
+		experienceToLose=-CMLib.leveler().postExperience(mob,"ABILITY:"+ID(),null,null,-experienceToLose, false);
 		mob.tell(L("The effort causes you to lose @x1 experience.",""+experienceToLose));
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
@@ -287,7 +283,7 @@ public class Spell_PolymorphObject extends Spell
 		if(success)
 		{
 			invoker=mob;
-			final CMMsg msg=CMClass.getMsg(mob,targetI,this,somanticCastCode(mob,targetI,auto),L("^S<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAME> polymorphing it into @x1.^?",intoI.name()));
+			final CMMsg msg=CMClass.getMsg(mob,targetI,this,somaticCastCode(mob,targetI,auto),L("^S<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAME> polymorphing it into @x1.^?",intoI.name()));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -301,7 +297,7 @@ public class Spell_PolymorphObject extends Spell
 					items.add(targetI);
 					if(targetI instanceof Container)
 						items.addAll(((Container)targetI).getDeepContents());
-					A.setMiscText(CMLib.coffeeMaker().getItemsXML(items, new Hashtable<String,List<Item>>(),new HashSet<String>(),null).toString());
+					A.setMiscText(CMLib.coffeeMaker().getUniqueItemsXML(items, new Hashtable<String,List<Item>>(),new HashSet<String>(),null).toString());
 					A.previousItems = items;
 					final ItemPossessor possessor = targetI.owner();
 					if(possessor != null)

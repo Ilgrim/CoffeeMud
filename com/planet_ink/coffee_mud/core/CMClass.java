@@ -16,18 +16,21 @@ import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
+import com.planet_ink.coffee_mud.Tests.interfaces.CMTest;
 
 import java.util.*;
 import java.io.File;
+import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Modifier;
 import java.net.URL;
+import java.net.URLStreamHandler;
 
 import org.mozilla.javascript.*;
 import org.mozilla.javascript.optimizer.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -54,9 +57,39 @@ public class CMClass extends ClassLoader
 	protected static boolean						debugging		= false;
 	protected static volatile long					lastUpdateTime	= System.currentTimeMillis();
 	protected static final Map<String, Class<?>>	classes			= new Hashtable<String, Class<?>>();
-	protected static final LimitedTreeMap<Ability>	ableFinder		= new LimitedTreeMap<Ability>(300000,100,true);
+	protected static final Map<String,Ability>		ableFinder		= new LimitedTreeMap<String,Ability>(300000,100,true);
+	protected static final Map<String,Object>		syncCache		= new LimitedTreeMap<String,Object>(300000,10000,true);
 
 	private static CMClass[] clss=new CMClass[256];
+
+	// set up a vfs class loader protocol
+	static
+	{
+		URL.setURLStreamHandlerFactory(protocol -> "vfs".equals(protocol) ? new URLStreamHandler()
+		{
+			@Override
+			protected java.net.URLConnection openConnection(final URL url) throws IOException
+			{
+				return new java.net.URLConnection(url)
+				{
+					final CMFile F = new CMFile(url.getPath(),null);
+					@Override
+					public void connect() throws IOException
+					{
+						if(!F.exists())
+							throw new IOException("File not found: "+F.getAbsolutePath());
+					}
+					@Override
+					public java.io.InputStream getInputStream() throws IOException
+					{
+						if(!F.exists())
+							throw new IOException("File not found: "+F.getAbsolutePath());
+						return F.getRawStream();
+					}
+				};
+			}
+		} : null);
+	}
 	/**
 	 * Creates a new instance of the class loader, updating the thread-group ref if necessary.
 	 */
@@ -150,7 +183,10 @@ public class CMClass extends ClassLoader
 	/** stat constant for common type objects */
 	COMMON("com.planet_ink.coffee_mud.Common.interfaces.CMCommon"),
 	/** stat constant for library type objects */
-	LIBRARY("com.planet_ink.coffee_mud.Libraries.interfaces.CMLibrary");
+	LIBRARY("com.planet_ink.coffee_mud.Libraries.interfaces.CMLibrary"),
+	/** stat constant for test type objects */
+	TEST("com.planet_ink.coffee_mud.Tests.interfaces.CMTest")
+	;
 
 		public final String ancestorName; // in meters
 		CMObjectType(final String ancestorName)
@@ -189,6 +225,7 @@ public class CMClass extends ClassLoader
 	protected XVector<Armor>				armor			= new XVector<Armor>();
 	protected XVector<MiscMagic>			miscMagic		= new XVector<MiscMagic>();
 	protected XVector<Technical>			tech			= new XVector<Technical>();
+	protected XVector<CMTest>				tests			= new XVector<CMTest>();
 	protected XVector<ClanItem>				clanItems		= new XVector<ClanItem>();
 	protected XVector<Area>					areaTypes		= new XVector<Area>();
 	protected XVector<Command>				commands		= new XVector<Command>();
@@ -333,6 +370,8 @@ public class CMClass extends ClassLoader
 				return O instanceof Software;
 			case COMPTECH:
 				return O instanceof TechComponent;
+			case TEST:
+				return O instanceof CMTest;
 		}
 		return false;
 	}
@@ -390,6 +429,8 @@ public class CMClass extends ClassLoader
 				return CMClass.getTech(ID);
 			case SOFTWARE:
 				return CMClass.getTech(ID);
+			case TEST:
+				return CMClass.getTest(ID);
 		}
 		return null;
 	}
@@ -444,6 +485,8 @@ public class CMClass extends ClassLoader
 			return CMObjectType.COMPTECH;
 		if(O instanceof Electronics)
 			return CMObjectType.TECH;
+		if(O instanceof CMTest)
+			return CMObjectType.TEST;
 		return null;
 	}
 
@@ -540,6 +583,8 @@ public class CMClass extends ClassLoader
 			return c().tech;
 		case SOFTWARE:
 			return c().tech;
+		case TEST:
+			return c().tests;
 		}
 		return null;
 	}
@@ -584,7 +629,7 @@ public class CMClass extends ClassLoader
 	 * this thread
 	 *
 	 * @return an enumeration of all the stored common Objects in this
-	 *         classloader for this thread
+	 *  	   classloader for this thread
 	 */
 	public static final Enumeration<CMCommon> commonObjects()
 	{
@@ -596,7 +641,7 @@ public class CMClass extends ClassLoader
 	 * this thread
 	 *
 	 * @return an enumeration of all the stored char Classes in this classloader
-	 *         for this thread
+	 *  	   for this thread
 	 */
 	public static final Enumeration<CharClass> charClasses()
 	{
@@ -608,7 +653,7 @@ public class CMClass extends ClassLoader
 	 * thread
 	 *
 	 * @return an enumeration of all the stored mob Types in this classloader
-	 *         for this thread
+	 *  	   for this thread
 	 */
 	public static final Enumeration<MOB> mobTypes()
 	{
@@ -620,7 +665,7 @@ public class CMClass extends ClassLoader
 	 * thread
 	 *
 	 * @return an enumeration of all the stored races in this classloader for
-	 *         this thread
+	 *  	   this thread
 	 */
 	public static final Enumeration<CMLibrary> libraries()
 	{
@@ -632,7 +677,7 @@ public class CMClass extends ClassLoader
 	 * thread
 	 *
 	 * @return an enumeration of all the stored locales in this classloader for
-	 *         this thread
+	 *  	   this thread
 	 */
 	public static final Enumeration<Room> locales()
 	{
@@ -644,7 +689,7 @@ public class CMClass extends ClassLoader
 	 * thread
 	 *
 	 * @return an enumeration of all the stored exits in this classloader for
-	 *         this thread
+	 *  	   this thread
 	 */
 	public static final Enumeration<Exit> exits()
 	{
@@ -656,7 +701,7 @@ public class CMClass extends ClassLoader
 	 * thread
 	 *
 	 * @return an enumeration of all the stored behaviors in this classloader
-	 *         for this thread
+	 *  	   for this thread
 	 */
 	public static final Enumeration<Behavior> behaviors()
 	{
@@ -668,7 +713,7 @@ public class CMClass extends ClassLoader
 	 * thread
 	 *
 	 * @return an enumeration of all the stored basic Items in this classloader
-	 *         for this thread
+	 *  	   for this thread
 	 */
 	public static final Enumeration<Item> basicItems()
 	{
@@ -680,7 +725,7 @@ public class CMClass extends ClassLoader
 	 * thread
 	 *
 	 * @return an enumeration of all the stored weapons in this classloader for
-	 *         this thread
+	 *  	   this thread
 	 */
 	public static final Enumeration<Weapon> weapons()
 	{
@@ -692,7 +737,7 @@ public class CMClass extends ClassLoader
 	 * thread
 	 *
 	 * @return an enumeration of all the stored armor in this classloader for
-	 *         this thread
+	 *  	   this thread
 	 */
 	public static final Enumeration<Armor> armor()
 	{
@@ -704,11 +749,29 @@ public class CMClass extends ClassLoader
 	 * thread
 	 *
 	 * @return an enumeration of all the stored misc Magic in this classloader
-	 *         for this thread
+	 *  	   for this thread
 	 */
 	public static final Enumeration<MiscMagic> miscMagic()
 	{
 		return c().miscMagic.elements();
+	}
+
+	/**
+	 * An enumeration of all the stored Items in this classloader for this
+	 * thread, of all types and subtypes
+	 *
+	 * @return an enumeration of all the stored Items in this classloader
+	 *  	   for this thread
+	 */
+	@SuppressWarnings("unchecked")
+	public static final Enumeration<Item> allItems()
+	{
+		return new MultiEnumeration<Item>(new Enumeration[] {
+			c().items.elements(),
+			c().weapons.elements(),
+			c().armor.elements(),
+			c().miscMagic.elements()
+		});
 	}
 
 	/**
@@ -717,7 +780,7 @@ public class CMClass extends ClassLoader
 	 *
 	 * @param f the filterer to help select which ones you want
 	 * @return an enumeration of all the stored misc Magic in this classloader
-	 *         for this thread
+	 *  	   for this thread
 	 */
 	public static final Enumeration<MiscMagic> miscMagic(final Filterer<MiscMagic> f)
 	{
@@ -729,11 +792,23 @@ public class CMClass extends ClassLoader
 	 * thread
 	 *
 	 * @return an enumeration of all the stored misc Tech in this classloader
-	 *         for this thread
+	 *  	   for this thread
 	 */
 	public static final Enumeration<Technical> tech()
 	{
 		return c().tech.elements();
+	}
+
+	/**
+	 * An enumeration of all the stored Tests in this classloader for this
+	 * thread
+	 *
+	 * @return an enumeration of all the stored Tests in this classloader
+	 *  	   for this thread
+	 */
+	public static final Enumeration<CMTest> tests()
+	{
+		return c().tests.elements();
 	}
 
 	/**
@@ -742,7 +817,7 @@ public class CMClass extends ClassLoader
 	 *
 	 * @param f the filterer to help select which ones you want
 	 * @return an enumeration of all the stored misc Tech in this classloader
-	 *         for this thread
+	 *  	   for this thread
 	 */
 	public static final Enumeration<Technical> tech(final Filterer<Technical> f)
 	{
@@ -754,7 +829,7 @@ public class CMClass extends ClassLoader
 	 * thread
 	 *
 	 * @return an enumeration of all the stored clan Items in this classloader
-	 *         for this thread
+	 *  	   for this thread
 	 */
 	public static final Enumeration<ClanItem> clanItems()
 	{
@@ -766,7 +841,7 @@ public class CMClass extends ClassLoader
 	 * thread
 	 *
 	 * @return an enumeration of all the stored area Types in this classloader
-	 *         for this thread
+	 *  	   for this thread
 	 */
 	public static final Enumeration<Area> areaTypes()
 	{
@@ -778,7 +853,7 @@ public class CMClass extends ClassLoader
 	 * thread
 	 *
 	 * @return an enumeration of all the stored commands in this classloader for
-	 *         this thread
+	 *  	   this thread
 	 */
 	public static final Enumeration<Command> commands()
 	{
@@ -790,7 +865,7 @@ public class CMClass extends ClassLoader
 	 * thread
 	 *
 	 * @return an enumeration of all the stored abilities in this classloader
-	 *         for this thread
+	 *  	   for this thread
 	 */
 	public static final Enumeration<Ability> abilities()
 	{
@@ -803,7 +878,7 @@ public class CMClass extends ClassLoader
 	 *
 	 * @param f the filterer to help select which ones you want
 	 * @return an enumeration of all the stored abilities in this classloader
-	 *         for this thread
+	 *  	   for this thread
 	 */
 	public static final Enumeration<Ability> abilities(final Filterer<Ability> f)
 	{
@@ -815,7 +890,7 @@ public class CMClass extends ClassLoader
 	 * thread
 	 *
 	 * @return an enumeration of all the stored webmacros in this classloader
-	 *         for this thread
+	 *  	   for this thread
 	 */
 	public static final Enumeration<WebMacro> webmacros()
 	{
@@ -830,6 +905,16 @@ public class CMClass extends ClassLoader
 	public static final Race randomRace()
 	{
 		return c().races.elementAt((int) Math.round(Math.floor(Math.random() * (c().races.size()))));
+	}
+
+	/**
+	 * Returns a random available basic item prototype from your classloader
+	 *
+	 * @return a random available basic item prototype
+	 */
+	public static final Item randomBasicItemPrototype()
+	{
+		return c().items.elementAt((int) Math.round(Math.floor(Math.random() * (c().items.size()))));
 	}
 
 	/**
@@ -850,6 +935,18 @@ public class CMClass extends ClassLoader
 	public static final Ability randomAbility()
 	{
 		return c().abilities.elementAt((int) Math.round(Math.floor(Math.random() * (c().abilities.size()))));
+	}
+
+	/**
+	 * Returns a numbered available ability prototype from your classloader
+	 *
+	 * @param x the index number of the ability to get
+	 *
+	 * @return a numbered available ability prototype -- automatically scaled correctly.
+	 */
+	public static final Ability getAbility(final int x)
+	{
+		return c().abilities.elementAt(x % (c().abilities.size()));
 	}
 
 	/**
@@ -991,6 +1088,18 @@ public class CMClass extends ClassLoader
 	}
 
 	/**
+	 * Returns a new instance of a test object of the given ID from your
+	 * classloader
+	 *
+	 * @param calledThis the ID() of the object to return
+	 * @return a new instance of a test object of the given ID
+	 */
+	public static final CMTest getTest(final String calledThis)
+	{
+		return (CMTest) getNewGlobal(c().tests, calledThis);
+	}
+
+	/**
 	 * Returns a new instance of a armor object of the given ID from your
 	 * classloader
 	 *
@@ -1035,7 +1144,42 @@ public class CMClass extends ClassLoader
 	 */
 	public static final Ability getAbility(final String calledThis)
 	{
+		final Ability A = (Ability) getNewGlobal(c().abilities, calledThis);
+		if(A!=null)
+		{
+			final String arg = CMProps.getAbleArg(A.ID());
+			if(arg != null)
+				A.setMiscText(arg);
+		}
+		return A;
+	}
+
+	/**
+	 * Returns a new instance of a ability object of the given ID from your
+	 * classloader, and ignores default arguments.
+	 *
+	 * @param calledThis the ID() of the object to return
+	 * @return a new instance of a ability object of the given ID
+	 */
+	public static final Ability getRawAbility(final String calledThis)
+	{
 		return (Ability) getNewGlobal(c().abilities, calledThis);
+	}
+
+	/**
+	 * Returns a new instance of a ability object of the given ID from your
+	 * classloader and lets you set the misc text
+	 *
+	 * @param calledThis the ID() of the object to return
+	 * @param miscText the misc text to give the ability
+	 * @return a new instance of a ability object of the given ID
+	 */
+	public static final Ability getAbility(final String calledThis, final String miscText)
+	{
+		final Ability A=(Ability) getNewGlobal(c().abilities, calledThis);
+		if((A!=null)&&(miscText!=null))
+			A.setMiscText(miscText);
+		return A;
 	}
 
 	/**
@@ -1162,14 +1306,15 @@ public class CMClass extends ClassLoader
 	private static List<String> getAllItemClassNames(final Enumeration<? extends Item> i,
 													 final boolean NonArchon, final boolean NonGeneric, final boolean NonStandard)
 	{
-		final Vector<String> V=new Vector<String>();
+		final List<String> V=new Vector<String>();
 		for(;i.hasMoreElements();)
 		{
 			final Item I=i.nextElement();
 			if(((!NonArchon)||(!(I instanceof ArchonOnly)))
 			&&((!NonStandard)||(I.isGeneric()))
-			&&((!NonGeneric)||(!I.isGeneric())))
-				V.addElement(CMClass.classID(I));
+			&&((!NonGeneric)||(!I.isGeneric()))
+			&&(!(I instanceof CMObjectWrapper)))
+				V.add(CMClass.classID(I));
 		}
 		return V;
 	}
@@ -1342,7 +1487,16 @@ public class CMClass extends ClassLoader
 		if(O==null)
 			return false;
 		if(classes.containsKey(O.getClass().getName()))
+		{
+			final String sw = O.getClass().getName() + "$";
 			classes.remove(O.getClass().getName());
+			for(final Iterator<String> k = classes.keySet().iterator();k.hasNext();)
+			{
+				final String key = k.next();
+				if(key.startsWith(sw))
+					k.remove();
+			}
+		}
 		final Object set=getClassSet(type);
 		if(set==null)
 			return false;
@@ -1361,9 +1515,15 @@ public class CMClass extends ClassLoader
 			((HashSet<CMObject>)set).remove(O);
 		else
 			return false;
+
 		if(set==c().commands)
 			reloadCommandWords();
-		ableFinder.clear();
+		else
+		if(set==c().abilities)
+		{
+			Resources.removeResource("SYSTEM_FILTERED_ITEM_CRAFTORS");
+			ableFinder.clear();
+		}
 		//if(set==libraries) CMLib.registerLibraries(libraries.elements());
 		return true;
 	}
@@ -1395,11 +1555,18 @@ public class CMClass extends ClassLoader
 			((HashSet<CMObject>)set).add(O);
 		else
 			return false;
+
 		if(set==c().commands)
 			reloadCommandWords();
+		else
 		if(set==c().libraries)
 			CMLib.registerLibraries(c().libraries.elements());
-		ableFinder.clear();
+		else
+		if(set==c().abilities)
+		{
+			Resources.removeResource("SYSTEM_FILTERED_ITEM_CRAFTORS");
+			ableFinder.clear();
+		}
 		return true;
 	}
 
@@ -1484,7 +1651,7 @@ public class CMClass extends ClassLoader
 			return false;
 		CMClass.lastUpdateTime=System.currentTimeMillis();
 
-		if(!loadListToObj(set,path,classType.ancestorName,quiet))
+		if(!loadObjectsIntoList(set,path,classType.ancestorName,quiet))
 			return false;
 
 		if(set instanceof List)
@@ -1542,20 +1709,20 @@ public class CMClass extends ClassLoader
 		{
 			final String pathLess=makeDotClassPath(path);
 			if(classes.containsKey(pathLess))
-				return (classes.get(pathLess)).newInstance();
+				return (classes.get(pathLess)).getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
 		}
-		final Vector<Object> V=new Vector<Object>(1);
-		if(!loadListToObj(V,makeFilePath(path),classType.ancestorName,quiet))
+		final List<Object> V=new ArrayList<Object>(1);
+		if(!loadObjectsIntoList(V,makeFilePath(path),classType.ancestorName,quiet))
 			return null;
 		if(V.size()==0)
 			return null;
-		final Object o = V.firstElement();
+		final Object o = V.get(0);
 		try
 		{
-			return o.getClass().newInstance();
+			return o.getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -1583,9 +1750,16 @@ public class CMClass extends ClassLoader
 		catch(final Exception e)
 		{
 		}
-		final Vector<Object> V=new Vector<Object>(1);
-		if(!loadListToObj(V,makeFilePath(path),classType.ancestorName,true))
+		final List<Object> V=new ArrayList<Object>(1);
+		try
+		{
+			if(!loadObjectsIntoList(V,makeFilePath(path),classType.ancestorName,true))
+				return false;
+		}
+		catch(final Throwable t) // a mal-formed class name
+		{
 			return false;
+		}
 		if(V.size()==0)
 			return false;
 		return true;
@@ -1630,7 +1804,7 @@ public class CMClass extends ClassLoader
 			shortThis=shortThis.substring(x+1);
 			try
 			{
-				return classes.get(calledThis).newInstance();
+				return classes.get(calledThis).getDeclaredConstructor().newInstance();
 			}
 			catch (final Exception e)
 			{
@@ -1645,6 +1819,12 @@ public class CMClass extends ClassLoader
 		return null;
 	}
 
+	private static CMObjectType[] unknownTypesInOrder = new CMObjectType[] {
+		CMObjectType.ITEM, CMObjectType.ARMOR, CMObjectType.WEAPON, CMObjectType.MISCMAGIC,
+		CMObjectType.TECH, CMObjectType.MOB, CMObjectType.ABILITY, CMObjectType.CLANITEM
+	};
+
+
 	/**
 	 * Returns a new instance of a Environmental of the given id, prefers items,
 	 * but also checks mobs and abilities as well.
@@ -1653,24 +1833,106 @@ public class CMClass extends ClassLoader
 	 */
 	public static final Environmental getUnknown(final String calledThis)
 	{
-		Environmental thisItem=(Environmental)getNewGlobal(c().items,calledThis);
-		if(thisItem==null)
-			thisItem=(Environmental)getNewGlobal(c().armor,calledThis);
-		if(thisItem==null)
-			thisItem=(Environmental)getNewGlobal(c().weapons,calledThis);
-		if(thisItem==null)
-			thisItem=(Environmental)getNewGlobal(c().miscMagic,calledThis);
-		if(thisItem==null)
-			thisItem=(Environmental)getNewGlobal(c().tech,calledThis);
-		if(thisItem==null)
-			thisItem=(Environmental)getNewGlobal(c().MOBs,calledThis);
-		if(thisItem==null)
-			thisItem=(Environmental)getNewGlobal(c().abilities,calledThis);
-		if(thisItem==null)
-			thisItem=(Environmental)getNewGlobal(c().clanItems,calledThis);
-		if((thisItem==null)&&(c().charClasses.size()>0)&&(calledThis.length()>0))
+		for(final CMObjectType typ : unknownTypesInOrder)
+		{
+			final Object setO = getClassSet(typ);
+			if(setO instanceof List)
+			{
+				@SuppressWarnings({ "unchecked", "rawtypes" })
+				final List<? extends CMObject> lst = (List)setO;
+				final CMObject o = getNewGlobal(lst, calledThis);
+				if(o instanceof Environmental)
+					return (Environmental)o;
+			}
+		}
+		if((c().charClasses.size()>0)&&(calledThis.length()>0))
 			Log.sysOut("CMClass","Unknown Unknown '"+calledThis+"'.");
-		return thisItem;
+		return null;
+	}
+
+	/**
+	 * Returns the most preferred object type for the given coffeemud ID
+	 * @param calledThis the coffeemud ID
+	 * @return the type it prefers, or null
+	 */
+	public static CMObjectType getUnknownType(final String calledThis)
+	{
+		for(final CMObjectType typ : unknownTypesInOrder)
+		{
+			final CMObject o=CMClass.getPrototypeByID(typ, calledThis);
+			if(o != null)
+				return typ;
+		}
+		return null;
+	}
+
+	/**
+	 * Returns whether a object with the given coffeemud id can be of the
+	 * given type.
+	 * @param typ the type of object to check
+	 * @param calledThis the coffeemud ID
+	 * @return true if it exists, false otherwise
+	 */
+	public static boolean doesTypeExist(final CMObjectType typ, final String calledThis)
+	{
+		final CMObject o=CMClass.getPrototypeByID(typ, calledThis);
+		if(o != null)
+			return true;
+		return false;
+	}
+
+	/**
+	 * Does a search for a command of the given name, first checking
+	 * for identical matches, then case insensitive name matches.
+	 * @param calledThis the name or id
+	 * @param genericOnly only check generic commands
+	 * @param startsWith also check for startsWith type matches
+	 * @return the command object
+	 */
+	public static final Command findCommand(final String calledThis, final boolean genericOnly, final boolean startsWith)
+	{
+		final Command thisItem=getCommand(calledThis);
+		if(thisItem!=null)
+			return thisItem;
+		Command C;
+		final CMClass c=c();
+		for(int i=0;i<c.commands.size();i++)
+		{
+			C=c.commands.get(i);
+			if((genericOnly)&&(!C.isGeneric()))
+				continue;
+			if(C.name().equalsIgnoreCase(calledThis))
+				return C;
+			if((C.getAccessWords() != null)
+			&& (C.getAccessWords().length > 0))
+			{
+				for(int x = 0;x < C.getAccessWords().length;x++)
+				{
+					if(C.getAccessWords()[x].equalsIgnoreCase(calledThis))
+						return C;
+				}
+			}
+		}
+		if(!startsWith)
+			return null;
+		for(int i=0;i<c.commands.size();i++)
+		{
+			C=c.commands.get(i);
+			if((genericOnly)&&(!C.isGeneric()))
+				continue;
+			if(CMStrings.startsWithIgnoreCase(C.name(), calledThis))
+				return C;
+			if((C.getAccessWords() != null)
+			&& (C.getAccessWords().length > 0))
+			{
+				for(int x = 0;x < C.getAccessWords().length;x++)
+				{
+					if(CMStrings.startsWithIgnoreCase(C.getAccessWords()[x], calledThis))
+						return C;
+				}
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -1749,14 +2011,23 @@ public class CMClass extends ClassLoader
 		while(start<=end)
 		{
 			final int mid=(end+start)/2;
-			final int comp=classID(list.get(mid)).compareToIgnoreCase(ID);
-			if(comp==0)
-				return list.get(mid);
-			else
-			if(comp>0)
-				end=mid-1;
-			else
-				start=mid+1;
+			try
+			{
+				final String s=classID(list.get(mid));
+				final int comp=s.compareToIgnoreCase(ID);
+				if(comp==0)
+					return list.get(mid);
+				else
+				if(comp>0)
+					end=mid-1;
+				else
+					start=mid+1;
+			}
+			catch(final IndexOutOfBoundsException e)
+			{
+				start=0;
+				end=list.size()-1;
+			}
 		}
 		return null;
 	}
@@ -1965,6 +2236,28 @@ public class CMClass extends ClassLoader
 	}
 
 	/**
+	 * Returns the registered abilities that extend the ItemCraftor interface
+	 * @return the registered abilities that extend the ItemCraftor interface
+	 */
+	public static Enumeration<ItemCraftor> craftorAbilities()
+	{
+		@SuppressWarnings("unchecked")
+		List<ItemCraftor> craftorPrototypes = (List<ItemCraftor>)Resources.getResource("SYSTEM_FILTERED_ITEM_CRAFTORS");
+		if(craftorPrototypes == null)
+		{
+			craftorPrototypes=new Vector<ItemCraftor>();
+			for(final Enumeration<Ability> e=abilities();e.hasMoreElements();)
+			{
+				final Ability A=e.nextElement();
+				if(A instanceof ItemCraftor)
+					craftorPrototypes.add((ItemCraftor)A);
+			}
+			Resources.submitResource("SYSTEM_FILTERED_ITEM_CRAFTORS", craftorPrototypes);
+		}
+		return new IteratorEnumeration<ItemCraftor>(craftorPrototypes.iterator());
+	}
+
+	/**
 	 * Given a map of CMObjects with ID()s defined, this will return the one matched by the given ID.
 	 * If the ID is not found in the map, it will iterate and look for a case-insensitive match before
 	 * giving up.  It returns a brand new object.
@@ -2085,7 +2378,7 @@ public class CMClass extends ClassLoader
 				else
 				if(o2 == null)
 					return 1;
-				return o1.ID().compareTo(o2.ID());
+				return o1.ID().compareToIgnoreCase(o2.ID());
 			}
 		});
 	}
@@ -2192,9 +2485,9 @@ public class CMClass extends ClassLoader
 	 * @return a vector of all the  prototype instance of the classes
 	 */
 	@SuppressWarnings("rawtypes")
-	public static final XVector loadVectorListToObj(final String defaultPath, String requestedPathList, final String ancestor)
+	public static final XVector loadObjectList(final String defaultPath, String requestedPathList, final String ancestor)
 	{
-		final Vector<Object> v=new Vector<Object>();
+		final XVector<Object> v=new XVector<Object>();
 		int x=requestedPathList.indexOf(';');
 		String path;
 		while(x>=0)
@@ -2205,7 +2498,21 @@ public class CMClass extends ClassLoader
 			x=requestedPathList.indexOf(';');
 		}
 		loadObjectListToObj(v,defaultPath,requestedPathList,ancestor);
-		return new XVector<Object>(new TreeSet<Object>(v));
+		Collections.sort(v,new Comparator<Object>()
+		{
+			@Override
+			public int compare(final Object o1, final Object o2)
+			{
+				return classID(o1).compareToIgnoreCase(classID(o2));
+			}
+		});
+		for(int i=1;i<v.size();i++)
+		{
+			if((v.get(i) instanceof CMObject)
+			&&(((CMObject)v.get(i)).ID().compareToIgnoreCase(((CMObject)v.get(i-1)).ID())<=0))
+				Log.errOut("Sort failure @ "+((CMObject)v.get(i-1)).ID()+"/"+((CMObject)v.get(i)).ID());
+		}
+		return v;
 	}
 
 	/**
@@ -2219,31 +2526,31 @@ public class CMClass extends ClassLoader
 	 * @param quiet true to not report errors to the log, false otherwise
 	 * @return a vector of all the  prototype instance of the classes
 	 */
-	public static final Vector<Object> loadClassList(final String defaultPath, String requestedPathList, final String subDir, final Class<?> ancestorC1, final boolean quiet)
+	public static final List<Object> loadClassList(final String defaultPath, String requestedPathList, final String subDir, final Class<?> ancestorC1, final boolean quiet)
 	{
-		final Vector<Object> v=new Vector<Object>();
+		final List<Object> v=new Vector<Object>();
 		int x=requestedPathList.indexOf(';');
 		while(x>=0)
 		{
 			String path=requestedPathList.substring(0,x).trim();
 			requestedPathList=requestedPathList.substring(x+1).trim();
 			if(path.equalsIgnoreCase("%default%"))
-				loadListToObj(v,defaultPath, ancestorC1, quiet);
+				loadObjectsIntoList(v,defaultPath, ancestorC1, quiet);
 			else
 			{
 				if((subDir!=null)&&(subDir.length()>0))
 					path+=subDir;
-				loadListToObj(v,path,ancestorC1, quiet);
+				loadObjectsIntoList(v,path,ancestorC1, quiet);
 			}
 			x=requestedPathList.indexOf(';');
 		}
 		if(requestedPathList.equalsIgnoreCase("%default%"))
-			loadListToObj(v,defaultPath, ancestorC1, quiet);
+			loadObjectsIntoList(v,defaultPath, ancestorC1, quiet);
 		else
 		{
 			if((subDir!=null)&&(subDir.length()>0))
 				requestedPathList+=subDir;
-			loadListToObj(v,requestedPathList,ancestorC1, quiet);
+			loadObjectsIntoList(v,requestedPathList,ancestorC1, quiet);
 		}
 		return v;
 	}
@@ -2264,9 +2571,9 @@ public class CMClass extends ClassLoader
 		{
 			final boolean success;
 			if(path.equalsIgnoreCase("%default%"))
-				success=loadListToObj(collection,defaultPath, ancestor, false);
+				success=loadObjectsIntoList(collection,defaultPath, ancestor, false);
 			else
-				success=loadListToObj(collection,path,ancestor, false);
+				success=loadObjectsIntoList(collection,path,ancestor, false);
 			return success;
 		}
 		return false;
@@ -2282,7 +2589,7 @@ public class CMClass extends ClassLoader
 	 * @param quiet true to not report errors, false otherwise
 	 * @return true if classes were loaded successfully, false otherwise
 	 */
-	public static final boolean loadListToObj(final Object collection, final String filePath, final String ancestor, final boolean quiet)
+	public static final boolean loadObjectsIntoList(final Object collection, final String filePath, final String ancestor, final boolean quiet)
 	{
 		final CMClass loader=new CMClass();
 		Class<?> ancestorCl=null;
@@ -2298,7 +2605,7 @@ public class CMClass extends ClassLoader
 					Log.sysOut("CMClass","WARNING: Couldn't load ancestor class: "+ancestor);
 			}
 		}
-		return loadListToObj(collection, filePath, ancestorCl, quiet);
+		return loadObjectsIntoList(collection, filePath, ancestorCl, quiet);
 	}
 
 	/**
@@ -2312,11 +2619,11 @@ public class CMClass extends ClassLoader
 	 * @return true if classes were loaded successfully, false otherwise
 	 */
 	@SuppressWarnings("unchecked")
-	public static final boolean loadListToObj(final Object collection, final String filePath, final Class<?> ancestorCl, final boolean quiet)
+	public static final boolean loadObjectsIntoList(final Object collection, final String filePath, final Class<?> ancestorCl, final boolean quiet)
 	{
 		final CMClass loader=new CMClass();
 		final CMFile file=new CMFile(filePath,null,CMFile.FLAG_LOGERRORS);
-		final Vector<String> fileList=new Vector<String>();
+		final List<String> fileList=new Vector<String>();
 		if(file.canRead())
 		{
 			if(file.isDirectory())
@@ -2325,17 +2632,17 @@ public class CMClass extends ClassLoader
 				for (final CMFile element : list)
 				{
 					if((element.getName().indexOf('$')<0)&&(element.getName().toUpperCase().endsWith(".CLASS")))
-						fileList.addElement(element.getVFSPathAndName());
+						fileList.add(element.getVFSPathAndName());
 				}
 				for (final CMFile element : list)
 				{
 					if(element.getName().toUpperCase().endsWith(".JS"))
-						fileList.addElement(element.getVFSPathAndName());
+						fileList.add(element.getVFSPathAndName());
 				}
 			}
 			else
 			{
-				fileList.addElement(file.getVFSPathAndName());
+				fileList.add(file.getVFSPathAndName());
 			}
 		}
 		else
@@ -2347,7 +2654,7 @@ public class CMClass extends ClassLoader
 		String item;
 		for(int l=0;l<fileList.size();l++)
 		{
-			item=fileList.elementAt(l);
+			item=fileList.get(l);
 			if(item.startsWith("/"))
 				item=item.substring(1);
 			try
@@ -2361,15 +2668,25 @@ public class CMClass extends ClassLoader
 				{
 					if(!checkAncestry(C,ancestorCl))
 					{
-						if(!quiet)
+						if((!quiet) && (ancestorCl.isAssignableFrom(Environmental.class)))
 							Log.sysOut("CMClass","WARNING: class failed ancestral check: "+packageName);
 					}
 					else
-						O=C.newInstance();
+					{
+						try
+						{
+							O=C.getDeclaredConstructor().newInstance();
+						}
+						catch(final Throwable t)
+						{
+							Log.errOut(t);
+							O=null;
+						}
+					}
 				}
 				if(O==null)
 				{
-					if(!quiet)
+					if((!quiet) && (ancestorCl.isAssignableFrom(Environmental.class)))
 						Log.sysOut("CMClass","Unable to create class '"+packageName+"'");
 				}
 				else
@@ -2378,6 +2695,9 @@ public class CMClass extends ClassLoader
 					final int x=itemName.lastIndexOf('.');
 					if(x>=0)
 						itemName=itemName.substring(x+1);
+					if((O instanceof Environmental)
+					&&(!((CMObject)O).ID().equals(itemName)))
+						Log.errOut("CMClass","Possible class ID misnaming ID="+((CMObject)O).ID()+", but class name="+itemName);
 					if(collection instanceof Map)
 					{
 						final Map<String,Object> H=(Map<String,Object>)collection;
@@ -2625,13 +2945,10 @@ public class CMClass extends ClassLoader
 			throw new ClassFormatError();
 		}
 		if (resolveIt)
-		{
 			resolveClass(result);
-		}
 
 		if(debugging)
 			Log.debugOut("CMClass","Loaded: "+result.getName());
-
 		classes.put(className, result);
 		return result;
 	}
@@ -2704,7 +3021,7 @@ public class CMClass extends ClassLoader
 				throw new ClassNotFoundException("JavaScript file "+pathName+" not readable!");
 			final List<String> V=Resources.getFileLineVector(str);
 			Class<?> extendsClass=null;
-			final Vector<Class<?>> implementsClasses=new Vector<Class<?>>();
+			final List<Class<?>> implementsClasses=new Vector<Class<?>>();
 			String overPackage=null;
 			for(int v=0;v<V.size();v++)
 			{
@@ -2735,7 +3052,7 @@ public class CMClass extends ClassLoader
 					{
 						continue;
 					}
-					implementsClasses.addElement(C);
+					implementsClasses.add(C);
 				}
 			}
 			final Context X=Context.enter();
@@ -2754,7 +3071,7 @@ public class CMClass extends ClassLoader
 			{
 				final Class<?>[] CS=new Class[implementsClasses.size()];
 				for(int i=0;i<implementsClasses.size();i++)
-					CS[i]=implementsClasses.elementAt(i);
+					CS[i]=implementsClasses.get(i);
 				cc.setTargetImplements(CS);
 			}
 			final Object[] objs = cc.compileToClassFiles(str.toString(), "script", 1, name);
@@ -2796,7 +3113,7 @@ public class CMClass extends ClassLoader
 	 * Causes the map of command words associated with command objects
 	 * to be re-mapped, so that users can use them.
 	 */
-	protected static final void reloadCommandWords()
+	public static final void reloadCommandWords()
 	{
 		c().commandWords.clear();
 		Command C;
@@ -2833,7 +3150,7 @@ public class CMClass extends ClassLoader
 			final String prefix="com/planet_ink/coffee_mud/";
 			debugging=CMSecurity.isDebugging(CMSecurity.DbgFlag.CLASSLOADER);
 
-			c.libraries=loadVectorListToObj(prefix+"Libraries/",page.getStr("LIBRARY"),CMObjectType.LIBRARY.ancestorName);
+			c.libraries=loadObjectList(prefix+"Libraries/",page.getStr("LIBRARY"),CMObjectType.LIBRARY.ancestorName);
 			if(c.libraries.size()==0)
 				return false;
 			CMLib.registerLibraries(c.libraries.elements());
@@ -2869,7 +3186,7 @@ public class CMClass extends ClassLoader
 				c.races=baseC.races;
 			else
 			{
-				c.races=loadVectorListToObj(prefix+"Races/",page.getStr("RACES"),CMObjectType.RACE.ancestorName);
+				c.races=loadObjectList(prefix+"Races/",page.getStr("RACES"),CMObjectType.RACE.ancestorName);
 				//Log.sysOut(Thread.currentThread().getName(),"Races loaded      : "+c.races.size());
 			}
 			if(c.races.size()==0)
@@ -2879,7 +3196,7 @@ public class CMClass extends ClassLoader
 				c.charClasses=baseC.charClasses;
 			else
 			{
-				c.charClasses=loadVectorListToObj(prefix+"CharClasses/",page.getStr("CHARCLASSES"),CMObjectType.CHARCLASS.ancestorName);
+				c.charClasses=loadObjectList(prefix+"CharClasses/",page.getStr("CHARCLASSES"),CMObjectType.CHARCLASS.ancestorName);
 				//Log.sysOut(Thread.currentThread().getName(),"Classes loaded    : "+c.charClasses.size());
 			}
 			if(c.charClasses.size()==0)
@@ -2889,7 +3206,7 @@ public class CMClass extends ClassLoader
 				c.MOBs=baseC.MOBs;
 			else
 			{
-				c.MOBs=loadVectorListToObj(prefix+"MOBS/",page.getStr("MOBS"),CMObjectType.MOB.ancestorName);
+				c.MOBs=loadObjectList(prefix+"MOBS/",page.getStr("MOBS"),CMObjectType.MOB.ancestorName);
 				Log.sysOut(Thread.currentThread().getName(),"MOB Types loaded  : "+c.MOBs.size());
 			}
 			if(c.MOBs.size()==0)
@@ -2899,7 +3216,7 @@ public class CMClass extends ClassLoader
 				c.exits=baseC.exits;
 			else
 			{
-				c.exits=loadVectorListToObj(prefix+"Exits/",page.getStr("EXITS"),CMObjectType.EXIT.ancestorName);
+				c.exits=loadObjectList(prefix+"Exits/",page.getStr("EXITS"),CMObjectType.EXIT.ancestorName);
 				Log.sysOut(Thread.currentThread().getName(),"Exit Types loaded : "+c.exits.size());
 			}
 			if(c.exits.size()==0)
@@ -2909,7 +3226,7 @@ public class CMClass extends ClassLoader
 				c.areaTypes=baseC.areaTypes;
 			else
 			{
-				c.areaTypes=loadVectorListToObj(prefix+"Areas/",page.getStr("AREAS"),CMObjectType.AREA.ancestorName);
+				c.areaTypes=loadObjectList(prefix+"Areas/",page.getStr("AREAS"),CMObjectType.AREA.ancestorName);
 				Log.sysOut(Thread.currentThread().getName(),"Area Types loaded : "+c.areaTypes.size());
 			}
 			if(c.areaTypes.size()==0)
@@ -2919,7 +3236,7 @@ public class CMClass extends ClassLoader
 				c.locales=baseC.locales;
 			else
 			{
-				c.locales=loadVectorListToObj(prefix+"Locales/",page.getStr("LOCALES"),CMObjectType.LOCALE.ancestorName);
+				c.locales=loadObjectList(prefix+"Locales/",page.getStr("LOCALES"),CMObjectType.LOCALE.ancestorName);
 				Log.sysOut(Thread.currentThread().getName(),"Locales loaded    : "+c.locales.size());
 			}
 			if(c.locales.size()==0)
@@ -2929,35 +3246,35 @@ public class CMClass extends ClassLoader
 				c.abilities=baseC.abilities;
 			else
 			{
-				c.abilities=loadVectorListToObj(prefix+"Abilities/",page.getStr("ABILITIES"),CMObjectType.ABILITY.ancestorName);
+				c.abilities=loadObjectList(prefix+"Abilities/",page.getStr("ABILITIES"),CMObjectType.ABILITY.ancestorName);
 				if(c.abilities.size()==0)
 					return false;
 				if((page.getStr("ABILITIES")!=null)
 				&&(page.getStr("ABILITIES").toUpperCase().indexOf("%DEFAULT%")>=0))
 				{
-					Vector<Ability> tempV;
+					List<Ability> tempV;
 					int size=0;
-					tempV=loadVectorListToObj(prefix+"Abilities/Fighter/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Fighter/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					size=tempV.size();
 					c.abilities.addAll(tempV);
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Ranger/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Ranger/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					size+=tempV.size();
 					c.abilities.addAll(tempV);
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Paladin/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Paladin/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					size+=tempV.size();
 					c.abilities.addAll(tempV);
 
 					if(size>0)
 						Log.sysOut(Thread.currentThread().getName(),"Fighter Skills    : "+size);
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Druid/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Druid/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					if(tempV.size()>0)
 						Log.sysOut(Thread.currentThread().getName(),"Chants loaded     : "+tempV.size());
 					c.abilities.addAll(tempV);
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Languages/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Languages/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					if(!CMSecurity.isDisabled(DisFlag.LANGUAGES))
 					{
 						if(tempV.size()>0)
@@ -2965,74 +3282,74 @@ public class CMClass extends ClassLoader
 						c.abilities.addAll(tempV);
 					}
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Properties/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Properties/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					size=tempV.size();
 					c.abilities.addAll(tempV);
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Diseases/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Diseases/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					size+=tempV.size();
 					c.abilities.addAll(tempV);
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Poisons/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Poisons/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					size+=tempV.size();
 					c.abilities.addAll(tempV);
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Misc/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Misc/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					size+=tempV.size();
 					Log.sysOut(Thread.currentThread().getName(),"Properties loaded : "+size);
 					c.abilities.addAll(tempV);
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Prayers/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Prayers/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					Log.sysOut(Thread.currentThread().getName(),"Prayers loaded    : "+tempV.size());
 					c.abilities.addAll(tempV);
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Thief/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Thief/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					//size+=tempV.size();
 					c.abilities.addAll(tempV);
 					if(tempV.size()>0)
 						Log.sysOut(Thread.currentThread().getName(),"Thief Skills      : "+tempV.size());
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Archon/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Archon/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					size+=tempV.size();
 					c.abilities.addAll(tempV);
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Skills/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Skills/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					size=tempV.size();
 					c.abilities.addAll(tempV);
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Common/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Common/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					size+=tempV.size();
 					c.abilities.addAll(tempV);
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Specializations/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Specializations/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					size+=tempV.size();
 					c.abilities.addAll(tempV);
 					if(size>0)
 						Log.sysOut(Thread.currentThread().getName(),"Skills loaded     : "+size);
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Songs/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Songs/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					if(tempV.size()>0)
 						Log.sysOut(Thread.currentThread().getName(),"Songs loaded      : "+tempV.size());
 					c.abilities.addAll(tempV);
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Spells/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Spells/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					if(tempV.size()>0)
 						Log.sysOut(Thread.currentThread().getName(),"Spells loaded     : "+tempV.size());
 					c.abilities.addAll(tempV);
 
-					tempV=loadVectorListToObj(prefix+"Abilities/SuperPowers/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/SuperPowers/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					size=tempV.size();
 					c.abilities.addAll(tempV);
 					if(size>0)
 						Log.sysOut(Thread.currentThread().getName(),"Heroics loaded    : "+size);
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Tech/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Tech/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					size=tempV.size();
 					c.abilities.addAll(tempV);
 					if(size>0)
 						Log.sysOut(Thread.currentThread().getName(),"Tech Skills loaded: "+size);
 
-					tempV=loadVectorListToObj(prefix+"Abilities/Traps/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
+					tempV=loadObjectList(prefix+"Abilities/Traps/","%DEFAULT%",CMObjectType.ABILITY.ancestorName);
 					if(tempV.size()>0)
 						Log.sysOut(Thread.currentThread().getName(),"Traps loaded      : "+tempV.size());
 					c.abilities.addAll(tempV);
@@ -3051,7 +3368,9 @@ public class CMClass extends ClassLoader
 								type="GenAbility";
 							final Ability A=(Ability)(CMClass.getAbility(type).copyOf());
 							A.setStat("ALLXML",rec.data());
-							if((!A.ID().equals("GenAbility"))&&(!A.ID().equals(type)))
+							if((!A.ID().equals("GenAbility"))
+							&&(!A.ID().equals("GenTrap"))
+							&&(!A.ID().equals(type)))
 							{
 								c.abilities.addElement(A);
 								loaded++;
@@ -3070,7 +3389,7 @@ public class CMClass extends ClassLoader
 				c.items=baseC.items;
 			else
 			{
-				c.items=loadVectorListToObj(prefix+"Items/Basic/",page.getStr("ITEMS"),CMObjectType.ITEM.ancestorName);
+				c.items=loadObjectList(prefix+"Items/Basic/",page.getStr("ITEMS"),CMObjectType.ITEM.ancestorName);
 				if(c.items.size()>0)
 					Log.sysOut(Thread.currentThread().getName(),"Basic Items loaded: "+c.items.size());
 			}
@@ -3079,7 +3398,7 @@ public class CMClass extends ClassLoader
 				c.weapons=baseC.weapons;
 			else
 			{
-				c.weapons=loadVectorListToObj(prefix+"Items/Weapons/",page.getStr("WEAPONS"),CMObjectType.WEAPON.ancestorName);
+				c.weapons=loadObjectList(prefix+"Items/Weapons/",page.getStr("WEAPONS"),CMObjectType.WEAPON.ancestorName);
 				if(c.weapons.size()>0)
 					Log.sysOut(Thread.currentThread().getName(),"Weapons loaded    : "+c.weapons.size());
 			}
@@ -3088,7 +3407,7 @@ public class CMClass extends ClassLoader
 				c.armor=baseC.armor;
 			else
 			{
-				c.armor=loadVectorListToObj(prefix+"Items/Armor/",page.getStr("ARMOR"),CMObjectType.ARMOR.ancestorName);
+				c.armor=loadObjectList(prefix+"Items/Armor/",page.getStr("ARMOR"),CMObjectType.ARMOR.ancestorName);
 				if(c.armor.size()>0)
 					Log.sysOut(Thread.currentThread().getName(),"Armor loaded      : "+c.armor.size());
 			}
@@ -3097,7 +3416,7 @@ public class CMClass extends ClassLoader
 				c.miscMagic=baseC.miscMagic;
 			else
 			{
-				c.miscMagic=loadVectorListToObj(prefix+"Items/MiscMagic/",page.getStr("MISCMAGIC"),CMObjectType.MISCMAGIC.ancestorName);
+				c.miscMagic=loadObjectList(prefix+"Items/MiscMagic/",page.getStr("MISCMAGIC"),CMObjectType.MISCMAGIC.ancestorName);
 				if(c.miscMagic.size()>0)
 					Log.sysOut(Thread.currentThread().getName(),"Magic Items loaded: "+c.miscMagic.size());
 			}
@@ -3106,7 +3425,7 @@ public class CMClass extends ClassLoader
 				c.clanItems=baseC.clanItems;
 			else
 			{
-				c.clanItems=loadVectorListToObj(prefix+"Items/ClanItems/",page.getStr("CLANITEMS"),CMObjectType.CLANITEM.ancestorName);
+				c.clanItems=loadObjectList(prefix+"Items/ClanItems/",page.getStr("CLANITEMS"),CMObjectType.CLANITEM.ancestorName);
 				if(c.clanItems.size()>0)
 					Log.sysOut(Thread.currentThread().getName(),"Clan Items loaded : "+c.clanItems.size());
 			}
@@ -3115,13 +3434,13 @@ public class CMClass extends ClassLoader
 				c.tech=baseC.tech;
 			else
 			{
-				Vector<Electronics> tempV;
-				c.tech=loadVectorListToObj(prefix+"Items/BasicTech/",page.getStr("TECH"),CMObjectType.TECH.ancestorName);
+				List<Electronics> tempV;
+				c.tech=loadObjectList(prefix+"Items/BasicTech/",page.getStr("TECH"),CMObjectType.TECH.ancestorName);
 
-				tempV=loadVectorListToObj(prefix+"Items/CompTech/",page.getStr("COMPTECH"),CMObjectType.COMPTECH.ancestorName);
+				tempV=loadObjectList(prefix+"Items/CompTech/",page.getStr("COMPTECH"),CMObjectType.COMPTECH.ancestorName);
 				if(tempV.size()>0)
 					c.tech.addAll(tempV);
-				tempV=loadVectorListToObj(prefix+"Items/Software/",page.getStr("SOFTWARE"),CMObjectType.SOFTWARE.ancestorName);
+				tempV=loadObjectList(prefix+"Items/Software/",page.getStr("SOFTWARE"),CMObjectType.SOFTWARE.ancestorName);
 				if(tempV.size()>0)
 					c.tech.addAll(tempV);
 				if(c.tech.size()>0)
@@ -3137,7 +3456,7 @@ public class CMClass extends ClassLoader
 				c.behaviors=baseC.behaviors;
 			else
 			{
-				c.behaviors=loadVectorListToObj(prefix+"Behaviors/",page.getStr("BEHAVIORS"),CMObjectType.BEHAVIOR.ancestorName);
+				c.behaviors=loadObjectList(prefix+"Behaviors/",page.getStr("BEHAVIORS"),CMObjectType.BEHAVIOR.ancestorName);
 				Log.sysOut(Thread.currentThread().getName(),"Behaviors loaded  : "+c.behaviors.size());
 			}
 			if(c.behaviors.size()==0)
@@ -3150,11 +3469,31 @@ public class CMClass extends ClassLoader
 			}
 			else
 			{
-				c.commands=loadVectorListToObj(prefix+"Commands/",page.getStr("COMMANDS"),CMObjectType.COMMAND.ancestorName);
+				c.commands=loadObjectList(prefix+"Commands/",page.getStr("COMMANDS"),CMObjectType.COMMAND.ancestorName);
+				CMProps.setUpLowVar(CMProps.Str.MUDSTATUS,"Booting: reading generic commands");
+				final List<DatabaseEngine.AckRecord> genCommands=CMLib.database().DBReadCommands();
+				if(genCommands.size()>0)
+				{
+					for(final DatabaseEngine.AckRecord rec : genCommands)
+					{
+						final Command C=(Command)(CMClass.getCommand("GenCommand").copyOf());
+						if(C instanceof Modifiable)
+							((Modifiable)C).setStat("ALLXML",rec.data());
+					}
+				}
 				Log.sysOut(Thread.currentThread().getName(),"Commands loaded   : "+c.commands.size());
 			}
 			if(c.commands.size()==0)
 				return false;
+
+			if((tCode!=MudHost.MAIN_HOST)&&(!CMProps.isPrivateToMe(CMClass.CMObjectType.TEST.name())))
+				c.tests=baseC.tests;
+			else
+			{
+				c.tests=loadObjectList(prefix+"Tests/",page.getStr("CMTESTS"),CMObjectType.TEST.ancestorName);
+				Log.sysOut(Thread.currentThread().getName(),"Tests loaded      : "+c.tests.size());
+			}
+
 		}
 		catch(final Exception t)
 		{
@@ -3482,6 +3821,26 @@ public class CMClass extends ClassLoader
 			}
 		}
 		return false;
+	}
+
+	public final static Object getSync(final String key)
+	{
+		if(key == null)
+			return new Object();
+		Object o = syncCache.get(key);
+		if(o == null)
+		{
+			synchronized(syncCache)
+			{
+				o = syncCache.get(key);
+				if(o == null)
+				{
+					o=new Object();
+					syncCache.put(key, o);
+				}
+			}
+		}
+		return o;
 	}
 
 	/**

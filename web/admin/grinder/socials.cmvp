@@ -3,8 +3,10 @@
 @if?!Authenticate@ @AddFile?/grinder/failedlogin.cmvp@ @else@
 @if?!CheckAuthCode?AUTH_CMDSOCIALS=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <html>
+	<META CHARSET="utf-8"/>
 <head>
     <link rel="grinder icon" href="/images/grinder.ico" >
+    <link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
     <title>Socials List</title>
     <script language=JavaScript>
     <!--
@@ -146,7 +148,7 @@
     @loop@
     @SocialNext@
     <TR>
-    <TD><a href="javascript:Social('@SocialID?ENCODED@')"><FONT COLOR=WHITE><B>@SocialID@</B></FONT></a></TD>
+    <TD><a href="javascript:Social('@SocialID?ENCODED@')"><FONT COLOR="#FFFF8F"><U><B>@SocialID@</B></U></FONT></a></TD>
     <TD ALIGN=CENTER><FONT COLOR=WHITE>@if?SocialData?ISNONE@Y@else@&nbsp;@endif@</FONT></TD>
     <TD ALIGN=CENTER><FONT COLOR=WHITE>@if?SocialData?ISSELF@Y@else@&nbsp;@endif@</FONT></TD>
     <TD ALIGN=CENTER><FONT COLOR=WHITE>@if?SocialData?ISTARGETMOB@Y@else@&nbsp;@endif@</FONT></TD>
@@ -189,7 +191,10 @@
     </TR>
     @back@
     <TR>
-    <TD COLSPAN=5><a href="javascript:if(document.RESOURCES.NEWSOCIAL.value!='')Social(document.RESOURCES.NEWSOCIAL.value+'&NEWSOCIAL='+document.RESOURCES.NEWSOCIAL.value)"><FONT COLOR=WHITE><B>Create New:</a> <INPUT TYPE=TEXT NAME=NEWSOCIAL SIZE=70></B></FONT></TD>
+    <TD COLSPAN=5>
+    	<a href="javascript:if(document.RESOURCES.NEWSOCIAL.value!='')Social(document.RESOURCES.NEWSOCIAL.value+'&NEWSOCIAL='+document.RESOURCES.NEWSOCIAL.value)">
+    	<FONT COLOR=CYAN><B><U>Create New:</U></a> <INPUT TYPE=TEXT NAME=NEWSOCIAL SIZE=70></B></FONT>
+    </TD>
     </TR>
     </TABLE>
     <P>

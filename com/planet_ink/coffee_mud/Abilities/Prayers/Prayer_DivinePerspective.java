@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -86,6 +86,7 @@ public class Prayer_DivinePerspective extends Prayer
 		final MOB mob=(MOB)affected;
 		if(canBeUninvoked())
 		{
+			final MOB invoker=this.invoker();
 			if(invoker!=null)
 				invoker.tell(L("The perspective of '@x1' fades from your mind.",mob.name(invoker)));
 		}
@@ -128,13 +129,13 @@ public class Prayer_DivinePerspective extends Prayer
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		if((mob.getWorshipCharID().length()==0)
-		||(CMLib.map().getDeity(mob.getWorshipCharID())==null))
+		if((mob.charStats().getWorshipCharID().length()==0)
+		||(CMLib.map().getDeity(mob.charStats().getWorshipCharID())==null))
 		{
 			mob.tell(L("You must worship a god to use this prayer."));
 			return false;
 		}
-		final Deity target=CMLib.map().getDeity(mob.getWorshipCharID());
+		final Deity target=mob.charStats().getMyDeity();
 		final Room newRoom=target.location();
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))

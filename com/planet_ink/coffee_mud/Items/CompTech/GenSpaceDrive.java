@@ -10,7 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
-import com.planet_ink.coffee_mud.Items.interfaces.TechComponent.ShipDir;
+import com.planet_ink.coffee_mud.Items.interfaces.ShipDirectional.ShipDir;
 import com.planet_ink.coffee_mud.Libraries.interfaces.GenericBuilder;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ public class GenSpaceDrive extends StdShipFuellessThruster
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this,false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 	}
 
 	@Override
@@ -79,7 +79,7 @@ public class GenSpaceDrive extends StdShipFuellessThruster
 	public void setMiscText(final String newText)
 	{
 		miscText="";
-		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this,newText,false);
 		recoverPhyStats();
 	}
 
@@ -91,7 +91,7 @@ public class GenSpaceDrive extends StdShipFuellessThruster
 	{
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			return CMLib.coffeeMaker().getGenItemStat(this,code);
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return "" + powerCapacity();
@@ -112,7 +112,7 @@ public class GenSpaceDrive extends StdShipFuellessThruster
 		case 8:
 			return "" + getMinThrust();
 		case 9:
-			return "" + isConstantThruster();
+			return "" + isReactionEngine();
 		case 10:
 			return CMParms.toListString(getAvailPorts());
 		case 11:
@@ -128,7 +128,7 @@ public class GenSpaceDrive extends StdShipFuellessThruster
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			CMLib.coffeeMaker().setGenItemStat(this,code,val);
 		else
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			setPowerCapacity(CMath.s_parseLongExpression(val));
@@ -158,10 +158,10 @@ public class GenSpaceDrive extends StdShipFuellessThruster
 			setMinThrust(CMath.s_parseIntExpression(val));
 			break;
 		case 9:
-			this.setConstantThruster(CMath.s_bool(val));
+			this.setReactionEngine(CMath.s_bool(val));
 			break;
 		case 10:
-			this.setAvailPorts(CMParms.parseEnumList(TechComponent.ShipDir.class, val, ',').toArray(new TechComponent.ShipDir[0]));
+			this.setAvailPorts(CMParms.parseEnumList(ShipDirectional.ShipDir.class, val, ',').toArray(new ShipDirectional.ShipDir[0]));
 			break;
 		case 11:
 			setRechargeRate((float)CMath.s_parseMathExpression(val));
@@ -172,8 +172,7 @@ public class GenSpaceDrive extends StdShipFuellessThruster
 		}
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<MYCODES.length;i++)
 		{

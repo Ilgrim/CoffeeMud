@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -95,8 +95,7 @@ public class Chant_PlantBed extends Chant
 	{
 		if((((mob.location().domainType()&Room.INDOORS)>0)
 		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_DESERT)
-		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_CITY)
-		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT)
+		   ||(CMLib.flags().isACityRoom(mob.location()))
 		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_UNDERWATER)
 		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_WATERSURFACE)
 		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_AIR))
@@ -122,7 +121,7 @@ public class Chant_PlantBed extends Chant
 				newItem.setName(L("a plant bed"));
 				newItem.setDisplayText(L("An enormously comfortable pea-pod looks ready to sleep in."));
 				newItem.setDescription(L("The plant bed looks like a hollowed pea-pod with fern-like cushioning inside.  Looks like a nice place to take a nap in!"));
-				newRide.setRideBasis(Rideable.RIDEABLE_SLEEP);
+				newRide.setRideBasis(Rideable.Basis.FURNITURE_SLEEP);
 				newRide.setRiderCapacity(1);
 				newItem.setMaterial(RawMaterial.RESOURCE_HEMP);
 				newItem.basePhyStats().setWeight(1000);

@@ -3,8 +3,10 @@
 @if?!CheckAuthCode?AUTH_TITLES=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <META HTTP-EQUIV="Pragma" CONTENT="no-cache">
 <html>
+	<META CHARSET="utf-8"/>
 <head>
     <link rel="grinder icon" href="/images/grinder.ico" >
+    <link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
     <title>Title Manager</title>
     <script language=JavaScript>
     <!--
@@ -105,6 +107,13 @@
         	<INPUT TYPE=TEXT SIZE=20 NAME=TITLE VALUE="@AutoTitleData?TITLE@">
         	&nbsp;&nbsp;
         	<INPUT TYPE=CHECKBOX NAME=ISREQUIRED @AutoTitleData?ISREQUIRED@><FONT SIZE=-1 COLOR=WHITE>is required</FONT>
+        </TD>
+    </TR>
+    <TR>
+        <TD><FONT COLOR=YELLOW>Max</a>: </FONT></TD>
+        <TD>
+        	<INPUT TYPE=TEXT SIZE=5 NAME=MAX VALUE="@AutoTitleData?MAX@">
+        	<FONT COLOR=WHITE><I>(0=Inf., Use Sparingly!)</I></FONT>
         </TD>
     </TR>
     <TR>

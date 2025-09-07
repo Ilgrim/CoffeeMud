@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -100,6 +100,7 @@ public class Missionary extends Cleric
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Prayer_RestoreSmell",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Prayer_DivineLuck",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Prayer_ProtBless",false);
 
 		if(CMLib.factions().isAlignmentLoaded(Faction.Align.EVIL))
 			CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Prayer_SenseEvil",false);
@@ -127,6 +128,7 @@ public class Missionary extends Cleric
 		if(CMLib.factions().isAlignmentLoaded(Faction.Align.CHAOTIC))
 			CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Prayer_HuntChaos",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Prayer_ElectricStrike",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Prayer_SenseDevotion",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Prayer_ProtParalyzation",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Prayer_Revival",false);
@@ -151,6 +153,8 @@ public class Missionary extends Cleric
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Prayer_RemoveCurse",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Prayer_Etherealness",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Prayer_SenseParish",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Herding",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Skill_AttackHalf",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Prayer_Blindsight",true);
@@ -268,6 +272,7 @@ public class Missionary extends Cleric
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

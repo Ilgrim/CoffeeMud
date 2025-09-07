@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -42,13 +42,21 @@ public class GenScale extends GenRideable
 
 	public GenScale()
 	{
-		this.name="a scale";
-		this.displayText="a scale sits here";
+		this._name="a scale";
+		this.displayText=L("a scale sits here");
 		this.description="It has a fulcrum and an arm under which hang two large plates, upon which things may be placed, or upon which people may sit.";
 		super.containType = Container.CONTAIN_ANYTHING;
 		super.capacity = 10000;
-		super.rideBasis = Rideable.RIDEABLE_SIT;
+		super.rideBasis = Rideable.Basis.FURNITURE_SIT;
 		super.riderCapacity = 2;
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a scale");
 	}
 
 	@Override

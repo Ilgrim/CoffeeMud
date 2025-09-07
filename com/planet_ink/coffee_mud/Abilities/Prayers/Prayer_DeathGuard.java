@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -125,6 +125,29 @@ public class Prayer_DeathGuard extends Prayer
 			}
 		}
 		return true;
+	}
+
+	@Override
+	public int castingQuality(final MOB mob, final Physical target)
+	{
+		if(mob!=null)
+		{
+			if(target instanceof MOB)
+			{
+				if(CMLib.flags().isUndead((MOB)target))
+					return Ability.QUALITY_MALICIOUS;
+			}
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
+	protected int modifyCastCode(final int castCode, final MOB mob, final Physical target, final boolean auto)
+	{
+		if((target instanceof MOB)
+		&&(CMLib.flags().isUndead((MOB)target)))
+			return castCode|CMMsg.MASK_MALICIOUS;
+		return castCode;
 	}
 
 	@Override

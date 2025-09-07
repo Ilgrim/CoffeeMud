@@ -3,8 +3,10 @@
 @if?!CheckAuthCode?AUTH_COMPONENTS=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <META HTTP-EQUIV="Pragma" CONTENT="no-cache">
 <html>
+	<META CHARSET="utf-8"/>
 <head>
     <link rel="grinder icon" href="/images/grinder.ico" >
+    <link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
     <title>@ComponentID@ Component Information</title>
     <script language=JavaScript>
     <!--
@@ -63,6 +65,17 @@
             w=window.open("/"+file+"?HELPTOPIC="+named,
                         "Help",strFeatures, false);
         }
+		function adjfieldval(field,val)
+		{
+			eval('field = document.RESOURCES.'+field+';');
+			field.value = val;
+		}
+		function Trigger(field, value)
+		{
+			var strFeatures="top=200,left=50,scrollbars=yes,resizeable=no,height=400,width=650,alwaysRaised=yes,dependent=yes";
+			w=window.open("/grinder/trigger.cmvp?FIELD="+field+"&TRIGCOMPONENTMODE=true&AUTH="+encodeURIComponent("@Authenticate?AUTH@")+"&"+field+"="+encodeURIComponent(value),
+			            "Trigger/Ritual Worksheet",strFeatures, false);
+		}
     //-->
     </script>
 </head>
@@ -76,6 +89,7 @@
 @ComponentPieceNext?RESET@
 @loop@
     @ComponentPieceNext@
+    @AddRequestParameter?CURRCONNECTOR=AND@
     @if?CheckReqParm?COMPONENTPIECE=1@ 
         <INPUT TYPE=HIDDEN NAME="@ComponentID@_PIECE_CONNECTOR_@ComponentPieceID@" VALUE="AND">
     @else@
@@ -84,52 +98,74 @@
         <SELECT NAME="@ComponentID@_PIECE_CONNECTOR_@ComponentPieceID@"  ONCHANGE="ReShow()">
         @ComponentPieceData?CONNECTOREDIT@
         </SELECT>
+        @AddRequestParameter?CURRCONNECTOR=@@ComponentID@@_PIECE_CONNECTOR_@@ComponentPieceID@@ @
         </CENTER>
         </P>
         <P>
     @endif@
     <TABLE WIDTH=100% BORDER=1 CELLSPACING=0 CELLPADDING=0>
-        <TR>
-            <TD WIDTH=25%><FONT COLOR=YELLOW>Amount: </FONT></TD>
-            <TD WIDTH=75%><INPUT TYPE=TEXT SIZE=10 NAME="@ComponentID@_PIECE_AMOUNT_@ComponentPieceID@" VALUE="@ComponentPieceData?AMOUNTEDIT@"></TD>
-        </TR>
-        <TR>
-            <TD WIDTH=25%><FONT COLOR=YELLOW>Required Type: </FONT></TD>
-            <TD WIDTH=75%>
-                <SELECT NAME="@ComponentID@_PIECE_TYPE_@ComponentPieceID@" ONCHANGE="ReShow()">
-                @ComponentPieceData?TYPEEDIT@
-                </SELECT>
-            </TD>
-        </TR>
-        <TR>
-            <TD WIDTH=25%><FONT COLOR=YELLOW>Required Item: </FONT></TD>
-            <TD WIDTH=75%><FONT COLOR=WHITE SIZE=-1>
-            @ComponentPieceData?STRINGEDIT@
-            <INPUT TYPE=CHECKBOX NAME="@ComponentID@_PIECE_CONSUMED_@ComponentPieceID@" @ComponentPieceData?CONSUMEDEDIT@>Cns</FONT>
-            </TD>
-        </TR>
-        <TR>
-            <TD WIDTH=25%><FONT COLOR=YELLOW>Location: </FONT></TD>
-            <TD WIDTH=75%>
-                <SELECT NAME="@ComponentID@_PIECE_LOCATION_@ComponentPieceID@">
-                @ComponentPieceData?LOCATIONEDIT@
-                </SELECT>
-            </TD>
-        </TR>
-        <TR>
-            <TD WIDTH=25%><FONT COLOR=YELLOW>Zapper Mask: </FONT><A HREF="javascript:openUp('ZAPPERMASKS')"><FONT COLOR=WHITE>?</FONT></a></TD>
-            <TD WIDTH=75%><TEXTAREA SIZE=50 COLS=50 ROWS=3 NAME=@ComponentID@_PIECE_MASK_@ComponentPieceID@>@ComponentPieceData?MASKEDIT@</TEXTAREA></TD>
-        </TR>
+	    @if?CheckReqParm?@@RequestParameter?CURRCONNECTOR@@=MESSAGE@
+	        <TR>
+	            <TD WIDTH=25%><FONT COLOR=YELLOW>Message: </FONT></TD>
+	            <TD WIDTH=75%><INPUT TYPE=TEXT SIZE=50 NAME=@ComponentID@_PIECE_MASK_@ComponentPieceID@ VALUE="@ComponentPieceData?MASKEDIT@"></TD>
+	        </TR>
+	    @else@
+	        @AddRequestParameter?TEMPLOC=@@ComponentPieceData?LOCATION@@ @
+	        <TR>
+	            <TD WIDTH=25%><FONT COLOR=YELLOW>Location: </FONT></TD>
+	            <TD WIDTH=75%>
+	                <SELECT NAME="@ComponentID@_PIECE_LOCATION_@ComponentPieceID@" ONCHANGE="ReShow()">
+	                @ComponentPieceData?LOCATIONEDIT@
+	                </SELECT>
+	            </TD>
+	        </TR>
+		    @if?CheckReqParm?!TEMPLOC=Trigger@
+		        <TR>
+		            <TD WIDTH=25%><FONT COLOR=YELLOW>Amount: </FONT></TD>
+		            <TD WIDTH=75%><INPUT TYPE=TEXT SIZE=10 NAME="@ComponentID@_PIECE_AMOUNT_@ComponentPieceID@" VALUE="@ComponentPieceData?AMOUNTEDIT@"></TD>
+		        </TR>
+		        <TR>
+		            <TD WIDTH=25%><FONT COLOR=YELLOW>Required Type: </FONT></TD>
+		            <TD WIDTH=75%>
+		                <SELECT NAME="@ComponentID@_PIECE_TYPE_@ComponentPieceID@" ONCHANGE="ReShow()">
+		                @ComponentPieceData?TYPEEDIT@
+		                </SELECT>
+		            </TD>
+		        </TR>
+		        <TR>
+		            <TD WIDTH=25%><FONT COLOR=YELLOW>Required Item: </FONT></TD>
+		            <TD WIDTH=75%><FONT COLOR=WHITE SIZE=-1>
+		            @ComponentPieceData?STRINGEDIT@
+		            <INPUT TYPE=CHECKBOX NAME="@ComponentID@_PIECE_CONSUMED_@ComponentPieceID@" @ComponentPieceData?CONSUMEDEDIT@>Cons</FONT>
+		            </TD>
+		        </TR>
+		    @endif@
+		    @if?CheckReqParm?TEMPLOC=Trigger@
+				<TR>
+					<TD><FONT COLOR=YELLOW><B>Trigger Ritual:</B></FONT><A HREF="javascript:openUp('RITUALS')"><FONT COLOR=WHITE>?</FONT></a></TD>
+					<TD COLSPAN=2>
+						<TEXTAREA ROWS=3 NAME=@ComponentID@_PIECE_RITUAL_@ComponentPieceID@ COLS=45 WRAP=VIRTUAL  ONCLICK="Trigger('@ComponentID@_PIECE_RITUAL_@ComponentPieceID@',this.value);">@ComponentPieceData?RITUAL@</TEXTAREA>
+					</TD>
+				</TR>
+		    @endif@
+	        <TR>
+	            <TD WIDTH=25%><FONT COLOR=YELLOW>Zapper Mask: </FONT><A HREF="javascript:openUp('ZAPPERMASKS')"><FONT COLOR=WHITE>?</FONT></a></TD>
+	            <TD WIDTH=75%><TEXTAREA SIZE=50 COLS=40 ROWS=3 NAME=@ComponentID@_PIECE_MASK_@ComponentPieceID@>@ComponentPieceData?MASKEDIT@</TEXTAREA></TD>
+	        </TR>
+	    @endif@
     </TABLE>
     @AddRequestParameter?LAST=@@RequestParameter?COMPONENTPIECE@@ @
 @back@
 @AddRequestParameter?LAST=++@
 <CENTER>
-<SELECT NAME="@ComponentID@_PIECE_CONNECTOR_@RequestParameter?LAST@"  ONCHANGE="ReShow()">
-<OPTION VALUE="">Pick one to add
-<OPTION VALUE="AND">And
-<OPTION VALUE="OR">Or
-</SELECT>
+ @if?CheckReqParm?!@@RequestParameter?CURRCONNECTOR@@=MESSAGE@
+	<SELECT NAME="@ComponentID@_PIECE_CONNECTOR_@RequestParameter?LAST@"  ONCHANGE="ReShow()">
+		<OPTION VALUE="">Pick one to add
+		<OPTION VALUE="AND">And
+		<OPTION VALUE="OR">Or
+		<OPTION VALUE="MESSAGE">Message
+	</SELECT>
+@endif@
 </CENTER>
 <BR>
 <TABLE WIDTH=100% BORDER=0>

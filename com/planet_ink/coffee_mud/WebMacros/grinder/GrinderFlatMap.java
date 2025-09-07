@@ -22,7 +22,7 @@ import java.util.*;
 import java.net.URLEncoder;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -106,7 +106,7 @@ public class GrinderFlatMap
 		// left, now is the time to siphon out the ones we need.
 		if((area instanceof GridZones)&&(xyxy!=null))
 		{
-			final Vector<Room> finalSet=new Vector<Room>();
+			final List<Room> finalSet=new ArrayList<Room>();
 			for(;r.hasMoreElements();)
 			{
 				R=r.nextElement();
@@ -130,7 +130,7 @@ public class GrinderFlatMap
 					finalSet.add(R);
 				}
 			}
-			r=finalSet.elements();
+			r=new IteratorEnumeration<Room>(finalSet.iterator());
 		}
 		if((area instanceof GridZones)&&(boundsXYXY==null))
 		{
@@ -208,8 +208,8 @@ public class GrinderFlatMap
 		if((areaMap==null)||(hashRooms==null)||(area instanceof GridZones))
 			return;
 
-		final List<List<GrinderRoom>> sets=new Vector<List<GrinderRoom>>();
-		final HashSet<String> roomsDone=new HashSet<String>();
+		final List<List<GrinderRoom>> sets=new ArrayList<List<GrinderRoom>>();
+		final Set<String> roomsDone=new HashSet<String>();
 		boolean didSomething=true;
 
 		final List<int[]> allDirections=new XArrayList<int[]>();
@@ -236,7 +236,7 @@ public class GrinderFlatMap
 		final boolean[] allWays=new boolean[] {false, true};
 
 		// first, cluster the rooms WITHOUT positioning them
-		final List<GrinderRoom> finalCluster=new Vector<GrinderRoom>();
+		final List<GrinderRoom> finalCluster=new ArrayList<GrinderRoom>();
 		while((roomsDone.size()<areaMap.size())&&(didSomething))
 		{
 			didSomething=false;
@@ -329,10 +329,10 @@ public class GrinderFlatMap
 			}
 		}
 		// find leftover rooms and make them their own cluster
-		for(int a=0;a<areaMap.size();a++)
+		for(final GrinderRoom GR : areaMap)
 		{
-			if(!roomsDone.contains(areaMap.get(a).roomID))
-				finalCluster.add(areaMap.get(a));
+			if(!roomsDone.contains(GR.roomID))
+				finalCluster.add(GR);
 		}
 		if(finalCluster.size()>0)
 		{
@@ -372,11 +372,11 @@ public class GrinderFlatMap
 		if((areaMap==null)||(hashRooms==null)||(area instanceof GridZones))
 			return;
 
-		final List<List<GrinderRoom>> sets=new Vector<List<GrinderRoom>>();
+		final List<List<GrinderRoom>> sets=new ArrayList<List<GrinderRoom>>();
 		final Set<String> roomsDone=new HashSet<String>();
 		boolean didSomething=true;
 		// first, cluster the rooms WITHOUT positioning them
-		final List<GrinderRoom> finalCluster=new Vector<GrinderRoom>();
+		final List<GrinderRoom> finalCluster=new ArrayList<GrinderRoom>();
 		while((roomsDone.size()<areaMap.size())&&(didSomething))
 		{
 			didSomething=false;
@@ -439,7 +439,7 @@ public class GrinderFlatMap
 	{
 		// figure out width height, and xy bounds
 		// store them in a vector parallel to each
-		final Vector<int[]> sizeInfo=new Vector<int[]>(sets.size());
+		final List<int[]> sizeInfo=new ArrayList<int[]>(sets.size());
 		GrinderRoom R=null;
 		for(int s=0;s<sets.size();s++)
 		{
@@ -595,24 +595,24 @@ public class GrinderFlatMap
 
 	public List<GrinderRoom> scoreRoomII(final Map<String,GrinderRoom> H, final GrinderRoom room, final Set<String> roomsDone)
 	{
-		final HashSet<String> coordsDone=new HashSet<String>();
+		final Set<String> coordsDone=new HashSet<String>();
 		coordsDone.add(0+"/"+0);
 		roomsDone.add(room.roomID);
 
-		final List<GrinderRoom> V=new Vector<GrinderRoom>();
-		V.add(room);
+		final List<GrinderRoom> scoredV=new Vector<GrinderRoom>();
+		scoredV.add(room);
 		int startHere=0;
 		room.xy=new int[2];
 		GrinderRoom R2=null;
 		GrinderRoom R3=null;
-		while(startHere!=V.size())
+		while(startHere!=scoredV.size())
 		{
 			int s=startHere;
-			final int size=V.size();
+			final int size=scoredV.size();
 			startHere=size;
 			for(;s<size;s++)
 			{
-				final GrinderRoom R=V.get(s);
+				final GrinderRoom R=scoredV.get(s);
 				for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 				{
 					if((R.doors[d]!=null)
@@ -628,10 +628,10 @@ public class GrinderFlatMap
 						if(coordsDone.contains(R2.xy[0]+"/"+R2.xy[1]))
 						{
 							boolean adjust=false;
-							for(int v=0;v<V.size();v++)
+							for(int v=0;v<scoredV.size();v++)
 							{
 								adjust=false;
-								R3=V.get(v);
+								R3=scoredV.get(v);
 								switch(d)
 								{
 								case Directions.NORTH:
@@ -675,12 +675,12 @@ public class GrinderFlatMap
 						}
 						roomsDone.add(R2.roomID);
 						coordsDone.add(R2.xy[0]+"/"+R2.xy[1]);
-						V.add(R2);
+						scoredV.add(R2);
 					}
 				}
 			}
 		}
-		return V;
+		return scoredV;
 	}
 
 	protected int[] getDirectionSet(final int start, final int end, final int dir)
@@ -705,17 +705,28 @@ public class GrinderFlatMap
 		return directionsToDo;
 	}
 
+	public boolean isUnClusteredRoom(final GrinderRoom R, final int d, final Set<String> innerRoomsDone, final Set<String> outerRoomsDone)
+	{
+		if((R.doors[d]!=null)
+		&&(R.doors[d].room!=null)
+		&&(R.doors[d].room.length()>0)
+		&&(!innerRoomsDone.contains(R.doors[d].room))
+		&&(!outerRoomsDone.contains(R.doors[d].room)))
+			return true;
+		return false;
+	}
+
 	public List<GrinderRoom> buildCluster(final Map<String,GrinderRoom> fullMapH, final GrinderRoom coreRoom,
-										  final HashSet<String> outerRoomsDone, final boolean finalPosition,
+										  final Set<String> outerRoomsDone, final boolean finalPosition,
 										  final boolean doTwoWay, final int[] directionsToDo)
 	{
-		final HashSet<String> coordsDone=new HashSet<String>();
+		final Set<String> coordsDone=new HashSet<String>();
 		coordsDone.add(0+"/"+0);
 
-		final HashSet<String> innerRoomsDone=new HashSet<String>();
+		final Set<String> innerRoomsDone=new HashSet<String>();
 		innerRoomsDone.add(coreRoom.roomID);
 
-		final HashMap<String,int[]> xys=new HashMap<String,int[]>();
+		final Map<String,int[]> xys=new HashMap<String,int[]>();
 		int[] xy=new int[2];
 		if(finalPosition)
 			coreRoom.xy=xy;
@@ -737,11 +748,47 @@ public class GrinderFlatMap
 				{
 					if((d!=Directions.UP)
 					&&(d!=Directions.DOWN)
-					&&(R.doors[d]!=null)
-					&&(R.doors[d].room!=null)
-					&&(R.doors[d].room.length()>0)
-					&&(!innerRoomsDone.contains(R.doors[d].room))
-					&&(!outerRoomsDone.contains(R.doors[d].room)))
+					&&(isUnClusteredRoom(R,d,innerRoomsDone,outerRoomsDone)))
+					{
+						final GrinderRoom R2=fullMapH.get(R.doors[d].room);
+						if(R2==null)
+							continue;
+						if(doTwoWay)
+						{
+							final int opD=Directions.getOpDirectionCode(d);
+							if((R2.doors[opD]==null)
+							||(R2.doors[opD].room==null)
+							||(!R2.doors[opD].room.equalsIgnoreCase(R.roomID)))
+								continue;
+						}
+						final int[] xy2=newXY(xy,d);
+						xys.put(R2.roomID,xy2);
+						if(!coordsDone.contains(xy2[0]+"/"+xy2[1]))
+						{
+							if(finalPosition)
+								R2.xy=xy2;
+							innerRoomsDone.add(R2.roomID);
+							coordsDone.add(xy2[0]+"/"+xy2[1]);
+							roomClusterV.add(R2);
+						}
+					}
+				}
+			}
+		}
+		startHere=0;
+		while(startHere!=roomClusterV.size())
+		{
+			int s=startHere;
+			final int size=roomClusterV.size();
+			startHere=size;
+			for(;s<size;s++)
+			{
+				final GrinderRoom R=roomClusterV.get(s);
+				xy=xys.get(R.roomID);
+				for(final int d : directionsToDo)
+				{
+					if(((d==Directions.UP)||(d==Directions.DOWN))
+					&&(isUnClusteredRoom(R,d,innerRoomsDone,outerRoomsDone)))
 					{
 						final GrinderRoom R2=fullMapH.get(R.doors[d].room);
 						if(R2==null)
@@ -915,11 +962,18 @@ public class GrinderFlatMap
 		case Room.DOMAIN_INDOORS_CAVE:
 			return ("BGCOLOR=\"#CC99FF\"");
 		case Room.DOMAIN_INDOORS_STONE:
+			if((R.phyStats().weight()>2)&&(R.maxRange()>4))
+				return ("BGCOLOR=\"#CCCCCC\"");
 			return ("BGCOLOR=\"#CC00FF\"");
 		case Room.DOMAIN_INDOORS_UNDERWATER:
+			if((R.phyStats().weight()>2)&&(R.maxRange()>4))
+				return ("BGCOLOR=\"#CCCCCC\"");
 			return ("BGCOLOR=\"#6666CC\"");
 		case Room.DOMAIN_INDOORS_WATERSURFACE:
-			return ("BGCOLOR=\"#3399CC\"");
+			if(!R.ID().startsWith("Shallow"))
+				return ("BGCOLOR=\"#3399CC\"");
+			else
+				return ("BGCOLOR=\"#AAAAFF\"");
 		case Room.DOMAIN_INDOORS_WOOD:
 			return ("BGCOLOR=\"#999900\"");
 		case Room.DOMAIN_OUTDOORS_AIR:
@@ -966,7 +1020,10 @@ public class GrinderFlatMap
 		case Room.DOMAIN_OUTDOORS_UNDERWATER:
 			return ("BGCOLOR=\"#6666CC\"");
 		case Room.DOMAIN_OUTDOORS_WATERSURFACE:
-			return ("BGCOLOR=\"#3399CC\"");
+			if(!R.ID().startsWith("Shallow"))
+				return ("BGCOLOR=\"#3399CC\"");
+			else
+				return ("BGCOLOR=\"#AAAAFF\"");
 		case Room.DOMAIN_OUTDOORS_WOODS:
 			return ("BGCOLOR=\"#009900\"");
 		default:
@@ -991,7 +1048,9 @@ public class GrinderFlatMap
 
 	protected int findRelGridDir(final GrinderRoom room, final String roomID)
 	{
-		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+		if((roomID==null)||(roomID.length()==0))
+			return -1;
+		for(int d=0;d<Directions.NUM_DIRECTIONS();d++) // map dirs should prefer the 0-4
 		{
 			final GrinderRoom possRoom=getRoomInDir(room,d);
 			if((possRoom!=null)&&(possRoom.roomID.equals(roomID)))

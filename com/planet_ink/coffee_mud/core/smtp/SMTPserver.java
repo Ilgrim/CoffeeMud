@@ -3,6 +3,7 @@ import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.threads.CMThreadFactory;
 import com.planet_ink.coffee_mud.core.threads.CMThreadPoolExecutor;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMSecurity.ConnectState;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -24,10 +25,11 @@ import java.util.concurrent.TimeUnit;
 
 import com.planet_ink.coffee_mud.core.exceptions.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.JournalsLibrary.SMTPJournal;
 import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary.CompiledZMask;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -64,7 +66,7 @@ public class SMTPserver extends Thread implements Tickable
 	{
 		try
 		{
-			return getClass().newInstance();
+			return getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -96,18 +98,20 @@ public class SMTPserver extends Thread implements Tickable
 		return CMClass.classID(this).compareToIgnoreCase(CMClass.classID(o));
 	}
 
-	public int	 		tickStatus=STATUS_NOT;
-	public boolean 		isOK = false;
-	private final MudHost 	mud;
-	public CMProps 		page=null;
-	public ServerSocket servsock=null;
-	public CMProps 		iniPage=null;
-	private boolean 	displayedBlurb=false;
-	private String 		domain="coffeemud";
-	private int			maxThreads = 3;
-	private int			threadTimeoutMins = 10;
-	private final Set<String> 		 oldEmailComplaints=new HashSet<String>();
-	private final CMThreadPoolExecutor  	 threadPool;
+	public int				tickStatus			= STATUS_NOT;
+	public boolean			isOK				= false;
+	private final MudHost	mud;
+	public CMProps			page				= null;
+	public ServerSocket		servsock			= null;
+	public CMProps			iniPage				= null;
+	private boolean			displayedBlurb		= false;
+	private String			domain				= "coffeemud";
+	private int				maxThreads			= 3;
+	private int				threadTimeoutMins	= 10;
+	private int				port				= -1;
+
+	private final Set<String>			oldEmailComplaints	= new HashSet<String>();
+	private final CMThreadPoolExecutor	threadPool;
 
 	public SMTPserver()
 	{
@@ -141,6 +145,11 @@ public class SMTPserver extends Thread implements Tickable
 	public MudHost getMUD()
 	{
 		return mud;
+	}
+
+	public int getSMTPPort()
+	{
+		return this.port;
 	}
 
 	public String domainName()
@@ -182,6 +191,7 @@ public class SMTPserver extends Thread implements Tickable
 			Log.errOut(getName(),"Set your coffeemud.ini parameter: PORT");
 			return false;
 		}
+		port = page.getInt("PORT");
 		if(CMath.isNumber(page.getStr("REQUESTTIMEOUTMINS")))
 			threadTimeoutMins=CMath.s_int(page.getStr("REQUESTTIMEOUTMINS"));
 
@@ -217,7 +227,7 @@ public class SMTPserver extends Thread implements Tickable
 		if (!displayedBlurb)
 		{
 			displayedBlurb = true;
-			//Log.sysOut(getName(),"SMTPserver (C)2005-2020 Bo Zimmerman");
+			//Log.sysOut(getName(),"SMTPserver (C)2005-2025 Bo Zimmerman");
 		}
 		if(mailbox.length()==0)
 			Log.sysOut(getName(),"Player mail box system is disabled.");
@@ -225,9 +235,9 @@ public class SMTPserver extends Thread implements Tickable
 		return true;
 	}
 
-	public TreeMap<String, JournalsLibrary.SMTPJournal> parseJournalList(final String journalStr)
+	public TreeMap<String, SMTPJournal> parseJournalList(final String journalStr)
 	{
-		final TreeMap<String, JournalsLibrary.SMTPJournal> set=new TreeMap<String, JournalsLibrary.SMTPJournal>();
+		final TreeMap<String, SMTPJournal> set=new TreeMap<String, SMTPJournal>();
 		if((journalStr==null)||(journalStr.length()>0))
 		{
 			final List<String> V=CMParms.parseCommas(journalStr,true);
@@ -267,7 +277,7 @@ public class SMTPserver extends Thread implements Tickable
 					final boolean isSubscribeOnly = subscribeOnly;
 					final boolean isKeepAll = keepAll;
 					final String criteriaString = crit.toString();
-					set.put(s.toUpperCase().trim(), new JournalsLibrary.SMTPJournal()
+					set.put(s.toUpperCase().trim(), new SMTPJournal()
 					{
 						@Override
 						public String name()
@@ -314,14 +324,14 @@ public class SMTPserver extends Thread implements Tickable
 	public String getAnEmailJournal(String journal)
 	{
 		journal=CMStrings.replaceAll(journal,"_"," ");
-		final JournalsLibrary.SMTPJournal jrnl=getAJournal(journal);
+		final SMTPJournal jrnl=getAJournal(journal);
 		return jrnl != null ? jrnl.name() : null;
 	}
 
 	@SuppressWarnings("unchecked")
-	public TreeMap<String, JournalsLibrary.SMTPJournal> getJournalSets()
+	public TreeMap<String, SMTPJournal> getJournalSets()
 	{
-		TreeMap<String, JournalsLibrary.SMTPJournal> set=(TreeMap<String, JournalsLibrary.SMTPJournal>)
+		TreeMap<String, SMTPJournal> set=(TreeMap<String, SMTPJournal>)
 															Resources.getResource("SYSTEM_SMTP_JOURNALS");
 		if(set==null)
 		{
@@ -331,9 +341,9 @@ public class SMTPserver extends Thread implements Tickable
 		return set;
 	}
 
-	public JournalsLibrary.SMTPJournal getAJournal(final String journal)
+	public SMTPJournal getAJournal(final String journal)
 	{
-		final TreeMap<String, JournalsLibrary.SMTPJournal> set=getJournalSets();
+		final TreeMap<String, SMTPJournal> set=getJournalSets();
 		if(set==null)
 			return null;
 		return set.get(journal.toUpperCase().trim());
@@ -341,25 +351,25 @@ public class SMTPserver extends Thread implements Tickable
 
 	public boolean isAForwardingJournal(final String journal)
 	{
-		final JournalsLibrary.SMTPJournal jrnl=getAJournal(journal);
+		final SMTPJournal jrnl=getAJournal(journal);
 		return jrnl != null ? jrnl.forward() : false;
 	}
 
 	public boolean isASubscribeOnlyJournal(final String journal)
 	{
-		final JournalsLibrary.SMTPJournal jrnl=getAJournal(journal);
+		final SMTPJournal jrnl=getAJournal(journal);
 		return jrnl != null ? jrnl.subscribeOnly() : false;
 	}
 
 	public boolean isAKeepAllJournal(final String journal)
 	{
-		final JournalsLibrary.SMTPJournal jrnl=getAJournal(journal);
+		final SMTPJournal jrnl=getAJournal(journal);
 		return jrnl != null ? jrnl.keepAll() : false;
 	}
 
 	public MaskingLibrary.CompiledZMask getJournalCriteria(final String journal)
 	{
-		final JournalsLibrary.SMTPJournal jrnl=getAJournal(journal);
+		final SMTPJournal jrnl=getAJournal(journal);
 		return jrnl != null ? jrnl.criteria() : null;
 	}
 
@@ -377,6 +387,12 @@ public class SMTPserver extends Thread implements Tickable
 		}
 		getJournalSets(); // cache the forwarding journals for the web site
 		return true;
+	}
+
+	protected void serverDownMessage(final Socket sock) throws IOException
+	{
+		sock.getOutputStream().write(("421 Server down.. try later.\r\n").getBytes());
+		sock.getOutputStream().flush();
 	}
 
 	@Override
@@ -413,10 +429,10 @@ public class SMTPserver extends Thread implements Tickable
 
 		try
 		{
-			setName(getName()+"@"+page.getInt("PORT"));
-			servsock=new ServerSocket(page.getInt("PORT"), q_len, bindAddr);
+			setName(getName()+"@"+port);
+			servsock=new ServerSocket(port, q_len, bindAddr);
 
-			Log.sysOut(getName(),"Started on port: "+page.getInt("PORT"));
+			Log.sysOut(getName(),"Started on port: "+port);
 			if (bindAddr != null)
 				Log.sysOut(getName(),"Bound to: "+bindAddr.toString());
 
@@ -427,16 +443,15 @@ public class SMTPserver extends Thread implements Tickable
 				sock=servsock.accept();
 				if(sock != null)
 				{
-					while(CMLib.threads().isAllSuspended())
-						Thread.sleep(1000);
 					if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SMTPSERVER))
 						Log.debugOut("SMTPserver","Connection received: "+sock.getInetAddress().getHostAddress());
-					if(CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+					if(CMProps.isState(CMProps.HostState.RUNNING)
+					&& (!CMLib.threads().isAllSuspended())
+					&& (CMSecurity.getConnectState(sock, null) == ConnectState.NORMAL))
 						threadPool.execute(new ProcessSMTPrequest(sock,this));
 					else
 					{
-						sock.getOutputStream().write(("421 Mud down.. try later.\r\n").getBytes());
-						sock.getOutputStream().flush();
+						serverDownMessage(sock);
 						sock.close();
 					}
 					sock=null;
@@ -518,7 +533,7 @@ public class SMTPserver extends Thread implements Tickable
 		{
 			final MassMailer massMailer = new MassMailer(page,domain,oldEmailComplaints);
 
-			final Map<String, JournalsLibrary.SMTPJournal> set=getJournalSets();
+			final Map<String, SMTPJournal> set=getJournalSets();
 			long lastAllProcessing=0;
 			if(Resources.isPropResource("SMTP","LASTALLPROCESING"))
 				lastAllProcessing=CMath.s_long(Resources.getPropResource("SMTP","LASTALLPROCESING"));
@@ -531,7 +546,7 @@ public class SMTPserver extends Thread implements Tickable
 			// remember that new to all messages need to be parsed
 			// for subscribe/unsubscribe and deleted, or then
 			// forwarded to all members private boxes.  Lots of work to do!
-			for(final JournalsLibrary.SMTPJournal smtpJournal : set.values())
+			for(final SMTPJournal smtpJournal : set.values())
 			{
 				final String journalName=smtpJournal.name();
 				if(smtpJournal.forward())

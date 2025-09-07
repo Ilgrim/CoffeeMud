@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -41,6 +41,8 @@ public class Soiled extends StdAbility
 		return "Soiled";
 	}
 
+	protected boolean dirtyFlag = false;
+
 	private final static String	localizedName	= CMLib.lang().L("Soiled");
 
 	@Override
@@ -50,10 +52,13 @@ public class Soiled extends StdAbility
 	}
 
 	private final static String	localizedStaticDisplay	= CMLib.lang().L("(Soiled)");
+	private final static String	localizedStaticDisplay2	= CMLib.lang().L("(Dirty)");
 
 	@Override
 	public String displayText()
 	{
+		if(dirtyFlag)
+			return localizedStaticDisplay2;
 		return localizedStaticDisplay;
 	}
 
@@ -117,18 +122,60 @@ public class Soiled extends StdAbility
 			if(E instanceof MOB)
 			{
 				final MOB mob=(MOB)E;
-				mob.tell(L("You are no longer soiled."));
+				if(dirtyFlag)
+					mob.tell(L("You are no longer dirty."));
+				else
+					mob.tell(L("You are no longer soiled."));
 				final MOB following=((MOB)E).amFollowing();
 				if((following!=null)
 				&&(following.location()==mob.location())
 				&&(CMLib.flags().isInTheGame(mob,true))
 				&&(CMLib.flags().canBeSeenBy(mob,following)))
-					following.tell(L("@x1 is no longer soiled.",E.name()));
+				{
+					if(dirtyFlag)
+						following.tell(L("@x1 is no longer dirty.",E.name()));
+					else
+						following.tell(L("@x1 is no longer soiled.",E.name()));
+				}
 			}
 			else
 			if((E instanceof Item)&&(((Item)E).owner() instanceof MOB))
-				((MOB)((Item)E).owner()).tell(L("@x1 is no longer soiled.",E.name()));
+			{
+				if(dirtyFlag)
+					((MOB)((Item)E).owner()).tell(L("@x1 is no longer dirty.",E.name()));
+				else
+					((MOB)((Item)E).owner()).tell(L("@x1 is no longer soiled.",E.name()));
+			}
 		}
+	}
+
+	public String getDiaperSmell(final boolean periodic)
+	{
+		if((affected instanceof MOB)||(affected instanceof CagedAnimal))
+		{
+			switch(CMLib.dice().roll(1,5,0))
+			{
+			case 1:
+				return L("<T-NAME> is stinky!");
+			case 2:
+				return L("<T-NAME> smells like poo.");
+			case 3:
+				return L("<T-NAME> <T-HAS-HAVE> soiled <T-HIM-HERSELF>.");
+			case 4:
+				return L("Whew! <T-NAME> stinks!");
+			case 5:
+				return L("<T-NAME> must have let one go!");
+			}
+		}
+		else
+		if(!periodic)
+		{
+			if(dirtyFlag)
+				return L("<T-NAME> smells dirty.");
+			else
+				return L("Whew! <T-NAME> stinks!");
+		}
+		return null;
 	}
 
 	@Override
@@ -146,41 +193,47 @@ public class Soiled extends StdAbility
 			else
 			if((msg.sourceMajor(CMMsg.MASK_MOVE))
 			&&(msg.source().riding() instanceof Drink)
-			&&(((Drink)msg.source().riding()).containsDrink()))
+			&&(((Drink)msg.source().riding()).containsLiquid()))
+				unInvoke();
+			else
+			if(CMLib.commands().isHygienicMessage(msg))
 				unInvoke();
 			else
 			if((affected instanceof Item)
 			&&(((Item)affected).container() instanceof Drink)
 			&&(msg.target()==affected)
 			&&(msg.targetMinor()==CMMsg.TYP_PUT)
-			&&(((Drink)((Item)affected).container()).containsDrink()))
+			&&(((Drink)((Item)affected).container()).containsLiquid()))
 				unInvoke();
 		}
-		if((msg.target()==affected)
-		&&(msg.targetMinor()==CMMsg.TYP_SNIFF))
+		if(msg.target()==affected)
 		{
-			String smell=null;
-			switch(CMLib.dice().roll(1,5,0))
+			if(msg.targetMinor()==CMMsg.TYP_SNIFF)
 			{
-			case 1:
-				smell = L("<T-NAME> is stinky!");
-				break;
-			case 2:
-				smell = L("<T-NAME> smells like poo.");
-				break;
-			case 3:
-				smell = L("<T-NAME> has soiled <T-HIM-HERSELF>.");
-				break;
-			case 4:
-				smell = L("Whew! <T-NAME> stinks!");
-				break;
-			case 5:
-				smell = L("<T-NAME> must have let one go!");
-				break;
+				final Physical target=(affected==null)?((myHost instanceof Physical)?(Physical)myHost:msg.source()):affected;
+				final String smell=getDiaperSmell(false);
+				if((smell!=null)
+				&&(CMLib.flags().canSmell(msg.source(),target)))
+					msg.source().tell(msg.source(),target,null,smell);
 			}
-			if((CMLib.flags().canSmell(msg.source()))&&(smell!=null))
-				msg.source().tell(msg.source(),affected,null,smell);
+			else
+			if((dirtyFlag)
+			&&((msg.targetMinor()==CMMsg.TYP_LOOK)||(msg.targetMinor()==CMMsg.TYP_EXAMINE))
+			&&(CMLib.flags().canBeSeenBy(affected,msg.source())))
+			{
+				msg.addTrailerMsg(CMClass.getMsg(msg.source(),null,null,
+											  CMMsg.MSG_OK_VISUAL,L("\n\r@x1 is dirty.\n\r",affected.name(msg.source())),
+											  CMMsg.NO_EFFECT,null,
+											  CMMsg.NO_EFFECT,null));
+			}
 		}
+	}
+
+	@Override
+	public void setMiscText(final String newMiscText)
+	{
+		super.setMiscText(newMiscText);
+		this.dirtyFlag = CMParms.getParmBool(newMiscText, "DIRTY", false);
 	}
 
 	@Override
@@ -211,25 +264,7 @@ public class Soiled extends StdAbility
 					M.playerStats().setHygiene(10000);
 					M.recoverCharStats();
 				}
-				String smell=null;
-				switch(CMLib.dice().roll(1,5,0))
-				{
-				case 1:
-					smell = L("<S-NAME> <S-IS-ARE> stinky!");
-					break;
-				case 2:
-					smell = L("<S-NAME> smells like poo.");
-					break;
-				case 3:
-					smell = L("<S-NAME> has soiled <T-HIM-HERSELF>.");
-					break;
-				case 4:
-					smell = L("Whew! <S-NAME> stinks!");
-					break;
-				case 5:
-					smell = L("<S-NAME> must have let one go!");
-					break;
-				}
+				final String smell=getDiaperSmell(true);
 				if((smell!=null)
 				&&(CMLib.flags().isInTheGame(M,true)))
 				{
@@ -264,7 +299,10 @@ public class Soiled extends StdAbility
 		Environmental msgTarget=target;
 		if(target instanceof CagedAnimal)
 			msgTarget=((CagedAnimal)target).unCageMe();
-		mob.location().show(mob,msgTarget,CMMsg.MSG_OK_VISUAL,L("<T-NAME> has soiled <T-HIM-HERSELF>!"));
+		if(dirtyFlag)
+			mob.location().show(mob,msgTarget,CMMsg.MSG_OK_VISUAL,L("<T-NAME> has gotten dirty!"));
+		else
+			mob.location().show(mob,msgTarget,CMMsg.MSG_OK_VISUAL,L("<T-NAME> has soiled <T-HIM-HERSELF>!"));
 		if(target instanceof MOB)
 		{
 			final Item pants=((MOB)target).fetchFirstWornItem(Wearable.WORN_WAIST);

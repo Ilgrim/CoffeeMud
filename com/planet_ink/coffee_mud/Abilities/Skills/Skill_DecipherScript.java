@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -94,11 +94,11 @@ public class Skill_DecipherScript extends StdSkill
 		return 0;
 	}
 
-	protected Item decryptI=null;
-	protected ItemPossessor possessorI=null;
-	protected boolean success=false;
-	protected String page="";
-	protected int tickUp=0;
+	protected Item			decryptI	= null;
+	protected ItemPossessor	possessorI	= null;
+	protected boolean		success		= false;
+	protected String		page		= "";
+	protected int			tickUp		= 0;
 
 	protected boolean confirmSuccess()
 	{
@@ -123,6 +123,7 @@ public class Skill_DecipherScript extends StdSkill
 		return true;
 	}
 
+	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
 		if(!super.tick(ticking, tickID))

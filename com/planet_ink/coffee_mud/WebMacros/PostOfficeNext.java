@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ public class PostOfficeNext extends StdWebMacro
 			else
 			{
 				postalChains=new TreeMap<String,PostOffice>();
-				for(final Enumeration<PostOffice> p=CMLib.map().postOffices();p.hasMoreElements();)
+				for(final Enumeration<PostOffice> p=CMLib.city().postOffices();p.hasMoreElements();)
 				{
 					final PostOffice P = p.nextElement();
 					if(!postalChains.containsKey(P.postalChain()))

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -160,7 +160,7 @@ public class Chant_HighTide extends Chant
 			if(target instanceof MOB)
 			{
 				final Set<MOB> h=properTargets(mob,target,false);
-				if(h==null)
+				if((h==null)||(h.size()==0))
 					return Ability.QUALITY_INDIFFERENT;
 			}
 		}
@@ -205,11 +205,11 @@ public class Chant_HighTide extends Chant
 			return false;
 		}
 		int waterDir = -1;
-		if(mobR.getArea() instanceof BoardableShip)
+		if(mobR.getArea() instanceof Boardable)
 		{
 			if((mobR.domainType()&Room.INDOORS)==0)
 			{
-				final Item I=((BoardableShip)mobR.getArea()).getShipItem();
+				final Item I=((Boardable)mobR.getArea()).getBoardableItem();
 				if((I!=null)&&(I.owner() instanceof Room))
 				{
 					final Room R=(Room)I.owner();
@@ -230,7 +230,7 @@ public class Chant_HighTide extends Chant
 		}
 
 		final Set<MOB> h=properTargets(mob,givenTarget,auto);
-		if(h==null)
+		if((h==null)||(h.size()==0))
 		{
 			mob.tell(L("There doesn't appear to be anyone here worth sending the tide at."));
 			return false;
@@ -244,8 +244,8 @@ public class Chant_HighTide extends Chant
 		if(success)
 		{
 			if(mob.location().show(mob,null,this,verbalCastCode(mob,null,auto),
-					L(auto?"The tide rushes in from @x1":
-						"^S<S-NAME> chant(s) thunderously as the tide rushes in tide rushes in from @x1.^?",CMLib.directions().getFromCompassDirectionName(waterDir))+CMLib.protocol().msp("earthquake.wav",40)))
+					auto?L("The tide rushes in from @x1"):
+						L("^S<S-NAME> chant(s) thunderously as the tide rushes in tide rushes in from @x1.^?",CMLib.directions().getFromCompassDirectionName(waterDir))+CMLib.protocol().msp("earthquake.wav",40)))
 			{
 				for (final Object element : h)
 				{

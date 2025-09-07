@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -74,6 +74,12 @@ public class Chant_Reincarnation extends Chant
 		return 200;
 	}
 
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_POLYMORPHING;
+	}
+
 	Race newRace=null;
 	volatile int newBaseWeightAdj = 0;
 
@@ -98,10 +104,15 @@ public class Chant_Reincarnation extends Chant
 		if(newRace!=null)
 		{
 			final int oldBaseWeight = affected.baseWeight();
-			affectableStats.setMyRace(newRace);
+			if(affectableStats.getMyRace()!=newRace)
+			{
+				affectableStats.getMyRace().unaffectCharStats(affected, affectableStats);
+				affectableStats.setMyRace(newRace);
+				newRace.affectCharStats(affected, affectableStats);
+			}
 			if(this.newBaseWeightAdj == 0)
 				this.newBaseWeightAdj = affected.baseWeight() - oldBaseWeight;
-			affectableStats.setWearableRestrictionsBitmap(affectableStats.getWearableRestrictionsBitmap()|affectableStats.getMyRace().forbiddenWornBits());
+			affectableStats.setWearableRestrictionsBitmap(affectableStats.getMyRace().forbiddenWornBits());
 		}
 	}
 
@@ -109,7 +120,9 @@ public class Chant_Reincarnation extends Chant
 	public void unInvoke()
 	{
 		super.unInvoke();
-		if((!this.canBeUninvoked)&&(affected!=null)&&(affected.fetchEffect(ID())==this))
+		if((!this.canBeUninvoked)
+		&&(affected!=null)
+		&&(affected.fetchEffect(ID())==this))
 			this.unInvoked=false;
 	}
 
@@ -132,7 +145,7 @@ public class Chant_Reincarnation extends Chant
 				if(newRace!=null)
 				{
 					mob.baseCharStats().setMyRace(newRace);
-					newRace.setHeightWeight(mob.basePhyStats(), (char)mob.charStats().getStat(CharStats.STAT_GENDER));
+					newRace.setHeightWeight(mob.basePhyStats(), mob.charStats().reproductiveCode());
 					mob.recoverPhyStats();
 					mob.recoverCharStats();
 					mob.recoverMaxState();
@@ -195,7 +208,15 @@ public class Chant_Reincarnation extends Chant
 				for(final String cmd : cmds)
 				{
 					if(cmd.toUpperCase().startsWith("PUR"))
-						return false;
+					{
+						int maxLives = 1;
+						final int x = cmd.indexOf(' ');
+						if(x>0)
+							maxLives = CMath.s_int(cmd.substring(x+1).trim());
+						if((msg.source().playerStats()==null)
+						||(msg.source().playerStats().deathCounter(0)>=maxLives-1))
+							return false;
+					}
 				}
 			}
 		}
@@ -216,7 +237,9 @@ public class Chant_Reincarnation extends Chant
 				mob.location().show(mob,target,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> fail(s) to lift the reincarnation geas on <T-NAMESELF>."));
 			return false;
 		}
-		if(target.isMonster())
+		if(target.isMonster()
+		|| (CMLib.flags().isUndead(target))
+		|| (CMLib.flags().isGolem(target)))
 		{
 			mob.tell(L("Your chant would have no effect on such a creature."));
 			return false;
@@ -242,11 +265,18 @@ public class Chant_Reincarnation extends Chant
 			int modifier=0;
 			if((target!=mob)&&(!groupMembers.contains(target)))
 				modifier=CMMsg.MASK_MALICIOUS;
-			final CMMsg msg=CMClass.getMsg(mob,target,this,modifier|verbalCastCode(mob,target,auto),L(auto?"^S<S-NAME> get(s) put under a reincarnation geas!^?":"^S<S-NAME> chant(s) a reincarnation geas upon <T-NAMESELF>.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,modifier|verbalCastCode(mob,target,auto),
+					auto?L("^S<S-NAME> get(s) put under a reincarnation geas!^?"):
+						L("^S<S-NAME> chant(s) a reincarnation geas upon <T-NAMESELF>.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				beneficialAffect(mob,target,asLevel,1800);
+				final Ability A = beneficialAffect(mob,target,asLevel,1800);
+				if(A != null)
+				{
+					target.delEffect(A);
+					target.addPriorityEffect(A);
+				}
 			}
 		}
 		else

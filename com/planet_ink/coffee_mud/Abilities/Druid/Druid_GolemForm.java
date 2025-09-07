@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -79,6 +79,12 @@ public class Druid_GolemForm extends StdAbility
 	public int classificationCode()
 	{
 		return Ability.ACODE_SKILL | Ability.DOMAIN_SHAPE_SHIFTING;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_POLYMORPHING;
 	}
 
 	protected Race		newRace		= null;
@@ -167,7 +173,12 @@ public class Druid_GolemForm extends StdAbility
 		super.affectCharStats(affected,affectableStats);
 		if(newRace!=null)
 		{
-			affectableStats.setMyRace(newRace);
+			if(affectableStats.getMyRace()!=newRace)
+			{
+				affectableStats.getMyRace().unaffectCharStats(affected, affectableStats);
+				affectableStats.setMyRace(newRace);
+				newRace.affectCharStats(affected, affectableStats);
+			}
 			affectableStats.setWearableRestrictionsBitmap(affectableStats.getWearableRestrictionsBitmap()|affectableStats.getMyRace().forbiddenWornBits());
 		}
 	}
@@ -252,7 +263,7 @@ public class Druid_GolemForm extends StdAbility
 		for(final Enumeration<Ability> a=mob.effects();a.hasMoreElements();)
 		{
 			final Ability A=a.nextElement();
-			if((A!=null)&&(A instanceof Druid_GolemForm))
+			if((A instanceof Druid_GolemForm))
 				return true;
 		}
 		return false;
@@ -276,10 +287,16 @@ public class Druid_GolemForm extends StdAbility
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		for(final Enumeration<Ability> a=mob.personalEffects();a.hasMoreElements();)
+		MOB targetM=mob;
+		if((auto)&&(givenTarget instanceof MOB))
+			targetM=(MOB)givenTarget;
+		final Room R=targetM.location();
+		if(R==null)
+			return false;
+		for(final Enumeration<Ability> a=targetM.personalEffects();a.hasMoreElements();)
 		{
 			final Ability A=a.nextElement();
-			if((A!=null)&&(A instanceof Druid_GolemForm))
+			if((A instanceof Druid_GolemForm))
 			{
 				A.unInvoke();
 				return true;
@@ -290,7 +307,9 @@ public class Druid_GolemForm extends StdAbility
 		int classLevel=qualClassLevel-CMLib.ableMapper().qualifyingLevel(mob,this);
 		if(qualClassLevel<0)
 			classLevel=30;
-		final String choice=(mob.isMonster()||(commands.size()==0))?getRaceName(classLevel-1):CMParms.combine(commands,0);
+		final String choice=(mob.isMonster()||(commands.size()==0)||(mob != targetM))?
+				getRaceName(classLevel-1):
+				CMParms.combine(commands,0);
 		if(choice.trim().length()>0)
 		{
 			final StringBuffer buf=new StringBuffer(L("Golem Forms:\n\r"));
@@ -333,16 +352,16 @@ public class Druid_GolemForm extends StdAbility
 		if(success)
 		{
 			final CMMsg msg=CMClass.getMsg(mob,null,this,CMMsg.MSG_OK_ACTION,null);
-			if(mob.location().okMessage(mob,msg))
+			if(R.okMessage(mob,msg))
 			{
-				mob.location().send(mob,msg);
+				R.send(mob,msg);
 				raceName=getRaceName(classLevel);
 				raceName=CMStrings.capitalizeAndLower(CMLib.english().startWithAorAn(raceName.toLowerCase()));
-				mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> take(s) on @x1 form.",raceName.toLowerCase()));
+				R.show(targetM,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> take(s) on @x1 form.",raceName.toLowerCase()));
 				newRace=getRace(classLevel);
 				raceLevel=getRaceLevel(classLevel);
-				beneficialAffect(mob,mob,asLevel,Ability.TICKS_FOREVER);
-				CMLib.utensils().confirmWearability(mob);
+				beneficialAffect(mob,targetM,asLevel,Ability.TICKS_FOREVER);
+				CMLib.utensils().confirmWearability(targetM);
 			}
 		}
 		else

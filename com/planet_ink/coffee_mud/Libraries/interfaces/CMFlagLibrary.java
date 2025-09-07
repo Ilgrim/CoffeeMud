@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ public interface CMFlagLibrary extends CMLibrary
 	 * Returns whether the given mob has the ability to see
 	 * chaos in people/things.
 	 * @param P the thing to check
-	 * @return whether the this can see chaos in people/things
+	 * @return whether the given can see chaos in people/things
 	 */
 	public boolean canSeeChaos(Physical P);
 
@@ -111,7 +111,7 @@ public interface CMFlagLibrary extends CMLibrary
 	 * Returns whether the given mob has the ability to see
 	 * law in people/things.
 	 * @param P the thing to check
-	 * @return whether the this can see law in people/things
+	 * @return whether the given can see law in people/things
 	 */
 	public boolean canSeeLaw(Physical P);
 
@@ -205,6 +205,15 @@ public interface CMFlagLibrary extends CMLibrary
 	public boolean canSmell(MOB M);
 
 	/**
+	 * Returns whether the given mob can smell the given
+	 * target, by issueing a test 'sniff' message to it.
+	 * @param M the mob
+	 * @param target the target
+	 * @return true if the mob can smell the target
+	 */
+	public boolean canSmell(final MOB M, final Physical target);
+
+	/**
 	 * Return whether the given mob is able to eat or
 	 * drink due to the lack of strictly personal defects.
 	 * @param M the mob to check
@@ -227,6 +236,14 @@ public interface CMFlagLibrary extends CMLibrary
 	 * @return whether the given mob is able to breathe
 	 */
 	public boolean canBreathe(MOB M);
+
+	/**
+	 * Returns whether the given mob is capable of swimming,
+	 * even if they are not presently doing so.
+	 * @param M the mob to check
+	 * @return true if a swimmer
+	 */
+	public boolean canSwim(final MOB M);
 
 	/**
 	 * Return whether the given mob is able to breathe the given
@@ -389,6 +406,14 @@ public interface CMFlagLibrary extends CMLibrary
 	public boolean canBarelyBeSeenBy(Environmental seen , MOB seer);
 
 	/**
+	 * Returns whether the given mob is mounted on a small portable
+	 * movable, such as a horse, or boat on water.
+	 * @param mob the mob to check
+	 * @return true if mounted
+	 */
+	public boolean isMobileMounted(final MOB mob);
+
+	/**
 	 * Returns whether the given item is marked as being readable.
 	 * @see CMFlagLibrary#setReadable(Item, boolean)
 	 * @param I the item to check
@@ -497,6 +522,26 @@ public interface CMFlagLibrary extends CMLibrary
 	public boolean isWithSeenContents(Physical P);
 
 	/**
+	 * Returns whether the given item can not be seen
+	 * at a simple look around, but requires either
+	 * the ability to see hidden, or a very careful
+	 * look (longlook) around.
+	 * @param P the item to check
+	 * @return true if it is hard to spot.
+	 */
+	public boolean isHiddenInPlainSight(final Physical P);
+
+	/**
+	 * Returns whether the item is kept by their player
+	 * owner even if they die and are separated from their
+	 * corpse.
+	 *
+	 * @param P the item to check
+	 * @return true if it is kept over death
+	 */
+	public boolean isKeptOverDeath(final Physical P);
+
+	/**
 	 * Returns whether the given item is a container which,
 	 * when open, has accessible contents, and is also open.
 	 * @param I the item to check
@@ -588,7 +633,7 @@ public interface CMFlagLibrary extends CMLibrary
 
 	/**
 	 * Returns whether the given item, mob, room, whatever is
-	 * lawfully aligned, assuming you are using the law/chaos axis.
+	 * lawfully inclined, assuming you are using the law/chaos axis.
 	 * @param P the room, mob, or item to check
 	 * @return true if it is lawfullness
 	 */
@@ -596,11 +641,19 @@ public interface CMFlagLibrary extends CMLibrary
 
 	/**
 	 * Returns whether the given item, mob, room, whatever is
-	 * chaotically aligned, assuming you are using the law/chaos axis.
+	 * chaotically inclined, assuming you are using the law/chaos axis.
 	 * @param P the room, mob, or item to check
 	 * @return true if it is chaoticness
 	 */
 	public boolean isChaotic(final Physical P);
+
+	/**
+	 * Returns whether the given item, mob, room, whatever is
+	 * moderately inclined, assuming you are using the law/chaos axis.
+	 * @param P the room, mob, or item to check
+	 * @return true if it is chaoticness
+	 */
+	public boolean isModerate(final Physical P);
 
 	/**
 	 * Returns whether the given object has a trap set on it.
@@ -618,6 +671,22 @@ public interface CMFlagLibrary extends CMLibrary
 	 * @return true if its a tracking npc, false otherwise
 	 */
 	public boolean isATrackingMonster(MOB M);
+
+	/**
+	 * Returns whether the given mob is a slave, possibly for
+	 * the given master.
+	 * @param slaveM the mob to check
+	 * @param masterM null, or the master to check for
+	 * @return true if its a slave, false otherwise
+	 */
+	public boolean isASlave(MOB slaveM, MOB masterM);
+
+	/**
+	 * Returns whether the given mob is a slave.
+	 * @param slaveM the mob to check
+	 * @return true if its a slave, false otherwise
+	 */
+	public boolean isASlave(final MOB slaveM);
 
 	/**
 	 * Returns whether the given player or npc mob is being
@@ -740,6 +809,14 @@ public interface CMFlagLibrary extends CMLibrary
 	public boolean isInWilderness(Physical P);
 
 	/**
+	 * Returns whether the given mob, item, room, whatever is
+	 * in a city street type room.
+	 * @param P the mob, item, room, whatever to check
+	 * @return true if it is in a city street, false otherwise
+	 */
+	public boolean isACityRoom(final Physical P);
+
+	/**
 	 * Returns whether the given item, mob, whatever is
 	 * marked as swimming/floating.
 	 * @param P the item, mob, whatever to check
@@ -765,11 +842,27 @@ public interface CMFlagLibrary extends CMLibrary
 
 	/**
 	 * Returns whether the given room, whatever is
+	 * driveable, such as a road, street, etc.
+	 * @param R the room to check
+	 * @return true if it is driveable, false otherwise
+	 */
+	public boolean isDrivableRoom(Room R);
+
+	/**
+	 * Returns whether the given room, whatever is
 	 * watery, such as a water surface, underwater, etc.
 	 * @param R the room to check
 	 * @return true if it is watery, false otherwise
 	 */
 	public boolean isWateryRoom(Room R);
+
+	/**
+	 * Returns whether the given room, whatever is
+	 * watery, such as a deep water surface, underwater, etc.
+	 * @param R the room to check
+	 * @return true if it is deep watery, false otherwise
+	 */
+	public boolean isDeepWateryRoom(Room R);
 
 	/**
 	 * Returns whether the given room, whatever is
@@ -827,6 +920,13 @@ public interface CMFlagLibrary extends CMLibrary
 	 * @return true if it is an undead type, false otherwise
 	 */
 	public boolean isUndead(MOB mob);
+
+	/**
+	 * Returns whether the given race is of an undead race type.
+	 * @param R the race to check
+	 * @return true if it is an undead type, false otherwise
+	 */
+	public boolean isUndead(final Race R);
 
 	/**
 	 * Returns whether the given race is of an egg-laying type
@@ -982,6 +1082,15 @@ public interface CMFlagLibrary extends CMLibrary
 	 */
 	public boolean isAnimalIntelligence(MOB M);
 
+
+	/**
+	 * Returns whether the given mob is classifyable as
+	 * an animal, being breedable, but with low intelligence.
+	 * @param M the mob to check
+	 * @return true if its an animal, false otherwise
+	 */
+	public boolean isAnAnimal(final MOB M);
+
 	/**
 	 * Returns whether the given mob, item, whatever has a
 	 * behavior making it move around.
@@ -1014,7 +1123,7 @@ public interface CMFlagLibrary extends CMLibrary
 	 * @param E the potential child
 	 * @return true if its a child, false otherwise
 	 */
-	public boolean isChild(Environmental E);
+	public boolean isAgedChild(Environmental E);
 
 	/**
 	 * Returns whether the given mob (item usually) is a
@@ -1031,6 +1140,43 @@ public interface CMFlagLibrary extends CMLibrary
 	 * @return true if its made of metal, false otherwise
 	 */
 	public boolean isMetal(Environmental E);
+
+	/**
+	 * Returns the proper type/flavor of direction
+	 * for the given mob, which depends on what
+	 * sort of place he/she is in.
+	 *
+	 * @see Directions.DirType
+	 * @see CMFlagLibrary#getDirType(Physical)
+	 *
+	 * @param M the mob to check
+	 * @return the DirType code
+	 */
+	public Directions.DirType getInDirType(final MOB M);
+
+	/**
+	 * Returns the proper type/flavor of direction
+	 * appropriate to the given object, based on whether
+	 * the given physical actually IS a sailing ship,
+	 * space ship, caravan, or other.  This might include
+	 * a mob standing in for such a vessel.
+	 *
+	 * @see Directions.DirType
+	 * @see CMFlagLibrary#getInDirType(MOB)
+	 *
+	 * @param P the object to inspect
+	 * @return the DirType code
+	 */
+	public Directions.DirType getDirType(final Physical P);
+
+	/**
+	 * If the given thing is related to a ship, it returns
+	 * the navBasis of the boardable, such as water or
+	 * land-based.
+	 * @param E the thing or place to check
+	 * @return the Rideable.Basis.*
+	 */
+	public Rideable.Basis getNavRideBasis(final Environmental E);
 
 	/**
 	 * Returns whether the given room, item, whatever has a
@@ -1062,20 +1208,20 @@ public interface CMFlagLibrary extends CMLibrary
 	/**
 	 * Returns whether the given Item is actually in the game, and in
 	 * a room, or is just temporary or cached.
-	 * @param E the Item to check
+	 * @param I the Item to check
 	 * @param reqInhabitation true if it must be a in room, false otherwise
 	 * @return true if it is in the game, false otherwise
 	 */
-	public boolean isInTheGame(Item E, boolean reqInhabitation);
+	public boolean isInTheGame(Item I, boolean reqInhabitation);
 
 	/**
 	 * Returns whether the given MOB is actually in the game, and in
 	 * a room, or is just temporary or cached.
-	 * @param E the MOB to check
+	 * @param M the MOB to check
 	 * @param reqInhabitation true if it must be a in room, false otherwise
 	 * @return true if it is in the game, false otherwise
 	 */
-	public boolean isInTheGame(MOB E, boolean reqInhabitation);
+	public boolean isInTheGame(MOB M, boolean reqInhabitation);
 
 	/**
 	 * Returns whether the given mob, item, room, area, whatever is actually
@@ -1093,6 +1239,14 @@ public interface CMFlagLibrary extends CMLibrary
 	 * @return true for a spell or some other enchantment, false otherwise
 	 */
 	public boolean isEnchanted(Item I);
+
+	/**
+	 * Returns whether the given item can be classified as a 'rope' for
+	 * various purposes.
+	 * @param I the item to check
+	 * @return true if its a rope, and false otherwise
+	 */
+	public boolean isARope(final Item I);
 
 	/**
 	 * Returns whether the given invoker mob is controlling the
@@ -1122,6 +1276,14 @@ public interface CMFlagLibrary extends CMLibrary
 	 * @return the name of its alignment, e.g. good, evil, neutral
 	 */
 	public String getAlignmentName(Environmental E);
+
+	/**
+	 * Returns the simple word that would describe the inclination
+	 * of the given mob or item or whatever.
+	 * @param E the mob or item or whatever
+	 * @return the name of its alignment, e.g. lawful, chaotic, moderate
+	 */
+	public String getInclinationName(final Environmental E);
 
 	/**
 	 * Deprecated, but returns the total hide detection score
@@ -1244,7 +1406,7 @@ public interface CMFlagLibrary extends CMLibrary
 
 	/**
 	 * Returns the ability domain name for the given Ability.
-	 * @see com.planet_ink.coffee_mud.Abilities.interfaces.Ability#DOMAIN_DESCS
+	 * @see com.planet_ink.coffee_mud.Abilities.interfaces.Ability.DOMAIN#DESCS
 	 * @param A the Ability
 	 * @return "" or the Ability domain name of the given Ability
 	 */
@@ -1269,7 +1431,7 @@ public interface CMFlagLibrary extends CMLibrary
 
 	/**
 	 * Returns the ability domain bitmask for the given ability domain name.
-	 * @see com.planet_ink.coffee_mud.Abilities.interfaces.Ability#DOMAIN_DESCS
+	 * @see com.planet_ink.coffee_mud.Abilities.interfaces.Ability.DOMAIN#DESCS
 	 * @param name the name of the given ability domain
 	 * @return "" or the Ability code of the given name
 	 */
@@ -1278,10 +1440,29 @@ public interface CMFlagLibrary extends CMLibrary
 	/**
 	 * Returns the friendly descriptive age of the given mob,
 	 * whether baby, child, player, whatever.
+	 * @see CMFlagLibrary#getAgeYears(Physical)
 	 * @param M the mob to check
 	 * @return the friendly age of the mob
 	 */
 	public String getAge(MOB M);
+
+	/**
+	 * Returns the age of the mob or item in years, or -1.
+	 * @see CMFlagLibrary#getAge(MOB)
+	 * @param P the mob or item or baby to inspect
+	 * @return the age in years, or -1
+	 */
+	public int getAgeYears(final Physical P);
+
+	/**
+	 * Returns the name of the plane of existence upon which
+	 * the given physical object is located, or null for
+	 * Prime Material
+	 *
+	 * @param P the object to check
+	 * @return the name of the plane of existence, or null
+	 */
+	public String getPlaneOfExistence(final Physical P);
 
 	/**
 	 * Returns the disposition blurbs that apply to the given seen
@@ -1324,6 +1505,33 @@ public interface CMFlagLibrary extends CMLibrary
 	public boolean isStillAffectedBy(Physical obj, List<Ability> oneOf, boolean anyTallF);
 
 	/**
+	 * Returns a delimited list of verb description of the disposition
+	 * of the given disposition bitmap.
+	 * @param disposition the bitmap
+	 * @param delimiter the string between verbs
+	 * @return the delimited list of descriptive disposition verbs
+	 */
+	public String getDispositionVerbList(final long disposition, final String delimiter);
+
+	/**
+	 * Returns a delimited list of Causes verb description of the senses
+	 * of the given senses bitmap.
+	 * @param senses the bitmap
+	 * @param delimiter the string between verbs
+	 * @return the delimited list of descriptive senses verbs
+	 */
+	public String getSensesVerbList(final long senses, final String delimiter);
+
+	/**
+	 * Returns a delimited list of CAN descriptions of the senses
+	 * of the given senses bitmap.
+	 * @param senses the bitmap
+	 * @param delimiter the string between descriptions
+	 * @return the delimited list of descriptive senses
+	 */
+	public String getSensesDescList(final long senses, final String delimiter);
+
+	/**
 	 * Returns a command-delimited list of dispassionate description of the disposition
 	 * of the given physical mob, item, whatever.
 	 * @param obj the disposed physical mob, item, whatever
@@ -1342,12 +1550,12 @@ public interface CMFlagLibrary extends CMLibrary
 	public String getSensesDescList(Physical obj, boolean useVerbs);
 
 	/**
-	 * Returns the enumerated disposition index associated with the given
+	 * Returns the enumerated disposition associated with the given
 	 * disposition name, such as ISSWIMMING, etc.
 	 * @param name the disposition name
-	 * @return the index
+	 * @return the Disposition enum
 	 */
-	public int getDispositionIndex(String name);
+	public Disposition getDisposition(String name);
 
 	/**
 	 * Returns the enumerated senses index associated with the given
@@ -1355,7 +1563,7 @@ public interface CMFlagLibrary extends CMLibrary
 	 * @param name the senses name
 	 * @return the index
 	 */
-	public int getSensesIndex(String name);
+	public Senses getSenses(String name);
 
 	/**
 	 * Returns a comma delimited list of the senses masks
@@ -1364,6 +1572,24 @@ public interface CMFlagLibrary extends CMLibrary
 	 * @return the list of senses mask words
 	 */
 	public String getSensesStateList(MOB mob);
+
+	/**
+	 * Returns a comma delimited list of can see senses-list
+	 * strings matching the given mask.
+	 *
+	 * @param senseMask int senseMask the mask to use
+	 * @return a list string
+	 */
+	public String getMaskedCanSeeList(final int senseMask);
+
+	/**
+	 * Returns a comma delimited list of disposition-is
+	 * strings matching the given mask.
+	 *
+	 * @param dispositionMask the mask to use
+	 * @return a list string
+	 */
+	public String getMaskedDispositionIsList(final int dispositionMask);
 
 	/**
 	 * Returns a comma delimited list of the senses masks
@@ -1401,5 +1627,401 @@ public interface CMFlagLibrary extends CMLibrary
 		ARRIVES,
 		LEAVES,
 		IS;
+	}
+
+	/**
+	 * Enum representing the Disposition IS_* constants in PhyStats
+	 * The localization and string helper.
+	 *
+	 * @author Bo Zimmerman
+	 */
+	public static enum Disposition
+	{
+		ISUNSEEN(PhyStats.IS_NOT_SEEN),
+		ISHIDDEN(PhyStats.IS_HIDDEN),
+		ISINVISIBLE(PhyStats.IS_INVISIBLE),
+		ISEVIL(PhyStats.IS_EVIL),
+		ISGOOD(PhyStats.IS_GOOD),
+		ISSNEAKING(PhyStats.IS_SNEAKING),
+		ISBONUS(PhyStats.IS_BONUS),
+		ISDARK(PhyStats.IS_DARK),
+		ISGOLEM(PhyStats.IS_GOLEM),
+		ISSLEEPING(PhyStats.IS_SLEEPING),
+		ISSITTING(PhyStats.IS_SITTING),
+		ISFLYING(PhyStats.IS_FLYING),
+		ISSWIMMING(PhyStats.IS_SWIMMING),
+		ISGLOWING(PhyStats.IS_GLOWING),
+		ISCLIMBING(PhyStats.IS_CLIMBING),
+		ISFALLING(PhyStats.IS_FALLING),
+		ISLIGHT(PhyStats.IS_LIGHTSOURCE),
+		ISBOUND(PhyStats.IS_BOUND),
+		ISCLOAKED(PhyStats.IS_CLOAKED),
+		ISUNSAVABLE(PhyStats.IS_UNSAVABLE),
+		ISCATALOGED(PhyStats.IS_CATALOGED),
+		ISUNATTACKABLE(PhyStats.IS_UNATTACKABLE),
+		ISCUSTOM(PhyStats.IS_CUSTOM),
+		ISUNHELPFUL(PhyStats.IS_UNHELPFUL)
+		;
+		private final int bitMask;
+		private String desc= null;
+		private String state = null;
+		private String verb = null;
+		private Disposition(final int mask)
+		{
+			bitMask = mask;
+		}
+
+		public int getMask()
+		{
+			return bitMask;
+		}
+
+		public String getCode()
+		{
+			return name();
+		}
+
+		public String getIsDesc()
+		{
+			if(desc == null)
+				localize();
+			return desc;
+		}
+		public String getVerb()
+		{
+			if(verb == null)
+				localize();
+			return verb;
+		}
+		public String getState()
+		{
+			if(state == null)
+				localize();
+			return state;
+		}
+
+		private void localize()
+		{
+			//CMLib.lang().L("Causes disappearance")
+			switch(this)
+			{
+			case ISUNSEEN:
+				desc = CMLib.lang().L("Is never seen");
+				state = CMLib.lang().L("unseeable");
+				verb = CMLib.lang().L("Causes Nondetectability");
+				break;
+			case ISHIDDEN:
+				desc = CMLib.lang().L("Is hidden");
+				state = CMLib.lang().L("hidden");
+				verb = CMLib.lang().L("Causes hide");
+				break;
+			case ISINVISIBLE:
+				desc = CMLib.lang().L("Is invisible");
+				state = CMLib.lang().L("invisible");
+				verb = CMLib.lang().L("Causes invisibility");
+				break;
+			case ISEVIL:
+				desc = CMLib.lang().L("Evil aura");
+				state = CMLib.lang().L("evil");
+				verb = CMLib.lang().L("Creates Evil aura");
+				break;
+			case ISGOOD:
+				desc = CMLib.lang().L("Good aura");
+				state = CMLib.lang().L("good");
+				verb =  CMLib.lang().L("Creates Good aura");
+				break;
+			case ISSNEAKING:
+				desc = CMLib.lang().L("Is sneaking");
+				CMLib.lang().L("sneaks");
+				verb = CMLib.lang().L("Causes sneaking");
+				break;
+			case ISBONUS:
+				desc = CMLib.lang().L("Is magical");
+				state = CMLib.lang().L("sacred");
+				verb = CMLib.lang().L("Creates magical aura");
+				break;
+			case ISDARK:
+				desc = CMLib.lang().L("Is dark");
+				state = CMLib.lang().L("darkness");
+				verb = CMLib.lang().L("Creates dark aura");
+				break;
+			case ISGOLEM:
+				desc = CMLib.lang().L("Is golem");
+				state = "";
+				verb = CMLib.lang().L("Creates golem aura");
+				break;
+			case ISSLEEPING:
+				desc = CMLib.lang().L("Is sleeping");
+				state = CMLib.lang().L("sleepy");
+				verb = CMLib.lang().L("Causes sleeping");
+				break;
+			case ISSITTING:
+				desc = CMLib.lang().L("Is sitting");
+				state = CMLib.lang().L("crawls");
+				verb = CMLib.lang().L("Causes sitting");
+				break;
+			case ISFLYING:
+				desc = CMLib.lang().L("Is flying");
+				state = CMLib.lang().L("flies");
+				verb = CMLib.lang().L("Allows flying");
+				break;
+			case ISSWIMMING:
+				desc = CMLib.lang().L("Is swimming");
+				state = CMLib.lang().L("swims");
+				verb = CMLib.lang().L("Causes swimming");
+				break;
+			case ISGLOWING:
+				desc = CMLib.lang().L("Is glowing");
+				state = CMLib.lang().L("glowing");
+				verb = CMLib.lang().L("Causes glowing aura");
+				break;
+			case ISCLIMBING:
+				desc = CMLib.lang().L("Is climbing");
+				state = CMLib.lang().L("climbing");
+				verb = CMLib.lang().L("Allows climbing");
+				break;
+			case ISFALLING:
+				desc = CMLib.lang().L("Is falling");
+				state = CMLib.lang().L("falling");
+				verb = CMLib.lang().L("Causes falling");
+				break;
+			case ISLIGHT:
+				desc = CMLib.lang().L("Is a light source");
+				state = CMLib.lang().L("shining");
+				verb = CMLib.lang().L("Causes a light source");
+				break;
+			case ISBOUND:
+				desc = CMLib.lang().L("Is binding");
+				state = CMLib.lang().L("bound");
+				verb = CMLib.lang().L("Causes binding");
+				break;
+			case ISCLOAKED:
+				desc = CMLib.lang().L("Is Cloaked");
+				state = CMLib.lang().L("cloaked");
+				verb = CMLib.lang().L("Causes cloaking");
+				break;
+			case ISUNSAVABLE:
+				desc = CMLib.lang().L("Is never saved");
+				state = "";
+				verb = CMLib.lang().L("Causes unsavability");
+				break;
+			case ISCATALOGED:
+				desc = CMLib.lang().L("Is cataloged");
+				state = "";
+				verb = CMLib.lang().L("Created from a template");
+				break;
+			case ISUNATTACKABLE:
+				desc = CMLib.lang().L("Is unattackable");
+				state = "";
+				verb = CMLib.lang().L("Prevents attackability");
+				break;
+			case ISCUSTOM:
+				desc = CMLib.lang().L("Is something");
+				state = "";
+				verb = CMLib.lang().L("Causes something...");
+				break;
+			case ISUNHELPFUL:
+				desc = CMLib.lang().L("Is Unhelpful");
+				state = "";
+				verb = CMLib.lang().L("Prevents helpful attacks");
+				break;
+			}
+		}
+	}
+
+	/**
+	 * Enum representing the Senses CAN_* constants in PhyStats
+	 * The localization and string helper.
+	 *
+	 * @author Bo Zimmerman
+	 */
+	public static enum Senses
+	{
+		CANNOTSEE(PhyStats.CAN_NOT_SEE),
+		CANSEEHIDDEN(PhyStats.CAN_SEE_HIDDEN),
+		CANSEEINVISIBLE(PhyStats.CAN_SEE_INVISIBLE),
+		CANSEEEVIL(PhyStats.CAN_SEE_EVIL),
+		CANSEEGOOD(PhyStats.CAN_SEE_GOOD),
+		CANSEESNEAKERS(PhyStats.CAN_SEE_SNEAKERS),
+		CANSEEBONUS(PhyStats.CAN_SEE_BONUS),
+		CANSEEDARK(PhyStats.CAN_SEE_DARK),
+		CANSEEINFRARED(PhyStats.CAN_SEE_INFRARED),
+		CANNOTHEAR(PhyStats.CAN_NOT_HEAR),
+		CANNOTMOVE(PhyStats.CAN_NOT_MOVE),
+		CANNOTSMELL(PhyStats.CAN_NOT_SMELL),
+		CANNOTTASTE(PhyStats.CAN_NOT_TASTE),
+		CANNOTSPEAK(PhyStats.CAN_NOT_SPEAK),
+		CANNOTBREATHE(PhyStats.CAN_NOT_BREATHE),
+		CANSEEVICTIM(PhyStats.CAN_SEE_VICTIM),
+		CANSEEMETAL(PhyStats.CAN_SEE_METAL),
+		CANNOTTHINK(PhyStats.CAN_NOT_THINK),
+		CANNOTTRACK(PhyStats.CAN_NOT_TRACK),
+		CANNOTAUTOATTACK(PhyStats.CAN_NOT_AUTO_ATTACK),
+		CANNOTBECAMPED(PhyStats.CAN_NOT_BE_CAMPED),
+		CANGRUNTWHENSTUPID(PhyStats.CAN_GRUNT_WHEN_STUPID),
+		CANSEEITEMSHIDDEN(PhyStats.CAN_SEE_HIDDEN_ITEMS)
+		;
+		int bitMask;
+		private String desc = null;
+		private String verb = null;
+		private String state = null;
+		private Senses(final int mask)
+		{
+			bitMask = mask;
+		}
+
+		public int getMask()
+		{
+			return bitMask;
+		}
+
+		public String getCode()
+		{
+			return name();
+		}
+
+		public String getDesc()
+		{
+			if(desc == null)
+				localize();
+			return desc;
+		}
+
+		public String getVerb()
+		{
+			if(verb == null)
+				localize();
+			return verb;
+		}
+
+		public String getState()
+		{
+			if(state == null)
+				localize();
+			return state;
+		}
+
+		private void localize()
+		{
+			switch(this)
+			{
+			case CANNOTAUTOATTACK:
+				desc = CMLib.lang().L("Is not auto-attacking");
+				verb = CMLib.lang().L("Prevents auto attacking");
+				state = CMLib.lang().L("can't auto attack");
+				break;
+			case CANNOTBECAMPED:
+				desc = CMLib.lang().L("Can not be camped on");
+				verb = CMLib.lang().L("Prevents camping");
+				state = CMLib.lang().L("can't be camped");
+				break;
+			case CANNOTBREATHE:
+				desc = CMLib.lang().L("Can not breathe");
+				verb = CMLib.lang().L("Causes choking");
+				state = CMLib.lang().L("can't breathe");
+				break;
+			case CANNOTHEAR:
+				desc = CMLib.lang().L("Is Deaf");
+				verb = CMLib.lang().L("Causes Deafness");
+				state = CMLib.lang().L("deaf");
+				break;
+			case CANNOTMOVE:
+				desc = CMLib.lang().L("Is Paralyzed");
+				verb = CMLib.lang().L("Causes Paralyzation");
+				state = CMLib.lang().L("can't move");
+				break;
+			case CANNOTSEE:
+				desc = CMLib.lang().L("Is Blind");
+				verb = CMLib.lang().L("Causes Blindness");
+				state = CMLib.lang().L("blind");
+				break;
+			case CANNOTSMELL:
+				desc = CMLib.lang().L("Can not smell");
+				verb = CMLib.lang().L("Deadens smell");
+				state = CMLib.lang().L("can't smell");
+				break;
+			case CANNOTSPEAK:
+				desc = CMLib.lang().L("Is Mute");
+				verb = CMLib.lang().L("Causes Muteness");
+				state = CMLib.lang().L("can't speak");
+				break;
+			case CANNOTTASTE:
+				desc = CMLib.lang().L("Can not eat");
+				verb = CMLib.lang().L("Disallows eating");
+				state = CMLib.lang().L("can't eat");
+				break;
+			case CANNOTTHINK:
+				desc = CMLib.lang().L("Can not concentrate");
+				verb = CMLib.lang().L("Befuddles the mind");
+				state = CMLib.lang().L("can't think straight");
+				break;
+			case CANNOTTRACK:
+				desc = CMLib.lang().L("Is off the grid");
+				verb = CMLib.lang().L("Makes un-trackable");
+				state = CMLib.lang().L("can't be tracked");
+				break;
+			case CANSEEBONUS:
+				desc = CMLib.lang().L("Can see magic");
+				verb = CMLib.lang().L("Allows see magic");
+				state = CMLib.lang().L("detect magic");
+				break;
+			case CANSEEDARK:
+				desc = CMLib.lang().L("Can see in the dark");
+				verb = CMLib.lang().L("Allows darkvision");
+				state = CMLib.lang().L("darkvision");
+				break;
+			case CANSEEEVIL:
+				desc = CMLib.lang().L("Can see evil");
+				verb = CMLib.lang().L("Allows see evil");
+				state = CMLib.lang().L("detect evil");
+				break;
+			case CANSEEGOOD:
+				desc = CMLib.lang().L("Can see good");
+				verb = CMLib.lang().L("Allows see good");
+				state = CMLib.lang().L("detect good");
+				break;
+			case CANSEEHIDDEN:
+				desc = CMLib.lang().L("Can see hidden");
+				verb = CMLib.lang().L("Allows see hidden");
+				state = CMLib.lang().L("see hidden");
+				break;
+			case CANSEEINFRARED:
+				desc = CMLib.lang().L("Has infravision");
+				verb = CMLib.lang().L("Allows infravision");
+				state = CMLib.lang().L("infravision");
+				break;
+			case CANSEEINVISIBLE:
+				desc = CMLib.lang().L("Can see invisible");
+				verb = CMLib.lang().L("Allows see invisible");
+				state = CMLib.lang().L("see invisible");
+				break;
+			case CANSEEITEMSHIDDEN:
+				desc = CMLib.lang().L("Can see hidden items");
+				verb = CMLib.lang().L("Allows see hidden items");
+				state = CMLib.lang().L("see hidden items");
+				break;
+			case CANSEEMETAL:
+				desc = CMLib.lang().L("Can detect metal");
+				verb = CMLib.lang().L("Allows detect metal");
+				state = CMLib.lang().L("metalvision");
+				break;
+			case CANSEESNEAKERS:
+				desc = CMLib.lang().L("Can detect sneakers");
+				verb = CMLib.lang().L("Allows detect sneakers");
+				state = CMLib.lang().L("see sneaking");
+				break;
+			case CANSEEVICTIM:
+				desc = CMLib.lang().L("Can detect victims");
+				verb = CMLib.lang().L("Allows detect victims");
+				state = CMLib.lang().L("detects victims");
+				break;
+			case CANGRUNTWHENSTUPID:
+				desc = CMLib.lang().L("Can grunt");
+				verb = CMLib.lang().L("Allows stupid grunting");
+				state = CMLib.lang().L("can grunt");
+				break;
+			}
+
+		}
 	}
 }

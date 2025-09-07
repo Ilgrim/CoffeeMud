@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class FrostGiant extends StdMOB
 	public FrostGiant()
 	{
 		super();
-		username="a frost giant";
+		_name="a frost giant";
 		setDescription("A tall blueish humanoid standing about 16 feet tall and very smelly.");
 		setDisplayText("A frost giant looks down at you.");
 		CMLib.factions().setAlignment(this,Faction.Align.EVIL);
@@ -58,7 +58,7 @@ public class FrostGiant extends StdMOB
 
 		basePhyStats().setDamage(19);
 		basePhyStats().setSpeed(1.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(12);
 		basePhyStats().setArmor(0);
 

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,17 +50,24 @@ public interface Language extends Ability
 	public String writtenName();
 
 	/**
-	 * Returns a list of the languages understood by this ability
+	 * Returns a list of the languages understood by this ability.
+	 * Narrowly used to allow this language to translate others,
+	 * including Common.
 	 * @return vector of language ids supported (usually 1 element == ID())
 	 */
-	public List<String> languagesSupported();
+	public Set<String> languagesSupported();
 
 	/**
-	 * Returns whether the given language is translated by this one
+	 * Returns whether the given language is translated by this one, possibly
+	 * given the words that would be translated.
+	 *
+	 * Does not use {@link Language#languagesSupported()}
+	 *
 	 * @param language the language to test
+	 * @param words null, or the words to be translated
 	 * @return true if this language translates (usually ID() == language)
 	 */
-	public boolean translatesLanguage(String language);
+	public boolean translatesLanguage(String language, String words);
 
 	/**
 	 * Returns the understanding proficiency in the given supported language
@@ -106,4 +113,27 @@ public interface Language extends Ability
 	 * @return the translated word
 	 */
 	public String translate(String language, String word);
+
+	/**
+	 * Returns whether this language can be translated by normal replacement
+	 * means, and is a natural language of a sentient creature.  This would
+	 * differentiate it from Language class things like encryption,
+	 * invisible ink, or animal noises.
+	 * @return whether this is a natural sentient language
+	 */
+	public boolean isANaturalLanguage();
+
+	/**
+	 * When someone who doesn't speak a language hears it spoken, the
+	 * verb say(s) is replaced with this verb (if it exists).
+	 * @return empty string, of a verb that replaces "say(s)"
+	 */
+	public String getVerb();
+
+	/**
+	 * When someone who doest speak a language hears it spoken, the
+	 * verb say(s) is replaced with this verb (if it exists).
+	 * @return empty string, of a verb that replaces "say(s)" in the translation
+	 */
+	public String getTranslationVerb();
 }

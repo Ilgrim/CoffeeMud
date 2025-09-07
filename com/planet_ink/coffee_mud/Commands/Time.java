@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,10 +52,13 @@ public class Time extends StdCommand
 		final Room room=mob.location();
 		if(room==null)
 			return false;
-		mob.tell(room.getArea().getTimeObj().timeDescription(mob,room));
+		if((commands.size()>1)&&(commands.get(1).equalsIgnoreCase("global")))
+			mob.tell(CMLib.time().globalClock().timeDescription(mob,room));
+		else
+			mob.tell(room.getArea().getTimeObj().timeDescription(mob,room));
 		if((mob.playerStats()!=null)&&(mob.playerStats().getBirthday()!=null))
 		{
-			final TimeClock C=CMLib.time().localClock(mob.getStartRoom());
+			final TimeClock C=CMLib.time().homeClock(mob);
 			final int day=C.getDayOfMonth();
 			final int month=C.getMonth();
 			int year=C.getYear();
@@ -73,7 +76,8 @@ public class Time extends StdCommand
 				timeDesc.append(C.getWeekNames()[(int)(x%C.getDaysInWeek())]+", ");
 			}
 			timeDesc.append("the "+bday+CMath.numAppendage(bday));
-			timeDesc.append(" day of "+C.getMonthNames()[bmonth-1]);
+			final int bmonthdex = bmonth % C.getMonthNames().length;
+			timeDesc.append(" day of "+C.getMonthNames()[bmonthdex]);
 			if(C.getYearNames().length>0)
 				timeDesc.append(", "+CMStrings.replaceAll(C.getYearNames()[year%C.getYearNames().length],"#",""+year));
 			mob.tell(L("Your next birthday is @x1.",timeDesc.toString()));

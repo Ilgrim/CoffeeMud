@@ -8,6 +8,7 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.Session.SessionPing;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -77,9 +78,10 @@ public class Boot extends StdCommand
 				}
 				else
 					mob.tell(L("You boot @x1",S.getAddress()));
-				S.stopSession(false,false,false);
+				S.stopSession(true,false,false, false);
 				CMLib.s_sleep(100);
-				if(((S.getPreviousCMD()==null)||(S.getPreviousCMD().size()==0))
+				if((S.getHistory().size()==0)
+				&&(S.mob()!=null)
 				&&(!CMLib.flags().isInTheGame(S.mob(),true)))
 					CMLib.sessions().stopSessionAtAllCosts(S);
 				boot=true;

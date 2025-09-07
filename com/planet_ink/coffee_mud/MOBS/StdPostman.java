@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ public class StdPostman extends StdShopKeeper implements PostOffice
 	protected double	postagePerPound		= 1.0;
 	protected double	holdFeePerPound		= 1.0;
 	protected double	feeForNewBox		= 50.0;
-	protected int		maxMudMonthsHeld	= 12;
+	protected int		maxMudMonthsHeld	= 40;
 	private long		postalWaitTime		= -1;
 
 	protected static Map<String,Long>	postalTimes	= new Hashtable<String,Long>();
@@ -56,7 +56,7 @@ public class StdPostman extends StdShopKeeper implements PostOffice
 	public StdPostman()
 	{
 		super();
-		username="a postman";
+		_name="a postman";
 		setDescription("He\\`s making a speedy delivery!");
 		setDisplayText("The local postman is waiting to serve you.");
 		CMLib.factions().setAlignment(this,Faction.Align.GOOD);
@@ -211,7 +211,7 @@ public class StdPostman extends StdShopKeeper implements PostOffice
 				+holdTime+";"
 				+COD+";"
 				+name+";"
-				+CMLib.coffeeMaker().getPropertiesStr(thisThang,true));
+				+CMLib.coffeeMaker().getEnvironmentalMiscTextXML(thisThang,true));
 	}
 
 	@Override
@@ -401,7 +401,7 @@ public class StdPostman extends StdShopKeeper implements PostOffice
 		final Item I=CMClass.getItem(data.classID);
 		if(I!=null)
 		{
-			CMLib.coffeeMaker().setPropertiesStr(I,data.xml,true);
+			CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(I,data.xml,true);
 			I.recoverPhyStats();
 			I.text();
 			return I;
@@ -461,7 +461,7 @@ public class StdPostman extends StdShopKeeper implements PostOffice
 			return null;
 		if(forward.equalsIgnoreCase(toWhom))
 			return branch;
-		final PostOffice P=CMLib.map().getPostOffice(postalChain(),forward);
+		final PostOffice P=CMLib.city().getPostOffice(postalChain(),forward);
 		if(P!=null)
 		{
 			forward=allBranchBoxes.get(P.postalBranch());
@@ -480,7 +480,7 @@ public class StdPostman extends StdShopKeeper implements PostOffice
 			if(M.getStartRoom()!=null)
 			{
 				final Map<String,String> allBranchBoxes=getOurOpenBoxes(toWhom);
-				final PostOffice P=CMLib.map().getPostOffice(postalChain(), M.getStartRoom().getArea().Name());
+				final PostOffice P=CMLib.city().getPostOffice(postalChain(), M.getStartRoom().getArea().Name());
 				String branch=null;
 				if(P!=null)
 				{
@@ -542,7 +542,7 @@ public class StdPostman extends StdShopKeeper implements PostOffice
 	{
 		if(!super.tick(ticking,tickID))
 			return false;
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return true;
 
 		if((tickID==Tickable.TICKID_MOB)&&(getStartRoom()!=null))
@@ -586,7 +586,7 @@ public class StdPostman extends StdShopKeeper implements PostOffice
 					String deliveryBranch=findProperBranch(toWhom);
 					if(deliveryBranch!=null)
 					{
-						P=CMLib.map().getPostOffice(postalChain(),deliveryBranch);
+						P=CMLib.city().getPostOffice(postalChain(),deliveryBranch);
 						final Item I=makeItem(V2);
 						if((P!=null)&&(I!=null))
 						{
@@ -598,7 +598,7 @@ public class StdPostman extends StdShopKeeper implements PostOffice
 					deliveryBranch=findProperBranch(fromWhom);
 					if(deliveryBranch!=null)
 					{
-						P=CMLib.map().getPostOffice(postalChain(),deliveryBranch);
+						P=CMLib.city().getPostOffice(postalChain(),deliveryBranch);
 						final Item I=makeItem(V2);
 						if((P!=null)&&(I!=null))
 							P.addToBox(fromWhom,I,V2.to,"POSTMASTER",System.currentTimeMillis(),0.0);
@@ -627,7 +627,7 @@ public class StdPostman extends StdShopKeeper implements PostOffice
 									{
 										final Item I=makeItem(data);
 										CMLib.database().DBDeletePlayerData(V2.who(),V2.section(),V2.key());
-										if(I!=null)
+										if((I!=null)&&(!(I instanceof ArchonOnly)))
 											getShop().addStoreInventory(I);
 									}
 								}
@@ -932,7 +932,7 @@ public class StdPostman extends StdShopKeeper implements PostOffice
 						}
 						else
 						{
-							final PostOffice P=CMLib.map().getPostOffice(postalChain(),A.Name());
+							final PostOffice P=CMLib.city().getPostOffice(postalChain(),A.Name());
 							if(P==null)
 								CMLib.commands().postSay(this,mob,L("I'm sorry, we don't have a branch in @x1.",A.name()),true,false);
 							else
@@ -1045,7 +1045,7 @@ public class StdPostman extends StdShopKeeper implements PostOffice
 			case CMMsg.TYP_GIVE:
 			case CMMsg.TYP_DEPOSIT:
 				{
-					if(!CMLib.coffeeShops().ignoreIfNecessary(msg.source(),finalIgnoreMask(),this))
+					if(!CMLib.coffeeShops().ignoreIfNecessary(msg.source(),getFinalIgnoreMask(),this))
 						return false;
 					if(msg.tool()==null)
 						return false;
@@ -1074,7 +1074,7 @@ public class StdPostman extends StdShopKeeper implements PostOffice
 				return super.okMessage(myHost, msg);
 			case CMMsg.TYP_WITHDRAW:
 				{
-					if(!CMLib.coffeeShops().ignoreIfNecessary(msg.source(),finalIgnoreMask(),this))
+					if(!CMLib.coffeeShops().ignoreIfNecessary(msg.source(),getFinalIgnoreMask(),this))
 						return false;
 					final String senderName=getSenderName(msg.source(),Clan.Function.WITHDRAW,true);
 					if(senderName==null)
@@ -1112,7 +1112,7 @@ public class StdPostman extends StdShopKeeper implements PostOffice
 				return super.okMessage(myHost,msg);
 			case CMMsg.TYP_LIST:
 			{
-				if(!CMLib.coffeeShops().ignoreIfNecessary(msg.source(),finalIgnoreMask(),this))
+				if(!CMLib.coffeeShops().ignoreIfNecessary(msg.source(),getFinalIgnoreMask(),this))
 					return false;
 				final String senderName=getSenderName(msg.source(),Clan.Function.DEPOSIT_LIST,true);
 				if(senderName==null)
@@ -1126,7 +1126,7 @@ public class StdPostman extends StdShopKeeper implements PostOffice
 					&&(msg.source().getStartRoom().getArea()==getStartRoom().getArea()))
 					{
 						createBoxHere(msg.source().Name(),msg.source().Name());
-						return true;
+						return super.stdMOBokMessage(myHost, msg);
 					}
 					final StringBuffer str=new StringBuffer("");
 					if(isSold(ShopKeeper.DEAL_CLANPOSTMAN))
@@ -1139,7 +1139,7 @@ public class StdPostman extends StdShopKeeper implements PostOffice
 					mob.tell(L("Use 'say \"@x1\" open' to open a box here@x2",name(),((feeForNewBox()<=0.0)?".":(" for "+CMLib.beanCounter().nameCurrencyShort(this,feeForNewBox())+"."))));
 					return false;
 				}
-				return true;
+				return super.stdMOBokMessage(myHost, msg);
 			}
 			default:
 				break;

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -177,7 +177,7 @@ public class Fighter_AtemiStrike extends MonkSkill
 
 		if(CMLib.flags().isGolem(target))
 		{
-			mob.tell(target,null,null,L("You can't hurt <S-NAMESELF> with Atemi Strike."));
+			failureTell(mob,target,auto,L("You can't hurt <S-NAMESELF> with Atemi Strike."));
 			return false;
 		}
 
@@ -206,15 +206,14 @@ public class Fighter_AtemiStrike extends MonkSkill
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				if(msg.value()<=0)
-				{
-					mob.location().show(target,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> do(es) not look well."));
-					final int ticks = 20 - (getXLEVELLevel(mob)/2);
-					final Fighter_AtemiStrike strike = (Fighter_AtemiStrike)maliciousAffect(mob,target,asLevel,ticks,-1);
-					strike.tickUp=0;
-					strike.tickTarget = ticks/2;
-					success=strike!=null;
-				}
+				if(msg.value()>0)
+					return maliciousFizzle(mob,target,L("<T-NAME> fight(s) off <S-YOUPOSS> strike."));
+				mob.location().show(target,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> do(es) not look well."));
+				final int ticks = 20 - (getXLEVELLevel(mob)/2);
+				final Fighter_AtemiStrike strike = (Fighter_AtemiStrike)maliciousAffect(mob,target,asLevel,ticks,-1);
+				strike.tickUp=0;
+				strike.tickTarget = ticks/2;
+				success=strike!=null;
 			}
 		}
 		else

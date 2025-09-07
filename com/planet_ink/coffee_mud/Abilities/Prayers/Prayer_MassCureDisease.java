@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -129,11 +129,14 @@ public class Prayer_MassCureDisease extends Prayer implements MendingSkill
 				mob.location().send(mob,msg);
 				boolean worked=false;
 				final TrackingLibrary.TrackingFlags flags=CMLib.tracking().newFlags();
+				flags.plus(TrackingLibrary.TrackingFlag.PASSABLE);
 				final int range=100 + super.getXLEVELLevel(mob)+(2*super.getXMAXRANGELevel(mob));
 				final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,range);
 				for (final Room room : checkSet)
 				{
 					final Room R=CMLib.map().getRoom(room);
+					if(R==null)
+						continue;
 					for(int m=0;m<R.numInhabitants();m++)
 					{
 						final MOB target=R.fetchInhabitant(m);

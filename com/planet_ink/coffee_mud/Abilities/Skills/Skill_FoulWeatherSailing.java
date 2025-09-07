@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -49,6 +49,14 @@ public class Skill_FoulWeatherSailing extends StdSkill
 	}
 
 	private final static String	localizedStaticDisplay	= CMLib.lang().L("(Foul Weather Sailing)");
+
+	private static final String[]	triggerStrings	= I(new String[] { "FOULWEATHERSAILING"});
+
+	@Override
+	public String[] triggerStrings()
+	{
+		return triggerStrings;
+	}
 
 	@Override
 	public String displayText()
@@ -85,7 +93,7 @@ public class Skill_FoulWeatherSailing extends StdSkill
 	{
 		if(!super.okMessage(myHost, msg))
 			return false;
-		if((msg.target() instanceof BoardableShip)
+		if((msg.target() instanceof Boardable)
 		&&(msg.targetMinor()==CMMsg.TYP_WEATHER)
 		&&(msg.target() == affected)
 		&&(affected instanceof Item))
@@ -93,8 +101,8 @@ public class Skill_FoulWeatherSailing extends StdSkill
 			final MOB M=invoker();
 			if((M!=null)
 			&&(M.location()!=null)
-			&&(M.location().getArea() instanceof BoardableShip)
-			&&(((BoardableShip)M.location().getArea()).getShipItem() == msg.target())
+			&&(M.location().getArea() instanceof Boardable)
+			&&(((Boardable)M.location().getArea()).getBoardableItem() == msg.target())
 			&&(super.proficiencyCheck(M, 0, false)))
 			{
 				super.helpProficiency(M, 0);
@@ -126,10 +134,10 @@ public class Skill_FoulWeatherSailing extends StdSkill
 			return false;
 
 		final Item target;
-		if((R.getArea() instanceof BoardableShip)
-		&&(((BoardableShip)R.getArea()).getShipItem() instanceof BoardableShip))
+		if((R.getArea() instanceof Boardable)
+		&&(((Boardable)R.getArea()).getBoardableItem() instanceof Boardable))
 		{
-			target=((BoardableShip)R.getArea()).getShipItem();
+			target=((Boardable)R.getArea()).getBoardableItem();
 		}
 		else
 		{

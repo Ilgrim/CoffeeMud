@@ -22,7 +22,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ public class GenCompEnviroSystem extends GenElecCompItem
 		return "GenCompEnviroSystem";
 	}
 
-	protected final static int ENVIRO_TICKS=7;
+	protected final static int ENVIRO_TICKS=6;
 	protected final static int ENVIRO_POWER_CONSUMED=10;
 
 	protected int	tickDown	= ENVIRO_TICKS;
@@ -72,7 +72,7 @@ public class GenCompEnviroSystem extends GenElecCompItem
 		{
 			switch(msg.targetMinor())
 			{
-			case CMMsg.TYP_LOOK:
+			case CMMsg.TYP_EXAMINE:
 				if(CMLib.flags().canBeSeenBy(this, msg.source()))
 					msg.source().tell(L("@x1 is currently @x2",name(),(activated()?"operating.\n\r":"deactivated/disconnected.\n\r")));
 				return;
@@ -90,11 +90,11 @@ public class GenCompEnviroSystem extends GenElecCompItem
 					if(--tickDown <=0)
 					{
 						tickDown=ENVIRO_TICKS;
-						final SpaceObject obj=CMLib.map().getSpaceObject(this, true);
+						final SpaceObject obj=CMLib.space().getSpaceObject(this, true);
 						if(obj instanceof SpaceShip)
 						{
 							final SpaceShip ship=(SpaceShip)obj;
-							final Area A=ship.getShipArea();
+							final Area A=ship.getArea();
 							double pct= 1.0;
 							if(subjectToWearAndTear())
 								pct=pct*CMath.div(usesRemaining(),50);

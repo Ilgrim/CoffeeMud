@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ public class Scriptable extends StdBehavior implements ScriptingEngine
 	}
 
 	@Override
-	public void registerDefaultQuest(final String questName)
+	public void registerDefaultQuest(final Object questName)
 	{
 		engine().registerDefaultQuest(questName);
 	}
@@ -86,6 +86,20 @@ public class Scriptable extends StdBehavior implements ScriptingEngine
 	{
 		engine().endQuest(hostObj, mob, quest);
 		return false;
+	}
+
+	@Override
+	public boolean stepQuest(final PhysicalAgent hostObj, final MOB mob, final String quest)
+	{
+		engine().stepQuest(hostObj, mob, quest);
+		return false;
+	}
+
+	@Override
+	public void preApproveScripts()
+	{
+		if(engine() != null)
+			engine().preApproveScripts();
 	}
 
 	@Override
@@ -185,18 +199,9 @@ public class Scriptable extends StdBehavior implements ScriptingEngine
 	}
 
 	@Override
-	public boolean eval(final PhysicalAgent scripted,
-						final MOB source,
-						final Environmental target,
-						final MOB monster,
-						final Item primaryItem,
-						final Item secondaryItem,
-						final String msg,
-						final Object[] tmp,
-						final String[][] eval,
-						final int startEval)
+	public boolean eval(final MPContext ctx, final String[][] eval, final int startEval)
 	{
-		return engine().eval(scripted, source, target, monster, primaryItem, secondaryItem, msg, tmp, eval, startEval);
+		return engine().eval(ctx, eval, startEval);
 	}
 
 	@Override
@@ -212,17 +217,21 @@ public class Scriptable extends StdBehavior implements ScriptingEngine
 	}
 
 	@Override
-	public String execute(final PhysicalAgent scripted,
-						  final MOB source,
-						  final Environmental target,
-						  final MOB monster,
-						  final Item primaryItem,
-						  final Item secondaryItem,
-						  final DVector script,
-						  final String msg,
-						  final Object[] tmp)
+	public String execute(final MPContext ctx)
 	{
-		return engine().execute(scripted, source, target, monster, primaryItem, secondaryItem, script, msg, tmp);
+		return engine().execute(ctx);
+	}
+
+	@Override
+	public String callFunc(final String named, final String parms, final MPContext ctx)
+	{
+		return engine().callFunc(named, parms, ctx);
+	}
+
+	@Override
+	public boolean isFunc(final String named)
+	{
+		return engine().isFunc(named);
 	}
 
 	@Override
@@ -244,29 +253,26 @@ public class Scriptable extends StdBehavior implements ScriptingEngine
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
 		super.tick(ticking,tickID);
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return false;
 		return engine().tick(ticking, tickID);
 	}
 
 	@Override
-	public void dequeResponses()
+	public void dequeResponses(final Object[] objects)
 	{
-		engine().dequeResponses();
+		engine().dequeResponses(null);
 	}
 
 	@Override
-	public String varify(final MOB source, final Environmental target,
-		final PhysicalAgent scripted, final MOB monster, final Item primaryItem,
-		final Item secondaryItem, final String msg, final Object[] tmp, final String varifyable)
+	public String varify(final MPContext ctx, final String varifyable)
 	{
-		return engine().varify(source, target, scripted, monster, primaryItem, secondaryItem, msg, tmp, varifyable);
+		return engine().varify(ctx, varifyable);
 	}
 
 	@Override
-	public String functify(final PhysicalAgent scripted, final MOB source, final Environmental target, final MOB monster, final Item primaryItem,
-							final Item secondaryItem, final String msg, final Object[] tmp, final String evaluable)
+	public String functify(final MPContext ctx, final String evaluable)
 	{
-		return engine().functify(scripted, source, target, monster, primaryItem, secondaryItem, msg, tmp, evaluable);
+		return engine().functify(ctx, evaluable);
 	}
 }

@@ -5,7 +5,7 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.Behavior;
 import com.planet_ink.coffee_mud.Common.interfaces.PhyStats;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -30,6 +30,11 @@ import com.planet_ink.coffee_mud.Common.interfaces.PhyStats;
 */
 public interface Readable extends Physical
 {
+	/**
+	 * Prefix to the readable text denoting that the content comes from a filepath.
+	 */
+	public static final String FILE_PREFIX = "FILE=";
+
 	/**
 	 * For things that are readable, this returns the readable string
 	 * for this thing.  That is to say, what the player sees when they

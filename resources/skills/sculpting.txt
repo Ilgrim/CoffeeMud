@@ -9,7 +9,7 @@ crushed %	2	15	1	1	GenResource
 chipped %	7	15	1	1	GenResource				
 % weight	8	10	14	1	GenItem				
 % ornament	9	20	2	2	GenItem				
-% bird bath	10	100	200	2000	GenEmptyDrink		100	1	
+% bird bath	10	100	200	2000	GenEmptyDrink		100	1	*Prop_Sounder;PORTAL_ENTER_ROOM $n hop(s) around in the bird bath. MASK=-PLAYER -RACECAT +Avian
 % cup	11	20	2	3	GenEmptyDrink		5	1	
 % bowl	11	20	3	4	GenEmptyDrink		6	131073	
 small % flower pot	12	15	5	5	GenEmptyDrink		5	65537	
@@ -18,7 +18,7 @@ powdered %	14	15	1	1	GenResource
 % mug	15	20	3	7	GenEmptyDrink		5	1	
 % fireplace	16	60	250	2400	GenRideable		50	0	Burning
 large % flower pot	17	20	40	110	GenEmptyDrink		50	65537	
-% plaque	18	10	10	10	GenItem				
+% plaque	18	10	10	10	GenReadable				
 % paver	18	30	10	50	GenItem				
 % end table	19	60	40	450	GenRideable	TABLE	20	0	
 % eye	20	20	1	4	GenLimb				
@@ -31,7 +31,7 @@ small % plate	24	20	2	8	GenContainer		3	131072
 % four-sided die	25	50	1	13	GenDice		4		
 % gravy boat	25	30	2	14	GenEmptyDrink		5	1	
 % pillar	25	30	50	350	GenItem				
-% stove	26	40	100	1000	GenRideable	TABLE	100	0	Burning
+% stove	26	40	100	1000	GenStove		100	0	
 small % bed	26	25	100	600	GenBed	BED	1	0	
 % eight-sided die	27	50	1	13	GenDice		8		
 % ten-sided die	29	60	1	17	GenDice		10		
@@ -40,7 +40,7 @@ small % bench	29	40	40	450	GenChair	CHAIR	2	0
 % twelve-sided die	31	70	1	22	GenDice		12		
 % figurine	31	40	3	36	GenItem	STATUE			
 % book shelf	32	40	70	875	GenContainer		30	384	
-% sarcophogus	32	40	500	6125	GenBed	BED	500	64	Prop_NoPurge
+plain % sarcophagus	32	40	500	6125	GenBed	BED	500	64	
 % stool	33	20	50	300	GenChair	CHAIR	1	0	
 % tub	33	60	400	8000	GenTub	CHAIR	2000	0	
 % saucer	34	15	2	9	GenContainer		5	2048	
@@ -48,7 +48,7 @@ small % box	35	15	20	90	GenContainer	LID	50	0
 % bed	36	30	200	2050	GenBed	BED	2	0	
 % oven	36	60	500	10750	GenContainer	LID	50	0	Burning
 % twenty-sided die	37	80	1	30	GenDice		20		
-% steps	37	80	400	12000	GenRideable	LADDER	3	0	Prop_NoPurge
+% steps	37	80	400	12000	GenRideable	LADDER	3	0	
 % table	38	30	250	2700	GenRideable	TABLE	150	0	
 % bench	39	80	180	5600	GenChair	CHAIR	4	0	
 % vase	40	50	6	118	GenEmptyDrink		15	65537	
@@ -93,7 +93,7 @@ four poster % bed	66	60	800	31500	GenBed	BED	4	0
 % desk	68	30	300	5950	GenRideable	TABLE	100	0	
 small % crate	70	30	60	1225	GenContainer	LID	500	0	
 % giant statue	71	1000	5000	3600000	GenItem	STATUE			
-ornate % sarcophagus	72	100	1500	109000	GenBed	BED	500	64	Prop_NoPurge
+ornate % sarcophagus	72	100	1500	109000	GenBed	BED	500	64	
 % throne	73	180	150	20000	GenChair	CHAIR	1	0	
 % jacuzzi	73	80	600	35000	GenTub	CHAIR	2600	0	
 small % storage barrel	75	40	40	1180	GenContainer	LID	100	0	
@@ -105,3 +105,4 @@ humongous % statue	81	5000	20000	82000000	GenItem	STATUE			Spell_Enlarge
 huge % ice box	85	150	2500	321000	GenContainer	LID	5000	131072	*Prop_IceBox;
 canopy % bed	86	70	800	48000	GenBed	BED	4	0	
 % storage barrel	90	45	80	3200	GenContainer	LID	500	0	
+% tablet	6	20	4	5	GenReadable				

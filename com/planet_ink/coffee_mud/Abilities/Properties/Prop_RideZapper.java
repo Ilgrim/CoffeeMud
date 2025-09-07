@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ public class Prop_RideZapper extends Prop_HaveZapper
 	@Override
 	public String accountForYourself()
 	{
-		return "Mounting restricted as follows: "+CMLib.masking().maskDesc(miscText);
+		return "Mounting restricted as follows: "+CMLib.masking().maskDesc(maskStr);
 	}
 
 	@Override
@@ -89,10 +89,10 @@ public class Prop_RideZapper extends Prop_HaveZapper
 		case CMMsg.TYP_SLEEP:
 		case CMMsg.TYP_MOUNT:
 		case CMMsg.TYP_ENTER:
-			if((!CMLib.masking().maskCheck(text(),mob,actual))&&(CMLib.dice().rollPercentage()<=percent))
+			if((!CMLib.masking().maskCheck(super.mask,mob,actual))&&(CMLib.dice().rollPercentage()<=percent))
 			{
 				mob.location().show(mob,null,affected,CMMsg.MSG_OK_VISUAL,msgStr);
-				return false;
+				return executeEvent(msg);
 			}
 			break;
 		}

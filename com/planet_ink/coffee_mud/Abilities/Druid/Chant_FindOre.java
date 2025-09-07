@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -55,15 +55,9 @@ public class Chant_FindOre extends Chant_FindPlant
 	}
 
 	@Override
-	public String displayText()
-	{
-		return L("(Finding "+lookingFor+")");
-	}
-
-	@Override
 	public long flags()
 	{
-		return Ability.FLAG_TRACKING;
+		return Ability.FLAG_TRACKING | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -87,10 +81,14 @@ public class Chant_FindOre extends Chant_FindPlant
 		return null;
 	}
 
+	private static String DEFAULT_LOOKING_FOR=CMLib.lang().L("ore");
+	private static String DEFAULT_DISPLAYTEXT=CMLib.lang().L("(Finding Ore)");
+
 	public Chant_FindOre()
 	{
 		super();
 
-		lookingFor = "ore";
+		lookingFor = DEFAULT_LOOKING_FOR;
+		displayText = DEFAULT_DISPLAYTEXT;
 	}
 }

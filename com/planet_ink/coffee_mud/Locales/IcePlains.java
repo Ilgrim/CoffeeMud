@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ public class IcePlains extends StdRoom
 	{
 		super();
 		name="the snow";
-		basePhyStats.setWeight(2);
+		setMovementCost(2);
 		recoverPhyStats();
 		climask=Places.CLIMASK_COLD|Places.CLIMASK_WET;
 	}
@@ -61,6 +61,7 @@ public class IcePlains extends StdRoom
 		Integer.valueOf(RawMaterial.RESOURCE_BERRIES),
 		Integer.valueOf(RawMaterial.RESOURCE_CARROTS),
 		Integer.valueOf(RawMaterial.RESOURCE_GREENS),
+		Integer.valueOf(RawMaterial.RESOURCE_VEGETABLE),
 		Integer.valueOf(RawMaterial.RESOURCE_ONIONS),
 		Integer.valueOf(RawMaterial.RESOURCE_FLINT),
 		Integer.valueOf(RawMaterial.RESOURCE_COTTON),

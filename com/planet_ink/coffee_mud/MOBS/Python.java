@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Python extends StdMOB
 	public Python()
 	{
 		super();
-		username="a python";
+		_name="a python";
 		setDescription("A humungous snake that is known for squeezing you to DEATH.");
 		setDisplayText("A python wants to give you a hug.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -53,7 +53,7 @@ public class Python extends StdMOB
 
 		baseCharStats().setStat(CharStats.STAT_INTELLIGENCE,1);
 
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(1);
 		basePhyStats().setArmor(90);
 

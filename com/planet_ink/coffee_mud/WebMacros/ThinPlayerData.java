@@ -9,6 +9,7 @@ import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.PlayerLibrary.PlayerSortCode;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
@@ -19,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,7 +45,7 @@ public class ThinPlayerData extends StdWebMacro
 	@Override
 	public String runMacro(final HTTPRequest httpReq, final String parm, final HTTPResponse httpResp)
 	{
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return CMProps.getVar(CMProps.Str.MUDSTATUS);
 
 		final java.util.Map<String,String> parms=parseParms(parm);
@@ -72,14 +73,14 @@ public class ThinPlayerData extends StdWebMacro
 				return " @break@";
 			for(final String key : parms.keySet())
 			{
-				final int x=CMLib.players().getCharThinSortCode(key.toUpperCase().trim(),false);
-				if(x>=0)
+				final PlayerSortCode x=CMLib.players().getCharThinSortCode(key.toUpperCase().trim(),false);
+				if(x!=null)
 				{
-					String value = CMLib.players().getThinSortValue(player, x);
-					if(PlayerLibrary.CHAR_THIN_SORT_CODES[x].equals("LAST"))
+					String value = CMLib.players().getThinSortValue(player, x).toString();
+					if(x==PlayerSortCode.LAST)
 						value=CMLib.time().date2String(CMath.s_long(value));
 					else
-					if(PlayerLibrary.CHAR_THIN_SORT_CODES[x].equals("HOURS"))
+					if(x==PlayerSortCode.AGE)
 						value=""+(CMath.s_long(value)/60);
 					str.append(value+", ");
 				}

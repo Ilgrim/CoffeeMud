@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ public class Unbinding extends CommonSkill
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			final MOB mob=(MOB)affected;
 			if(tickUp==3)
@@ -163,18 +163,18 @@ public class Unbinding extends CommonSkill
 			return false;
 		if((!auto)&&(target==mob))
 		{
-			mob.tell(L("You can't unbind yourself!"));
+			commonTelL(mob,"You can't unbind yourself!");
 			return false;
 		}
 		if((!auto)&&mob.isInCombat())
 		{
-			mob.tell(L("Not while you are fighting!"));
+			commonTelL(mob,"Not while you are fighting!");
 			return false;
 		}
 		final List<Ability> affects=CMLib.flags().flaggedAffects(target,Ability.FLAG_BINDING);
 		if(affects.size()==0)
 		{
-			mob.tell(L("@x1 does not have any bindings you can remove.",target.name(mob)));
+			commonTelL(mob,"@x1 does not have any bindings you can remove.",target.name(mob));
 			return false;
 		}
 		final Ability A=affects.get(0);

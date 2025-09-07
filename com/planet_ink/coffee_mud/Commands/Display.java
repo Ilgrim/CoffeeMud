@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ public class Display extends StdCommand
 			return false;
 		}
 
-		final MOB recipient=mob.location().fetchInhabitant(commands.get(commands.size()-1));
+		final MOB recipient=getVisibleRoomTarget(mob,commands.get(commands.size()-1));
 		if((recipient==null)||(!CMLib.flags().canBeSeenBy(recipient,mob)))
 		{
 			CMLib.commands().postCommandFail(mob,origCmds,L("I don't see anyone called @x1 here.",commands.get(commands.size()-1)));
@@ -121,12 +121,15 @@ public class Display extends StdCommand
 		for(int i=0;i<V.size();i++)
 		{
 			final Environmental giveThis=V.get(i);
-			final CMMsg newMsg=CMClass.getMsg(recipient,giveThis,mob,CMMsg.MSG_LOOK,L("<O-NAME> show(s) <T-NAME> to <S-NAMESELF>."));
-			if(mob.location().okMessage(recipient,newMsg))
+			final CMMsg msg=CMClass.getMsg(recipient,giveThis,mob,CMMsg.MSG_LOOK,L("<O-NAME> show(s) <T-NAME> to <S-NAMESELF>."));
+			if(mob.location().okMessage(recipient,msg))
 			{
 				recipient.tell(recipient,giveThis,mob,L("<O-NAME> show(s) <T-NAME> to <S-NAMESELF>."));
-				mob.location().send(recipient,newMsg);
+				mob.location().send(recipient,msg);
 			}
+			else
+			if(V.size()==1)
+				CMLib.commands().postCommandRejection(msg.source(),msg.target(),msg.tool(),origCmds);
 
 		}
 		return false;

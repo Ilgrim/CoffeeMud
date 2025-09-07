@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -134,9 +134,9 @@ public class Disease_SeaSickness extends Disease
 		final Room R=mob.location();
 		if(R!=null)
 		{
-			if(R.getArea() instanceof BoardableShip)
+			if(R.getArea() instanceof Boardable)
 			{
-				final Item I=((BoardableShip)R.getArea()).getShipItem();
+				final Item I=((Boardable)R.getArea()).getBoardableItem();
 				final Room shipR=CMLib.map().roomLocation(I);
 				if(!CMLib.flags().isWateryRoom(shipR))
 				{
@@ -146,7 +146,7 @@ public class Disease_SeaSickness extends Disease
 			}
 			else
 			if((mob.riding() !=null )
-			&&(mob.riding().rideBasis()==Rideable.RIDEABLE_WATER))
+			&&(mob.riding().rideBasis()==Rideable.Basis.WATER_BASED))
 			{
 				if(!CMLib.flags().isWateryRoom(R))
 				{

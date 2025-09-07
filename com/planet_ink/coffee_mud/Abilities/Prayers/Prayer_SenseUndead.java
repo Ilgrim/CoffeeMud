@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ public class Prayer_SenseUndead extends Prayer
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_HOLY;
+		return Ability.FLAG_HOLY | Ability.FLAG_DIVINING;
 	}
 
 	Room lastRoom=null;
@@ -114,7 +114,9 @@ public class Prayer_SenseUndead extends Prayer
 			for(int i=0;i<lastRoom.numInhabitants();i++)
 			{
 				final MOB mob=lastRoom.fetchInhabitant(i);
-				if((mob!=null)&&(mob!=affected)&&(mob.charStats()!=null)&&(mob.charStats().getMyRace()!=null)&&(mob.charStats().getMyRace().racialCategory().equalsIgnoreCase("Undead")))
+				if((mob!=null)
+				&&(mob!=affected)
+				&&(CMLib.flags().isUndead(mob)))
 					((MOB)affected).tell(L("@x1 gives off a cold dark vibe.",mob.name((MOB)affected)));
 			}
 		}
@@ -132,7 +134,7 @@ public class Prayer_SenseUndead extends Prayer
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already sensing undead things."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already sensing undead things."));
 			return false;
 		}
 

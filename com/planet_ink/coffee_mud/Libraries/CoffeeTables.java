@@ -18,7 +18,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ public class CoffeeTables extends StdLibrary implements StatisticsLibrary
 	@Override
 	public void bump(final CMObject E, final int type)
 	{
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return;
 		if(CMSecurity.isDisabled(CMSecurity.DisFlag.STATS))
 			return;
@@ -131,6 +131,8 @@ public class CoffeeTables extends StdLibrary implements StatisticsLibrary
 	@Override
 	public boolean activate()
 	{
+		if(!super.activate())
+			return false;
 		if(serviceClient==null)
 		{
 			name="THStats"+Thread.currentThread().getThreadGroup().getName().charAt(0);
@@ -180,5 +182,11 @@ public class CoffeeTables extends StdLibrary implements StatisticsLibrary
 			serviceClient=null;
 		}
 		return true;
+	}
+
+	@Override
+	public List<CoffeeTableRow> readRawStats(final long startDate, final long endDate)
+	{
+		return CMLib.database().DBReadStats(startDate,endDate);
 	}
 }

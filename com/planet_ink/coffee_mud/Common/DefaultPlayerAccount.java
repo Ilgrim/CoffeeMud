@@ -16,6 +16,7 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.AbilityMapping;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.Achievement;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.Tracker;
+import com.planet_ink.coffee_mud.Libraries.interfaces.PlayerLibrary.ThinPlayer;
 import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.StdMOB;
@@ -27,7 +28,7 @@ import java.nio.ByteBuffer;
 import java.util.*;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -41,7 +42,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class DefaultPlayerAccount implements PlayerAccount
+public class DefaultPlayerAccount extends DefaultPrideStats implements PlayerAccount
 {
 	@Override
 	public String ID()
@@ -77,17 +78,28 @@ public class DefaultPlayerAccount implements PlayerAccount
 	protected String[]			xtraValues			= null;
 	protected Set<AccountFlag>	acctFlags			= new SHashSet<AccountFlag>();
 	protected volatile MOB 		fakePlayerM			= null;
-	protected long[]			prideExpireTime		= new long[TimeClock.TimePeriod.values().length];
-	protected int[][]			prideStats			= new int[TimeClock.TimePeriod.values().length][AccountStats.PrideStat.values().length];
 
 	protected SVector<PlayerLibrary.ThinPlayer> thinPlayers 	= new SVector<PlayerLibrary.ThinPlayer>();
 	protected Map<String,Tracker>				achievementers	= new STreeMap<String,Tracker>();
-	protected CMUniqNameSortSVec<Tattoo>		tattoos			= new CMUniqNameSortSVec<Tattoo>(1);
+
+	protected final static Filterer<Tattoo> expiringTattooFilter = new Filterer<Tattoo>()
+	{
+		@Override
+		public boolean passesFilter(final Tattoo obj)
+		{
+			return obj.expirationDate()==0 || (System.currentTimeMillis() < obj.expirationDate());
+		}
+	};
+
+	protected CMUniqNameSortListWrapper<Tattoo>	tattoos;
 
 	public DefaultPlayerAccount()
 	{
 		super();
 		xtraValues=CMProps.getExtraStatCodesHolder(this);
+		final List<Tattoo> tattooPackage = new SVector<Tattoo>(1);
+		final FilteredListWrapper<Tattoo> tattWrapper=new FilteredListWrapper<Tattoo>(tattooPackage, expiringTattooFilter);
+		tattoos = new CMUniqNameSortListWrapper<Tattoo>(tattWrapper);
 	}
 
 	@Override
@@ -95,7 +107,7 @@ public class DefaultPlayerAccount implements PlayerAccount
 	{
 		try
 		{
-			return getClass().newInstance();
+			return getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -122,7 +134,9 @@ public class DefaultPlayerAccount implements PlayerAccount
 			O.achievementers = new STreeMap<String,Tracker>();
 			for(final String key : achievementers.keySet())
 				O.achievementers.put(key, achievementers.get(key).copyOf());
-			O.tattoos = new CMUniqNameSortSVec<Tattoo>(tattoos);
+			final List<Tattoo> newTattooPackage = new SVector<Tattoo>(tattoos);
+			final FilteredListWrapper<Tattoo> newTattWrapper=new FilteredListWrapper<Tattoo>(newTattooPackage, expiringTattooFilter);
+			O.tattoos = new CMUniqNameSortListWrapper<Tattoo>(newTattWrapper);
 			O.acctFlags = new SHashSet<AccountFlag>(acctFlags);
 			O.fakePlayerM = null;
 			return O;
@@ -147,7 +161,9 @@ public class DefaultPlayerAccount implements PlayerAccount
 			O.xtraValues=(xtraValues==null)?null:(String[])xtraValues.clone();
 			O.thinPlayers = thinPlayers.copyOf();
 			O.achievementers = new STreeMap<String,Tracker>(achievementers);
-			O.tattoos = new CMUniqNameSortSVec<Tattoo>(tattoos);
+			final List<Tattoo> newTattooPackage = new SVector<Tattoo>(tattoos);
+			final FilteredListWrapper<Tattoo> newTattWrapper=new FilteredListWrapper<Tattoo>(newTattooPackage, expiringTattooFilter);
+			O.tattoos = new CMUniqNameSortListWrapper<Tattoo>(newTattWrapper);
 			O.acctFlags = new SHashSet<AccountFlag>(acctFlags);
 			O.fakePlayerM = null;
 			O.accountName = accountName;
@@ -227,11 +243,7 @@ public class DefaultPlayerAccount implements PlayerAccount
 	@Override
 	public void setPassword(final String newPassword)
 	{
-		if(CMProps.getBoolVar(CMProps.Bool.HASHPASSWORDS)
-		&&(!CMLib.encoder().isARandomHashString(newPassword)))
-			password=CMLib.encoder().makeRandomHashString(newPassword);
-		else
-			password=newPassword;
+		password = CMLib.encoder().makeFinalPasswordString(newPassword);
 	}
 
 	@Override
@@ -288,21 +300,27 @@ public class DefaultPlayerAccount implements PlayerAccount
 	}
 
 	@Override
-	public boolean isIgnored(MOB mob)
+	public boolean isIgnored(final String cat, MOB mob)
 	{
-		if(mob==null)
+		if((mob==null)||(ignored.size()==0))
 			return false;
-		if (mob.soulMate() != null)
-			mob=mob.soulMate();
+		synchronized(mob)
+		{
+			if (mob.soulMate() != null)
+				mob=mob.soulMate();
+		}
 		if(ignored.contains(mob.Name()))
 			return true;
-		final PlayerStats stats=mob.playerStats();
-		if(stats ==null)
+		final PlayerAccount acct = (mob.playerStats()!=null)?mob.playerStats().getAccount():null;
+		if((acct!=null) &&(ignored.contains(acct.getAccountName()+"*")))
+			return true;
+		if(cat == null)
 			return false;
-		final PlayerAccount account=stats.getAccount();
-		if(account == null)
-			return false;
-		return ignored.contains(account.getAccountName()+"*");
+		if(ignored.contains(cat+"."+mob.Name()))
+			return true;
+		if(acct != null)
+			return ignored.contains(cat+"."+acct.getAccountName()+"*");
+		return false;
 	}
 
 	@Override
@@ -311,37 +329,6 @@ public class DefaultPlayerAccount implements PlayerAccount
 		if(name==null)
 			return false;
 		return (ignored.contains(name) || ignored.contains(name+"*"));
-	}
-
-	@Override
-	public void bumpPrideStat(final PrideStat stat, final int amt)
-	{
-		final long now=System.currentTimeMillis();
-		if(stat==null)
-			return;
-		for(final TimeClock.TimePeriod period : TimeClock.TimePeriod.values())
-		{
-			if(period==TimeClock.TimePeriod.ALLTIME)
-				prideStats[period.ordinal()][stat.ordinal()]+=amt;
-			else
-			{
-				if(now>prideExpireTime[period.ordinal()])
-				{
-					for(final AccountStats.PrideStat stat2 : AccountStats.PrideStat.values())
-						prideStats[period.ordinal()][stat2.ordinal()]=0;
-					prideExpireTime[period.ordinal()]=period.nextPeriod();
-				}
-				prideStats[period.ordinal()][stat.ordinal()]+=amt;
-			}
-		}
-	}
-
-	@Override
-	public int getPrideStat(final TimePeriod period, final PrideStat stat)
-	{
-		if((period==null)||(stat==null))
-			return 0;
-		return prideStats[period.ordinal()][stat.ordinal()];
 	}
 
 	@Override
@@ -389,17 +376,13 @@ public class DefaultPlayerAccount implements PlayerAccount
 			else
 				rest.append("<"+code+">"+libXML.parseOutAngleBrackets(value)+"</"+code+">");
 		}
-		rest.append("<NEXTPRIDEPERIODS>").append(CMParms.toTightListString(prideExpireTime)).append("</NEXTPRIDEPERIODS>");
-		rest.append("<PRIDESTATS>");
-		for(final TimeClock.TimePeriod period : TimeClock.TimePeriod.values())
-			rest.append(CMParms.toTightListString(prideStats[period.ordinal()])).append(";");
-		rest.append("</PRIDESTATS>");
+		rest.append(super.getXML());
 		rest.append("<ACHIEVEMENTS");
 		for(final Iterator<Tracker> i=achievementers.values().iterator();i.hasNext();)
 		{
 			final Tracker T = i.next();
 			if(T.getAchievement().isSavableTracker() && (T.getCount(null) != 0))
-				rest.append(" ").append(T.getAchievement().getTattoo()).append("=").append(T.getCount(null));
+				rest.append(" ").append(T.getAchievement().getTattoo()).append("=").append(T.getCountParms(null));
 			// getCount(null) should be ok, because it's only the un-savable trackers that need the mob obj
 		}
 		rest.append(" />");
@@ -429,26 +412,16 @@ public class DefaultPlayerAccount implements PlayerAccount
 				val="";
 			setStat(code.toUpperCase(),xmlLib.restoreAngleBrackets(val));
 		}
-		final String[] nextPeriods=xmlLib.getValFromPieces(xml, "NEXTPRIDEPERIODS").split(",");
-		final String[] prideStats=xmlLib.getValFromPieces(xml, "PRIDESTATS").split(";");
-		final Pair<Long,int[]>[] finalPrideStats = CMLib.players().parsePrideStats(nextPeriods, prideStats);
-		for(final TimeClock.TimePeriod period : TimeClock.TimePeriod.values())
-		{
-			if(period.ordinal()<finalPrideStats.length)
-			{
-				this.prideExpireTime[period.ordinal()]=finalPrideStats[period.ordinal()].first.longValue();
-				this.prideStats[period.ordinal()]=finalPrideStats[period.ordinal()].second;
-			}
-		}
+		super.setXML(xmlLib, xml);
 		final XMLTag achievePiece = xmlLib.getPieceFromPieces(xml, "ACHIEVEMENTS");
 		achievementers.clear();
 		for(final Enumeration<Achievement> a=CMLib.achievements().achievements(Agent.ACCOUNT);a.hasMoreElements();)
 		{
 			final Achievement A=a.nextElement();
 			if((achievePiece != null) && achievePiece.parms().containsKey(A.getTattoo()))
-				achievementers.put(A.getTattoo(), A.getTracker(CMath.s_int(achievePiece.parms().get(A.getTattoo()).trim())));
+				achievementers.put(A.getTattoo(), A.getTracker(achievePiece.parms().get(A.getTattoo()).trim()));
 			else
-				achievementers.put(A.getTattoo(), A.getTracker(0));
+				achievementers.put(A.getTattoo(), A.getTracker("0"));
 		}
 		final String[] allTattoos=xmlLib.getValFromPieces(xml, "TATTOOS").split(",");
 		this.tattoos.clear();
@@ -592,85 +565,8 @@ public class DefaultPlayerAccount implements PlayerAccount
 				for(final Enumeration<String> e=getPlayers();e.hasMoreElements();)
 				{
 					final String name = e.nextElement();
-					PlayerLibrary.ThinPlayer tP = CMLib.database().getThinUser(name);
-					if (tP == null)
-					{
-						tP = new PlayerLibrary.ThinPlayer()
-						{
-							@Override
-							public String name()
-							{
-								return name;
-							}
-
-							@Override
-							public String charClass()
-							{
-								return "";
-							}
-
-							@Override
-							public String race()
-							{
-								return "";
-							}
-
-							@Override
-							public int level()
-							{
-								return 0;
-							}
-
-							@Override
-							public int age()
-							{
-								return 0;
-							}
-
-							@Override
-							public long last()
-							{
-								return 0;
-							}
-
-							@Override
-							public String email()
-							{
-								return null;
-							}
-
-							@Override
-							public String ip()
-							{
-								return "";
-							}
-
-							@Override
-							public int exp()
-							{
-								return 0;
-							}
-
-							@Override
-							public int expLvl()
-							{
-								return 0;
-							}
-
-							@Override
-							public String liege()
-							{
-								return "";
-							}
-
-							@Override
-							public String worship()
-							{
-								return "";
-							}
-						};
-					}
-					thinPlayers.add(tP);
+					final ThinPlayer tP = CMLib.players().getThinPlayer(name);
+					thinPlayers.add((tP!=null) ? tP : CMLib.players().getEmptyThinPlayerObject(name));
 				}
 			}
 		}
@@ -742,7 +638,7 @@ public class DefaultPlayerAccount implements PlayerAccount
 		}
 		else
 		{
-			T=A.getTracker(0);
+			T=A.getTracker("0");
 			achievementers.put(A.getTattoo(), T);
 		}
 		return T;
@@ -755,9 +651,9 @@ public class DefaultPlayerAccount implements PlayerAccount
 		if(A!=null)
 		{
 			if(achievementers.containsKey(A.getTattoo()))
-				achievementers.put(A.getTattoo(), A.getTracker(achievementers.get(A.getTattoo()).getCount(mob)));
+				achievementers.put(A.getTattoo(), A.getTracker(achievementers.get(A.getTattoo()).getCountParms(mob)));
 			else
-				achievementers.put(A.getTattoo(), A.getTracker(0));
+				achievementers.put(A.getTattoo(), A.getTracker("0"));
 		}
 		else
 			achievementers.remove(achievementTattoo);
@@ -779,11 +675,12 @@ public class DefaultPlayerAccount implements PlayerAccount
 	}
 
 	@Override
-	public void delTattoo(final String of)
+	public boolean delTattoo(final String of)
 	{
 		final Tattoo T=findTattoo(of);
 		if(T!=null)
-			tattoos.remove(T);
+			 return tattoos.remove(T);
+		return false;
 	}
 
 	@Override
@@ -791,7 +688,7 @@ public class DefaultPlayerAccount implements PlayerAccount
 	{
 		if ((of == null) || (of.getTattooName() == null) || (of.getTattooName().length() == 0) || findTattoo(of.getTattooName()) != null)
 			return;
-		tattoos.addElement(of);
+		tattoos.add(of);
 	}
 
 	@Override
@@ -808,7 +705,7 @@ public class DefaultPlayerAccount implements PlayerAccount
 	@Override
 	public Enumeration<Tattoo> tattoos()
 	{
-		return tattoos.elements();
+		return new IteratorEnumeration<Tattoo>(tattoos.iterator());
 	}
 
 	@Override

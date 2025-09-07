@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -112,7 +112,8 @@ public class WildTagTurf extends StdAbility
 		&&(!msg.tool().ID().equals("WildTagTurf"))
 		&&(((((Ability)msg.tool()).classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_ANIMALAFFINITY)
 			||((((Ability)msg.tool()).classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_RACIALABILITY))
-		&&(msg.sourceMinor()!=CMMsg.TYP_TEACH))
+		&&(msg.sourceMinor()!=CMMsg.TYP_TEACH)
+		&&(CMLib.flags().canSmell(msg.source(),affected)))
 		{
 			msg.source().tell(L("You definitely aren't allowed to do that on @x1's turf.",text()));
 			return false;
@@ -191,7 +192,7 @@ public class WildTagTurf extends StdAbility
 			mob.tell(L("You can't wild tag anothers property!"));
 			return false;
 		}
-		if((mob.location().domainType()==Room.DOMAIN_OUTDOORS_CITY)
+		if(CMLib.flags().isACityRoom(mob.location())
 		||(mob.location().domainType()==Room.DOMAIN_INDOORS_WOOD)
 		||(mob.location().domainType()==Room.DOMAIN_INDOORS_STONE))
 		{

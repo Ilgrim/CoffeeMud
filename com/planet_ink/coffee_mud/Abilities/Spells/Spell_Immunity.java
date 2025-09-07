@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ public class Spell_Immunity extends Spell
 	@Override
 	public String displayText()
 	{
-		return L("(Immunity to "+immunityName+")");
+		return L("(Immunity to @x1)",immunityName);
 	}
 
 	@Override
@@ -91,6 +91,8 @@ public class Spell_Immunity extends Spell
 	@Override
 	public void setMiscText(final String misc)
 	{
+		super.setMiscText(misc);
+		immunityCode=-1;
 		if((misc!=null)
 		&&(misc.length()>0)
 		&&(CMath.isInteger(misc)))
@@ -154,6 +156,8 @@ public class Spell_Immunity extends Spell
 		&&(!mob.amDead())
 		&&((mob.fetchAbility(ID())==null)||proficiencyCheck(null,0,false)))
 		{
+			if((msg.tool()==msg.source())&&(msg.sourceMinor()==CMMsg.TYP_GAS))
+				return false;
 			mob.location().show(mob,msg.source(),CMMsg.MSG_OK_VISUAL,L("<S-NAME> seem(s) immune to @x1 attack from <T-NAME>.",immunityName));
 			return false;
 		}
@@ -180,7 +184,7 @@ public class Spell_Immunity extends Spell
 				immunityCode=-1;
 				final Spell_Immunity A=(Spell_Immunity)beneficialAffect(mob,target,asLevel,0);
 				if(A!=null)
-					A.setImmunityVars(CMLib.dice().roll(1,5,0));
+					A.setMiscText(""+CMLib.dice().roll(1,5,0));
 			}
 		}
 		else

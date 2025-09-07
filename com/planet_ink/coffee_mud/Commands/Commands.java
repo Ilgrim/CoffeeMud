@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -66,15 +66,18 @@ public class Commands extends StdCommand
 			for(final Enumeration<Command> e=CMClass.commands();e.hasMoreElements();)
 			{
 				final Command C=e.nextElement();
-				final String[] access=C.getAccessWords();
-				if((access!=null)
-				&&(access.length>0)
-				&&(access[0].length()>0)
-				&&(!done.contains(access[0]))
-				&&(C.securityCheck(mob)))
+				if(C.putInCommandlist())
 				{
-					done.add(access[0]);
-					commandSet.add(access[0]);
+					final String[] access=C.getAccessWords();
+					if((access!=null)
+					&&(access.length>0)
+					&&(access[0].length()>0)
+					&&(!done.contains(access[0]))
+					&&(C.securityCheck(mob)))
+					{
+						done.add(access[0]);
+						commandSet.add(access[0]);
+					}
 				}
 			}
 			for(final Enumeration<Ability> a=mob.allAbilities();a.hasMoreElements();)
@@ -83,6 +86,7 @@ public class Commands extends StdCommand
 				if((A!=null)
 				&&(A.triggerStrings()!=null)
 				&&(A.triggerStrings().length>0)
+				&&(A.putInCommandlist())
 				&&(!done.contains(A.triggerStrings()[0])))
 				{
 					done.add(A.triggerStrings()[0]);

@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<!-- ----------------------------------------------------------------------------
-Copyright 2019-2020 Bo Zimmerman
+<!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Copyright 2019-2025 Bo Zimmerman
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,18 +13,20 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
---------------------------------------------------------------------------------
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 See guides/RandomAreas.html for information about documents of this type.
 
 template: normal_protect2
 settable vars: 
     template(normal_protect2)
+    category(whatevs)
     area_name(area name)
     source_name(mob name)
     targetarea_name(area name)
     multiarea(yes or NO)
     targetname(mobs name)
+    attackername(mobs name)
     num_targets(num mobs to kill)
 	aggression(YES,NO)
 	xp_amount_awarded
@@ -32,12 +34,14 @@ settable vars:
 	quest_point_awarded(YES,NO)
 	announcechannel()
 	reward_items()
+	target_min_arealevel(#), target_max_arealevel(#)
 	quest_multiple(YES, NO, or PREV)
 -->
 
 <QUEST ID="normal_protect2" QUEST_TEMPLATE_ID="normal_protect2">
 	<QUEST_ID DEFINE="quest_id">${_:source_area_name}_${_:source_name}_${h:quest_template}_R$[100000000?999999999]</QUEST_ID>
 	<QUEST_CRITERIA>+SYSOP +LEVELS -&lt;$[$target_level - $level_span] -&gt;$[$target_level + $level_span]</QUEST_CRITERIA>
+	<CATEGORY>$quest_category</CATEGORY>
 	<ANNOUNCER_AREA>"$source_area_name"</ANNOUNCER_AREA>
 	<ANNOUNCER_ROOM>"$source_room_id"</ANNOUNCER_ROOM>
 	<ANNOUNCER_NAME>"$source_name"</ANNOUNCER_NAME>
@@ -56,11 +60,12 @@ settable vars:
 	<NEXT_QUEST>$next_quest_id</NEXT_QUEST>
 	<FACTION>$source_faction</FACTION>
 	<NUMFACTION>$[$source_faction_amt / 500]</NUMFACTION>
-	<QUEST_NAME SELECT="Any-1">
+	<QUEST_NAME SELECT="Pick-1">
 		<QUEST_NAME>${C:source_name} in ${C:source_area_name} needs ${target_name} $reason_verbed</QUEST_NAME>
 		<QUEST_NAME>${C:source_name} in ${C:source_area_name} wants ${target_name} $reason_verbed</QUEST_NAME>
 		<QUEST_NAME>${C:source_name} in ${C:source_area_name} asks ${target_name} to be $reason_verbed</QUEST_NAME>
 		<QUEST_NAME>${C:reason_verb} ${target_name} for ${C:source_name} in ${C:source_area_name}</QUEST_NAME>
+		<QUEST_NAME PICKWEIGHT="99" CONDITION="$deityname!=''">${C:source_name} in ${C:source_area_name} needs ${target_name} $reason_verbed for $deityname</QUEST_NAME>
 	</QUEST_NAME>
 	<ATTACKER_SCREAM>${j:1:quest_fightspeech}</ATTACKER_SCREAM>
 	<QUEST_NOTIFYSTRING>${j:1:quest_notifystring}</QUEST_NOTIFYSTRING>
@@ -75,12 +80,12 @@ settable vars:
 	</STRING>
 
 	<STRING ID="quest_notifyaddendum" SELECT="Pick-1">
-		<STRING PICKWEIGHT=1>Are you game?</STRING>
-		<STRING PICKWEIGHT=1>Are you ready?</STRING>
-		<STRING PICKWEIGHT=1>Are you up to it?</STRING>
-		<STRING PICKWEIGHT=1>Can you handle it?</STRING>
-		<STRING PICKWEIGHT=1>Who's ready?</STRING>
-		<STRING PICKWEIGHT=12></STRING>
+		<STRING PICKWEIGHT="1">Are you game?</STRING>
+		<STRING PICKWEIGHT="1">Are you ready?</STRING>
+		<STRING PICKWEIGHT="1">Are you up to it?</STRING>
+		<STRING PICKWEIGHT="1">Can you handle it?</STRING>
+		<STRING PICKWEIGHT="1">Who's ready?</STRING>
+		<STRING PICKWEIGHT="12"></STRING>
 	</STRING>
 	
 	<STRING ID="reason_short" define="reason_short" SELECT="Any-1">
@@ -103,13 +108,14 @@ settable vars:
 	<STRING ID="quest_winspeech" PREDEFINE="reason=$reason">$quest_winspeech</STRING>
 	<STRING ID="quest_fightspeech" PREDEFINE="reason=$reason">$quest_fightspeech</STRING>
 	<STRING ID="reason_desc" PREDEFINE="reason=$reason">$reason_desc</STRING>
-	<STRING ID="reason" DEFINE="reason" SELECT="Any-1">
+	<STRING ID="reason" DEFINE="reason" SELECT="Pick-1">
 		<STRING CONDITION="$target_int &gt; 5">$reason_theyoweme</STRING>
 		<STRING CONDITION="$target_int &gt; 5">$reason_iowethem</STRING>
 		<STRING>$reason_genprotect</STRING>
 		<STRING>$reason_idotothem</STRING>
 		<STRING>$reason_theydidtome</STRING>
 		<STRING>$reason_wedotoeachother</STRING>
+		<STRING PICKWEIGHT="99" CONDITION="$deityname!=''">$reason_deitydo</STRING>
 	</STRING>
 
 	<STRING id="quest_generic_loser_speeches" SELECT="Any-1">
@@ -203,9 +209,22 @@ settable vars:
 			<STRING>${c:target_name} lost a deadly game to the ${p:attacker_name}, and they've come to collect.</STRING>
 		</STRING>
 	</STRING>
+	<STRING ID="reason_deitydo" SELECT="All" REQUIRES="deityname=$">
+		<STRING define="quest_winspeech">$quest_generic_winner_speeches</STRING>
+		<STRING define="quest_fightspeech" SELECT="Any-1">
+			<STRING>I'm here to kill !</STRING>
+		</STRING>
+		<STRING define="reason_short">$deityname requires that ${c:target_name} be protected from ${p:attacker_name}.</STRING>
+		<STRING define="reason_desc" SELECT="Any-1">
+			<STRING>${c:target_name} and the ${p:attacker_name} have never gotten along, and now $target_name, favored of $deityname, is in danger.</STRING>
+			<STRING>${c:target_name} has started refusing service to ${p:attacker_name}, by $deityname command, and will be killed for it.</STRING>
+			<STRING>$deityname requires that ${c:target_name} be protected from ${p:attacker_name}.</STRING>
+			<STRING>Pios $deityname follower ${c:target_name} lost a deadly game to the ${p:attacker_name}, and they've come to collect.</STRING>
+		</STRING>
+	</STRING>
 
 	<STRING ID="aggression" DEFINE="aggression" SELECT="Pick-1">
-		<STRING PICKWEIGHT=50>NO</STRING>
+		<STRING PICKWEIGHT="50">NO</STRING>
 		<STRING PICKWEIGHT="$target_level">YES</STRING>
 	</STRING>
 	
@@ -215,8 +234,8 @@ settable vars:
 	</STRING>
 	
 	<STRING ID="quest_point_awarded" DEFINE="quest_point_awarded" SELECT="Pick-1">
-		<STRING PICKWEIGHT=2>NO</STRING>
-		<STRING PICKWEIGHT=1>YES</STRING>
+		<STRING PICKWEIGHT="2">NO</STRING>
+		<STRING PICKWEIGHT="1">YES</STRING>
 	</STRING>
 
 	<STRING ID="gold_amount_awarded" DEFINE="gold_amount_awarded" SELECT="any-1">
@@ -224,26 +243,30 @@ settable vars:
 	</STRING>
 
 	<STRING ID="xp_amount_awarded" DEFINE="xp_amount_awarded" SELECT="any-1">
-		<STRING>$[100 + $target_level*3]</STRING>
+		<STRING>$[100 + ($target_level * 3)]</STRING>
 	</STRING>
 
 	<OBJECT ID="source_area" SELECT="Pick-1" DEFINE="source_area">
-		<OBJECT pickweight=99999 condition="'${SELECT: name FROM area}' != ''">SELECT: . FROM area</OBJECT>
-		<OBJECT pickweight=55555 condition="$area_name != ''" and '${SELECT: name FROM area}' = ''>SELECT: ANY\. FROM areas where NAME=$area_name</OBJECT> 
-		<OBJECT pickweight=1 condition="$area_name = '' and '${SELECT: name FROM area}' = '' and $multiarea = 'YES'">
+		<OBJECT pickweight="99999" condition="'${SELECT: name FROM area}' != ''">SELECT: . FROM area</OBJECT>
+		<OBJECT pickweight="55555" condition="$area_name != '' and '${SELECT: name FROM area}' = ''">SELECT: ANY\. FROM areas where NAME=$area_name</OBJECT> 
+		<OBJECT pickweight="1" condition="$area_name = '' and '${SELECT: name FROM area}' = '' and $multiarea = 'YES'">
 			SELECT: ANY\. FROM areas WHERE (SELECT: count\. from $mql_viable_questgivers) &gt; 0
 		</OBJECT>
-		<OBJECT pickweight=1 condition="$area_name = '' and '${SELECT: name FROM area}' = '' and $multiarea != 'YES'">
+		<OBJECT pickweight="1" condition="$area_name = '' and $target_min_arealevel = '' and '${SELECT: name FROM area}' = '' and $multiarea != 'YES'">
 			SELECT: ANY\. FROM areas WHERE (SELECT: count\. from $mql_viable_questgivers) &gt; 1
+		</OBJECT>
+		<OBJECT pickweight="1" condition="$area_name = '' and $target_min_arealevel != '' and '${SELECT: name FROM area}' = '' and $multiarea != 'YES'">
+			SELECT: ANY\. FROM areas WHERE MED_LEVEL &gt;= $target_min_arealevel and MED_LEVEL &lt;= $target_max_arealevel 
+				and (SELECT: count\. from $mql_viable_questgivers) &gt; 1
 		</OBJECT>
 	</OBJECT>
 
 	<OBJECT ID="source_room" DEFINE="source_room">SELECT: . FROM $source\room</OBJECT>
 	
 	<OBJECT ID="source" SELECT="Pick-1" DEFINE="source">
-		<OBJECT PICKWEIGHT=99999 CONDITION="'${SELECT: name FROM mob}' != ''">SELECT: . FROM mob</OBJECT>
-		<OBJECT pickweight=55555 condition="$sourcename != ''" and '${SELECT: name FROM mob}' = ''>SELECT: . FROM $source_area\npcs WHERE name = $sourcename</OBJECT> 
-		<OBJECT PICKWEIGHT=1 CONDITION="$sourcename = '' and '${SELECT: name FROM mob}' = ''" insert="$mql_viable_questgiver" />
+		<OBJECT PICKWEIGHT="99999" CONDITION="'${SELECT: name FROM mob}' != ''">SELECT: . FROM mob</OBJECT>
+		<OBJECT pickweight="55555" condition="$sourcename != '' and '${SELECT: name FROM mob}' = ''">SELECT: . FROM $source_area\npcs WHERE name = $sourcename</OBJECT> 
+		<OBJECT PICKWEIGHT="1" CONDITION="$sourcename = '' and '${SELECT: name FROM mob}' = ''" insert="$mql_viable_questgiver" />
 	</OBJECT>
 
 	<STRING ID="source_area_name" SELECT="any-1" DEFINE="source_area_name">
@@ -254,7 +277,7 @@ settable vars:
 		<STRING>${SELECT:mean\level FROM $target_area\npcs WHERE name = $target_name}</STRING>
 	</STRING>
 	
-	<STRING ID="level_range" SELECT="any-1" DEFINE="level_range" MERGE=true>
+	<STRING ID="level_range" SELECT="any-1" DEFINE="level_range" merge="true">
 		<STRING>$target_level</STRING>
 	</STRING>
 	
@@ -330,8 +353,8 @@ settable vars:
 	</OBJECT>
 	
 	<OBJECT ID="target" DEFINE="target" SELECT="pick-1">
-		<OBJECT PICKWEIGHT=999 CONDITION="$targetname!=''">SELECT: ANY\. FROM $target_area\mobs WHERE name=$targetname</OBJECT>
-		<OBJECT PICKWEIGHT=1 CONDITION="$targetname=''">
+		<OBJECT PICKWEIGHT="999" CONDITION="$targetname!=''">SELECT: ANY\. FROM $target_area\mobs WHERE name=$targetname</OBJECT>
+		<OBJECT PICKWEIGHT="1" CONDITION="$targetname=''">
 			SELECT: ANY\. FROM $target_area\npcs 
 				WHERE name\count=1 
 				and current_intelligence>2 
@@ -343,7 +366,7 @@ settable vars:
 		</OBJECT>
 	</OBJECT>
 	
-	<OBJECT PICKWEIGHT=1 CONDITION="$targetname='' and $source_area_name=$target_area_name">
+	<OBJECT PICKWEIGHT="1" CONDITION="$targetname='' and $source_area_name=$target_area_name">
 		SELECT: ANY\. from $source
 	</OBJECT>
 	
@@ -354,17 +377,62 @@ settable vars:
 	<OBJECT ID="attacker" DEFINE="attacker">SELECT: ANY\. FROM $attackers</OBJECT>
 
 	<OBJECT ID="attackers" DEFINE="attackers" SELECT="pick-1">
-		<OBJECT PICKWEIGHT=9>SELECT: ANY\. FROM $lair_mobs</OBJECT>
-		<OBJECT PICKWEIGHT=9>SELECT: ANY\. FROM $rats_mobs</OBJECT>
-		<OBJECT PICKWEIGHT=1>SELECT: ANY\. FROM $desert_mobs</OBJECT>
-		<OBJECT PICKWEIGHT=1>SELECT: ANY\. FROM $forest_mobs</OBJECT>
-		<OBJECT PICKWEIGHT=1>SELECT: ANY\. FROM $jungle_mobs</OBJECT>
-		<OBJECT PICKWEIGHT=1>SELECT: ANY\. FROM $mountain_mobs</OBJECT>
-		<OBJECT PICKWEIGHT=1>SELECT: ANY\. FROM $plains_mobs</OBJECT>
-		<OBJECT PICKWEIGHT=1>SELECT: ANY\. FROM $swamp_mobs</OBJECT>
-		<OBJECT PICKWEIGHT=1>SELECT: ANY\. FROM $lair_mobs</OBJECT>
-		<OBJECT PICKWEIGHT=1>SELECT: ANY\. FROM $lair_mobs</OBJECT>
-		<OBJECT PICKWEIGHT=1>SELECT: ANY\. FROM $lair_mobs</OBJECT>
+		<OBJECT CONDITION="$attackername!=''" pickweight="10">
+			<MOB class="GenMob" level="$level_range" race="Unique" gender="$anygender">
+				<NAME>$attackername</NAME>
+				<DISPLAY>$mob_name is here.</DISPLAY>
+				<ALIGNMENT>$[-10000?10000]</ALIGNMENT>
+				<BEHAVIOR select="Any-1">
+					<BEHAVIOR class="Bardness" parms="Bard" />
+					<BEHAVIOR class="Bardness" parms="Dancer" />
+					<BEHAVIOR class="Bardness" parms="Jester" />
+					<BEHAVIOR class="Bardness" parms="Minstrel" />
+					<BEHAVIOR class="Clericness" parms="Cleric" />
+					<BEHAVIOR class="Clericness" parms="Doomsayer" />
+					<BEHAVIOR class="Clericness" parms="Healer" />
+					<BEHAVIOR class="Clericness" parms="Missionary" />
+					<BEHAVIOR class="Clericness" parms="Necromancer" />
+					<BEHAVIOR class="Clericness" parms="Oracle" />
+					<BEHAVIOR class="Clericness" parms="Purist" />
+					<BEHAVIOR class="Clericness" parms="Shaman" />
+					<BEHAVIOR class="Clericness" parms="Templar" />
+					<BEHAVIOR class="Druidness" parms="Beastmaster" />
+					<BEHAVIOR class="Druidness" parms="Delver" />
+					<BEHAVIOR class="Druidness" parms="Druid" />
+					<BEHAVIOR class="Druidness" parms="Mer" />
+					<BEHAVIOR class="Druidness" parms="Skywatcher" />
+					<BEHAVIOR class="Fighterness" parms="Barbarian" />
+					<BEHAVIOR class="Fighterness" parms="Fighter" />
+					<BEHAVIOR class="Fighterness" parms="Ranger" />
+					<BEHAVIOR class="Mageness" parms="Abjurer" />
+					<BEHAVIOR class="Mageness" parms="Alterer" />
+					<BEHAVIOR class="Mageness" parms="Conjurer" />
+					<BEHAVIOR class="Mageness" parms="Diviner" />
+					<BEHAVIOR class="Mageness" parms="Enchanter" />
+					<BEHAVIOR class="Mageness" parms="Evoker" />
+					<BEHAVIOR class="Mageness" parms="Illusionist" />
+					<BEHAVIOR class="Mageness" parms="Mage" />
+					<BEHAVIOR class="Mageness" parms="Transmuter" />
+					<BEHAVIOR class="Thiefness" parms="Arcanist" />
+					<BEHAVIOR class="Thiefness" parms="Assassin" />
+					<BEHAVIOR class="Thiefness" parms="Burglar" />
+					<BEHAVIOR class="Thiefness" parms="Pirate" />
+					<BEHAVIOR class="Thiefness" parms="Thief" />
+					<BEHAVIOR class="Thiefness" parms="Trapper" />
+				</BEHAVIOR>
+			</MOB>
+		</OBJECT>
+		<OBJECT CONDITION="$attackername=''" PICKWEIGHT="9">SELECT: ANY\. FROM $lair_mobs</OBJECT>
+		<OBJECT CONDITION="$attackername=''" PICKWEIGHT="9">SELECT: ANY\. FROM $rats_mobs</OBJECT>
+		<OBJECT CONDITION="$attackername=''" PICKWEIGHT="1">SELECT: ANY\. FROM $desert_mobs</OBJECT>
+		<OBJECT CONDITION="$attackername=''" PICKWEIGHT="1">SELECT: ANY\. FROM $forest_mobs</OBJECT>
+		<OBJECT CONDITION="$attackername=''" PICKWEIGHT="1">SELECT: ANY\. FROM $jungle_mobs</OBJECT>
+		<OBJECT CONDITION="$attackername=''" PICKWEIGHT="1">SELECT: ANY\. FROM $mountain_mobs</OBJECT>
+		<OBJECT CONDITION="$attackername=''" PICKWEIGHT="1">SELECT: ANY\. FROM $plains_mobs</OBJECT>
+		<OBJECT CONDITION="$attackername=''" PICKWEIGHT="1">SELECT: ANY\. FROM $swamp_mobs</OBJECT>
+		<OBJECT CONDITION="$attackername=''" PICKWEIGHT="1">SELECT: ANY\. FROM $lair_mobs</OBJECT>
+		<OBJECT CONDITION="$attackername=''" PICKWEIGHT="1">SELECT: ANY\. FROM $lair_mobs</OBJECT>
+		<OBJECT CONDITION="$attackername=''" PICKWEIGHT="1">SELECT: ANY\. FROM $lair_mobs</OBJECT>
 	</OBJECT>
 	
 	<STRING ID="target_name" SELECT="any-1" DEFINE="target_name">
@@ -378,13 +446,21 @@ settable vars:
 	<STRING ID="multiarea" define="multiarea">NO</STRING>
 	
 	<OBJECT ID="target_area" SELECT="Pick-1" DEFINE="target_area">
-		<OBJECT pickweight=55555 condition="$targetarea_name != ''">SELECT: ANY\. FROM areas where NAME=$targetarea_name</OBJECT> 
-		<OBJECT pickweight=100 condition="$targetarea_name = '' and $multiarea != 'YES'">SELECT: any\. from $source_area</OBJECT>
-		<OBJECT pickweight=1 condition="$targetarea_name = '' and $multiarea = 'YES' and $num_targets = 1">
+		<OBJECT pickweight="55555" condition="$targetarea_name != ''">SELECT: ANY\. FROM areas where NAME=$targetarea_name</OBJECT> 
+		<OBJECT pickweight="100" condition="$targetarea_name = '' and $multiarea != 'YES'">SELECT: any\. from $source_area</OBJECT>
+		<OBJECT pickweight="1" condition="$targetarea_name = '' and $target_min_arealevel = '' and $multiarea = 'YES' and $num_targets = 1">
 			SELECT: ANY\. FROM areas WHERE (SELECT: count\. from $mql_viable_questtarget) &gt; 0
 		</OBJECT>
-		<OBJECT pickweight=1 condition="$targetarea_name = '' and $multiarea = 'YES' and $num_targets &gt; 1">
+		<OBJECT pickweight="1" condition="$targetarea_name = '' and $target_min_arealevel = '' and $multiarea = 'YES' and $num_targets &gt; 1">
 			SELECT: ANY\. FROM areas WHERE (SELECT: count\. from $mql_viable_questtargets) &gt; 0
+		</OBJECT>
+		<OBJECT pickweight="1" condition="$targetarea_name = '' and $target_min_arealevel != '' and $multiarea = 'YES' and $num_targets = 1">
+			SELECT: ANY\. FROM areas WHERE MED_LEVEL &gt;= $target_min_arealevel and MED_LEVEL &lt;= $target_max_arealevel 
+				and (SELECT: count\. from $mql_viable_questtarget) &gt; 0
+		</OBJECT>
+		<OBJECT pickweight="1" condition="$targetarea_name = '' and $target_min_arealevel != '' and $multiarea = 'YES' and $num_targets &gt; 1">
+			SELECT: ANY\. FROM areas WHERE MED_LEVEL &gt;= $target_min_arealevel and MED_LEVEL &lt;= $target_max_arealevel 
+				and (SELECT: count\. from $mql_viable_questtargets) &gt; 0
 		</OBJECT>
 	</OBJECT>
 
@@ -401,19 +477,19 @@ settable vars:
 	<STRING ID="target_himher" SELECT="any-1" DEFINE="target_himher">
 		<STRING CONDITION="$target_gender = 'M'">him</STRING>
 		<STRING CONDITION="$target_gender = 'F'">her</STRING>
-		<STRING CONDITION="$target_gender = 'N'">it</STRING>
+		<STRING CONDITION="$target_gender != 'M' and $target_gender != 'F'">it</STRING>
 	</STRING>
 	
 	<STRING ID="target_hisher" SELECT="any-1" DEFINE="target_hisher">
 		<STRING CONDITION="$target_gender = 'M'">his</STRING>
 		<STRING CONDITION="$target_gender = 'F'">her</STRING>
-		<STRING CONDITION="$target_gender = 'N'">it</STRING>
+		<STRING CONDITION="$target_gender != 'M' and $target_gender != 'F'">it</STRING>
 	</STRING>
 	
 	<STRING ID="target_heshe" SELECT="any-1" DEFINE="target_heshe">
 		<STRING CONDITION="$target_gender = 'M'">he</STRING>
 		<STRING CONDITION="$target_gender = 'F'">she</STRING>
-		<STRING CONDITION="$target_gender = 'N'">it</STRING>
+		<STRING CONDITION="$target_gender != 'M' and $target_gender != 'F'">it</STRING>
 	</STRING>
 	
 	<STRING ID="target_area_name" SELECT="any-1" DEFINE="target_area_name">

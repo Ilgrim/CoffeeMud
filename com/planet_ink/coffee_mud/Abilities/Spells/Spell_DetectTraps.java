@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,6 +70,12 @@ public class Spell_DetectTraps extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	protected int canAffectCode()
 	{
 		return CAN_MOBS;
@@ -99,7 +105,8 @@ public class Spell_DetectTraps extends Spell
 	{
 		if(P!=null)
 		{
-			if(CMLib.utensils().fetchMyTrap(P)!=null)
+			final Trap T=CMLib.utensils().fetchMyTrap(P);
+			if(T!=null)
 				return L("@x1 is trapped.\n\r",P.name());
 		}
 		return "";
@@ -220,7 +227,7 @@ public class Spell_DetectTraps extends Spell
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already detecting traps."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already detecting traps."));
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))

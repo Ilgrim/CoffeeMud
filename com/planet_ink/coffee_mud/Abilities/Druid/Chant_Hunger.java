@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -100,7 +100,8 @@ public class Chant_Hunger extends Chant
 				mob.location().send(mob,msg);
 				if(msg.value()<=0)
 				{
-					target.curState().adjHunger(-(150+(mob.phyStats().level()+(2*getXLEVELLevel(mob))) * 5),target.maxState().maxHunger(target.baseWeight()));
+					if(!CMSecurity.isDisabled(CMSecurity.DisFlag.HUNGER))
+						target.curState().adjHunger(-(150+(mob.phyStats().level()+(2*getXLEVELLevel(mob))) * 5),target.maxState().maxHunger(target.baseWeight()));
 					mob.location().show(target,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> feel(s) incredibly hungry!"));
 				}
 			}

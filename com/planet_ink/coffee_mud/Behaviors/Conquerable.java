@@ -20,10 +20,11 @@ import java.util.*;
 
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.DatabaseEngine.PlayerData;
+import com.planet_ink.coffee_mud.Libraries.interfaces.PlayerLibrary.PlayerCode;
 import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,19 +52,12 @@ public class Conquerable extends Arrest
 		return false;
 	}
 
-	@Override
-	protected String getLawParms()
-	{
-		return "custom";
-	}
-
 	protected String			savedHoldingClan	= "";
 	protected String			prevHoldingClan		= "";
 	protected String			holdingClan			= "";
-	protected Vector<ClanItem>	clanItems			= new Vector<ClanItem>();
-	protected DVector			clanControlPoints	= new DVector(2);
-	protected DVector			assaults			= new DVector(2);
-	protected Vector<MOB>		noMultiFollows		= new Vector<MOB>();
+	protected Map<String,int[]>	clanControlPoints	= new STreeMap<String,int[]>();
+	protected PairList<MOB,MOB>	assaults			= new PairSVector<MOB,MOB>();
+	protected ExpireTreeSet<MOB>noMultiFollows		= new ExpireTreeSet<MOB>();
 	protected int				totalControlPoints	= -1;
 	protected Area				myArea				= null;
 	protected String			journalName			= "";
@@ -72,6 +66,7 @@ public class Conquerable extends Arrest
 	protected int				revoltFails			= 0;
 	protected long				waitToReload		= 0;
 	protected long				conquestDate		= 0;
+	protected volatile int		loyaltyBonus		= 0;
 	protected int				revoltDown			= REVOLTFREQ;
 	protected static final int	REVOLTFREQ			= (int) ((TimeManager.MILI_DAY) / CMProps.getTickMillis());
 	protected int				checkDown			= 0;
@@ -80,6 +75,9 @@ public class Conquerable extends Arrest
 	protected static final int	POINTFREQ			= (int) ((10 * 60000) / CMProps.getTickMillis());
 	protected int				fightDown			= 0;
 	protected static final int	FIGHTFREQ			= 2;
+	protected int				conqPtLvlDiff		= Integer.MAX_VALUE;
+
+	protected PairList<ClanItem,ItemPossessor>		clanItems = new PairSVector<ClanItem,ItemPossessor>();
 
 	@Override
 	public boolean isFullyControlled()
@@ -99,15 +97,22 @@ public class Conquerable extends Arrest
 		return holdingClan;
 	}
 
-	@SuppressWarnings("unchecked")
+	@Override
+	public int addGetLoyaltyBonus(final int delta)
+	{
+		this.loyaltyBonus += delta;
+		return this.loyaltyBonus;
+	}
+
 	@Override
 	public CMObject copyOf()
 	{
 		final Conquerable obj=(Conquerable)super.copyOf();
-		obj.clanItems=(Vector<ClanItem>)clanItems.clone();
-		obj.clanControlPoints=clanControlPoints.copyOf();
-		obj.assaults=assaults.copyOf();
-		obj.noMultiFollows=(Vector<MOB>)noMultiFollows.clone();
+		obj.clanItems=new PairVector<ClanItem,ItemPossessor>(clanItems);
+		obj.clanControlPoints=new STreeMap<String,int[]>(clanControlPoints);
+		obj.assaults=new PairSVector<MOB,MOB>();
+		obj.assaults.addAll(assaults);
+		obj.noMultiFollows=new ExpireTreeSet<MOB>(noMultiFollows);
 		return obj;
 	}
 
@@ -115,7 +120,9 @@ public class Conquerable extends Arrest
 	public String conquestInfo(final Area myArea)
 	{
 		final StringBuffer str=new StringBuffer("");
-		if((totalControlPoints<0)&&(myArea!=null))
+		if(myArea == null)
+			return "";
+		if(totalControlPoints<0)
 			recalculateControlPoints(myArea);
 		if((holdingClan.length()==0)||(totalControlPoints<0))
 			str.append(L("Area '@x1' is not currently controlled by any clan.\n\r",myArea.name()));
@@ -160,10 +167,9 @@ public class Conquerable extends Arrest
 			str.append(L("There are no control points won at present by any clan.\n\r"));
 		synchronized(clanControlPoints)
 		{
-			for(int i=0;i<clanControlPoints.size();i++)
+			for(final String clanID : clanControlPoints.keySet())
 			{
-				final String clanID=(String)clanControlPoints.elementAt(i,1);
-				final int[] ic=(int[])clanControlPoints.elementAt(i,2);
+				final int[] ic=clanControlPoints.get(clanID);
 				final Clan C=CMLib.clans().getClanAnyHost(clanID);
 				if((C!=null)&&(C.getGovernment().isConquestEnabled()))
 					str.append(L("@x1 @x2 has @x3 control points.\n\r",C.getGovernmentName(),C.name(),""+ic[0]));
@@ -187,16 +193,12 @@ public class Conquerable extends Arrest
 			return 0;
 		synchronized(clanControlPoints)
 		{
-			for(int i=0;i<clanControlPoints.size();i++)
+			final int[] ic=clanControlPoints.get(clanID.toUpperCase().trim());
+			if(ic != null)
 			{
-				final String clanID2=(String)clanControlPoints.elementAt(i,1);
-				final int[] ic=(int[])clanControlPoints.elementAt(i,2);
-				if(clanID2.equalsIgnoreCase(clanID))
-				{
-					final Clan C=CMLib.clans().getClanAnyHost(clanID);
-					if(C!=null)
-						return ic[0];
-				}
+				final Clan C=CMLib.clans().getClanAnyHost(clanID);
+				if(C!=null)
+					return ic[0];
 			}
 		}
 		return 0;
@@ -206,7 +208,7 @@ public class Conquerable extends Arrest
 	public int revoltChance()
 	{
 		if(myArea==null)
-			return 100;
+			return 100 + loyaltyBonus;
 		final Clan C=CMLib.clans().getClanAnyHost(holdingClan);
 		if((C==null)||(C.isLoyaltyThroughItems()))
 			return calcRevoltChance(myArea);
@@ -217,14 +219,17 @@ public class Conquerable extends Arrest
 	public void setParms(final String newParms)
 	{
 		super.setParms(newParms);
+		super.lawName = "custom";
 		journalName=CMParms.getParmStr(newParms,"JOURNAL","");
 		allowLaw=CMParms.getParmStr(newParms,"LAW","FALSE").toUpperCase().startsWith("T");
 		switchOwnership=CMParms.getParmStr(newParms,"OWNERSHIP","TRUE").toUpperCase().startsWith("T");
+		loyaltyBonus=CMParms.getParmInt(newParms,"LOYALTY",0);
+		conqPtLvlDiff=CMParms.getParmInt(newParms,"LEVELDIFF", CMProps.getIntVar(CMProps.Int.EXPRATE)*2);
 		loadAttempt=false;
-		clanItems=new Vector<ClanItem>();
-		clanControlPoints=new DVector(2);
-		assaults=new DVector(2);
-		noMultiFollows=new Vector<MOB>();
+		clanItems=new PairSVector<ClanItem,ItemPossessor>();
+		clanControlPoints=new STreeMap<String,int[]>();
+		assaults=new PairSVector<MOB,MOB>();
+		noMultiFollows=new ExpireTreeSet<MOB>();
 	}
 
 	@Override
@@ -285,7 +290,7 @@ public class Conquerable extends Arrest
 	{
 		if(holdingClan.length()==0)
 			return;
-		if((!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if((!CMProps.isState(CMProps.HostState.RUNNING))
 		||(CMSecurity.isDisabled(CMSecurity.DisFlag.CONQUEST)))
 			return;
 		final Clan C=CMLib.clans().getClanAnyHost(holdingClan);
@@ -293,30 +298,43 @@ public class Conquerable extends Arrest
 		prevHoldingClan=holdingClan;
 		for(int v=0;v<clanItems.size();v++)
 		{
-			final Item I=clanItems.elementAt(v);
-			if((I.owner() instanceof MOB)
-			&&(I instanceof ClanItem)
-			&&(((ClanItem)I).clanID().equals(holdingClan)))
+			final Item I=clanItems.getFirst(v);
+			if((I instanceof ClanItem)
+			&&(((ClanItem)I).clanID().equals(holdingClan))
+			&&(!I.amDestroyed()))
 			{
-				final MOB M=(MOB)I.owner();
-				if((M.location()!=null)&&(!M.amDead())&&(M.isMonster()))
+				if((I instanceof SiegableItem)
+				&&(I instanceof Boardable))
+					((SiegableItem)I).killMeDead(true);
+				else
+				if(I.owner() instanceof MOB)
 				{
-					M.delItem(I);
-					if(M.getClanRole(holdingClan)!=null)
+					final MOB M=(MOB)I.owner();
+					if((M.location()!=null)&&(!M.amDead())&&(M.isMonster()))
 					{
-						M.setClan(holdingClan,-1);
-						if((worship!=null)&&(M.getWorshipCharID().equals(worship)))
-							M.setWorshipCharID("");
+						M.delItem(I);
+						if(M.getClanRole(holdingClan)!=null)
+						{
+							M.setClan(holdingClan,-1);
+							if((worship!=null)
+							&&(M.baseCharStats().getWorshipCharID().equals(worship)))
+							{
+								M.baseCharStats().setWorshipCharID("");
+								M.charStats().setWorshipCharID("");
+							}
+						}
+						I.setRawWornCode(0);
+						I.setContainer(null);
+						M.location().addItem(I,ItemPossessor.Expire.Player_Drop);
 					}
-					I.setRawWornCode(0);
-					I.setContainer(null);
-					M.location().addItem(I,ItemPossessor.Expire.Player_Drop);
 				}
 			}
 		}
 
 		if(myArea!=null)
 		{
+			if(worship!=null)
+				Resources.removeResource("PIETY_"+myArea.Name().toUpperCase());
 			for(final Enumeration<Room> e=myArea.getMetroMap();e.hasMoreElements();)
 			{
 				final Room R=e.nextElement();
@@ -330,8 +348,12 @@ public class Conquerable extends Arrest
 					&&(M.getClanRole(holdingClan)!=null))
 					{
 						M.setClan(holdingClan,-1);
-						if((worship!=null)&&(M.getWorshipCharID().equals(worship)))
-							M.setWorshipCharID("");
+						if((worship!=null)
+						&&(M.charStats().getWorshipCharID().equals(worship)))
+						{
+							M.baseCharStats().setWorshipCharID("");
+							M.charStats().setWorshipCharID("");
+						}
 					}
 				}
 			}
@@ -340,10 +362,14 @@ public class Conquerable extends Arrest
 				if(CMSecurity.isDebugging(CMSecurity.DbgFlag.CONQUEST))
 					Log.debugOut("Conquest",holdingClan+" has lost control of "+myArea.name()+reason+".");
 				if(C!=null)
-					CMLib.achievements().possiblyBumpAchievement(C.getResponsibleMember(), AchievementLibrary.Event.CONQUEREDAREAS, -1, C, myArea);
+				{
+					final MOB cM=CMLib.players().getLoadPlayer(C.getResponsibleMemberName());
+					if(cM != null)
+						CMLib.achievements().possiblyBumpAchievement(cM, AchievementLibrary.Event.CONQUEREDAREAS, -1, C, myArea);
+				}
 				final List<String> channels=CMLib.channels().getFlaggedChannelNames(ChannelsLibrary.ChannelFlag.CONQUESTS, null);
 				for(int i=0;i<channels.size();i++)
-					CMLib.commands().postChannel(channels.get(i),CMLib.clans().clanRoles(),L("@x1 has lost control of @x2@x3.",holdingClan,myArea.name(),reason),false);
+					CMLib.commands().postChannel(channels.get(i),CMLib.clans().clanRoles(),L("@x1 has lost control of @x2@x3.",holdingClan,myArea.name(),reason),false,null);
 				if(journalName.length()>0)
 					CMLib.database().DBWriteJournal(journalName,"Conquest","ALL",L("@x1 loses control of @x2@x3.",holdingClan,myArea.name(),reason),L("See the subject line."));
 			}
@@ -361,17 +387,17 @@ public class Conquerable extends Arrest
 			{
 				for(int c=clanItems.size()-1;c>=0;c--)
 				{
-					final ClanItem item=clanItems.elementAt(c);
+					final ClanItem item=clanItems.getFirst(c);
 					if((C==null)
 					&&(item.clanID().equalsIgnoreCase(holdingClan))
 					&&((!(item.owner() instanceof MOB))||(((MOB)item.owner()).isMonster())))
 					{
 						item.destroy();
-						clanItems.removeElementAt(c);
+						clanItems.remove(c);
 					}
 					else
 					if(item.getClanItemType()!=ClanItem.ClanItemType.FLAG)
-						deRegisterClanItem(clanItems.elementAt(c));
+						deRegisterClanItem(clanItems.getFirst(c));
 				}
 			}
 			catch (final ArrayIndexOutOfBoundsException x)
@@ -391,15 +417,18 @@ public class Conquerable extends Arrest
 		{
 			for(int i=clanItems.size()-1;i>=0;i--)
 			{
-				final ClanItem I=clanItems.elementAt(i);
-				if((!I.amDestroyed())
-				&&(I.owner() instanceof MOB)
-				&&(((MOB)I.owner()).isMonster())
-				&&(CMLib.flags().isInTheGame((MOB)I.owner(),true))
-				&&(A.inMyMetroArea(((MOB)I.owner()).getStartRoom().getArea()))
-				&&((holdingClan.length()==0)||(I.clanID().equals(holdingClan)))
-				&&(I.getClanItemType()!=ClanItem.ClanItemType.PROPAGANDA))
-					itemControlPoints+=((MOB)((Item)I).owner()).phyStats().level();
+				final ClanItem I=clanItems.getFirst(i);
+				final ItemPossessor poss = I.owner();
+				if((!I.amDestroyed()) && (poss instanceof MOB))
+				{
+					final MOB mposs = (MOB)poss;
+					if((mposs.isMonster())
+					&&(CMLib.flags().isInTheGame(mposs,true))
+					&&(A.inMyMetroArea(CMLib.map().getStartArea(mposs)))
+					&&((holdingClan.length()==0)||(I.clanID().equals(holdingClan)))
+					&&(I.getClanItemType()!=ClanItem.ClanItemType.PROPAGANDA))
+						itemControlPoints+=mposs.phyStats().level();
+				}
 			}
 		}
 		return itemControlPoints;
@@ -413,7 +442,19 @@ public class Conquerable extends Arrest
 		int totalNeeded=(int)Math.round(CMath.mul(0.05,totalControlPoints));
 		if(totalNeeded<=0)
 			totalNeeded=1;
-		final int chance=(int)Math.round(10.0-(CMath.mul(10.0,CMath.div(itemControlPoints,totalNeeded))));
+		int chance=(int)Math.round(10.0-(CMath.mul(10.0,CMath.div(itemControlPoints,totalNeeded))));
+		synchronized(clanItems)
+		{
+			for(int i=clanItems.size()-1;i>=0;i--)
+			{
+				final ClanItem I=clanItems.getFirst(i);
+				if((I instanceof Boardable)
+				&&(!I.amDestroyed())
+				&&(((Boardable)I).getArea()!=null))
+					chance -= ((Boardable)I).getArea().numberOfProperIDedRooms();
+			}
+		}
+		chance -=  loyaltyBonus;
 		if(chance<=0)
 			return 0;
 		return chance;
@@ -423,7 +464,11 @@ public class Conquerable extends Arrest
 	{
 		final Clan C=CMLib.clans().getClanExact(clanID);
 		if(C!=null)
-			CMLib.achievements().possiblyBumpAchievement(C.getResponsibleMember(), AchievementLibrary.Event.CONQUESTPOINTS, amount, C, myArea);
+		{
+			final MOB cM=CMLib.players().getLoadPlayer(C.getResponsibleMemberName());
+			if(cM != null)
+				CMLib.achievements().possiblyBumpAchievement(cM, AchievementLibrary.Event.CONQUESTPOINTS, amount, C, myArea);
+		}
 		for(final Session S : CMLib.sessions().localOnlineIterable())
 		{
 			if((S.mob()!=null)
@@ -462,7 +507,7 @@ public class Conquerable extends Arrest
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if((!CMProps.isState(CMProps.HostState.RUNNING))
 		||(CMSecurity.isDisabled(CMSecurity.DisFlag.CONQUEST)))
 			return true;
 
@@ -479,12 +524,22 @@ public class Conquerable extends Arrest
 
 		for(int i=clanItems.size()-1;i>=0;i--)
 		{
-			final Item I=clanItems.elementAt(i);
+			final ClanItem I=clanItems.getFirst(i);
+			final ItemPossessor P = clanItems.getSecond(i);
 			if(!I.tick(this,Tickable.TICKID_CLANITEM))
 				deRegisterClanItem(I);
 			else
 			{
 				I.setExpirationDate(0);
+				if((I.amDestroyed())
+				||(CMLib.map().areaLocation(I)!=A))
+					clanItems.remove(i);
+				else
+				if((P!=null)
+				&&(P.amDestroyed()||(P!=I.owner()))
+				&&(I.owner()!=null))
+					clanItems.set(i, new Pair<ClanItem,ItemPossessor>(I,I.owner()));
+				else
 				if((I.owner() instanceof Room)&&(I.container()!=null))
 					I.setContainer(null);
 			}
@@ -598,6 +653,8 @@ public class Conquerable extends Arrest
 											}
 										}
 										R.addItem(newItem);
+										if(newItem instanceof Boardable)
+											((Boardable)newItem).dockHere(R);
 									}
 									if(newItem instanceof ClanItem)
 										registerClanItem((ClanItem)newItem);
@@ -619,7 +676,7 @@ public class Conquerable extends Arrest
 				{
 					for(int i=clanItems.size()-1;i>=0;i--)
 					{
-						final ClanItem I=clanItems.elementAt(i);
+						final ClanItem I=clanItems.getFirst(i);
 						if(I==null)
 							continue;
 						final Room R=CMLib.map().roomLocation(I);
@@ -669,6 +726,7 @@ public class Conquerable extends Arrest
 					if((C==null)||(C.isLoyaltyThroughItems()))
 					{
 						final int chance=calcRevoltChance(A);
+						loyaltyBonus = 0;
 						if(CMLib.dice().rollPercentage()<chance)
 						{
 							if(revoltFails>0)
@@ -678,15 +736,22 @@ public class Conquerable extends Arrest
 									Log.debugOut("Conquest","The inhabitants of "+myArea.name()+" have revolted against "+holdingClan+" with "+chance+"% chance, after "+calcItemControlPoints(myArea)+" item points of "+totalControlPoints+" control points.");
 								final List<String> channels=CMLib.channels().getFlaggedChannelNames(ChannelsLibrary.ChannelFlag.CONQUESTS, null);
 								for(int i=0;i<channels.size();i++)
-									CMLib.commands().postChannel(channels.get(i),CMLib.clans().clanRoles(),L("The inhabitants of @x1 have revolted against @x2.",myArea.name(),holdingClan),false);
+									CMLib.commands().postChannel(channels.get(i),CMLib.clans().clanRoles(),L("The inhabitants of @x1 have revolted against @x2.",myArea.name(),holdingClan),false,null);
 								if(journalName.length()>0)
 									CMLib.database().DBWriteJournal(journalName,"Conquest","ALL","The inhabitants of "+myArea.name()+" have revolted against "+holdingClan+".","See the subject line.");
+
+								synchronized(clanControlPoints)
+								{
+									clanControlPoints.clear();
+								}
+								/*
 								if((prevHoldingClan.length()>0)
 								&&(!holdingClan.equalsIgnoreCase(prevHoldingClan))
 								&&(CMLib.clans().getClanAnyHost(prevHoldingClan)!=null)
 								&&(flagFound(A,prevHoldingClan)))
 									declareWinner(prevHoldingClan);
 								else
+								*/
 									endClanRule(L(" due to revolt"));
 								revoltFails=0;
 							}
@@ -694,7 +759,7 @@ public class Conquerable extends Arrest
 							{
 								final List<String> channels=CMLib.channels().getFlaggedChannelNames(ChannelsLibrary.ChannelFlag.CONQUESTS, null);
 								for(int i=0;i<channels.size();i++)
-									CMLib.commands().postChannel(channels.get(i),CMLib.clans().clanRoles(),L("There are the rumblings of revolt in @x1.",myArea.name()),false);
+									CMLib.commands().postChannel(channels.get(i),CMLib.clans().clanRoles(),L("There are the rumblings of revolt in @x1.",myArea.name()),false,null);
 								revoltFails=20;
 							}
 						}
@@ -711,13 +776,13 @@ public class Conquerable extends Arrest
 				// slowly decrease control points over time
 				synchronized(clanControlPoints)
 				{
-					for(int v=clanControlPoints.size()-1;v>=0;v--)
+					for(final String clanID : clanControlPoints.keySet())
 					{
-						final int[] pts=(int[])clanControlPoints.elementAt(v,2);
-						if(pts[0]<=1)
-							clanControlPoints.removeElementAt(v);
+						final int[] ic=clanControlPoints.get(clanID);
+						if(ic[0]<=1)
+							clanControlPoints.remove(clanID);
 						else
-							pts[0]--;
+							ic[0]--;
 					}
 				}
 			}
@@ -731,8 +796,8 @@ public class Conquerable extends Arrest
 					{
 						while(assaults.size()>0)
 						{
-							final MOB M1=(MOB)assaults.elementAt(0,1);
-							final MOB M2=(MOB)assaults.elementAt(0,2);
+							final MOB M1=assaults.getFirst(0);
+							final MOB M2=assaults.getSecond(0);
 							if((M1!=M2)
 							&&(M1.location()==M2.location())
 							&&(!M1.isInCombat())
@@ -742,12 +807,12 @@ public class Conquerable extends Arrest
 							&&(CMLib.flags().canBeSeenBy(M2,M1)))
 							{
 								final Vector<String> V=new Vector<String>();
-								V.addElement("YELL");
-								V.addElement(L(warCrys()[CMLib.dice().roll(1,warCrys().length,-1)]));
+								V.addElement(I("YELL"));
+								V.addElement(warCrys());
 								M1.doCommand(V,MUDCmdProcessor.METAFLAG_FORCED);
 								CMLib.combat().postAttack(M1,M2,M1.fetchWieldedItem());
 							}
-							assaults.removeElementAt(0);
+							assaults.remove(0);
 						}
 					}
 				}
@@ -765,9 +830,9 @@ public class Conquerable extends Arrest
 			return null;
 		if(C.isWorshipConquest())
 		{
-			final MOB M=C.getResponsibleMember();
-			if((M!=null)&&(M.getWorshipCharID().length()>0))
-				return M.getWorshipCharID();
+			final String rName = (String)CMLib.players().getPlayerValue(C.getResponsibleMemberName(), PlayerCode.DEITY);
+			if((rName!=null)&&(rName.length()>0))
+				return rName;
 		}
 		return null;
 	}
@@ -792,11 +857,23 @@ public class Conquerable extends Arrest
 					if((C!=null)&&(M.getClanRole(C.clanID())==null))
 					{
 						M.setClan(C.clanID(),C.getAutoPosition());
-						if(worship!=null)
-							M.setWorshipCharID(worship);
+						if((worship!=null)
+						&&(!M.baseCharStats().getWorshipCharID().equals(worship)))
+						{
+							M.baseCharStats().setWorshipCharID(worship);
+							M.charStats().setWorshipCharID(worship);
+						}
 					}
 					totalControlPoints+=M.phyStats().level();
 				}
+			}
+			for(int i=0;i<R.numItems();i++)
+			{
+				final Item I=R.getItem(i);
+				if((I instanceof ClanItem)
+				&&(I instanceof SiegableItem)
+				&&(I instanceof Boardable))
+					totalControlPoints += ((SiegableItem)I).getMaxHullPoints();
 			}
 		}
 	}
@@ -818,7 +895,7 @@ public class Conquerable extends Arrest
 			{
 				for(int i=0;i<clanItems.size();i++)
 				{
-					final ClanItem I=clanItems.elementAt(i);
+					final ClanItem I=clanItems.getFirst(i);
 					final Room R=CMLib.map().roomLocation(I);
 					if((R==msg.target())
 					&&(!((Item)I).amDestroyed())
@@ -906,7 +983,7 @@ public class Conquerable extends Arrest
 		{
 			if((msg.target() instanceof Room)
 			&&(msg.tool() instanceof Ability)
-			&&(msg.tool().ID().startsWith("Prayer_Infuse"))
+			&&(msg.tool() instanceof Deity.DeityWorshipper) // one of the infusing skills
 			&&(msg.sourceMinor()!=CMMsg.TYP_TEACH))
 			{
 
@@ -968,7 +1045,7 @@ public class Conquerable extends Arrest
 		if(CMSecurity.isDebugging(CMSecurity.DbgFlag.CONQUEST))
 			Log.debugOut("Conquest","The inhabitants of "+myArea.name()+" are conquered by "+clanID+", vanquishing '"+holdingClan+"'.");
 		if(holdingClan.length()>0)
-			endClanRule(L(" due to being defeated by "+clanID));
+			endClanRule(L(" due to being defeated by @x1",clanID));
 
 		revoltDown=REVOLTFREQ;
 		holdingClan=clanID;
@@ -1006,8 +1083,12 @@ public class Conquerable extends Arrest
 						&&(CMLib.clans().findConquerableClan(M)==null))
 						{
 							M.setClan(holdingClan,C.getAutoPosition());
-							if(worship!=null)
-								M.setWorshipCharID(worship);
+							if((worship!=null)
+							&&(!M.baseCharStats().getWorshipCharID().equals(worship)))
+							{
+								M.baseCharStats().setWorshipCharID(worship);
+								M.charStats().setWorshipCharID(worship);
+							}
 						}
 					}
 				}
@@ -1015,12 +1096,16 @@ public class Conquerable extends Arrest
 			if(C!=null)
 			{
 				C.bumpTrophyData(Clan.Trophy.MonthlyConquests, 1);
-				CMLib.achievements().possiblyBumpAchievement(C.getResponsibleMember(), AchievementLibrary.Event.CONQUEREDAREAS, 1, C, myArea);
+				final MOB cM=CMLib.players().getLoadPlayer(C.getResponsibleMemberName());
+				if(cM != null)
+					CMLib.achievements().possiblyBumpAchievement(cM, AchievementLibrary.Event.CONQUEREDAREAS, 1, C, myArea);
 			}
+			if(worship!=null)
+				Resources.removeResource("PIETY_"+myArea.Name().toUpperCase());
 
 			final List<String> channels=CMLib.channels().getFlaggedChannelNames(ChannelsLibrary.ChannelFlag.CONQUESTS, null);
 			for(int i=0;i<channels.size();i++)
-				CMLib.commands().postChannel(channels.get(i),CMLib.clans().clanRoles(),L("@x1 gains control of @x2.",holdingClan,myArea.name()),false);
+				CMLib.commands().postChannel(channels.get(i),CMLib.clans().clanRoles(),L("@x1 gains control of @x2.",holdingClan,myArea.name()),false,null);
 			if(journalName.length()>0)
 				CMLib.database().DBWriteJournal(journalName,"Conquest","ALL",holdingClan+" gains control of "+myArea.name()+".","See the subject line.");
 			conquestDate=System.currentTimeMillis();
@@ -1031,22 +1116,28 @@ public class Conquerable extends Arrest
 	{
 		synchronized(clanItems)
 		{
-			if(!clanItems.contains(I))
-				clanItems.addElement(I);
+			if(!clanItems.containsFirst(I))
+				clanItems.add(I,I.owner());
 			if((I.owner() instanceof Room)
 			&&(I.container()!=null))
 				I.setContainer(null);
 			I.setExpirationDate(0);
+			if((I instanceof SiegableItem)
+			&&(I instanceof Boardable)
+			&&(totalControlPoints>0))
+				recalculateControlPoints(myArea);
 		}
 	}
 
-	protected void deRegisterClanItem(final Item I)
+	protected void deRegisterClanItem(final ClanItem I)
 	{
 		synchronized(clanItems)
 		{
 			try
 			{
-				clanItems.removeElement(I);
+				final int x = clanItems.indexOfFirst(I);
+				if(x >= 0)
+					clanItems.remove(x);
 			}
 			catch (final Exception e)
 			{
@@ -1066,7 +1157,7 @@ public class Conquerable extends Arrest
 	}
 
 	protected volatile long	nextFlagScan = System.currentTimeMillis();
-	
+
 	protected boolean flagFound(final Area A, final Clan C)
 	{
 		if((C==null)||(!C.getGovernment().isConquestEnabled()))
@@ -1075,7 +1166,7 @@ public class Conquerable extends Arrest
 		{
 			for(int i=0;i<clanItems.size();i++)
 			{
-				final ClanItem I=clanItems.elementAt(i);
+				final ClanItem I=clanItems.getFirst(i);
 				if((I.clanID().equals(C.clanID()))
 				&&(!I.amDestroyed())
 				&&(I.getClanItemType()==ClanItem.ClanItemType.FLAG))
@@ -1087,7 +1178,7 @@ public class Conquerable extends Arrest
 						if(i>0)
 						{
 							clanItems.remove(i);
-							clanItems.add(0, I);
+							clanItems.add(0, new Pair<ClanItem,ItemPossessor>(I, I.owner()));
 						}
 						return true;
 					}
@@ -1128,19 +1219,11 @@ public class Conquerable extends Arrest
 	{
 		synchronized(clanControlPoints)
 		{
-			int index=-1;
-			for(int v=0;v<clanControlPoints.size();v++)
-			{
-				if(((String)clanControlPoints.elementAt(v,1)).equalsIgnoreCase(clanID))
-				{
-					index = v;
-					break;
-				}
-			}
-			if(index>=0)
-				clanControlPoints.setElementAt(index,2,new int[]{newControlPoints});
+			final int[] ic=clanControlPoints.get(clanID.toUpperCase().trim());
+			if(ic != null)
+				ic[0] = newControlPoints;
 			else
-				clanControlPoints.addElement(clanID,new int[]{newControlPoints});
+				clanControlPoints.put(clanID.toUpperCase().trim(),new int[]{newControlPoints});
 			if(newControlPoints>=totalControlPoints)
 				declareWinner(clanID);
 		}
@@ -1150,15 +1233,7 @@ public class Conquerable extends Arrest
 	{
 		synchronized(clanControlPoints)
 		{
-			int index=-1;
-			for(int v=0;v<clanControlPoints.size();v++)
-			{
-				if(((String)clanControlPoints.elementAt(v,1)).equalsIgnoreCase(clanID))
-				{
-					index=v;
-					break;
-				}
-			}
+			final int[] ic=clanControlPoints.get(clanID.toUpperCase().trim());
 			if((holdingClan.length()>0)
 			&&(!clanID.equals(holdingClan)))
 			{
@@ -1173,7 +1248,7 @@ public class Conquerable extends Arrest
 					C.bumpTrophyData(Clan.Trophy.MonthlyControlPoints, amount);
 			}
 			announceToArea(myArea,clanID,amount);
-			if(index<0)
+			if(ic == null)
 			{
 				if((holdingClan.length()>0)
 				&&(!clanID.equals(holdingClan))
@@ -1198,51 +1273,43 @@ public class Conquerable extends Arrest
 				{
 					final int[] i=new int[1];
 					i[0]+=amount;
-					clanControlPoints.addElement(clanID,i);
+					clanControlPoints.put(clanID.toUpperCase().trim(),i);
 					if(i[0]>=totalControlPoints)
 						declareWinner(clanID);
 				}
 			}
 			else
 			{
-				final int[] i=(int[])clanControlPoints.elementAt(index,2);
-				i[0]+=amount;
-				if(i[0]<=0)
-					clanControlPoints.removeElementAt(index);
+				ic[0]+=amount;
+				if(ic[0]<=0)
+					clanControlPoints.remove(clanID.toUpperCase().trim());
 				else
-				if(i[0]>=totalControlPoints)
-					declareWinner((String)clanControlPoints.elementAt(index,1));
+				if(ic[0]>=totalControlPoints)
+					declareWinner(clanID);
 			}
 			if(CMSecurity.isDebugging(CMSecurity.DbgFlag.CONQUEST))
 			{
-				index=clanControlPoints.indexOf(clanID);
-				if(index<0)
+				final int[] i=clanControlPoints.get(clanID.toUpperCase().trim());
+				if(i==null)
 					Log.debugOut(clanID+" is not getting their points calculated.");
 				else
-				{
-					final int[] i=(int[])clanControlPoints.elementAt(index,2);
-					if(i==null)
-						Log.debugOut(clanID+" is not getting their points calculated.");
-					else
-						Log.debugOut(clanID+" now has "+i[0]+" control points of "+totalControlPoints+" in "+myArea.name()+".");
-				}
+					Log.debugOut(clanID+" now has "+i[0]+" control points of "+totalControlPoints+" in "+myArea.name()+".");
 			}
 		}
 		return true;
 	}
 
-	protected static String[] warCrys()
+	protected static String warCrys()
 	{
-		return DEFAULT_WAR_CRYS;
+		switch(CMLib.dice().roll(1, 4, -1))
+		{
+		case 0: return CMLib.lang().L("INVADERS! Attack!");
+		case 1: return CMLib.lang().L("We are under attack! To arms!");
+		case 2: return CMLib.lang().L("Destroy the enemy!");
+		case 3: return CMLib.lang().L("War!!!!!");
+		}
+		return "";
 	}
-
-	protected static final String[] DEFAULT_WAR_CRYS=
-	{
-		"INVADERS! Attack!",
-		"We are under attack! To arms!",
-		"Destroy the enemy!",
-		"War!!!!!"
-	};
 
 	@Override
 	public void executeMsg(final Environmental myHost, final CMMsg msg)
@@ -1251,20 +1318,26 @@ public class Conquerable extends Arrest
 
 		Clan srcC;
 		final boolean debugging=CMSecurity.isDebugging(CMSecurity.DbgFlag.CONQUEST);
-		if((msg.sourceMinor()==CMMsg.TYP_CLANEVENT)
-		&&(msg.sourceMessage().startsWith("-")))
+		if(msg.sourceMinor()==CMMsg.TYP_CLANEVENT)
 		{
-			if((holdingClan!=null)
-			&&(holdingClan.equalsIgnoreCase(msg.sourceMessage().substring(1))))
+			if(msg.sourceMessage().equals("CONTROLRESET"))
+				recalculateControlPoints(CMLib.map().areaLocation(myArea));
+			else
+			if(msg.sourceMessage().startsWith("-"))
 			{
-				if(debugging)
-					Log.debugOut("Conquest",holdingClan+" no longer exists.");
-				endClanRule(L(" due to clan dissolution"));
+				final String event=msg.sourceMessage().substring(1);
+				if((holdingClan!=null)
+				&&(holdingClan.equalsIgnoreCase(event)))
+				{
+					if(debugging)
+						Log.debugOut("Conquest",holdingClan+" no longer exists.");
+					endClanRule(L(" due to clan dissolution"));
+				}
 			}
 		}
 		else
 		if((myHost instanceof Area)
-		&&(CMProps.getBoolVar(CMProps.Bool.MUDSTARTED)
+		&&(CMProps.isState(CMProps.HostState.RUNNING)
 		&&(!CMSecurity.isDisabled(CMSecurity.DisFlag.CONQUEST)))
 		&&(totalControlPoints>=0))
 		{
@@ -1282,16 +1355,24 @@ public class Conquerable extends Arrest
 				MOB killer=null;
 				if(msg.sourceMinor()==CMMsg.TYP_FOLLOW)
 				{
-					if(noMultiFollows.size()>=70)
-						noMultiFollows.removeElementAt(0);
-					noMultiFollows.addElement(msg.source());
+					if((msg.source().basePhyStats().rejuv()!=0)
+					&&(msg.source().basePhyStats().rejuv()!=PhyStats.NO_REJUV))
+						noMultiFollows.add(msg.source(),CMProps.getTickMillis()*msg.source().basePhyStats().rejuv());
+					else
+						noMultiFollows.add(msg.source());
+					if(noMultiFollows.size()>10)
+					{
+						for(final Iterator<MOB> i = noMultiFollows.iterator();i.hasNext();)
+							i.next(); // this should clear out the cruft
+					}
 					if(msg.target() instanceof MOB)
 						killer=(MOB)msg.target();
 				}
 				else
 				if(msg.tool() instanceof MOB)
 					killer=(MOB)msg.tool();
-				if((killer!=null)&&(R!=null))
+				if((killer!=null)
+				&&(R!=null))
 				{
 					// make sure followers are picked up
 					final HashSet<MOB> killersSeen=new HashSet<MOB>();
@@ -1309,33 +1390,45 @@ public class Conquerable extends Arrest
 					if(((Area)myHost).inMyMetroArea(msg.source().getStartRoom().getArea()))
 					{ // a native was killed
 						final MOB followerM=killer.amFollowing();
-						if((killer.getClanRole(holdingClan)==null)
-						&&(flagFound((Area)myHost,killerClan)))
+						if(killer.getClanRole(holdingClan)==null)
 						{
-							if(killerClan!=null)
+							if(((killerClan!=null)
+								||((followerM != null)&&((killerClan=CMLib.clans().findConquerableClan(followerM))!=null)))
+							&&(flagFound((Area)myHost,killerClan))
+							&&(killerClan!=null))
 							{
-								int level=msg.source().phyStats().level();
-								if(killerClan.isWorshipConquest()
-								&&(killer.getWorshipCharID().equals(msg.source().getWorshipCharID())))
-									level=(level>1)?level/2:level;
-								if(debugging)
-									Log.debugOut("Conquest",killerClan.getName()+" gain "+level+" points by killing "+msg.source().name());
-								changeControlPoints(killerClan.clanID(),level,killer.location());
-							}
-							else
-							if(followerM!=null)
-							{
-								final Clan killerFollowerClan=CMLib.clans().findConquerableClan(followerM);
-								if(killerFollowerClan!=null)
+								if((killer.phyStats().level()-msg.source().phyStats().level())<=conqPtLvlDiff)
 								{
-									final Clan C=killerFollowerClan;
 									int level=msg.source().phyStats().level();
-									if(C.isWorshipConquest()
-									&&(killer.amFollowing().getWorshipCharID().equals(msg.source().getWorshipCharID())))
+									if(killerClan.isWorshipConquest()
+									&&(killer.charStats().getWorshipCharID().equals(msg.source().charStats().getWorshipCharID())))
 										level=(level>1)?level/2:level;
 									if(debugging)
-										Log.debugOut("Conquest",killerFollowerClan.getName()+" gain "+level+" points by killing "+msg.source().name());
-									changeControlPoints(killerFollowerClan.clanID(),level,killer.location());
+										Log.debugOut("Conquest",killerClan.getName()+" gain "+level+" points by killing "+msg.source().name());
+									changeControlPoints(killerClan.clanID(),level,killer.location());
+								}
+							}
+							else
+							{
+								// if a non-conquest kill, put any clan items aside
+								int i = clanItems.indexOfSecond(msg.source());
+								if((i>0)
+								&&(msg.source().basePhyStats().rejuv()!=0)
+								&&(msg.source().basePhyStats().rejuv()!=PhyStats.NO_REJUV))
+								{
+									for(;i<clanItems.size();i++)
+									{
+										final ClanItem I = clanItems.getFirst(i);
+										if(((I.owner() == msg.source())||(I.owner() == msg.source().location()))
+										&&(clanItems.getSecond(i) == msg.source()))
+										{
+											I.owner().delItem(I);
+											I.removeFromOwnerContainer();
+										}
+									}
+									msg.source().recoverCharStats();
+									msg.source().recoverPhyStats();
+									msg.source().recoverMaxState();
 								}
 							}
 						}
@@ -1345,7 +1438,8 @@ public class Conquerable extends Arrest
 					&&(killer.getClanRole(holdingClan)!=null) // killer is from holding clan
 					&&((srcC=CMLib.clans().findConquerableClan(msg.source()))!=null) 	// killed is a conquesting one
 					&&(msg.source().getClanRole(holdingClan)==null)
-					&&(flagFound((Area)myHost,srcC)))
+					&&(flagFound((Area)myHost,srcC))
+					&&((killer.phyStats().level()-msg.source().phyStats().level())<=conqPtLvlDiff))
 					{
 						final Clan rivalClan=srcC;
 						if(debugging)
@@ -1366,6 +1460,7 @@ public class Conquerable extends Arrest
 				if((srcC.isWorshipConquest())
 				&&(((Area)myHost).inMyMetroArea(((MOB)msg.target()).getStartRoom().getArea()))
 				&&(msg.source().getClanRole(holdingClan)==null)
+				&&((msg.source().phyStats().level()-((MOB)msg.target()).phyStats().level())<=conqPtLvlDiff)
 				&&(flagFound((Area)myHost,srcC)))
 				{
 					if(debugging)
@@ -1380,14 +1475,39 @@ public class Conquerable extends Arrest
 			&&(msg.source().getStartRoom()!=null)
 			&&(((Area)myHost).inMyMetroArea(msg.source().getStartRoom().getArea()))
 			&&(!CMLib.flags().isAnimalIntelligence(msg.source()))
+			&&(msg.source().findTattoo("SYSTEM_SUMMONED")==null)
 			&&(msg.source().getClanRole(holdingClan)==null))
 			{
 				final Clan C=CMLib.clans().getClanAnyHost(holdingClan);
 				if(C!=null)
 					msg.source().setClan(C.clanID(),C.getGovernment().getAcceptPos());
 				final String worship=getManadatoryWorshipID();
-				if(worship!=null)
-					msg.source().setWorshipCharID(worship);
+				if((worship!=null)
+				&&(!msg.source().baseCharStats().getWorshipCharID().equals(worship)))
+				{
+					msg.source().baseCharStats().setWorshipCharID(worship);
+					msg.source().charStats().setWorshipCharID(worship);
+				}
+				int i = clanItems.indexOfSecond(msg.source());
+				if((i>0)
+				&&(msg.source().basePhyStats().rejuv()!=0)
+				&&(msg.source().basePhyStats().rejuv()!=PhyStats.NO_REJUV))
+				{
+					for(;i<clanItems.size();i++)
+					{
+						final ClanItem I = clanItems.getFirst(i);
+						final ItemPossessor P = clanItems.getSecond(i);
+						if((P == msg.source())
+						&&(!(I.owner() instanceof MOB)))
+						{
+							msg.source().moveItemTo(I);
+							I.wearIfPossible(msg.source());
+						}
+					}
+					msg.source().recoverCharStats();
+					msg.source().recoverPhyStats();
+					msg.source().recoverMaxState();
+				}
 			}
 
 			if(msg.tool() instanceof ClanItem)
@@ -1424,10 +1544,10 @@ public class Conquerable extends Arrest
 						&&(!CMLib.flags().isAnimalIntelligence(M))
 						&&(CMLib.flags().isAliveAwakeMobileUnbound(M,true))
 						&&(CMLib.flags().canBeSeenBy(msg.source(),M))
-						&&(!assaults.contains(M))
+						&&(!assaults.containsFirst(M))
 						&&(msg.source().getClanRole(holdingClan)==null)
 						&&(CMLib.clans().findConquerableClan(msg.source())!=null))
-							assaults.addElement(M,msg.source());
+							assaults.add(M,msg.source());
 					}
 				}
 			}
@@ -1455,7 +1575,7 @@ public class Conquerable extends Arrest
 				{
 					for(int i=0;i<clanItems.size();i++)
 					{
-						final ClanItem I=clanItems.elementAt(i);
+						final ClanItem I=clanItems.getFirst(i);
 						final Room R=CMLib.map().roomLocation(I);
 						if((R!=null)
 						&&(((Area)myHost).inMyMetroArea(R.getArea()))
@@ -1492,7 +1612,7 @@ public class Conquerable extends Arrest
 				savedHoldingClan="";
 				holdingClan="";
 				prevHoldingClan="";
-				clanControlPoints=new DVector(2);
+				clanControlPoints=new STreeMap<String,int[]>();
 				data.append("</ACITEMS>");
 				CMLib.database().DBReCreatePlayerData(myArea.name(),"CONQITEMS","CONQITEMS/"+myArea.name(),data.toString());
 			}
@@ -1506,7 +1626,7 @@ public class Conquerable extends Arrest
 		||(holdingClan.length()==0)
 		||(!allowLaw)
 		||(totalControlPoints<0)
-		||(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED)))
+		||(!CMProps.isState(CMProps.HostState.RUNNING)))
 			return false;
 		final Clan C=CMLib.clans().getClanAnyHost(holdingClan);
 		if(C==null)
@@ -1528,7 +1648,7 @@ public class Conquerable extends Arrest
 		if((holdingClan.length()==0)
 		||(!allowLaw)
 		||(totalControlPoints<0)
-		||(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		||(!CMProps.isState(CMProps.HostState.RUNNING))
 		||(CMSecurity.isDisabled(CMSecurity.DisFlag.ARREST)))
 			return false;
 		if(flagFound(null,holdingClan))

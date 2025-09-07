@@ -99,7 +99,6 @@ public class Drow extends Elf
 		return localizedStaticRacialCat;
 	}
 
-	//todo: re-add light sensitivity
 	private final String[]	racialEffectNames			= { "Prayer_TaintOfEvil", "Spell_LightSensitivity" };
 	private final int[]		racialEffectLevels			= { 1, 1 };
 	private final String[]	racialEffectParms			= {  "", "" };
@@ -122,10 +121,10 @@ public class Drow extends Elf
 		return racialEffectParms;
 	}
 
-	private final String[]	culturalAbilityNames			= { "Drowish", "Spell_DarknessGlobe", "Spell_FaerieFire", "Undercommon" };
-	private final int[]		culturalAbilityProficiencies	= { 100, 100, 25, 25 };
-	private final int[]		culturalAbilityLevels			= { 0, 1, 0, 0 };
-	private final boolean[] culturalAbilityAutoGains		= { true, true, true, true };
+	private final String[]	culturalAbilityNames			= { "Drowish", "Spell_DarknessGlobe", "Spell_FaerieFire", "Undercommon", "Elvish" };
+	private final int[]		culturalAbilityProficiencies	= { 100, 100, 25, 25, 25 };
+	private final int[]		culturalAbilityLevels			= { 0, 1, 0, 0, 0 };
+	private final boolean[] culturalAbilityAutoGains		= { true, true, true, true, true };
 
 	@Override
 	public String[] culturalAbilityNames()
@@ -220,14 +219,10 @@ public class Drow extends Elf
 	public void affectCharStats(final MOB affectedMOB, final CharStats affectableStats)
 	{
 		super.affectCharStats(affectedMOB, affectableStats);
-		affectableStats.setStat(CharStats.STAT_INTELLIGENCE,affectableStats.getStat(CharStats.STAT_INTELLIGENCE)+1);
-		affectableStats.setStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ,affectableStats.getStat(CharStats.STAT_MAX_INTELLIGENCE_ADJ)+1);
-		affectableStats.setStat(CharStats.STAT_DEXTERITY,affectableStats.getStat(CharStats.STAT_DEXTERITY)+2);
-		affectableStats.setStat(CharStats.STAT_MAX_DEXTERITY_ADJ,affectableStats.getStat(CharStats.STAT_MAX_DEXTERITY_ADJ)+2);
-		affectableStats.setStat(CharStats.STAT_CONSTITUTION,affectableStats.getStat(CharStats.STAT_CONSTITUTION)-3);
-		affectableStats.setStat(CharStats.STAT_MAX_CONSTITUTION_ADJ,affectableStats.getStat(CharStats.STAT_MAX_CONSTITUTION_ADJ)-3);
-		affectableStats.setStat(CharStats.STAT_CHARISMA,affectableStats.getStat(CharStats.STAT_CHARISMA)-3);
-		affectableStats.setStat(CharStats.STAT_MAX_CHARISMA_ADJ,affectableStats.getStat(CharStats.STAT_MAX_CHARISMA_ADJ)-3);
+		affectableStats.adjStat(CharStats.STAT_INTELLIGENCE,1);
+		affectableStats.adjStat(CharStats.STAT_DEXTERITY,2);
+		affectableStats.adjStat(CharStats.STAT_CONSTITUTION,-3);
+		affectableStats.adjStat(CharStats.STAT_CHARISMA,-3);
 		affectableStats.setStat(CharStats.STAT_SAVE_MAGIC,affectableStats.getStat(CharStats.STAT_SAVE_MAGIC)+20);
 
 		final MOB mob=affectedMOB;
@@ -271,52 +266,17 @@ public class Drow extends Elf
 
 			final Armor s3=CMClass.getArmor("GenBelt");
 			outfitChoices.add(s3);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public Weapon[] getNaturalWeapons()
 	{
-		return funHumanoidWeapon();
-	}
-
-	@Override
-	public String healthText(final MOB viewer, final MOB mob)
-	{
-		final double pct=(CMath.div(mob.curState().getHitPoints(),mob.maxState().getHitPoints()));
-
-		if(pct<.10)
-			return L("^r@x1^r is facing mortality!^N",mob.name(viewer));
-		else
-		if(pct<.20)
-			return L("^r@x1^r is covered in blood.^N",mob.name(viewer));
-		else
-		if(pct<.30)
-			return L("^r@x1^r is bleeding badly from lots of wounds.^N",mob.name(viewer));
-		else
-		if(pct<.40)
-			return L("^y@x1^y has numerous bloody wounds and gashes.^N",mob.name(viewer));
-		else
-		if(pct<.50)
-			return L("^y@x1^y has some bloody wounds and gashes.^N",mob.name(viewer));
-		else
-		if(pct<.60)
-			return L("^p@x1^p has a few bloody wounds.^N",mob.name(viewer));
-		else
-		if(pct<.70)
-			return L("^p@x1^p is cut and bruised.^N",mob.name(viewer));
-		else
-		if(pct<.80)
-			return L("^g@x1^g has some minor cuts and bruises.^N",mob.name(viewer));
-		else
-		if(pct<.90)
-			return L("^g@x1^g has a few bruises and scratches.^N",mob.name(viewer));
-		else
-		if(pct<.99)
-			return L("^g@x1^g has a few small bruises.^N",mob.name(viewer));
-		else
-			return L("^c@x1^c is in perfect health.^N",mob.name(viewer));
+		if(naturalWeaponChoices.length==0)
+			naturalWeaponChoices = getHumanoidWeapons();
+		return super.getNaturalWeapons();
 	}
 
 	@Override

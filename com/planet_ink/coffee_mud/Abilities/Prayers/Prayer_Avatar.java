@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -69,8 +69,8 @@ public class Prayer_Avatar extends Prayer
 	@Override
 	public String displayText()
 	{
-		if ((invoker() != null) && (invoker().getWorshipCharID().length() > 0))
-			return "(You are the AVATAR of " + invoker().getWorshipCharID() + ")";
+		if ((invoker() != null) && (invoker().charStats().deityName().length() > 0))
+			return "(You are the AVATAR of " + invoker().charStats().deityName() + ")";
 		return "(You are the AVATAR of the gods)";
 	}
 
@@ -111,15 +111,16 @@ public class Prayer_Avatar extends Prayer
 	public void affectPhyStats(final Physical affected, final PhyStats affectedStats)
 	{
 		super.affectPhyStats(affected,affectedStats);
-		final int xlvl=2+(int)Math.round(CMath.div(adjustedLevel(invoker(),0),1.5));
-		affectedStats.setArmor(affectedStats.armor()-(xlvl));
-		affectedStats.setSpeed(affectedStats.speed()+1.0+CMath.mul(0.10,super.getXLEVELLevel(invoker())));
-		affectedStats.setAttackAdjustment(affectedStats.attackAdjustment()+(xlvl*2));
 		if(affected instanceof MOB)
 		{
 			final MOB mob=(MOB)affected;
-			if(mob.getMyDeity()!=null)
-				affectedStats.setName(L("@x1, the Avatar of @x2",mob.name(),mob.getMyDeity().name()));
+			final int xlvl=2+(int)Math.round(CMath.div(adjustedLevel(mob,0),1.5));
+			affectedStats.setArmor(affectedStats.armor()-(xlvl));
+			affectedStats.setSpeed(affectedStats.speed()+(CMProps.getSpeedAdjustment()*(1.0+CMath.mul(0.10,super.getXLEVELLevel(invoker())))));
+			affectedStats.setAttackAdjustment(affectedStats.attackAdjustment()+(xlvl*2));
+			final String deityName=mob.charStats().deityName();
+			if(deityName.length()>0)
+				affectedStats.setName(L("@x1, the Avatar of @x2",mob.name(),deityName));
 			else
 				affectedStats.setName(L("@x1, the Avatar",mob.name()));
 		}
@@ -189,7 +190,7 @@ public class Prayer_Avatar extends Prayer
 					}
 					if(dir>=0)
 					{
-						final String godName=mob.getWorshipCharID().length()==0?"Your god":mob.getWorshipCharID();
+						final String godName=mob.charStats().deityName().length()==0?"Your god":mob.charStats().deityName();
 						mob.tell(L("@x1 directs you @x2.",godName,CMLib.directions().getInDirectionName(dir)));
 						CMLib.tracking().walk(mob,dir,false,false);
 					}
@@ -210,7 +211,7 @@ public class Prayer_Avatar extends Prayer
 
 		if(target.fetchEffect(ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already the AVATAR."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already the AVATAR."));
 			return false;
 		}
 

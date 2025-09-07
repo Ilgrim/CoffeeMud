@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -55,13 +55,27 @@ public class Prop_AbilityImmunity extends Property implements TriggeredAffect
 	@Override
 	public String accountForYourself()
 	{
-		return "Immunity";
+		if(immStr == null)
+		{
+			final List<String> names=new ArrayList<String>(diseases.size());
+			for(final String diseaseID : diseases)
+			{
+				Ability A=CMClass.getAbility(diseaseID);
+				if(A==null)
+					A=CMClass.findAbility(diseaseID);
+				if(A!=null)
+					names.add(A.name());
+			}
+			immStr=L("Immunity to @x1",CMLib.english().toEnglishStringList(names));
+		}
+		return immStr;
 	}
 
 	protected List<String>		diseases	= new Vector<String>();
 	protected List<String>		messages	= new Vector<String>();
 	protected boolean			owner		= false;
 	protected boolean			wearer		= false;
+	protected String			immStr		= null;
 
 	@Override
 	public int triggerMask()
@@ -70,10 +84,17 @@ public class Prop_AbilityImmunity extends Property implements TriggeredAffect
 	}
 
 	@Override
+	public long flags()
+	{
+		return Ability.FLAG_RESISTER;
+	}
+
+	@Override
 	public void setMiscText(final String newText)
 	{
+		immStr = null;
 		messages=new Vector<String>();
-		diseases=CMParms.parseSemicolons(newText.toUpperCase(),true);
+		diseases=CMParms.parseSemicolons(newText,true);
 		owner = false;
 		wearer = false;
 		for(int d=0;d<diseases.size();d++)
@@ -91,7 +112,7 @@ public class Prop_AbilityImmunity extends Property implements TriggeredAffect
 					messages.add("");
 				else
 				{
-					diseases.set(d,s.substring(0,x).trim());
+					diseases.set(d,s.substring(0,x).trim().toUpperCase());
 					messages.add(s.substring(x+1).trim());
 				}
 			}
@@ -104,6 +125,7 @@ public class Prop_AbilityImmunity extends Property implements TriggeredAffect
 	{
 		if ((msg.target() != null)
 		&& (msg.tool() instanceof Ability )
+		&&(msg.sourceMinor()!=CMMsg.TYP_TEACH)
 		&& ((msg.amITarget(affected))
 			||(affected instanceof Area)
 			||(owner && (affected instanceof Item) && (msg.target()==((Item)affected).owner()))
@@ -119,7 +141,7 @@ public class Prop_AbilityImmunity extends Property implements TriggeredAffect
 						((MOB)msg.target()).tell(L("You are immune to @x1.",msg.tool().name()));
 					if(msg.source()!=msg.target())
 					{
-						final String s=messages.get(i);
+						final String s=(messages.size()>i)?messages.get(i):"";
 						if(s.length()>0)
 							msg.source().tell(msg.source(),msg.target(),msg.tool(),s);
 						else
@@ -130,5 +152,56 @@ public class Prop_AbilityImmunity extends Property implements TriggeredAffect
 			}
 		}
 		return super.okMessage(myHost, msg);
+	}
+
+	@Override
+	public String getStat(final String code)
+	{
+		if(code == null)
+			return "";
+		if(code.equalsIgnoreCase("STAT-LEVEL"))
+		{
+			int level=0;
+			for(final String diseaseID : diseases)
+			{
+				Ability A=CMClass.getAbility(diseaseID);
+				if(A==null)
+					A=CMClass.findAbility(diseaseID);
+				if(A!=null)
+				{
+					int mul=-1;
+					if(A.abstractQuality()==Ability.QUALITY_MALICIOUS)
+						mul=1;
+					level += ((mul*(CMLib.ableMapper().lowestQualifyingLevel(A.ID()))/2));
+				}
+			}
+			return ""+level;
+		}
+		return "";
+	}
+
+	@Override
+	public void setStat(final String code, final String val)
+	{
+		if(code!=null)
+		{
+			if(code.equalsIgnoreCase("STAT-LEVEL"))
+			{
+
+			}
+			else
+			if(code.equalsIgnoreCase("TONEDOWN"))
+			{
+				setStat("TONEDOWN-MISC",val);
+			}
+			else
+			if((code.equalsIgnoreCase("TONEDOWN-ARMOR"))
+			||(code.equalsIgnoreCase("TONEDOWN-WEAPON"))
+			||(code.equalsIgnoreCase("TONEDOWN-MISC")))
+			{
+
+			}
+		}
+		super.setStat(code, val);
 	}
 }

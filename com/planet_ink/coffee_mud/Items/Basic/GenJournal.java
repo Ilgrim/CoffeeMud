@@ -18,7 +18,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ public class GenJournal extends StdJournal
 	}
 
 	protected String readableText="";
+
 	public GenJournal()
 	{
 		super();
@@ -60,7 +61,7 @@ public class GenJournal extends StdJournal
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this,false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 	}
 
 	@Override
@@ -83,21 +84,30 @@ public class GenJournal extends StdJournal
 	public void setReadableText(final String text)
 	{
 		readableText=text;
+		synchronized(this)
+		{
+			super.parmCache = null;
+		}
 	}
 
 	@Override
 	public void setMiscText(final String newText)
 	{
 		miscText="";
-		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this,newText,false);
 		recoverPhyStats();
 	}
 
 	@Override
 	public String getStat(final String code)
 	{
+		if(code == null)
+			return "";
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			return CMLib.coffeeMaker().getGenItemStat(this,code);
+		final String ucode=code.toUpperCase().trim();
+		if(CMParms.indexOf(JOURNAL_PARMS_LIST, ucode)>0)
+			return getParm(ucode);
 		return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
 	}
 

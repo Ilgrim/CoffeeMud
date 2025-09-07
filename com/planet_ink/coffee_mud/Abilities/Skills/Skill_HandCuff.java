@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -166,12 +166,17 @@ public class Skill_HandCuff extends StdSkill
 			&&((msg.sourceMajor(CMMsg.MASK_HANDS))
 				||(msg.sourceMajor(CMMsg.MASK_MOVE))))
 			{
-				mob.location().show(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> struggle(s) against <S-HIS-HER> cuffs."));
 				amountRemaining-=mob.charStats().getStat(CharStats.STAT_STRENGTH);
 				if(amountRemaining<0)
+				{
 					unInvoke();
+					mob.location().show(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> struggle(s) against <S-HIS-HER> cuffs."));
+				}
 				else
+				{
+					mob.location().show(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> struggle(s) against <S-HIS-HER> cuffs."));
 					return false;
+				}
 			}
 		}
 		else
@@ -267,7 +272,7 @@ public class Skill_HandCuff extends StdSkill
 		{
 			final Area A=CMLib.law().getLegalObject(mob.location());
 			final LegalBehavior B=CMLib.law().getLegalBehavior(A);
-			if((B==null)||(!B.isAnyOfficer(A, mob))||(B.isElligibleOfficer(A, mob)))
+			if((B==null)||(!B.isAnyOfficer(A, mob))||(B.isEligibleOfficer(A, mob)))
 			{
 				mob.tell(L("@x1 has no warrants out here.",target.name(mob)));
 				return false;
@@ -285,7 +290,8 @@ public class Skill_HandCuff extends StdSkill
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_NOISYMOVEMENT|(auto?CMMsg.MASK_ALWAYS:CMMsg.MASK_MALICIOUS),L("<S-NAME> handcuff(s) <T-NAME>."));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_HANDS|(auto?CMMsg.MASK_ALWAYS:CMMsg.MASK_MALICIOUS),
+					L("<S-NAME> handcuff(s) <T-NAME>."));
 			if((mob.location().okMessage(mob,msg))&&(target.fetchEffect(this.ID())==null))
 			{
 				mob.location().send(mob,msg);

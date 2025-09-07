@@ -3,6 +3,10 @@ package com.planet_ink.coffee_mud.Common;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -12,6 +16,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.PlayerAccount;
 import com.planet_ink.coffee_mud.Common.interfaces.Session;
 import com.planet_ink.coffee_mud.Common.interfaces.Session.InputCallback;
 import com.planet_ink.coffee_mud.Common.interfaces.Session.SessionFilter;
+import com.planet_ink.coffee_mud.Common.interfaces.Session.SessionPing;
 import com.planet_ink.coffee_mud.Common.interfaces.Session.SessionStatus;
 import com.planet_ink.coffee_mud.Libraries.interfaces.ColorLibrary;
 import com.planet_ink.coffee_mud.Libraries.interfaces.ColorLibrary.ColorState;
@@ -19,13 +24,17 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.MOB;
 import com.planet_ink.coffee_mud.core.CMClass;
 import com.planet_ink.coffee_mud.core.CMFile;
 import com.planet_ink.coffee_mud.core.CMLib;
+import com.planet_ink.coffee_mud.core.CMStrings;
 import com.planet_ink.coffee_mud.core.Log;
+import com.planet_ink.coffee_mud.core.MiniJSON;
+import com.planet_ink.coffee_mud.core.collections.XLinkedList;
+import com.planet_ink.coffee_mud.core.collections.XVector;
 import com.planet_ink.coffee_mud.core.interfaces.CMObject;
 import com.planet_ink.coffee_mud.core.interfaces.Environmental;
 import com.planet_ink.coffee_mud.core.interfaces.Physical;
 import com.planet_ink.coffee_mud.core.interfaces.Tickable;
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -41,10 +50,17 @@ import com.planet_ink.coffee_mud.core.interfaces.Tickable;
 */
 public class FakeSession implements Session
 {
-	protected CMFile				theFile	= null;
-	protected ByteArrayOutputStream	bout	= null;
-	protected MOB					mob		= null;
-	protected Vector<String>		inputV	= new Vector<String>();
+	protected CMFile				theFile		= null;
+	protected ByteArrayOutputStream	bout		= null;
+	protected MOB					mob			= null;
+	protected boolean				stripSnoop	= false;
+	protected boolean				stripCRLF	= false;
+	protected Set<Integer>			telnet		= new HashSet<Integer>();
+
+	protected LinkedList<List<String>>inputV	= new XLinkedList<List<String>>(new Vector<String>());
+
+	protected final static char[]	COLOR_CRLF	= new char[] { '\n', '\r' };
+	protected String 				stripStr	= null;
 
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
@@ -68,7 +84,7 @@ public class FakeSession implements Session
 	{
 		try
 		{
-			return getClass().newInstance();
+			return getClass().getDeclaredConstructor().newInstance();
 		}
 		catch (final Exception e)
 		{
@@ -206,9 +222,21 @@ public class FakeSession implements Session
 	}
 
 	@Override
+	public boolean sendMPCPPacket(final String command, final MiniJSON.JSONObject doc)
+	{
+		return false;
+	}
+
+	@Override
 	public void setFakeInput(final String input)
 	{
-		inputV.add(input);
+		inputV.getLast().add(input);
+	}
+
+	@Override
+	public void doPing(final SessionPing ping, Object obj)
+	{
+
 	}
 
 	@Override
@@ -218,8 +246,12 @@ public class FakeSession implements Session
 	}
 
 	@Override
-	public void onlyPrint(final String msg, final boolean noCache)
+	public void onlyPrint(String msg, final boolean noCache)
 	{
+		if(stripSnoop)
+			msg = CMStrings.replaceAll(msg, stripStr, "");
+		if(stripCRLF)
+			msg = CMStrings.deleteAllofAny(msg, COLOR_CRLF);
 		if (theFile != null)
 		{
 			synchronized (theFile)
@@ -482,10 +514,10 @@ public class FakeSession implements Session
 	{
 		synchronized (inputV)
 		{
-			if (inputV.size() == 0)
+			if((inputV.size() == 0)||(inputV.getLast().size()==0))
 				return "";
-			final String input = inputV.firstElement();
-			inputV.removeElementAt(0);
+			final String input = inputV.getLast().get(0);
+			inputV.getLast().remove(0);
 			return input;
 		}
 	}
@@ -512,7 +544,7 @@ public class FakeSession implements Session
 	}
 
 	@Override
-	public void stopSession(final boolean t1, final boolean t2, final boolean t3)
+	public void stopSession(final boolean disconnect, final boolean t1, final boolean t2, final boolean t3)
 	{
 	}
 
@@ -547,7 +579,7 @@ public class FakeSession implements Session
 	}
 
 	@Override
-	public List<String> getPreviousCMD()
+	public LinkedList<List<String>> getHistory()
 	{
 		return inputV;
 	}
@@ -562,6 +594,12 @@ public class FakeSession implements Session
 	public void setMob(final MOB newmob)
 	{
 		mob = newmob;
+		if(mob != null)
+		{
+			final String COLOR_IMP3 = CMLib.color().standardColorLookups()[ColorLibrary.SpecialColor.IMPORTANT3.getCodeChar()];
+			final String COLOR_NORM = CMLib.color().standardColorLookups()[ColorLibrary.SpecialColor.NORMAL.getCodeChar()];
+			stripStr = COLOR_IMP3+((mob==null)?"?":mob.Name())+":"+COLOR_NORM+" ";
+		}
 	}
 
 	@Override
@@ -585,7 +623,18 @@ public class FakeSession implements Session
 	}
 
 	@Override
+	public void pushMarkedColor(final ColorState newcolor)
+	{
+	}
+
+	@Override
 	public ColorState getCurrentColor()
+	{
+		return CMLib.color().getNormalColor();
+	}
+
+	@Override
+	public ColorState popMarkedColor()
 	{
 		return CMLib.color().getNormalColor();
 	}
@@ -702,11 +751,17 @@ public class FakeSession implements Session
 	@Override
 	public void setClientTelnetMode(final int telnetCode, final boolean onOff)
 	{
+		if(onOff)
+			telnet.add(Integer.valueOf(telnetCode));
+		else
+			telnet.remove(Integer.valueOf(telnetCode));
 	}
 
 	@Override
 	public boolean getClientTelnetMode(final int telnetCode)
 	{
+		if(telnet.contains(Integer.valueOf(telnetCode)))
+			return true;
 		return false;
 	}
 
@@ -716,7 +771,7 @@ public class FakeSession implements Session
 	}
 
 	@Override
-	public void initTelnetMode(final int mobbitmap)
+	public void initTelnetMode(final long mobbitmap)
 	{
 	}
 
@@ -747,6 +802,14 @@ public class FakeSession implements Session
 	@Override
 	public void setStat(final String code, final String val)
 	{
+		if(code != null)
+		{
+			if(code.equalsIgnoreCase("STRIPSNOOP"))
+				this.stripSnoop=true;
+			else
+			if(code.equalsIgnoreCase("STRIPCRLF"))
+				this.stripCRLF=true;
+		}
 	}
 
 	@Override
@@ -769,6 +832,18 @@ public class FakeSession implements Session
 
 	@Override
 	public boolean autoLogin(final String name, final String password)
+	{
+		return false;
+	}
+
+	@Override
+	public boolean isMTTS()
+	{
+		return false;
+	}
+
+	@Override
+	public boolean getMTTS(final int bitmap)
 	{
 		return false;
 	}

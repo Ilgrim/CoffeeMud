@@ -18,9 +18,10 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.*;
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,22 +46,256 @@ import java.util.*;
  */
 public interface EnglishParsing extends CMLibrary
 {
+	/**
+	 * Returns whether the given string is an
+	 * article, such as a, an, the, some, etc..
+	 * Colors are not respected.
+	 *
+	 * @see EnglishParsing#isAnIndefiniteArticle(String)
+	 * @see EnglishParsing#startsWithAnArticle(String)
+	 * @see EnglishParsing#startsWithAnIndefiniteArticle(String)
+	 *
+	 * @param s the string to check
+	 * @return true if its an article, false otherwise
+	 */
 	public boolean isAnArticle(String s);
+
+	/**
+	 * Returns whether the given string is an
+	 * indefinite article, such as a, an, some, etc..
+	 * Colors are not respected.
+	 *
+	 * @see EnglishParsing#isAnArticle(String)
+	 * @see EnglishParsing#startsWithAnArticle(String)
+	 * @see EnglishParsing#startsWithAnIndefiniteArticle(String)
+	 *
+	 * @param s the string to check
+	 * @return true if its an indefinite article, false otherwise
+	 */
+	public boolean isAnIndefiniteArticle(String s);
+
+	/**
+	 * If the given phrase begins with an article word
+	 * such as a, an, some, etc..  it will strip
+	 * the word off and return the rest of the string.
+	 * Colors codes are totally respected!
+	 *
+	 * @param s the string to clean
+	 * @return the string, or the string cleaned
+	 */
 	public String removeArticleLead(String s);
+
+	/**
+	 * If the given phrase begins with a preposition word
+	 * such as to, over, beside, than, since, it will strip
+	 * the word off and return the rest of the string.
+	 * Colors are not respected.
+	 *
+	 * @param s the string to clean
+	 * @return the string, or the string cleaned
+	 */
 	public String cleanPrepositions(String s);
+
+	/**
+	 * Returns whether the given word or
+	 * phrase starts with an article, such as
+	 * a, an, the, some, etc..
+	 * Colors codes are totally respected.
+	 *
+	 * @see EnglishParsing#isAnArticle(String)
+	 * @see EnglishParsing#isAnIndefiniteArticle(String)
+	 * @see EnglishParsing#startsWithAnIndefiniteArticle(String)
+	 *
+	 * @param s the string to check
+	 * @return true if the string starts with an article
+	 */
 	public boolean startsWithAnArticle(String s);
+
+
+	/**
+	 * Returns whether the given word or
+	 * phrase starts with an indefinite article, such as
+	 * a, an, some, etc..
+	 * Colors codes are totally respected.
+	 *
+	 * @see EnglishParsing#isAnArticle(String)
+	 * @see EnglishParsing#isAnIndefiniteArticle(String)
+	 * @see EnglishParsing#startsWithAnArticle(String)
+	 *
+	 * @param s the string to check
+	 * @return true if the string starts with an indefinite article
+	 */
+	public boolean startsWithAnIndefiniteArticle(final String s);
+
+	/**
+	 * Returns the given string with extended
+	 * punctuation removed. Must not be colored.
+	 *
+	 * @param str the string to check
+	 * @return the string, with punctuation removed
+	 */
 	public String stripPunctuation(String str);
+
+	/**
+	 * Returns the given string with any
+	 * punctuation changed into spaces.
+	 * Don't know why. Must not be colored.
+	 *
+	 * @param str the string to convert
+	 * @return the string without spaces
+	 */
 	public String spaceOutPunctuation(final String str);
+
+	/**
+	 * Returns true if the given byte is
+	 * any extended punctuation character. Such as
+	 * +-,;:.?! etc.. Must not be colored.
+	 *
+	 * @param b the byte to check
+	 * @return true if punctuation, false otherwise
+	 */
 	public boolean isPunctuation(final byte b);
+
+	/**
+	 * Returns true if the given string contains
+	 * any extended punctuation characters. Such as
+	 * +-,;:.?! etc.. Must not be colored.
+	 *
+	 * @param str the string to check
+	 * @return true if punctuation found, false otherwise
+	 */
 	public boolean hasPunctuation(String str);
+
+	/**
+	 * Returns true if the given byte is
+	 * any normal punctuation character. Such as
+	 * ,;:.?! etc.. Must not be colored.
+	 *
+	 * @param b the byte to check
+	 * @return true if punctuation, false otherwise
+	 */
+	public boolean isEnglishPunctuation(final byte b);
+
+	/**
+	 * Returns true if the given string contains
+	 * any normal punctuation characters. Such as
+	 * ,;:.?! etc.. Must not be colored.
+	 *
+	 * @param str the string to check
+	 * @return true if punctuation found, false otherwise
+	 */
+	public boolean hasEnglishPunctuation(final String str);
+
+	/**
+	 * Returns the given string with normal punctuation
+	 * removed. Must not be colored.
+	 *
+	 * @param str the string to check
+	 * @return the string, with punctuation removed
+	 */
+	public String stripEnglishPunctuation(final String str);
+
+	/**
+	 * Attempts to pluralize a given word.
+	 * It's just a best guess. Must not be
+	 * colored.
+	 *
+	 * @param str the word to pluralize
+	 * @return the word, pluralized, hopefuly
+	 */
 	public String makePlural(String str);
+
+	/**
+	 * Attempts to make the given noun possessive.
+	 *
+	 * @param str the string to make possessive
+	 * @return the possessive version of the string.
+	 */
+	public String makePossessive(final String str);
+
+	/**
+	 * Attempts to de-pluralize a given word.
+	 * It's just a best guess. Must not be
+	 * colored.
+	 *
+	 * @param str the word to de-pluralize
+	 * @return the word, de-pluralized, hopefuly
+	 */
 	public String makeSingular(String str);
+
+	/**
+	 * Returns a best guess on the past-tense form
+	 * of the given word.  If the word is null or
+	 * empty, then the default word is returned.
+	 *
+	 * @param word the word to past-tensize
+	 * @param defaultWord the word to use if none given
+	 * @return the paten-tensed word.
+	 */
 	public String makePastTense(String word, String defaultWord);
+
+	/**
+	 * Returns the first word in the given phrase, ignoring color.
+	 * It must start with a letter.
+	 *
+	 * @param str the phrase to look in
+	 * @return the first word
+	 */
 	public String getFirstWord(final String str);
+
+	/**
+	 * Returns the proper indefinite article -- a or an, for
+	 * the given noun or noun-phrase.  Ignores colors.
+	 *
+	 * @param str the noun or noun phrase
+	 * @return either 'a' or 'an'
+	 */
 	public String properIndefiniteArticle(String str);
-	public String toEnglishStringList(final String[] V);
+
+	/**
+	 * Returns comma-space delimited list of the given objects.toString().  The
+	 * final entry will have an "and" prepended.  Oxford commas are used.
+	 *
+	 * @param V the collection of things to treat as strings
+	 * @param andOr true to connect with AND, false for OR
+	 * @return the comma-space delimited list
+	 */
+	public String toEnglishStringList(final String[] V, boolean andOr);
+
+	/**
+	 * Returns comma-space delimited list of the given emum names.  The
+	 * final entry will have an "and" or "or" prepended.  Oxford commas are used.
+	 *
+	 * @param enumer the collection of things to treat as strings
+	 * @param andOr true to use AND, false to use OR
+	 * @return the comma-space delimited list
+	 */
 	public String toEnglishStringList(final Class<? extends Enum<?>> enumer, boolean andOr);
+
+	/**
+	 * Returns comma-space delimited list of the given objects.toString().  The
+	 * final entry will have an "and" prepended.  Oxford commas are used.
+	 *
+	 * @param V the collection of things to treat as strings
+	 * @return the comma-space delimited list
+	 */
 	public String toEnglishStringList(final Collection<? extends Object> V);
+
+	/**
+	 * Returns the english representation of the given number
+	 * @param num the number
+	 * @param precision the number of digits less than 0
+	 * @return the number in english
+	 */
+	public String makeNumberWords(final double num, int precision);
+
+	/**
+	 * Returns the english representation of the given numberst,
+	 * numberth, number-numberth, etc.
+	 * @param num the num to translate
+	 * @return the th words
+	 */
+	public String makeNumberthWords(final int num);
 
 	/**
 	 * Inserts the given adjective before a given word or noun phrase, replacing any
@@ -108,7 +343,7 @@ public interface EnglishParsing extends CMLibrary
 	 * invoked by the MAIN invocation word and, if found, return that word.
 	 *
 	 * @param mob the player/mob trying to invoke a skill
-	 * @param commands the user input array of the invocation
+	 * @param word the user input of the invocation
 	 * @return the invocation word found
 	 */
 	public String getSkillInvokeWord(MOB mob, String word);
@@ -165,6 +400,17 @@ public interface EnglishParsing extends CMLibrary
 	 * @return true if the second string appears in the first, false otherwise
 	 */
 	public boolean containsString(final String toSrchStr, final String srchForStr);
+
+	/**
+	 * Returns whether the given string contains any of the srchForStr substrings.
+	 * The searches are case insensitive, and color	 * insensitive, and respects
+	 * special syntax like '$' to ensure complete hits.
+	 *
+	 * @param toSrchStr the string to search inside of
+	 * @param srchForStrs the strings to search for
+	 * @return true if any matches are found.
+	 */
+	public boolean containsOneOfString(final String toSrchStr, final List<String> srchForStrs);
 
 	/**
 	 * Returns the context number of the given context-specific name.
@@ -371,6 +617,27 @@ public interface EnglishParsing extends CMLibrary
 	 * @return a matching object, or null
 	 */
 	public Environmental fetchEnvironmental(Iterable<? extends Environmental> list, String srchStr, boolean exactOnly);
+
+	/**
+	 * Returns a matching T object from an iterable collection of them
+	 * by using a search string to matching. The search string may include
+	 * things like counters 1.itemname, etc, or even all itemname.
+	 * The object matches are according to given methodName.  Exact
+	 * matches can be demanded using the anchor $ character on the front, back,
+	 * or both, of the match words.
+	 *
+	 * Matching may be exact or inexact.  Exact matching must include full
+	 * names, display texts, etc.  Inexact can include substrings.  Both are
+	 * case-insensitive, however.
+	 *
+	 * @param list the collection of environmental objects to search through
+	 * @param srchStr the search string
+	 * @param methodName the method to match against
+	 * @param exactOnly true for exact matching, false for inexact
+	 * @param <T> the matching T object
+	 * @return a matching object, or null
+	 */
+	public <T extends Object> T fetchReflective(final Iterable<T> list, String srchStr, final String methodName, final boolean exactOnly);
 
 	/**
 	 * Returns a matching environmental object from an enumeration of them
@@ -580,10 +847,11 @@ public interface EnglishParsing extends CMLibrary
 	 *
 	 * @param mob the mob looking for a shopkeeper nearby
 	 * @param matchWords the search words, possibly modified
+	 * @param fromTo whether from or to is the proper separator
 	 * @param error the error message to send for bad arguments
 	 * @return a matched shopkeeper, with a modified matchWords list
 	 */
-	public Environmental parseShopkeeper(MOB mob, List<String> matchWords, String error);
+	public Environmental parseShopkeeper(MOB mob, List<String> matchWords, String fromTo, String error);
 
 	/**
 	 * For cases when a string input probably contains an amount of money,
@@ -639,6 +907,17 @@ public interface EnglishParsing extends CMLibrary
 	 * @return the currency, denomination, and amount as a triad
 	 */
 	public Triad<String, Double, Long> parseMoneyStringSDL(MOB mob, String moneyStr, String correctCurrency);
+
+	/**
+	 * For cases when a string input probably contains an amount of money,
+	 * this method is used to determine the currency, denomination, and
+	 * number of units of that currency.
+	 *
+	 * @param currency the type of currency to prefer
+	 * @param moneyStr the parsable user input
+	 * @return the currency, denomination, and amount as a triad
+	 */
+	public Triad<String, Double, Long> parseMoneyStringSDL(String currency, String moneyStr);
 
 	/**
 	 * For cases when a string input must contain an amount of money,
@@ -725,7 +1004,7 @@ public interface EnglishParsing extends CMLibrary
 
 	/**
 	 * Converts the given number of milliseconds into ms, s, m, h, d, etc...
-	 * If a number of ticks > 0 is also given, it will append them
+	 * If a number of ticks &gt; 0 is also given, it will append them
 	 * as an average ms/tick.
 	 *
 	 * @param millis the number of ellapsed milliseconds to convert
@@ -840,5 +1119,14 @@ public interface EnglishParsing extends CMLibrary
 	 * @param dist the user-entered string
 	 * @return the distance in decameters
 	 */
-	public Long parseSpaceDistance(String dist);
+	public BigDecimal parseSpaceDistance(String dist);
+
+	/**
+	 * Returns a speed in decameters/second represented by the given
+	 * parsable user-entered string.
+	 *
+	 * @param speed the user-entered string
+	 * @return the speed in decameters/sec or null
+	 */
+	public BigDecimal parseSpaceSpeed(String speed);
 }

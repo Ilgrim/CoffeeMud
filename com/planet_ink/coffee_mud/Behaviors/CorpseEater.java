@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -46,7 +46,12 @@ public class CorpseEater extends ActiveTicker
 		return Behavior.CAN_MOBS;
 	}
 
-	private boolean EatItems=false;
+	private boolean eatItems=false;
+	private boolean eatPlayers=false;
+	private boolean eatMobs=true;
+	private String maskStr = "";
+	private MaskingLibrary.CompiledZMask mask = null;
+
 	public CorpseEater()
 	{
 		super();
@@ -64,7 +69,35 @@ public class CorpseEater extends ActiveTicker
 	public void setParms(final String newParms)
 	{
 		super.setParms(newParms);
-		EatItems=(newParms.toUpperCase().indexOf("EATITEMS") > 0);
+		final List<String> ps = CMParms.parse(newParms);
+		eatItems=false;
+		eatPlayers=false;
+		eatMobs=true;
+		for(int p = ps.size()-1;p>=0;p--)
+		{
+			final String s = ps.get(p).toUpperCase();
+			if(s.equals("EATITEMS"))
+			{
+				eatItems=true;
+				ps.remove(p);
+			}
+			else
+			if(s.equals("+PLAYER"))
+			{
+				eatPlayers=true;
+				ps.remove(p);
+			}
+			else
+			if(s.equals("-NPC")||s.equals("-MOB"))
+			{
+				eatMobs=false;
+				ps.remove(p);
+			}
+		}
+		this.maskStr = CMParms.combineQuoted(ps, 0).trim();
+		this.mask = null;
+		if(this.maskStr.length()>0)
+			this.mask = CMLib.masking().maskCompile(this.maskStr);
 	}
 
 	public static MOB makeMOBfromCorpse(final DeadBody corpse, String type)
@@ -81,8 +114,7 @@ public class CorpseEater extends ActiveTicker
 			mob.setBasePhyStats((PhyStats)corpse.basePhyStats().copyOf());
 			mob.recoverCharStats();
 			mob.recoverPhyStats();
-			final int level=mob.basePhyStats().level();
-			mob.baseState().setHitPoints(CMLib.dice().rollHP(level,mob.basePhyStats().ability()));
+			mob.baseState().setHitPoints(CMLib.leveler().getLevelHitPoints(mob));
 			mob.baseState().setMana(CMLib.leveler().getLevelMana(mob));
 			mob.baseState().setMovement(CMLib.leveler().getLevelMove(mob));
 			mob.recoverMaxState();
@@ -108,30 +140,26 @@ public class CorpseEater extends ActiveTicker
 				if((I instanceof DeadBody)
 				&&(CMLib.flags().canBeSeenBy(I,mob)||CMLib.flags().canSmell(mob)))
 				{
-					if(getParms().length()>0)
+					if(((DeadBody)I).isPlayerCorpse())
 					{
-						if(((DeadBody)I).isPlayerCorpse())
-						{
-							if(getParms().toUpperCase().indexOf("+PLAYER")<0)
-								continue;
-						}
-						else
-						if((getParms().toUpperCase().indexOf("-NPC")>=0)
-						||(getParms().toUpperCase().indexOf("-MOB")>=0))
+						if(!eatPlayers)
 							continue;
+					}
+					else
+					if(!eatMobs)
+						continue;
+					if((maskStr.length()>0) || (mask != null))
+					{
 						final MOB mob2=makeMOBfromCorpse((DeadBody)I,null);
-						if(!CMLib.masking().maskCheck(getParms(),mob2,false))
+						if(!CMLib.masking().maskCheck(mask,mob2,false))
 						{
 							mob2.destroy();
 							continue;
 						}
 						mob2.destroy();
 					}
-					else
-					if(((DeadBody)I).isPlayerCorpse())
-						continue;
 
-					if((I instanceof Container)&&(!EatItems))
+					if((I instanceof Container)&&(!eatItems))
 						((Container)I).emptyPlease(false);
 					thisRoom.show(mob,null,I,CMMsg.MSG_NOISYMOVEMENT,L("<S-NAME> eat(s) <O-NAME>."));
 					I.destroy();

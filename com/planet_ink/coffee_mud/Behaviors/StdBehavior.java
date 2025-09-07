@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@ public class StdBehavior implements Behavior
 	{
 		try
 		{
-			return this.getClass().newInstance();
+			return this.getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -122,7 +122,7 @@ public class StdBehavior implements Behavior
 	}
 
 	@Override
-	public void registerDefaultQuest(final String questName)
+	public void registerDefaultQuest(final Object questName)
 	{
 	}
 
@@ -303,7 +303,7 @@ public class StdBehavior implements Behavior
 
 	/**
 	 * Localize an internal string -- shortcut. Same as calling:
-	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.LanguageLibrary#fullSessionTranslation(String, String...)
+	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.LanguageLibrary#fullSessionTranslation(Class, String, String...)
 	 * Call with the string to translate, which may contain variables of the form @x1, @x2, etc. The array in xs
 	 * is then used to replace the variables AFTER the string is translated.
 	 * @param str the string to translate
@@ -312,7 +312,7 @@ public class StdBehavior implements Behavior
 	 */
 	public String L(final String str, final String ... xs)
 	{
-		return CMLib.lang().fullSessionTranslation(str, xs);
+		return CMLib.lang().fullSessionTranslation(getClass(), str, xs);
 	}
 
 	protected static final String[]	CODES	= { "CLASS", "TEXT" };

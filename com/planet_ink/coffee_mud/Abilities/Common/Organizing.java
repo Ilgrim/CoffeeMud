@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -82,18 +82,12 @@ public class Organizing extends CommonSkill
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			if(building==null)
 				unInvoke();
 		}
 		return super.tick(ticking,tickID);
-	}
-
-	@Override
-	public String getBrand(final Item buildingI)
-	{
-		return super.getBrand(buildingI);
 	}
 
 	@Override
@@ -107,7 +101,7 @@ public class Organizing extends CommonSkill
 				if((building!=null)&&(!aborted))
 				{
 					if(messedUp)
-						commonTell(mob,L("<S-NAME> mess(es) up organizing @x1.",building.name()));
+						commonTelL(mob,"<S-NAME> mess(es) up organizing @x1.",building.name());
 					else
 					{
 						final List<Item> items=new ArrayList<Item>();
@@ -146,8 +140,8 @@ public class Organizing extends CommonSkill
 								switch(orgaT)
 								{
 								case CRAFTER:
-									final String brand1=me.getBrand(o1);
-									final String brand2=me.getBrand(o2);
+									final String brand1=CMLib.ableParms().getCraftingBrand(o1);
+									final String brand2=CMLib.ableParms().getCraftingBrand(o2);
 									result = brand1.compareTo(brand2);
 									break;
 								case LEVEL:
@@ -254,8 +248,8 @@ public class Organizing extends CommonSkill
 
 		if(commands.size()<2)
 		{
-			commonTell(mob,L("Organize what? Try ROOM or a container name, and also one of these: "
-					+CMLib.english().toEnglishStringList(OrganizeBy.class,false)));
+			commonTelL(mob,"Organize what? Try ROOM or a container name, and also one of these: "
+					+CMLib.english().toEnglishStringList(OrganizeBy.class,false));
 			return false;
 		}
 
@@ -263,8 +257,8 @@ public class Organizing extends CommonSkill
 		orgaType = (OrganizeBy)CMath.s_valueOf(OrganizeBy.class, orgaTypeName);
 		if(orgaType == null)
 		{
-			commonTell(mob,L("'@x1' is invalid. Try one of these: "
-					+CMLib.english().toEnglishStringList(OrganizeBy.class,false),orgaTypeName));
+			commonTelL(mob,"'@x1' is invalid. Try one of these: "
+					+CMLib.english().toEnglishStringList(OrganizeBy.class,false),orgaTypeName);
 			return false;
 		}
 
@@ -278,7 +272,7 @@ public class Organizing extends CommonSkill
 			if((CMLib.law().getLandTitle(mob.location())!=null)
 			&&(!CMLib.law().doesHavePriviledgesHere(mob,mob.location())))
 			{
-				commonTell(mob,L("You need the owners permission to organize stuff here."));
+				commonTelL(mob,"You need the owners permission to organize stuff here.");
 				return false;
 			}
 		}
@@ -287,14 +281,14 @@ public class Organizing extends CommonSkill
 			final Physical I=super.getAnyTarget(mob, commands, givenTarget, Wearable.FILTER_ANY, false);
 			if((!(I instanceof ItemPossessor)) && (!(I instanceof Container)))
 			{
-				commonTell(mob,L("You cannot organize the contents of '@x1'.",str));
+				commonTelL(mob,"You cannot organize the contents of '@x1'.",str);
 				return false;
 			}
 			if(I instanceof MOB)
 			{
 				if(!mob.getGroupMembers(new HashSet<MOB>()).contains(I))
 				{
-					commonTell(mob,L("You aren't allowed to organize stuff for @x1.",I.Name()));
+					commonTelL(mob,"You aren't allowed to organize stuff for @x1.",I.Name());
 					return false;
 				}
 			}
@@ -304,7 +298,7 @@ public class Organizing extends CommonSkill
 				if((CMLib.law().getLandTitle(mob.location())!=null)
 				&&(!CMLib.law().doesHavePriviledgesHere(mob,mob.location())))
 				{
-					commonTell(mob,L("You need the owners permission to organize stuff here."));
+					commonTelL(mob,"You need the owners permission to organize stuff here.");
 					return false;
 				}
 			}

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -118,8 +118,8 @@ public class Skill_ShipLore extends StdSkill
 
 		final String shipName=CMParms.combine(commands);
 		Room shipChkR=R;
-		if(shipChkR.getArea() instanceof BoardableShip)
-			shipChkR=CMLib.map().roomLocation(((BoardableShip)shipChkR.getArea()).getShipItem());
+		if(shipChkR.getArea() instanceof Boardable)
+			shipChkR=CMLib.map().roomLocation(((Boardable)shipChkR.getArea()).getBoardableItem());
 		if(shipChkR==null)
 			return false;
 		if((shipChkR.domainType()&Room.INDOORS)==Room.INDOORS)
@@ -131,7 +131,7 @@ public class Skill_ShipLore extends StdSkill
 		int penalty=1;
 		if(targetI==null)
 		{
-			final List<BoardableShip> ships=new XVector<BoardableShip>(CMLib.map().ships());
+			final List<Boardable> ships=new XVector<Boardable>(CMLib.map().ships());
 			targetI=(Item)CMLib.english().fetchAvailable(ships, shipName, null, Item.FILTER_UNWORNONLY, true);
 			if(targetI==null)
 				targetI=(Item)CMLib.english().fetchAvailable(ships, shipName, null, Item.FILTER_UNWORNONLY, false);
@@ -143,13 +143,14 @@ public class Skill_ShipLore extends StdSkill
 			else
 				penalty++;
 		}
-		if(!(targetI instanceof SailingShip))
+		if((!(targetI instanceof NavigableItem))
+		||(((NavigableItem)targetI).navBasis() != Rideable.Basis.WATER_BASED))
 		{
 			mob.tell(L("@x1 doesn't look much like a ship."));
 			return false;
 		}
-		final SailingShip shipI=(SailingShip)targetI;
-		final Area shipA=shipI.getShipArea();
+		final NavigableItem shipI=(NavigableItem)targetI;
+		final Area shipA=shipI.getArea();
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
@@ -162,7 +163,7 @@ public class Skill_ShipLore extends StdSkill
 			return false;
 		}
 		final Room room=mob.location();
-		final CMMsg msg=CMClass.getMsg(mob,null,this,CMMsg.MSG_THINK,L("<S-NAME> <S-IS-ARE> recalling something about the @x1 race.",shipI.Name()));
+		final CMMsg msg=CMClass.getMsg(mob,null,this,CMMsg.MSG_THINK,L("<S-NAME> <S-IS-ARE> recalling something about @x1.",shipI.Name()));
 		if(room.okMessage(mob,msg))
 		{
 			room.send(mob,msg);
@@ -179,7 +180,7 @@ public class Skill_ShipLore extends StdSkill
 					tidbits.add(L("it is owned and captained by @x1",prop.getOwnerName()));
 				else
 					tidbits.add(L("it is owned by @x1, and captained by @x1",prop.getOwnerName(),ownerM.Name()));
-				tidbits.add(L("the ship has a speed of @x1",""+shipI.getShipSpeed()));
+				tidbits.add(L("the ship has a speed of @x1",""+shipI.getMaxSpeed()));
 			}
 			if(expertise >= 1)
 			{
@@ -265,30 +266,9 @@ public class Skill_ShipLore extends StdSkill
 				}
 				tidbits.add(L("it has @x1 rooms total",""+allRooms));
 			}
-			/*
 			if(expertise >= 5)
 			{
-				if(A instanceof BoardableShip)
-				{
-					final int itemLimit=0;
-					final int weightLimit=0;
-					//TODO: DOH!
-					if((itemLimit == 0)&&(weightLimit == 0))
-						tidbits.add(L("this room can hold infinite items"));
-					else
-					if(itemLimit == 0)
-						tidbits.add(L("this room can hold @x1 pounds of items",""+weightLimit));
-					else
-					if(weightLimit == 0)
-						tidbits.add(L("this room can hold @x1 items",""+itemLimit));
-					else
-						tidbits.add(L("this room can hold @x1 items of @x2 total weight",""+itemLimit,""+weightLimit));
-				}
-			}
-			*/
-			if(expertise >= 5)
-			{
-				if(A instanceof BoardableShip)
+				if(A instanceof Boardable)
 				{
 					int itemLimit=0;
 					int weightLimit=0;

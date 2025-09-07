@@ -3,8 +3,10 @@
 @if?!CheckAuthCode?AUTH_CMDCLANS=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <META HTTP-EQUIV="Pragma" CONTENT="no-cache">
 <html>
+	<META CHARSET="utf-8"/>
 <head>
  	<link rel="grinder icon" href="/images/grinder.ico" >
+ 	<link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
 	<title>Clan Information</title>
 	<script language=JavaScript>
 	<!--
@@ -116,6 +118,10 @@
 	<TR>
 		<TD WIDTH=25%><FONT COLOR=YELLOW>Tax Rate: </FONT></TD>
 		<TD WIDTH=66%><INPUT TYPE=TEXT SIZE=5 NAME=TAX VALUE="@ClanData?TAX@"></TD>
+	</TR>
+	<TR>
+		<TD WIDTH=25%><FONT COLOR=YELLOW>Dues/yr: </FONT></TD>
+		<TD WIDTH=66%><INPUT TYPE=TEXT SIZE=5 NAME=DUES VALUE="@ClanData?DUES@"></TD>
 	</TR>
 	<TR>
 		<TD WIDTH=25%><FONT COLOR=YELLOW>Clan Auto-Class: </FONT></TD>

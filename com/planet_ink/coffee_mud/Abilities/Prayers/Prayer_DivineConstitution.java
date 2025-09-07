@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -169,7 +169,9 @@ public class Prayer_DivineConstitution extends Prayer
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L(auto?"<T-NAME> become(s) covered by divine constitution.":"^S<S-NAME> "+prayWord(mob)+" for <T-NAMESELF> to be covered by divine constitution.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					(auto?L("<T-NAME> become(s) covered by divine constitution."):
+						L("^S<S-NAME> @x1 for <T-NAMESELF> to be covered by divine constitution.^?",prayWord(mob))));
 			if(mob.location().okMessage(mob,msg))
 			{
 				conPts=1+(super.getXLEVELLevel(mob)/2);

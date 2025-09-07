@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -119,7 +119,9 @@ public class Prayer_Sacrifice extends Prayer
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("<T-NAME> sacrifice(s) <T-HIM-HERSELF>."):L("^S<S-NAME> sacrifice(s) <T-NAMESELF> to @x1.^?",hisHerDiety(mob)));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					auto?L("<T-NAME> sacrifice(s) <T-HIM-HERSELF>."):
+						L("^S<S-NAME> sacrifice(s) <T-NAMESELF> to @x1.^?",hisHerDiety(mob)));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -131,7 +133,7 @@ public class Prayer_Sacrifice extends Prayer
 					if(levelDiff>levelLimit)
 						exp=0.0;
 					if(exp>0)
-						CMLib.leveler().postExperience(mob,null,null,(int)Math.round(exp)+(super.getXPCOSTLevel(mob)),false);
+						CMLib.leveler().postExperience(mob,"ABILITY:"+ID(),null,null,(int)Math.round(exp)+(super.getXPCOSTLevel(mob)), false);
 				}
 				target.destroy();
 				mob.location().recoverRoomStats();

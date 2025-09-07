@@ -3,8 +3,10 @@
 @if?!Authenticate@ @AddFile?/grinder/failedlogin.cmvp@ @else@
 @if?!CheckAuthCode?AUTH_CMDQUESTS=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <html>
+	<META CHARSET="utf-8"/>
 <head>
     <link rel="grinder icon" href="/images/grinder.ico" >
+    <link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
     <title>CharClasses List</title>
     <script language=JavaScript>
     <!--
@@ -66,7 +68,7 @@
     @CharClassNext?ALL@
         @if?!CheckReqParm?CLASS=GenCharClass@
             <TR>
-            <TD><a href="javascript:CharClass('@CharClassID@','')"><FONT COLOR=WHITE><B>@CharClassID@</B></FONT></a></TD>
+            <TD><a href="javascript:CharClass('@CharClassID@','')"><FONT COLOR="#FFFF8F"><U><B>@CharClassID@</B></U></FONT></a></TD>
             <TD><FONT COLOR=WHITE><B>@CharClassData?NAMELIST@</B></FONT></a></TD>
             <TD><FONT COLOR=WHITE><B>@CharClassData?BASE@</B></FONT></a></TD>
             <TD><FONT COLOR=WHITE><B>@if?CharClassData?ISGENERIC@Yes@endif@</B></FONT></a></TD>
@@ -76,7 +78,10 @@
        @endif@
     @back@
     <TR>
-    <TD COLSPAN=4><a href="javascript:if(document.RESOURCES.NEWCLASS.value!='')CharClass(document.RESOURCES.NEWCLASS.value,'&NEWCLASS='+document.RESOURCES.NEWCLASS.value)"><FONT COLOR=WHITE><B>Create New:</a> <INPUT TYPE=TEXT NAME=NEWCLASS SIZE=70></B></FONT></TD>
+    <TD COLSPAN=4>
+    	<a href="javascript:if(document.RESOURCES.NEWCLASS.value!='')CharClass(document.RESOURCES.NEWCLASS.value,'&NEWCLASS='+document.RESOURCES.NEWCLASS.value)">
+    	<FONT COLOR=CYAN><B><U>Create New:</U></a> <INPUT TYPE=TEXT NAME=NEWCLASS SIZE=70></B></FONT>
+    </TD>
     </TR>
     </TABLE>
     <P>

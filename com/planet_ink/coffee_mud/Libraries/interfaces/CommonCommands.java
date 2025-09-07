@@ -17,7 +17,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.io.IOException;
 import java.util.*;
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -150,7 +150,7 @@ public interface CommonCommands extends CMLibrary
 	 *
 	 * @param mob the mob who tried the command
 	 * @param commands the command that was typed in
-	 * @param msgStr the message explaining the failure, using <S-NAME>, <T-NAME>, etc..
+	 * @param msgStr the message explaining the failure, using &lt;S-NAME&gt;,  &lt;T-NAME&gt;, etc..
 	 * @return true if the command failure went through, and false if the command failure failed
 	 */
 	public boolean postCommandFail(final MOB mob, final List<String> commands, final String msgStr);
@@ -163,7 +163,7 @@ public interface CommonCommands extends CMLibrary
 	 * @param target the target of the command, if applicable and identified
 	 * @param tools the tool used by the command, if applicable and identified
 	 * @param command the command that was typed in
-	 * @param msgStr the message explaining the failure, using <S-NAME>, <T-NAME>, etc..
+	 * @param msgStr the message explaining the failure, using  &lt;S-NAME&gt;,  &lt;T-NAME&gt;, etc..
 	 * @return true if the command failure went through, and false if the command failure failed
 	 */
 	public boolean postCommandFail(final MOB mob, Environmental target, Environmental tools, final List<String> command, final String msgStr);
@@ -213,8 +213,9 @@ public interface CommonCommands extends CMLibrary
 	 * @param clanList null normally, or a list of clans for possible focus
 	 * @param message the message to send to the channel
 	 * @param systemMsg true to format as a system message, false for a normal chat message
+	 * @param mob who the message is credited to, even though not the direct sender.
 	 */
-	public void postChannel(String channelName, Iterable<Pair<Clan,Integer>> clanList, String message, boolean systemMsg);
+	public void postChannel(String channelName, Iterable<Pair<Clan,Integer>> clanList, String message, boolean systemMsg, final MOB mob);
 
 	/**
 	 * Shortcut method to make a mob drop an item onto the room.
@@ -419,7 +420,7 @@ public interface CommonCommands extends CMLibrary
 	/**
 	 * Parse variable display and description texts to generate
 	 * the dynamic text seen in some rooms.
-	 * 
+	 *
 	 * @param mob the mob who is looking
 	 * @param area the area containing the mob
 	 * @param room the room containing the mob
@@ -427,7 +428,7 @@ public interface CommonCommands extends CMLibrary
 	 * @return the dynamic text
 	 */
 	public String parseVaries(final MOB mob, final Area area, final Room room, final String text);
-	
+
 	/**
 	 * Handler function for when a mob looks at something, or
 	 * examines it closely.  Things like items, mobs, rooms, etc.
@@ -590,6 +591,18 @@ public interface CommonCommands extends CMLibrary
 	public StringBuilder getScore(MOB mob);
 
 	/**
+	 * Builds the complete room view for the given mob.  This includes all the items,
+	 * and mobs, and is dependent on the mobs view attributes.
+	 *
+	 * @param mob the player to view the room
+	 * @param room the room to be viewed
+	 * @param lookCode the look view code for viewing options
+	 * @param doMXP true to add MXP where needed
+	 * @return the full room view MXP
+	 */
+	public String getFullRoomView(final MOB mob, final Room room, final LookView lookCode, final boolean doMXP);
+
+	/**
 	 * Builds a string list of the things the given mob is
 	 * wearing.
 	 *
@@ -598,6 +611,16 @@ public interface CommonCommands extends CMLibrary
 	 * @return the list of stuff being worn
 	 */
 	public StringBuilder getEquipment(MOB viewer, MOB mob);
+
+	/**
+	 * Builds a string list of the things the given mob is
+	 * wearing, in long view, which includes wear slots.
+	 *
+	 * @param viewer the viewer of the worn stuff
+	 * @param mob the mob wearing the stuff
+	 * @return the list of stuff being worn, and wear slots
+	 */
+	public StringBuilder getEquipmentLong(final MOB viewer, final MOB mob);
 
 	/**
 	 * Builds a string list of the things the given viewer can
@@ -618,6 +641,15 @@ public interface CommonCommands extends CMLibrary
 	 * @return the message of things the mob learns about it
 	 */
 	public String getExamineItemString(MOB mob, Item item);
+
+	/**
+	 * This method builds a string of the things a container
+	 * can contain..
+	 *
+	 * @param E the container containing things
+	 * @return the message of things the container contains
+	 */
+	public String makeContainerTypes(final Container E);
 
 	/**
 	 * Returns true if the given message reflects something that would improve
@@ -647,4 +679,31 @@ public interface CommonCommands extends CMLibrary
 	 * @return remaining manaConsumeCounter
 	 */
 	public int tickManaConsumption(MOB mob, int manaConsumeCounter);
+
+	/**
+	 * Enum for special mob room view settings, decoded from
+	 * player mob attributes.
+	 *
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public static enum LookView
+	{
+		/**
+		 * The longest 'Examine' view flag
+		 */
+		LOOK_LONG,
+		/**
+		 * The normal glance flag
+		 */
+		LOOK_NORMAL,
+		/**
+		 * The briefer glance flag
+		 */
+		LOOK_BRIEFOK,
+		/**
+		 * The briefest glance flag
+		 */
+		LOOK_MINIMAL,
+	}
 }

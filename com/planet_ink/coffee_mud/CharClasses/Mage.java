@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -231,6 +232,7 @@ public class Mage extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Spell_DispelMagic",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Spell_FaerieFire",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Spell_MysticShine",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Spell_Harden",false);
 		// level 6
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Spell_WeaknessAcid",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Spell_Augury",false);
@@ -296,6 +298,7 @@ public class Mage extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Spell_HeatMetal",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Spell_Weaken",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Spell_MirrorImage",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Spell_SuppressAroma",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Spell_ChangeSex",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Spell_ImprovedRepairingAura",0,false,CMParms.parseSemicolons("Spell_RepairingAura(100)",true));
 		// level 12
@@ -332,7 +335,7 @@ public class Mage extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Spell_FakeWeapon",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Spell_Blink",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Spell_Polymorph",false);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Spell_Youth",0,"",false,true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Spell_Youth",0,"",false,SecretFlag.SECRET);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Spell_Irritation",false);
 		// level 16
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Spell_ChainLightening",false);
@@ -357,6 +360,12 @@ public class Mage extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Spell_Delude",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Spell_ResistPetrification",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Spell_Summon",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Skill_ScrollFamiliarity",true);
+		if(!ID().equals("Transmuter"))
+		{
+			CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Spell_FindPlanarFamiliar", ID().equals("Conjurer")?25:0, "", false,
+					 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
+		}
 		// level 19
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Spell_FleshStone",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Spell_Forget",false);
@@ -383,6 +392,12 @@ public class Mage extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Spell_MeteorStorm",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Spell_EnchantWeapon",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Spell_DetectSentience",false);
+		if(!ID().equals("Diviner"))
+		{
+			CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Spell_PlanarDistortion", ID().equals("Illusionist")?25:0, "", false,
+													 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
+		}
+
 		// level 23
 		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Spell_Dragonfire",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Spell_MindBlock",false);
@@ -403,9 +418,35 @@ public class Mage extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Spell_MassFly",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Spell_Geas",false);
 
+		if(!ID().equals("Transmuter"))
+		{
+			CMLib.ableMapper().addCharAbilityMapping(ID(),26,"Spell_Imprisonment", ID().equals("Conjurer")?25:0, "", false,
+													 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
+		}
+		CMLib.ableMapper().addCharAbilityMapping(ID(),26,"ImprovedAlchemy",false,CMParms.parseSemicolons("Alchemy(100)",true));
+
+		if(!ID().equals("Illusionist"))
+		{
+			CMLib.ableMapper().addCharAbilityMapping(ID(),27,"Spell_PlanarTimer", 0, "", false, SecretFlag.MASKED,
+													 null, "+PLANE \"-Prime Material\"");
+		}
+
+		if(!ID().equals("Conjurer"))
+		{
+			CMLib.ableMapper().addCharAbilityMapping(ID(),29,"Spell_Planarmorph", ID().equals("Transmuter")?25:0, "", false,
+													 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
+		}
+
 		// level 30
 		if(ID().equals(baseClass()))
 			CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Spell_Spellbinding",true);
+
+		CMLib.ableMapper().addCharAbilityMapping(ID(),31,"Spell_PlanarBlock", 0, "", false, SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
+		CMLib.ableMapper().addCharAbilityMapping(ID(),32,"Spell_PlanarBanish", 0, "", false, SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
+
+		// level 35
+		if(ID().equals(baseClass()))
+			CMLib.ableMapper().addCharAbilityMapping(ID(),35,"Spell_PlanarExtension", 0, "", false, SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
 	}
 
 	@Override
@@ -461,7 +502,7 @@ public class Mage extends StdCharClass
 			final Ability A=a.nextElement();
 			if((CMLib.ableMapper().getQualifyingLevel(ID(),true,A.ID())==level)
 			&&((CMLib.ableMapper().getQualifyingLevel(ID(),true,A.ID())<=25)
-			&&(!CMLib.ableMapper().getSecretSkill(ID(),true,A.ID()))
+			&&(CMLib.ableMapper().getSecretSkill(ID(),true,A.ID())!=SecretFlag.SECRET)
 			&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID()))
 			&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SPELL)))
 			{
@@ -505,6 +546,7 @@ public class Mage extends StdCharClass
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

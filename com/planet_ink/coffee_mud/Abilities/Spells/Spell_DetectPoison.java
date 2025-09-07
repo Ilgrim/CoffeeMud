@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -71,6 +71,12 @@ public class Spell_DetectPoison extends Spell
 	protected int canTargetCode()
 	{
 		return CAN_MOBS|CAN_ITEMS;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -142,7 +148,7 @@ public class Spell_DetectPoison extends Spell
 				else
 				for(int i=0;i<offensiveAffects.size();i++)
 					buf.append(offensiveAffects.get(i).name()+", ");
-				mob.tell(buf.toString().substring(0,buf.length()-2));
+				commonTell(mob,buf.toString().substring(0,buf.length()-2));
 			}
 		}
 		else

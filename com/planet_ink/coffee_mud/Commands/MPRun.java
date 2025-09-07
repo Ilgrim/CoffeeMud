@@ -20,7 +20,7 @@ import java.util.*;
 import org.mozilla.javascript.*;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@ public class MPRun extends StdCommand
 		S.setScript(script);
 		final CMMsg msg2=CMClass.getMsg(mob,mob,null,CMMsg.MSG_OK_VISUAL,null,null,L("MPRUN"));
 		S.executeMsg(mob, msg2);
-		S.dequeResponses();
+		S.dequeResponses(null);
 		S.tick(mob,Tickable.TICKID_MOB);
 	}
 

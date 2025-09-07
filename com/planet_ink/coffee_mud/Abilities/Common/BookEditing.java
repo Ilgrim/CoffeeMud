@@ -20,7 +20,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -85,16 +85,31 @@ public class BookEditing extends CommonSkill
 	{
 		if(canBeUninvoked())
 		{
-			if((affected!=null)&&(affected instanceof MOB)&&(!aborted)&&(!helping))
+			if((affected instanceof MOB)&&(!aborted)&&(!helping))
 			{
 				final MOB mob=(MOB)affected;
 				if(found==null)
-					commonTell(mob,L("You mess up your book editing."));
+					commonTelL(mob,"You mess up your book editing.");
+				else
+				if((pageNum!=null)&&(pageNum.startsWith("DELETE ")))
+				{
+					final CMMsg msg=CMClass.getMsg(mob,found,this,CMMsg.TYP_REWRITE,
+							L("<S-NAME> edit(s) <T-NAME>."),pageNum,L("<S-NAME> edit(s) <T-NAME>."));
+					if(mob.location().okMessage(mob,msg))
+					{
+						mob.location().send(mob,msg);
+						verb="";
+					}
+				}
 				else
 				{
-					final CMMsg msg=CMClass.getMsg(mob,found,this,CMMsg.TYP_REWRITE,L("<S-NAME> start(s) editing <T-NAME>."),pageNum,L("<S-NAME> start(s) editing <T-NAME>."));
+					final CMMsg msg=CMClass.getMsg(mob,found,this,CMMsg.TYP_REWRITE,
+							L("<S-NAME> start(s) editing <T-NAME>."),pageNum,L("<S-NAME> start(s) editing <T-NAME>."));
 					if(mob.location().okMessage(mob,msg))
+					{
 						mob.location().send(mob,msg);
+						verb="";
+					}
 				}
 			}
 		}
@@ -103,7 +118,7 @@ public class BookEditing extends CommonSkill
 
 	public boolean error(final MOB mob)
 	{
-		commonTell(mob,L("You must specify what book to edit, and the optional page/chapter number to edit."));
+		commonTelL(mob,"You must specify what book to edit, and the optional page/chapter number to edit.");
 		return false;
 	}
 
@@ -116,8 +131,16 @@ public class BookEditing extends CommonSkill
 			return error(mob);
 		found = null;
 		pageNum="";
-		if((commands.size()>1)&&(CMath.isInteger(commands.get(commands.size()-1))))
+		if((commands.size()>1)
+		&&(CMath.isInteger(commands.get(commands.size()-1))))
+		{
 			pageNum=commands.remove(commands.size()-1);
+			if(commands.get(commands.size()-1).equalsIgnoreCase("DELETE"))
+			{
+				commands.remove(commands.size()-1);
+				pageNum="DELETE "+pageNum;
+			}
+		}
 		final String itemName = CMParms.combine(commands);
 		Item target=mob.fetchItem(null,Wearable.FILTER_UNWORNONLY,itemName);
 		if((target==null)||(!CMLib.flags().canBeSeenBy(target,mob)))
@@ -125,7 +148,7 @@ public class BookEditing extends CommonSkill
 		if((target!=null)&&(CMLib.flags().canBeSeenBy(target,mob)))
 		{
 			/*
-			final Set<MOB> followers=mob.getGroupMembers(new TreeSet<MOB>());
+			final Set<MOB> followers=mob.getGroupMembers(new XTreeSet<MOB>());
 			boolean ok=false;
 			for(final MOB M : followers)
 			{
@@ -134,14 +157,14 @@ public class BookEditing extends CommonSkill
 			}
 			if(!ok)
 			{
-				commonTell(mob,L("You aren't allowed to work on '@x1'.",itemName));
+				commonTelL(mob,"You aren't allowed to work on '@x1'.",itemName);
 				return false;
 			}
 			*/
 		}
 		if((target==null)||(!CMLib.flags().canBeSeenBy(target,mob)))
 		{
-			commonTell(mob,L("You don't seem to have a '@x1'.",itemName));
+			commonTelL(mob,"You don't seem to have a '@x1'.",itemName);
 			return false;
 		}
 
@@ -149,7 +172,7 @@ public class BookEditing extends CommonSkill
 		final Ability write=mob.fetchAbility("Skill_Write");
 		if(write==null)
 		{
-			commonTell(mob,L("You must know how to write."));
+			commonTelL(mob,"You must know how to write.");
 			return false;
 		}
 
@@ -158,19 +181,26 @@ public class BookEditing extends CommonSkill
 		&&(target.material()!=RawMaterial.RESOURCE_SILK)
 		&&(target.material()!=RawMaterial.RESOURCE_HIDE))
 		{
-			commonTell(mob,L("You can't edit something like that."));
+			commonTelL(mob,"You can't edit something like that.");
 			return false;
 		}
 
 		if(!CMLib.flags().isReadable(target))
 		{
-			commonTell(mob,L("That's not even readable!"));
+			commonTelL(mob,"That's not even readable!");
+			return false;
+		}
+
+		if((target instanceof Recipes)
+		&&((pageNum.length()==0)||(!pageNum.startsWith("DELETE "))))
+		{
+			commonTelL(mob,"You can't edit that with this skill, but only delete pages.");
 			return false;
 		}
 
 		if(!target.isGeneric())
 		{
-			commonTell(mob,L("You aren't able to give that a name."));
+			commonTelL(mob,"You aren't able to give that a name.");
 			return false;
 		}
 
@@ -182,7 +212,8 @@ public class BookEditing extends CommonSkill
 		if((!proficiencyCheck(mob,0,auto))||(!write.proficiencyCheck(mob,0,auto)))
 			found = null;
 		final int duration=getDuration(30,mob,1,1);
-		final CMMsg msg=CMClass.getMsg(mob,target,this,getActivityMessageType(),L("<S-NAME> prepare(s) to edit <T-NAME>."),pageNum,L("<S-NAME> prepare(s) to edit <T-NAME>."));
+		final CMMsg msg=CMClass.getMsg(mob,target,this,getActivityMessageType(),
+				L("<S-NAME> prepare(s) to edit <T-NAME>."),pageNum,L("<S-NAME> prepare(s) to edit <T-NAME>."));
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);

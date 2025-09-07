@@ -12,6 +12,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary;
+import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary.RFilter;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -19,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -49,7 +50,9 @@ public class Ranger_Track extends StdAbility
 		return localizedName;
 	}
 
-	protected String	displayText	= L("(Tracking)");
+	private static final String DEFAULT_DISPLAY_TEXT=CMLib.lang().L("(Tracking)");
+
+	protected String displayText=DEFAULT_DISPLAY_TEXT;
 
 	@Override
 	public String displayText()
@@ -181,6 +184,31 @@ public class Ranger_Track extends StdAbility
 			nextDirection=CMLib.tracking().trackNextDirectionFromHere(theTrail,mob.location(),true);
 	}
 
+	private class FilterMOBName implements RFilter
+	{
+		final String mobName;
+		final MOB viewerM;
+		public FilterMOBName(final MOB viewerM, final String mobName)
+		{
+			this.viewerM=viewerM;
+			this.mobName=mobName;
+		}
+		@Override
+		public boolean isFilteredOut(final Room hostR, Room R, final Exit E, final int dir)
+		{
+			R=CMLib.map().getRoom(R);
+			if(R!=null)
+			{
+				final MOB M=R.fetchInhabitant(mobName);
+				if((M!=null)
+				&&((viewerM==null)||(CMLib.flags().canAccess(viewerM, R)))
+				&&((viewerM==null)||(CMLib.flags().isSeeable(M))))
+					return false;
+			}
+			return true;
+		}
+	}
+
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
@@ -231,16 +259,10 @@ public class Ranger_Track extends StdAbility
 			.plus(TrackingLibrary.TrackingFlag.NOWATER);
 		final ArrayList<Room> rooms=new ArrayList<Room>();
 		final int range=50 + (2*super.getXLEVELLevel(mob))+(10*super.getXMAXRANGELevel(mob));
-		final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,range);
-		for (final Room room : checkSet)
-		{
-			final Room R=CMLib.map().getRoom(room);
-			final MOB M=R.fetchInhabitant(mobName);
-			if((M!=null)
-			&&(CMLib.flags().canAccess(mob, R))
-			&&(CMLib.flags().isSeeable(M)))
-				rooms.add(R);
-		}
+		final List<Room> trashRooms = new ArrayList<Room>();
+		final TrackingLibrary.RFilter targetFilter = new FilterMOBName(mob,mobName);
+		if(CMLib.tracking().getRadiantRoomsToTarget(mob.location(), trashRooms, flags, targetFilter, range))
+			rooms.add(trashRooms.get(trashRooms.size()-1));
 
 		if(rooms.size()>0)
 			theTrail=CMLib.tracking().findTrailToAnyRoom(mob.location(),rooms,flags,range);

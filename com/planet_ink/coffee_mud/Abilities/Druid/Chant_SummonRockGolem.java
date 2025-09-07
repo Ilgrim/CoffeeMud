@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ public class Chant_SummonRockGolem extends Chant
 	{
 		if(tickID==Tickable.TICKID_MOB)
 		{
-			if((affected!=null)&&(affected instanceof MOB)&&(invoker!=null))
+			if((affected instanceof MOB)&&(invoker!=null))
 			{
 				final MOB mob=(MOB)affected;
 				if(((mob.amFollowing()==null)
@@ -192,7 +192,7 @@ public class Chant_SummonRockGolem extends Chant
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				final MOB target = determineMonster(mob, mob.phyStats().level()+(2*getXLEVELLevel(mob)));
+				final MOB target = determineMonster(mob, asLevel);
 				beneficialAffect(mob,target,0,asLevel);
 			}
 		}
@@ -203,10 +203,14 @@ public class Chant_SummonRockGolem extends Chant
 		return success;
 	}
 
-	public MOB determineMonster(final MOB caster, final int level)
+	public MOB determineMonster(final MOB caster, final int asLevel)
 	{
 		final MOB newMOB=CMClass.getMOB("GenMOB");
-		newMOB.basePhyStats().setLevel(adjustedLevel(caster,0));
+		int level=adjustedLevel(caster,asLevel);
+		final int altLevel = (caster.phyStats().level()-5)+(super.getXLEVELLevel(caster)/2);
+		if(altLevel > level)
+			level = altLevel;
+		newMOB.basePhyStats().setLevel(level);
 		newMOB.setName(L("an golem of stone"));
 		newMOB.setDisplayText(L("an stone golem lumbers around here."));
 		newMOB.setDescription(L("A large beast, made of rock and stone, with a hard stare."));
@@ -214,13 +218,15 @@ public class Chant_SummonRockGolem extends Chant
 		newMOB.baseCharStats().setMyRace(CMClass.getRace("StoneGolem"));
 		newMOB.recoverPhyStats();
 		newMOB.recoverCharStats();
-		newMOB.basePhyStats().setAbility(newMOB.basePhyStats().ability()*2);
+		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase()*2);
 		newMOB.basePhyStats().setArmor(CMLib.leveler().getLevelMOBArmor(newMOB)+100);
 		newMOB.basePhyStats().setAttackAdjustment(CMLib.leveler().getLevelAttack(newMOB)+100);
 		newMOB.basePhyStats().setSpeed(CMLib.leveler().getLevelMOBSpeed(newMOB)/2.0);
 		newMOB.basePhyStats().setDamage(CMLib.leveler().getLevelMOBDamage(newMOB)+20);
 		newMOB.basePhyStats().setSensesMask(newMOB.basePhyStats().sensesMask()|PhyStats.CAN_SEE_DARK);
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		final Ability P=CMClass.getAbility("Prop_StatTrainer");
 		if(P!=null)
 		{

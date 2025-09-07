@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -123,7 +123,8 @@ public class StdCompFuelConsumer extends StdElecCompContainer implements FuelCon
 		int amt=0;
 		for(final Item I : getFuel())
 		{
-			if(I instanceof RawMaterial)
+			if((I instanceof RawMaterial)
+			&&CMParms.contains(this.getConsumedFuelTypes(), ((RawMaterial)I).material()))
 				amt+=I.phyStats().weight();
 		}
 		return amt;

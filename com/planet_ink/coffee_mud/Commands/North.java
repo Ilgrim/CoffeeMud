@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -67,7 +67,10 @@ public class North extends Go
 	@Override
 	public boolean securityCheck(final MOB mob)
 	{
-		return (mob==null) || (mob.isMonster()) || (mob.location()==null)
-				|| ((!(mob.location() instanceof BoardableShip)) && (!(mob.location().getArea() instanceof BoardableShip)));
+		if((mob==null) || (mob.location()==null))
+			return false;
+		if(mob.isMonster())
+			return true;
+		return (CMLib.flags().getInDirType(mob) == Directions.DirType.COMPASS);
 	}
 }

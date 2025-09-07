@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -111,6 +111,7 @@ public class Prop_UseAdjuster extends Prop_Adjuster implements ArchonOnly
 		parameters=CMLib.masking().separateMaskStrs(text());
 	}
 
+	@Override
 	public void adjCharState(final MOB mob, final Object[] changes, final CharState charState)
 	{
 		if(changes==null)
@@ -125,10 +126,10 @@ public class Prop_UseAdjuster extends Prop_Adjuster implements ArchonOnly
 					charState.adjHitPoints((int)Math.round(CMath.mul(charState.getHitPoints(), CMath.div(((Integer) changes[c + 1]).intValue(),100))-charState.getHitPoints()),mob.maxState());
 					break;
 				case CharState.STAT_HUNGER:
-					charState.adjHunger(((Integer) changes[c + 1]).intValue(),mob.maxState().maxHunger(mob.baseWeight()));
+					charState.adjHunger(((Integer) changes[c + 1]).doubleValue(),mob.maxState().maxHunger(mob.baseWeight()));
 					break;
 				case CharState.STAT_THIRST:
-					charState.adjThirst(((Integer) changes[c + 1]).intValue(),mob.maxState().maxThirst(mob.baseWeight()));
+					charState.adjThirst(((Integer) changes[c + 1]).doubleValue(),mob.maxState().maxThirst(mob.baseWeight()));
 					break;
 				case CharState.STAT_MANA:
 					charState.adjMana((int)Math.round(CMath.mul(charState.getMana(), CMath.div(((Integer) changes[c + 1]).intValue(),100))-charState.getMana()),mob.maxState());
@@ -197,7 +198,7 @@ public class Prop_UseAdjuster extends Prop_Adjuster implements ArchonOnly
 						if(canApply(owner))
 						{
 							adjCharStats((MOB)owner, charStatsChanges,msg.source().baseCharStats());
-							phyStuff(phyStatsChanges, msg.source().basePhyStats());
+							phyStuff(phyStatsChanges, msg.source(), msg.source().basePhyStats());
 							adjCharState((MOB)owner, charStateChanges,msg.source().curState());
 						}
 					}
@@ -214,7 +215,7 @@ public class Prop_UseAdjuster extends Prop_Adjuster implements ArchonOnly
 							if(canApply((MOB)msg.target()))
 							{
 								adjCharStats((MOB)msg.target(), charStatsChanges,((MOB)msg.target()).baseCharStats());
-								phyStuff(phyStatsChanges, ((MOB)msg.target()).basePhyStats());
+								phyStuff(phyStatsChanges, (MOB)msg.target(), ((MOB)msg.target()).basePhyStats());
 								adjCharState((MOB)msg.target(), charStateChanges,((MOB)msg.target()).curState());
 							}
 						}
@@ -222,7 +223,7 @@ public class Prop_UseAdjuster extends Prop_Adjuster implements ArchonOnly
 						if(canApply(owner))
 						{
 							adjCharStats(msg.source(), charStatsChanges,msg.source().baseCharStats());
-							phyStuff(phyStatsChanges, msg.source().basePhyStats());
+							phyStuff(phyStatsChanges, msg.source(), msg.source().basePhyStats());
 							adjCharState(msg.source(), charStateChanges,msg.source().curState());
 						}
 					}
@@ -236,7 +237,7 @@ public class Prop_UseAdjuster extends Prop_Adjuster implements ArchonOnly
 						if(canApply(owner))
 						{
 							adjCharStats((MOB)owner, charStatsChanges,msg.source().baseCharStats());
-							phyStuff(phyStatsChanges, msg.source().basePhyStats());
+							phyStuff(phyStatsChanges, msg.source(), msg.source().basePhyStats());
 							adjCharState((MOB)owner, charStateChanges,msg.source().curState());
 						}
 					}
@@ -256,7 +257,7 @@ public class Prop_UseAdjuster extends Prop_Adjuster implements ArchonOnly
 					if(canApply(msg.source()))
 					{
 						adjCharStats(msg.source(), charStatsChanges,msg.source().baseCharStats());
-						phyStuff(phyStatsChanges, msg.source().basePhyStats());
+						phyStuff(phyStatsChanges, msg.source(), msg.source().basePhyStats());
 						adjCharState(msg.source(), charStateChanges,msg.source().curState());
 					}
 				}
@@ -264,7 +265,7 @@ public class Prop_UseAdjuster extends Prop_Adjuster implements ArchonOnly
 				if(canApply(owner))
 				{
 					adjCharStats((MOB)owner, charStatsChanges,((MOB)owner).baseCharStats());
-					phyStuff(phyStatsChanges, ((MOB)owner).basePhyStats());
+					phyStuff(phyStatsChanges, owner, ((MOB)owner).basePhyStats());
 					adjCharState((MOB)owner, charStateChanges, ((MOB)owner).curState());
 				}
 			}

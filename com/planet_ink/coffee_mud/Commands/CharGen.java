@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,8 +59,8 @@ public class CharGen extends StdCommand
 			if(wornCode==Wearable.WORN_WIELD)
 			{
 				final Weapon W=CMClass.getWeapon("GenWeapon");
-				W.setName("a sword");
-				W.setDisplayText("a sword sits here");
+				W.setName(L("a sword"));
+				W.setDisplayText(L("a sword sits here"));
 				W.setWeaponClassification(Weapon.CLASS_SWORD);
 				W.setWeaponDamageType(Weapon.TYPE_SLASHING);
 				W.setMaterial(RawMaterial.RESOURCE_STEEL);
@@ -77,27 +77,27 @@ public class CharGen extends StdCommand
 				case CharClass.WEAPONS_NEUTRALCLERIC:
 					break;
 				case CharClass.WEAPONS_DAGGERONLY:
-					W.setName("a dagger");
-					W.setDisplayText("a dagger sits here");
+					W.setName(L("a dagger"));
+					W.setDisplayText(L("a dagger sits here"));
 					W.setWeaponClassification(Weapon.CLASS_DAGGER);
 					W.setWeaponDamageType(Weapon.TYPE_PIERCING);
 					break;
 				case CharClass.WEAPONS_NATURAL:
-					W.setName("a wooden sword");
-					W.setDisplayText("a wooden sword sits here");
+					W.setName(L("a wooden sword"));
+					W.setDisplayText(L("a wooden sword sits here"));
 					W.setMaterial(RawMaterial.RESOURCE_OAK);
 					break;
 				case CharClass.WEAPONS_ROCKY:
-					W.setName("a stone sword");
-					W.setDisplayText("a stone sword sits here");
+					W.setName(L("a stone sword"));
+					W.setDisplayText(L("a stone sword sits here"));
 					W.setMaterial(RawMaterial.RESOURCE_STONE);
 					break;
 				case CharClass.WEAPONS_GOODCLERIC:
 					CMLib.factions().setAlignment(M,Faction.Align.GOOD);
 				//$FALL-THROUGH$
 				case CharClass.WEAPONS_MAGELIKE:
-					W.setName("a staff");
-					W.setDisplayText("a staff sits here");
+					W.setName(L("a staff"));
+					W.setDisplayText(L("a staff sits here"));
 					W.setMaterial(RawMaterial.RESOURCE_OAK);
 					W.setWeaponClassification(Weapon.CLASS_STAFF);
 					W.setWeaponDamageType(Weapon.TYPE_BASHING);
@@ -105,16 +105,16 @@ public class CharGen extends StdCommand
 				case CharClass.WEAPONS_ALLCLERIC:
 					if(CMLib.flags().isGood(M))
 					{
-						W.setName("a staff");
-						W.setDisplayText("a staff sits here");
+						W.setName(L("a staff"));
+						W.setDisplayText(L("a staff sits here"));
 						W.setMaterial(RawMaterial.RESOURCE_OAK);
 						W.setWeaponClassification(Weapon.CLASS_STAFF);
 						W.setWeaponDamageType(Weapon.TYPE_BASHING);
 					}
 					break;
 				case CharClass.WEAPONS_FLAILONLY:
-					W.setName("a flail");
-					W.setDisplayText("a flail sits here");
+					W.setName(L("a flail"));
+					W.setDisplayText(L("a flail sits here"));
 					W.setWeaponClassification(Weapon.CLASS_FLAILED);
 					W.setWeaponDamageType(Weapon.TYPE_BASHING);
 					break;
@@ -152,7 +152,7 @@ public class CharGen extends StdCommand
 				}
 				final String adj=RawMaterial.CODES.NAME(A.material()).toLowerCase();
 				A.setName(CMLib.english().startWithAorAn(adj)+" "+Wearable.CODES.USUAL(wornCode).toLowerCase());
-				A.setDisplayText(A.name()+" sits here");
+				A.setDisplayText(L("@x1 sits here",A.name()));
 				A.basePhyStats().setLevel(level);
 				A.basePhyStats().setWeight(8);
 				A.recoverPhyStats();
@@ -215,7 +215,7 @@ public class CharGen extends StdCommand
 			if(mob.getExpNeededLevel()==Integer.MAX_VALUE)
 				CMLib.leveler().level(mob);
 			else
-				CMLib.leveler().postExperience(mob,null,null,mob.getExpNeededLevel()+1,false);
+				CMLib.leveler().postExperience(mob,"COMMAND:"+ID(),null,null,mob.getExpNeededLevel()+1, false);
 			mob.recoverPhyStats();
 			mob.recoverCharStats();
 			mob.recoverMaxState();
@@ -321,7 +321,7 @@ public class CharGen extends StdCommand
 		String[][][] allSkills=null;//new String[classSet.size()][levelEnd-levelStart+1][4];
 		Area A=null;
 		MOB mob=null;
-		DVector classSet=new DVector(2);
+		PairList<CharClass,String> classSet=new PairVector<CharClass,String>();
 		Hashtable<String,int[]> failSkillCheck=null;
 	}
 
@@ -409,9 +409,9 @@ public class CharGen extends StdCommand
 					}
 				}
 				if((M==null)&&(room.getArea()!=null))
-					M=CMLib.map().findFirstInhabitant(room.getArea().getMetroMap(), mob, mobName, 10);
+					M=CMLib.hunt().findFirstInhabitant(room.getArea().getMetroMap(), mob, mobName, 10);
 				if(M==null)
-					M=CMLib.map().findFirstInhabitant(CMLib.map().rooms(), mob, mobName, 10);
+					M=CMLib.hunt().findFirstInhabitant(CMLib.map().rooms(), mob, mobName, 10);
 				if(M==null)
 				{
 					mob.tell(L("Unknown mob '@x1'",mobName));
@@ -433,7 +433,7 @@ public class CharGen extends StdCommand
 				if(!classCleared)
 				{
 					classCleared=true;
-					c.classSet=new DVector(2);
+					c.classSet=new PairVector<CharClass,String>();
 				}
 				String behav="CombatAbilities";
 				for (final String[] element : CAMATCH)
@@ -456,7 +456,7 @@ public class CharGen extends StdCommand
 						if(!classCleared)
 						{
 							classCleared=true;
-							c.classSet=new DVector(2);
+							c.classSet=new PairVector<CharClass,String>();
 						}
 						String behav="CombatAbilities";
 						for (final String[] element : CAMATCH)
@@ -543,11 +543,11 @@ public class CharGen extends StdCommand
 					final MOB mob=c.mob;
 					final int[][][] allData = c.allData;
 					final String[][][] allSkills=c.allSkills;
-					final DVector classSet=c.classSet;
+					final PairList<CharClass,String> classSet=c.classSet;
 					final int levelStart=c.levelStart;
 					for(int level=c.levelStart;level<=c.levelEnd;level+=c.skipLevels)
 					{
-						final CharClass C=(CharClass)c.classSet.get(charClassDex,1);
+						final CharClass C=c.classSet.get(charClassDex).first;
 						mob.tell(C.ID()+": "+level);
 						int roomRobin=0;
 						Room R=null;
@@ -578,7 +578,11 @@ public class CharGen extends StdCommand
 						int lastPct=0;
 						int playerArmor=0;
 						int playerAttack=0;
-						HashMap<String,long[]> skillScores = new HashMap<String,long[]>();
+						double totalDamageM1Score=0.0;
+						double totalDamageM1toM2=0.0;
+						double totalDamageM2toM1=0.0;
+						double totalRounds=0;
+						final HashMap<String,long[]> skillScores = new HashMap<String,long[]>();
 						for(int tries=0;tries<c.TOTAL_ITERATIONS;tries++)
 						{
 							if((CMath.div(tries,c.TOTAL_ITERATIONS)*100.0)>=lastPct+5)
@@ -587,7 +591,7 @@ public class CharGen extends StdCommand
 								if(mob.session()!=null)
 									mob.session().print(".");
 							}
-							final Behavior B1=CMClass.getBehavior((String)classSet.get(charClassDex,2));
+							final Behavior B1=CMClass.getBehavior(classSet.get(charClassDex).second);
 							B1.setParms(C.ID()+" NOSTAT NOCOMBATSTAT");
 							switch(roomRobin)
 							{
@@ -625,7 +629,7 @@ public class CharGen extends StdCommand
 								M1.recoverCharStats();
 								M1.recoverPhyStats();
 								M1.setLocation(R);
-								M1.baseCharStats().getMyRace().setHeightWeight(M1.basePhyStats(),(char)M1.baseCharStats().getStat(CharStats.STAT_GENDER));
+								M1.baseCharStats().getMyRace().setHeightWeight(M1.basePhyStats(),M1.baseCharStats().reproductiveCode());
 								M1.basePhyStats().setAbility(CMProps.getMobHPBase());
 								M1.recoverCharStats();
 								M1.recoverPhyStats();
@@ -649,7 +653,7 @@ public class CharGen extends StdCommand
 								M1.recoverCharStats();
 								M1.recoverPhyStats();
 								M1.setLocation(R);
-								M1.baseCharStats().getMyRace().setHeightWeight(M1.basePhyStats(),(char)M1.baseCharStats().getStat(CharStats.STAT_GENDER));
+								M1.baseCharStats().getMyRace().setHeightWeight(M1.basePhyStats(),M1.baseCharStats().reproductiveCode());
 								M1.recoverCharStats();
 								M1.recoverPhyStats();
 								M1.recoverMaxState();
@@ -671,8 +675,17 @@ public class CharGen extends StdCommand
 								B1.setStat("PROF","true");
 								B1.setStat("LASTSPELL","");
 								B1.setStat("PRECAST","1");
-								for(int i=0;i<20;i++) // give some pre-cast ticks
-									M1.tick(M1,Tickable.TICKID_MOB);
+								for(int i=(10+(level/3));i>=0;i--) // give some pre-cast ticks
+								{
+									B1.tick(M1,Tickable.TICKID_MOB);
+									M1.resetToMaxState();
+								}
+								B1.setStat("PRECAST","999");
+								B1.setStat("LASTSPELL","");
+								B1.setStat("RECORD"," ");
+								M1.recoverMaxState();
+								M1.recoverCharStats();
+								M1.recoverPhyStats();
 							}
 							M1.resetToMaxState();
 							playerArmor=CMLib.combat().adjustedArmor(M1);
@@ -705,7 +718,7 @@ public class CharGen extends StdCommand
 								M2.recoverCharStats();
 								M2.recoverPhyStats();
 								M2.setLocation(R);
-								M2.baseCharStats().getMyRace().setHeightWeight(M2.basePhyStats(),(char)M2.baseCharStats().getStat(CharStats.STAT_GENDER));
+								M2.baseCharStats().getMyRace().setHeightWeight(M2.basePhyStats(),M2.baseCharStats().reproductiveCode());
 								M2.basePhyStats().setAbility(CMProps.getMobHPBase());
 								M2.recoverCharStats();
 								M2.recoverPhyStats();
@@ -762,7 +775,7 @@ public class CharGen extends StdCommand
 							if((sess!=null)&&(sess.isStopped() || sess.hotkey(1)=='x'))
 								aborted[0]=true;
 
-							//TODO: Buff period for the player
+							//Buff period for the player (already done above)
 							final Session sess=mob.session();
 							try
 							{
@@ -775,7 +788,7 @@ public class CharGen extends StdCommand
 									return;
 								}
 							}
-							catch(Exception e)
+							catch(final Exception e)
 							{
 							}
 							//chargen combat charclasses export=test.tab iterations=100 skiplevels=20 1 91
@@ -793,7 +806,7 @@ public class CharGen extends StdCommand
 									latch.countDown();
 									return;
 								}
-								
+
 								iterations++;
 								ALMOSTZEROSKILL=B1.getStat("LASTSPELL");
 								final int h1=M1.curState().getHitPoints();
@@ -803,9 +816,20 @@ public class CharGen extends StdCommand
 								l1=CMath.s_int(B2.getStat("PHYSDAMTAKEN"));
 								l2=CMath.s_int(B1.getStat("PHYSDAMTAKEN"));
 								if(l1>L1)
+								{
 									hits++;
+									final double pctDoneM1toM2=CMath.div(l1,M2.maxState().getHitPoints());
+									totalDamageM1toM2+=pctDoneM1toM2;
+									totalDamageM1Score+=pctDoneM1toM2;
+								}
 								if(l2>L2)
+								{
 									ishits++;
+									final double pctDoneM2toM1=CMath.div(l2,M1.maxState().getHitPoints());
+									totalDamageM2toM1+=pctDoneM2toM1;
+									totalDamageM1Score-=pctDoneM2toM1;
+								}
+								totalRounds+=1.0;
 								try
 								{
 									CMLib.commands().postStand(M1,true, false);
@@ -965,10 +989,9 @@ public class CharGen extends StdCommand
 						allSkills[charClassDex][level-levelStart][0]=bestIterSkill[0];
 						allSkills[charClassDex][level-levelStart][1]=bestHitSkill[0];
 						allSkills[charClassDex][level-levelStart][2]=bestSingleHitSkill[0];
-						if(mob.session()!=null)
-							mob.session().println("!");
 						if(fileExp==null)
 						{
+							mob.tell(L("SCORE    : @x1 vs @x2 = @x3",CMath.toPct(totalDamageM1toM2/totalRounds),CMath.toPct(totalDamageM2toM1/totalRounds),CMath.toPct(totalDamageM1Score/totalRounds)));
 							mob.tell(L("HITPOINTS: @x1 vs @x2",""+H1,""+H2));
 							mob.tell(L("QUICKEST : @x1: @x2",""+bestIterScore[0],bestIterSkill[0]));
 							mob.tell(L("MOST DAM : @x1: @x2",""+bestHitScore[0],bestHitSkill[0]));
@@ -998,15 +1021,15 @@ public class CharGen extends StdCommand
 							}
 							if(skillScores.size()>0)
 							{
-								StringBuilder top5=new StringBuilder("");
-								List<Pair<String,long[]>> top5v=new ArrayList<Pair<String,long[]>>();
+								final StringBuilder top5=new StringBuilder("");
+								final List<Pair<String,long[]>> top5v=new ArrayList<Pair<String,long[]>>();
 								for(final String key : skillScores.keySet())
 									top5v.add(new Pair<String,long[]>(key,skillScores.get(key)));
 								if(skillScores.containsKey("Spell_Lightning"))
 									mob.tell(""+skillScores.get("Spell_Lightning")[0]);
 								Collections.sort(top5v,new Comparator<Pair<String,long[]>>(){
 									@Override
-									public int compare(Pair<String, long[]> o1, Pair<String, long[]> o2)
+									public int compare(final Pair<String, long[]> o1, final Pair<String, long[]> o2)
 									{
 										if(o1.second[0] == o2.second[0])
 											return 0;
@@ -1034,7 +1057,7 @@ public class CharGen extends StdCommand
 			aborted[0]=true;
 			return;
 		}
-		mob.tell(L(""));
+		mob.tell("");
 		if(fileExp!=null)
 		{
 			final CMFile file=new CMFile(fileExp,mob);
@@ -1044,7 +1067,7 @@ public class CharGen extends StdCommand
 				final Vector<String> baseClasses=new Vector<String>();
 				for(int charClassDex=0;charClassDex<c.classSet.size();charClassDex++)
 				{
-					final CharClass C=(CharClass)c.classSet.get(charClassDex,1);
+					final CharClass C=c.classSet.get(charClassDex).first;
 					if(!baseClasses.contains(C.baseClass()))
 						baseClasses.add(C.baseClass());
 				}
@@ -1056,7 +1079,7 @@ public class CharGen extends StdCommand
 					buf.append("\n\r");
 					for(int charClassDex=0;charClassDex<c.classSet.size();charClassDex++)
 					{
-						final CharClass C=(CharClass)c.classSet.get(charClassDex,1);
+						final CharClass C=c.classSet.get(charClassDex).first;
 						buf.append(C.ID()).append("\t").append(C.baseClass()).append("\t");
 						for(int level=c.levelStart;level<=c.levelEnd;level+=c.skipLevels)
 						{
@@ -1078,7 +1101,7 @@ public class CharGen extends StdCommand
 						double ct=0;
 						for(int charClassDex=0;charClassDex<c.classSet.size();charClassDex++)
 						{
-							if(((CharClass)c.classSet.get(charClassDex,1)).baseClass().equalsIgnoreCase(baseClass))
+							if(c.classSet.get(charClassDex).first.baseClass().equalsIgnoreCase(baseClass))
 							{
 								ct+=1.0;
 								for(int level=c.levelStart;level<=c.levelEnd;level+=c.skipLevels)
@@ -1203,7 +1226,7 @@ public class CharGen extends StdCommand
 		case 6:
 			if(!CMParms.contains(RawMaterial.CODES.NAMES(), val.toUpperCase().trim()))
 			{
-				mob.tell(L("Illegal material/resource type '@x1', values are: "+CMParms.toListString(RawMaterial.CODES.NAMES()),val));
+				mob.tell(L("Illegal material/resource type '@x1', values are: @x2",val,CMParms.toListString(RawMaterial.CODES.NAMES())));
 				return false;
 			}
 			break;
@@ -1213,18 +1236,27 @@ public class CharGen extends StdCommand
 
 	protected void weaponRun(final MOB mob, final List<String> commands)
 	{
-		final String[] fields=new String[]{"class","type","level","hands","reach","weight","material"};
+		final String[] fields=new String[]
+		{
+				L("class"),
+				L("type"),
+				L("level"),
+				L("hands"),
+				L("reach"),
+				L("weight"),
+				L("material")
+		};
 		final String[] defaults=new String[]{"BLUNT","BASHING","1","1","0","6","IRON"};
-		final StringBuilder str=new StringBuilder("\n\rInputs:\n\r");
-		str.append("\n\r");
+		final StringBuilder listOfFieldsStr=new StringBuilder("\n\rInputs:\n\r");
+		listOfFieldsStr.append("\n\r");
 		for(int x=0;x<fields.length;x++)
-			str.append("\"").append(fields[x]).append("=").append(defaults[x]).append("\"\n\r");
-		str.append("\n\r")
-		   .append("Put numbers BEFORE field name to add more items like the base item.\n\r")
+			listOfFieldsStr.append("\"").append(fields[x]).append("=").append(defaults[x]).append("\"\n\r");
+		listOfFieldsStr.append("\n\r")
+		   .append(L("Put numbers BEFORE field name to add more items like the base item.\n\r"))
 		   .append("\n\r");
 		if(commands.size()==0)
 		{
-			mob.tell(L(str.toString()));
+			mob.tell(listOfFieldsStr.toString());
 			return;
 		}
 		final List<Map<String,String>> map=new ArrayList<Map<String,String>>();

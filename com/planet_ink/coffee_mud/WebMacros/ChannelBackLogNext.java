@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ public class ChannelBackLogNext extends StdWebMacro
 				List<ChannelsLibrary.ChannelMsg> que=(List<ChannelsLibrary.ChannelMsg>)httpReq.getRequestObjects().get("CHANNELMSG_"+channelInt+" QUE "+pageSize+" "+pageNum);
 				if(que==null)
 				{
-					final List<ChannelsLibrary.ChannelMsg> oldQue=CMLib.channels().getChannelQue(channelInt,pageNum * pageSize, pageSize);
+					final List<ChannelsLibrary.ChannelMsg> oldQue=CMLib.channels().getChannelQue(channelInt,pageNum * pageSize, pageSize, mob);
 					que=new ArrayList<ChannelsLibrary.ChannelMsg>(oldQue.size());
 					que.addAll(oldQue);
 					httpReq.getRequestObjects().put("CHANNELMSG_"+channelInt+" QUE "+pageSize+" "+pageNum,que);
@@ -116,7 +116,7 @@ public class ChannelBackLogNext extends StdWebMacro
 					elapsedTime=Math.round(elapsedTime/1000L)*1000L;
 					if(elapsedTime<0)
 					{
-						Log.errOut("Channel","Wierd elapsed time: now="+now+", then="+cmsg.sentTimeMillis());
+						Log.errOut("Channel","Weird elapsed time: now="+now+", then="+cmsg.sentTimeMillis());
 						elapsedTime=0;
 					}
 					str += " ("+CMLib.time().date2SmartEllapsedTime(elapsedTime,false)+" ago)";

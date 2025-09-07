@@ -14,7 +14,7 @@ import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -76,6 +76,12 @@ public class Sessions extends StdLibrary implements SessionsList
 	public Iterable<Session> localOnlineIterable()
 	{
 		return new FilteredIterable<Session>(all,localOnlineFilter);
+	}
+
+	@Override
+	public Iterable<Session> localOnlineIterableAllHosts()
+	{
+		return new FilteredIterable<Session>(allIterableAllHosts(),localOnlineFilter);
 	}
 
 	@Override
@@ -154,18 +160,18 @@ public class Sessions extends StdLibrary implements SessionsList
 	{
 		if(S==null)
 			return;
-		S.stopSession(true,true,false);
+		S.stopSession(true,true,true, false);
 		CMLib.s_sleep(100);
 		if(all.contains(S))
 		{
 			CMLib.s_sleep(100);
 			S.run();
 			CMLib.s_sleep(100);
-			S.stopSession(true,true,false);
+			S.stopSession(true,true,true, false);
 			CMLib.s_sleep(100);
 			if(all.contains(S))
 			{
-				S.stopSession(true,true,true);
+				S.stopSession(true,true,true, true);
 				remove(S);
 			}
 		}
@@ -179,16 +185,18 @@ public class Sessions extends StdLibrary implements SessionsList
 			final long time=System.currentTimeMillis()-S.getInputLoopTime();
 			if(time>0)
 			{
-				if((S.mob()!=null)||((S.getStatus())==Session.SessionStatus.ACCOUNT_MENU)||((S.getStatus())==Session.SessionStatus.CHARCREATE))
+				if((S.mob()!=null)
+					||((S.getStatus())==Session.SessionStatus.ACCOUNT_MENU)
+					||((S.getStatus())==Session.SessionStatus.CHARCREATE))
 				{
 					long check=60000;
 
-					if((S.getPreviousCMD()!=null)
-					&&(S.getPreviousCMD().size()>0)
-					&&(S.getPreviousCMD().get(0).equalsIgnoreCase("IMPORT")
-					   ||S.getPreviousCMD().get(0).equalsIgnoreCase("EXPORT")
-					   ||S.getPreviousCMD().get(0).equalsIgnoreCase("CHARGEN")
-					   ||S.getPreviousCMD().get(0).equalsIgnoreCase("MERGE")))
+					if((S.getHistory().size()>0)
+					&&(S.getHistory().getLast().size()>0)
+					&&(S.getHistory().getLast().get(0).equalsIgnoreCase("IMPORT")
+					   ||S.getHistory().getLast().get(0).equalsIgnoreCase("EXPORT")
+					   ||S.getHistory().getLast().get(0).equalsIgnoreCase("CHARGEN")
+					   ||S.getHistory().getLast().get(0).equalsIgnoreCase("MERGE")))
 						check=check*600;
 					else
 					if((S.mob()!=null)&&(CMSecurity.isAllowed(S.mob(),S.mob().location(),CMSecurity.SecFlag.CMDROOMS)))
@@ -200,8 +208,7 @@ public class Sessions extends StdLibrary implements SessionsList
 					if(time>(check*10))
 					{
 						final String roomID=S.mob()!=null?CMLib.map().getExtendedRoomID(S.mob().location()):"";
-						if((S.getPreviousCMD()==null)
-						||(S.getPreviousCMD().size()==0)
+						if((S.getHistory().size()==0)
 						||(S.getStatus()==Session.SessionStatus.LOGIN)
 						||(S.getStatus()==Session.SessionStatus.ACCOUNT_MENU)
 						||(S.getStatus()==Session.SessionStatus.HANDSHAKE_MCCP)
@@ -210,10 +217,12 @@ public class Sessions extends StdLibrary implements SessionsList
 							Log.sysOut(serviceClient.getName(),"Kicking out: "+((S.mob()==null)?"Unknown":S.mob().Name())+", idle: "+CMLib.time().date2EllapsedTime(time, TimeUnit.MILLISECONDS, true)+", status: "+S.getStatus());
 						else
 						{
-							Log.errOut(serviceClient.getName(),"KILLING DEAD Session: "+((S.mob()==null)?"Unknown":S.mob().Name())+" ("+roomID+"), out for "+CMLib.time().date2EllapsedTime(time, TimeUnit.MILLISECONDS, true));
-							Log.errOut(serviceClient.getName(),"STATUS  was :"+S.getStatus()+", LASTCMD was :"+((S.getPreviousCMD()!=null)?S.getPreviousCMD().toString():""));
+							Log.errOut(serviceClient.getName(),"KILLING DEAD Session: "+((S.mob()==null)?"Unknown":S.mob().Name())
+									+" ("+roomID+"), out for "+CMLib.time().date2EllapsedTime(time, TimeUnit.MILLISECONDS, true));
+							Log.errOut(serviceClient.getName(),"STATUS  was :"+S.getStatus()+", LASTCMD was :"
+									+((S.getHistory().size()>0)?CMParms.combineQuoted(S.getHistory().getLast(),0):""));
 							if(S instanceof Thread)
-								CMLib.threads().debugDumpStack("Sessions",(Thread)S);
+								CMLib.threads().dumpDebugStack("Sessions",(Thread)S);
 						}
 						setThreadStatus(serviceClient,"killing session ");
 						stopSessionAtAllCosts(S);
@@ -225,13 +234,15 @@ public class Sessions extends StdLibrary implements SessionsList
 						if((S.mob()==null)||(S.mob().Name()==null)||(S.mob().Name().length()==0))
 							stopSessionAtAllCosts(S);
 						else
-						if((S.getPreviousCMD()!=null)&&(S.getPreviousCMD().size()>0))
 						{
 							final String roomID=S.mob()!=null?CMLib.map().getExtendedRoomID(S.mob().location()):"";
 							final String statusMsg;
-							if(((S.getStatus())!=Session.SessionStatus.LOGIN)
-							||((S.getPreviousCMD()!=null)&&(S.getPreviousCMD().size()>0)))
-								statusMsg = "STATUS  is :"+S.getStatus()+", LASTCMD was :"+((S.getPreviousCMD()!=null)?S.getPreviousCMD().toString():"");
+							if((S.getStatus() != Session.SessionStatus.LOGIN)
+							||(S.getHistory().size()>0))
+							{
+								statusMsg = "STATUS is :"+S.getStatus()+", LASTCMD was :"
+										+((S.getHistory().size()>0)?CMParms.combineQuoted(S.getHistory().getLast(),0):"");
+							}
 							else
 								statusMsg = "STATUS  is :"+S.getStatus()+", no last command available.";
 							if((S.isLockedUpWriting())
@@ -257,13 +268,16 @@ public class Sessions extends StdLibrary implements SessionsList
 					{
 						Log.errOut(serviceClient.getName(),"KILLING DEAD Session: "+((S.mob()==null)?"Unknown":S.mob().Name())+" ("+roomID+"), out for "+CMLib.time().date2EllapsedTime(time, TimeUnit.MILLISECONDS, true));
 						if(S instanceof Thread)
-							CMLib.threads().debugDumpStack("Sessions",(Thread)S);
+							CMLib.threads().dumpDebugStack("Sessions",(Thread)S);
 					}
 					if(S.getStatus()!=Session.SessionStatus.HANDSHAKE_MCCP)
 					{
 						if(((S.getStatus())!=Session.SessionStatus.LOGIN)
-						||((S.getPreviousCMD()!=null)&&(S.getPreviousCMD().size()>0)))
-							Log.errOut(serviceClient.getName(),"STATUS was :"+S.getStatus()+", LASTCMD was :"+((S.getPreviousCMD()!=null)?S.getPreviousCMD().toString():""));
+						||(S.getHistory().size()>0))
+						{
+							Log.errOut(serviceClient.getName(),"STATUS was :"+S.getStatus()+", LASTCMD was :"
+									+((S.getHistory().size()>0)?CMParms.combineQuoted(S.getHistory().getLast(),0):""));
+						}
 					}
 					setThreadStatus(serviceClient,"killing session ");
 					stopSessionAtAllCosts(S);
@@ -276,6 +290,8 @@ public class Sessions extends StdLibrary implements SessionsList
 	@Override
 	public boolean activate()
 	{
+		if(!super.activate())
+			return false;
 		nextSweepTime = System.currentTimeMillis()+MudHost.TIME_UTILTHREAD_SLEEP;
 		if(serviceClient==null)
 		{
@@ -333,16 +349,16 @@ public class Sessions extends StdLibrary implements SessionsList
 	}
 
 	@Override
-	public MOB findPlayerOnline(final String srchStr, final boolean exactOnly)
+	public MOB findCharacterOnline(final String srchStr, final boolean exactOnly)
 	{
-		final Session S=findPlayerSessionOnline(srchStr, exactOnly);
+		final Session S=findCharacterSessionOnline(srchStr, exactOnly);
 		if(S==null)
 			return null;
 		return S.mob();
 	}
 
 	@Override
-	public Session findPlayerSessionOnline(final String srchStr, final boolean exactOnly)
+	public Session findCharacterSessionOnline(final String srchStr, final boolean exactOnly)
 	{
 		// then look for players
 		for(final Session S : localOnlineIterable())

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -157,8 +157,8 @@ public class Thief_Forgery extends ThiefSkill
 		}
 		if(newName.length()==0)
 		{
-			final MoneyLibrary.MoneyDenomination[] DV=CMLib.beanCounter().getCurrencySet(CMLib.beanCounter().getCurrency(mob));
-			for (final MoneyDenomination element : DV)
+			final MoneyLibrary.MoneyDefinition DV=CMLib.beanCounter().getCurrencySet(CMLib.beanCounter().getCurrency(mob));
+			for (final MoneyDenomination element : DV.denominations())
 			{
 				final Item note=CMLib.beanCounter().makeBestCurrency(CMLib.beanCounter().getCurrency(mob), element.value());
 				if((note!=null)&&(CMLib.english().containsString(note.name(),forgeWhat)))
@@ -168,6 +168,31 @@ public class Thief_Forgery extends ThiefSkill
 					newDescription=note.description();
 					newSecretIdentity=note.rawSecretIdentity();
 					break;
+				}
+			}
+		}
+		if(newName.length()==0)
+		{
+			final Item forgeI=mob.findItem(null, forgeWhat);
+			if((forgeI!=null)
+			&&(CMLib.flags().canBeSeenBy(target,mob))
+			&&(CMLib.ableParms().getCraftingBrand(forgeI).length()>0))
+			{
+				final RecipeDriven RA=(RecipeDriven)CMClass.getAbility("Painting");
+				boolean found=false;
+				for(final List<String> recipe : RA.fetchRecipes())
+				{
+					final String name = CMLib.english().startWithAorAn(
+							recipe.get(RecipeDriven.RCP_FINALNAME)
+						) + L(" of ");
+					if(forgeI.Name().startsWith(name))
+						found=true;
+				}
+				if(found || CMStrings.containsWord(forgeI.Name(), L("painting")))
+				{
+					newName=forgeI.name();
+					newDisplay=forgeI.displayText();
+					newDescription=forgeI.description();
 				}
 			}
 		}

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ public class Spell_Shockshield extends Spell
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_AIRBASED;
+		return Ability.FLAG_ELECTRICBASED;
 	}
 	final static String msgStr=CMLib.lang().L("The shock shield around <S-NAME> sparks and <DAMAGES> <T-NAME>!");
 	protected long oncePerTickTime=0;
@@ -123,7 +123,7 @@ public class Spell_Shockshield extends Spell
 			{
 				if((CMLib.dice().rollPercentage()>(source.charStats().getStat(CharStats.STAT_DEXTERITY)*3)))
 				{
-					final CMMsg msg2=CMClass.getMsg(mob,source,this,somanticCastCode(mob,source,true),null);
+					final CMMsg msg2=CMClass.getMsg(mob,source,this,somaticCastCode(mob,source,true),null);
 					if(source.location().okMessage(source,msg2))
 					{
 						source.location().send(mob,msg2);
@@ -131,8 +131,12 @@ public class Spell_Shockshield extends Spell
 							invoker=source;
 						if(msg2.value()<=0)
 						{
-							final int damage = CMLib.dice().roll(1,(int)Math.round((invoker.phyStats().level()+super.getXLEVELLevel(invoker())+(2.0*super.getX1Level(invoker())))/3.0),1);
-							CMLib.combat().postDamage(mob,source,this,damage,CMMsg.MASK_ALWAYS|CMMsg.MASK_MALICIOUS|CMMsg.TYP_ELECTRIC,Weapon.TYPE_STRIKING,msgStr);
+							final int invokerAdjustedLevel=super.adjustedLevel(invoker, 0);
+							final int levelCap=mob.phyStats().level()+CMProps.getIntVar(CMProps.Int.EXPRATE);
+							final int invokerLevel=invokerAdjustedLevel>levelCap?levelCap:invokerAdjustedLevel;
+							final int damage = CMLib.dice().roll(1,(int)Math.round((invokerLevel+(2.0*super.getX1Level(invoker())))/3.0),1);
+							CMLib.combat().postDamage(mob,source,this,damage,CMMsg.MASK_ALWAYS|CMMsg.MASK_MALICIOUS|CMMsg.TYP_ELECTRIC,
+									Weapon.TYPE_STRIKING,msgStr);
 						}
 					}
 					oncePerTickTime=mob.lastTickedDateTime();
@@ -167,7 +171,10 @@ public class Spell_Shockshield extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),L((auto?"":"^S<S-NAME> incant(s) and wave(s) <S-HIS-HER> arms.  ")+"A field of sparks erupt(s) around <T-NAME>!^?")+CMLib.protocol().msp("lightning.wav",10));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),
+					(auto?L("A field of sparks erupt(s) around <T-NAME>!^?"):
+						L("^S<S-NAME> incant(s) and wave(s) <S-HIS-HER> arms.  A field of sparks erupt(s) around <T-NAME>!^?"))
+					+CMLib.protocol().msp("lightning.wav",10));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

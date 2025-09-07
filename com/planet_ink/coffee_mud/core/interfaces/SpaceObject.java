@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -40,18 +40,19 @@ public interface SpaceObject extends Environmental, BoundedObject
 	 * The current absolute coordinates of  the object
 	 * @return 3 dimensional array of the coordinates
 	 */
-	public long[] coordinates();
+	public Coord3D coordinates();
 
 	/**
 	 * Sets the current absolute coordinates of the object
 	 * @param coords 3  dimensional array of the coordinates in space
 	 */
-	public void setCoords(long[] coords);
+	public void setCoords(Coord3D coords);
 
 	/**
 	 * The current radius of  the object
 	 * @return the radius, in decameters
 	 */
+	@Override
 	public long radius();
 
 	/**
@@ -64,7 +65,7 @@ public interface SpaceObject extends Environmental, BoundedObject
 	 * The direction of travel of this object in radians.
 	 * @return 2 dimensional array for the direction of movement
 	 */
-	public double[] direction();
+	public Dir3D direction();
 
 	/**
 	 * Sets the direction of travel of this object in radians.
@@ -72,7 +73,7 @@ public interface SpaceObject extends Environmental, BoundedObject
 	 * direction[1] less than or equal to 2PI
 	 * @param dir 2 dimensional array for the direction of movement
 	 */
-	public void setDirection(double[] dir);
+	public void setDirection(Dir3D dir);
 
 	/**
 	 * The speed of the object through space
@@ -120,6 +121,34 @@ public interface SpaceObject extends Environmental, BoundedObject
 	public long getMass();
 
 	/**
+	 * A GateWay is a type of space object that connects to another
+	 * space object as a gateway or wormhole.  These are accessed
+	 * using the knownTarget field.
+	 *
+	 *  @see SpaceObject#knownTarget()
+	 *
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public static interface SpaceGateway extends SpaceObject, ShipDirectional
+	{
+	}
+
+	/**
+	 * Acting like an internal reference, a SensedSpaceObject is a reference (or
+	 * sensory echo) of an actual SpaceObject.
+	 *
+	 * @see Environmental
+	 * @see SpaceObject
+	 *
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public static interface SensedSpaceObject extends SpaceObject, SensedEnvironmental
+	{
+	}
+
+	/**
 	 * Some distance constants.  Not really proper enumerations, but
 	 * it's a nice way to create custom objects cleanly.
 	 * @author Bo Zimmerman
@@ -127,6 +156,7 @@ public interface SpaceObject extends Environmental, BoundedObject
 	public static enum Distance
 	{
 		Decameter("dm",1L),
+		Hectometer("hm",10L),
 		Kilometer("km",100L),
 		Megameter("Mm",100000L),
 		Gigameter("Gm",100000000L),
@@ -142,6 +172,7 @@ public interface SpaceObject extends Environmental, BoundedObject
 		Parsec("p",3085677580000000L),
 		GalaxyRadius("xr",946073047258080L*1000L),
 		MoonRadius("mr",173740L),
+		AsteroidRadius("mr",32900L),
 		PlanetRadius("pr",639875L),
 		SaturnRadius("sr",6026800L),
 		StarGRadius("gr",69550000L),
@@ -208,7 +239,7 @@ public interface SpaceObject extends Environmental, BoundedObject
 	/** constant useful for multiplying by radius -- this one to find the orbiting radius*/
 	public static final double MULTIPLIER_ORBITING_RADIUS_MAX=1.031;
 	/** multiplying by radius -- this one to find the gravitational pull radius*/
-	public static final double MULTIPLIER_GRAVITY_EFFECT_RADIUS=1.036;
+	public static final double MULTIPLIER_GRAVITY_EFFECT_RADIUS=1.037;
 
 	/** multiplier by radius to get planets mass -- only off by 15 zeroes or so 9333072865794100410 is the actual number*/
 	public static final long MULTIPLIER_PLANET_MASS=933L;
@@ -223,7 +254,7 @@ public interface SpaceObject extends Environmental, BoundedObject
 	/** acceleration at which you are happy, in decameters/s */
 	public static final long ACCELERATION_G=1;
 	/** acceleration at which you pass out, in decameters/s */
-	public static final long ACCELERATION_PASSOUT=ACCELERATION_G*5;
+	public static final long ACCELERATION_ROLLARCOASTER=ACCELERATION_G*5;
 	/** acceleration in atmosphere, in decameters/s */
 	public static final long ACCELERATION_TYPICALROCKET=ACCELERATION_G*2;
 	/** acceleration in space, in decameters/s */

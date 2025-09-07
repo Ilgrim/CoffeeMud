@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ public class Prop_Retainable extends Property
 		}
 		return 0;
 	}
-	
+
 	private long findLong(final String str)
 	{
 		for(final String s : CMParms.parse(str))
@@ -86,9 +86,9 @@ public class Prop_Retainable extends Property
 		}
 		return 0;
 	}
-	
+
 	@Override
-	public void setMiscText(String text)
+	public void setMiscText(final String text)
 	{
 		super.setMiscText(text);
 		persist=false;
@@ -123,7 +123,7 @@ public class Prop_Retainable extends Property
 			miscText=payAmountPerPayPeriod+";"+payPeriodLengthInMudDays+";"+lastPayDayTimestamp;
 		return miscText;
 	}
-	
+
 	public void quit(final MOB mob, final String msg)
 	{
 	}
@@ -166,31 +166,25 @@ public class Prop_Retainable extends Property
 					{
 						lastPayDayTimestamp=System.currentTimeMillis();
 						final LandTitle t=CMLib.law().getLandTitle(mob.location());
-						String owner="";
 						if(mob.amFollowing()!=null)
 						{
-							owner=mob.amFollowing().Name();
 							if((t!=null)
 							&&(t.getOwnerName().length()>0)
-							&&(!t.getOwnerName().equalsIgnoreCase(mob.amFollowing().Name()))
-							&&(mob.amFollowing().getClanRole(t.getOwnerName())==null))
+							&&(!CMLib.law().doesHavePriviledgesHere(mob.amFollowing(), mob.location())))
 							{
 								CMLib.commands().postSay(mob,null,L("Hey, I'm not a crook!"),false,false);
 								mob.setFollowing(null);
-								CMLib.tracking().wanderAway(mob,true,false);
+								CMLib.tracking().wanderAway(mob,false,false);
 								mob.destroy();
 								return false;
 							}
 						}
-						else
-						if((t!=null)&&(t.getOwnerName().length()>0))
-							owner=t.getOwnerName();
-
+						final String owner=CMLib.law().getPropertyOwnerName(mob.location());
 						if(owner.length()==0)
 						{
 							CMLib.commands().postSay(mob,null,L("Argh! I quit!"),false,false);
 							mob.setFollowing(null);
-							CMLib.tracking().wanderAway(mob,true,false);
+							CMLib.tracking().wanderAway(mob,false,false);
 							mob.destroy();
 							return false;
 						}
@@ -204,7 +198,7 @@ public class Prop_Retainable extends Property
 						{
 							CMLib.commands().postSay(mob,null,L("I don't work for free!  I quit!"),false,false);
 							mob.setFollowing(null);
-							CMLib.tracking().wanderAway(mob,true,false);
+							CMLib.tracking().wanderAway(mob,false,false);
 							mob.destroy();
 							return false;
 						}

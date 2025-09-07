@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,6 +70,12 @@ public class Spell_DetectWater extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	protected int canAffectCode()
 	{
 		return CAN_MOBS;
@@ -103,7 +109,7 @@ public class Spell_DetectWater extends Spell
 		if(I.container()==container)
 		{
 			if(((I instanceof Drink))
-			&&(((Drink)I).containsDrink())
+			&&(((Drink)I).containsLiquid())
 			&&(CMLib.flags().canBeSeenBy(I,mob)))
 				msg.append(L("@x1 contains some sort of liquid.\n\r",I.name(mob)));
 		}
@@ -237,9 +243,9 @@ public class Spell_DetectWater extends Spell
 		if((dirs.length()!=0)||(last.length()!=0))
 		{
 			if(dirs.length()==0)
-				mob.tell(L("Water smells are coming from @x1.",last));
+				commonTelL(mob,"Water smells are coming from @x1.",last);
 			else
-				mob.tell(L("Water smells are coming from @x1, and @x2.",dirs.substring(2),last));
+				commonTelL(mob,"Water smells are coming from @x1, and @x2.",dirs.substring(2),last);
 		}
 	}
 
@@ -308,7 +314,7 @@ public class Spell_DetectWater extends Spell
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already detecting liquid things."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already detecting liquid things."));
 			return false;
 		}
 

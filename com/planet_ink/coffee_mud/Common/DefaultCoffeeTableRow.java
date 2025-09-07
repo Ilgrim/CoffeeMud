@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,6 +59,8 @@ public class DefaultCoffeeTableRow implements CoffeeTableRow
 	public long	highestOnline		= 0;
 	public long	numberOnlineTotal	= 0;
 	public long	numberOnlineCounter	= 0;
+	public long	highestPOnline		= 0;
+	public long	numberPOnlineTotal	= 0;
 	public long	startTime			= 0;
 	public long	endTime				= 0;
 
@@ -89,13 +91,13 @@ public class DefaultCoffeeTableRow implements CoffeeTableRow
 	@Override
 	public long highestOnline()
 	{
-		return highestOnline;
+		return highestPOnline;
 	}
 
 	@Override
 	public long numberOnlineTotal()
 	{
-		return numberOnlineTotal;
+		return numberPOnlineTotal;
 	}
 
 	@Override
@@ -105,15 +107,29 @@ public class DefaultCoffeeTableRow implements CoffeeTableRow
 	}
 
 	@Override
+	public long highestCharsOnline()
+	{
+		return highestOnline;
+	}
+
+	@Override
+	public long numberCharsOnlineTotal()
+	{
+		return numberOnlineTotal;
+	}
+
+	@Override
 	public String data()
 	{
-		final StringBuffer data=new StringBuffer("");
+		final StringBuilder data=new StringBuilder("");
 		final XMLLibrary xml=CMLib.xml();
 		if(xml != null)
 		{
 			data.append(xml.convertXMLtoTag("HIGH",highestOnline));
 			data.append(xml.convertXMLtoTag("NUMONLINE",numberOnlineTotal));
 			data.append(xml.convertXMLtoTag("NUMCOUNT",numberOnlineCounter));
+			data.append(xml.convertXMLtoTag("HIGHP",highestPOnline));
+			data.append(xml.convertXMLtoTag("NUMPONLINE",numberPOnlineTotal));
 			data.append("<STATS>");
 			final Map<String,long[]> stats=this.stats;
 			if(stats == null)
@@ -122,7 +138,7 @@ public class DefaultCoffeeTableRow implements CoffeeTableRow
 			{
 				final String s=e.next();
 				final long[] l=stats.get(s);
-				data.append(xml.convertXMLtoTag(s,CMParms.toListString(l)));
+				data.append(xml.convertXMLtoTag(s,CMParms.toTightListString(l)));
 			}
 			data.append("</STATS>");
 		}
@@ -172,21 +188,52 @@ public class DefaultCoffeeTableRow implements CoffeeTableRow
 	@Override
 	public void bumpVal(final CMObject E, final int type)
 	{
-		if((E instanceof MOB)&&(((MOB)E).isMonster()))
+		if((E instanceof MOB)&&(!((MOB)E).isPlayer()))
 			return;
 
 		if(type==STAT_SPECIAL_NUMONLINE)
 		{
 			int ct=0;
+			int pct=0;
+			final boolean useAcc = CMProps.getIntVar(CMProps.Int.COMMONACCOUNTSYSTEM)<1;
+			final Set<String> A=new HashSet<String>();
 			for(final Session S : CMLib.sessions().localOnlineIterable())
 			{
 				if(S!=null)
+				{
 					ct++;
+					if(useAcc)
+					{
+						final MOB M=S.mob();
+						final PlayerStats ps = (M!=null)?M.playerStats():null;
+						final PlayerAccount pa = (ps!=null)?ps.getAccount():null;
+						if((pa!=null)
+						&&(!A.contains(pa.getAccountName())))
+						{
+							A.add(pa.getAccountName());
+							pct++;
+						}
+					}
+					else
+					{
+						final String addr=S.getAddress();
+						if((addr!=null)
+						&&(addr.length()>0)
+						&&(!A.contains(addr)))
+						{
+							A.add(addr);
+							pct++;
+						}
+					}
+				}
 			}
 			numberOnlineCounter++;
 			numberOnlineTotal+=ct;
 			if(ct>highestOnline)
 				highestOnline=ct;
+			numberPOnlineTotal+=pct;
+			if(pct>highestPOnline)
+				highestPOnline=pct;
 			return;
 		}
 		// classes, races, levels, genders, faiths, clanned, grouped
@@ -195,7 +242,8 @@ public class DefaultCoffeeTableRow implements CoffeeTableRow
 			final MOB mob=(MOB)E;
 			final Room R=mob.location();
 			Area A=(R==null) ? null : R.getArea();
-			if((A!=null) && (CMath.bset(A.flags(),Area.FLAG_INSTANCE_CHILD)))
+			if((A!=null)
+			&&(CMath.bset(A.flags(),Area.FLAG_INSTANCE_CHILD)))
 				A=CMLib.map().getModelArea(A);
 			if(A!=null)
 				bumpVal("X"+tagFix(A.Name()),type);
@@ -204,7 +252,7 @@ public class DefaultCoffeeTableRow implements CoffeeTableRow
 			bumpVal("R"+tagFix(mob.baseCharStats().getMyRace().ID()),type);
 			bumpVal("L"+mob.basePhyStats().level(),type);
 			bumpVal("G"+((char)mob.baseCharStats().getStat(CharStats.STAT_GENDER)),type);
-			bumpVal("F"+tagFix(mob.getWorshipCharID()),type);
+			bumpVal("F"+tagFix(mob.charStats().getWorshipCharID()),type);
 			for(final Pair<Clan,Integer> p : mob.clans())
 				bumpVal("Q"+tagFix(p.first.clanID()),type);
 			final Set<MOB> H=mob.getGroupMembers(new HashSet<MOB>());
@@ -236,17 +284,20 @@ public class DefaultCoffeeTableRow implements CoffeeTableRow
 	@Override
 	public void populate(final long start, final long end, final String data)
 	{
+		final XMLLibrary xmlLib = CMLib.xml();
 		synchronized(stats)
 		{
 			startTime=start;
 			endTime=end;
-			final List<XMLLibrary.XMLTag> all=CMLib.xml().parseAllXML(data);
+			final List<XMLLibrary.XMLTag> all=xmlLib.parseAllXML(data);
 			if((all==null)||(all.size()==0))
 				return;
-			highestOnline=CMLib.xml().getIntFromPieces(all,"HIGH");
-			numberOnlineTotal=CMLib.xml().getIntFromPieces(all,"NUMONLINE");
-			numberOnlineCounter=CMLib.xml().getIntFromPieces(all,"NUMCOUNT");
-			final XMLTag X=CMLib.xml().getPieceFromPieces(all,"STATS");
+			highestOnline=xmlLib.getIntFromPieces(all,"HIGH");
+			numberOnlineTotal=xmlLib.getIntFromPieces(all,"NUMONLINE");
+			highestPOnline=xmlLib.getIntFromPieces(all,"HIGHP");
+			numberPOnlineTotal=xmlLib.getIntFromPieces(all,"NUMPONLINE");
+			numberOnlineCounter=xmlLib.getIntFromPieces(all,"NUMCOUNT");
+			final XMLTag X=xmlLib.getPieceFromPieces(all,"STATS");
 			if((X==null)||(X.contents()==null)||(X.contents().size()==0)||(!X.tag().equals("STATS")))
 				return;
 			stats.clear();
@@ -278,7 +329,7 @@ public class DefaultCoffeeTableRow implements CoffeeTableRow
 	{
 		try
 		{
-			return getClass().newInstance();
+			return getClass().getDeclaredConstructor().newInstance();
 		}
 		catch (final Exception e)
 		{

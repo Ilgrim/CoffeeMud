@@ -1,7 +1,7 @@
 package com.planet_ink.coffee_mud.core.collections;
 
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ public class KeyPairWildSearchTree<V> extends KeyPairSearchTree<V>
 	 * @return the value
 	 */
 	@Override
-    public Pair<String,V> findLongestValue(final String fullStr)
+	public Pair<String,V> findLongestValue(final String fullStr)
 	{
 		return findLongestValueWithWildcards(fullStr,root,new int[]{0});
 	}

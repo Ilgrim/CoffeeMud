@@ -4,7 +4,7 @@ import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftParms;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
-import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.ItemKeyPair;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftedItem;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ public class Dissertating extends CraftingSkill
 	}
 
 	@Override
-	protected ExpertiseLibrary.SkillCostDefinition getRawTrainingCost()
+	protected CostDef getRawTrainingCost()
 	{
 		return CMProps.getNormalSkillGainCost(ID());
 	}
@@ -76,7 +76,7 @@ public class Dissertating extends CraftingSkill
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			if((buildingI==null)
 			||(theSpell==null))
@@ -89,7 +89,7 @@ public class Dissertating extends CraftingSkill
 	}
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return "";
 	}
@@ -111,7 +111,7 @@ public class Dissertating extends CraftingSkill
 				if((buildingI!=null)&&(!aborted))
 				{
 					if(messedUp)
-						commonTell(mob,L("You got writer`s block! Your dissertation on @x1 fails!",buildingI.name()));
+						commonTelL(mob,"You got writer`s block! Your dissertation on @x1 fails!",buildingI.name());
 					else
 					{
 						final int theSpellLevel=spellLevel(mob,theSpell);
@@ -191,7 +191,7 @@ public class Dissertating extends CraftingSkill
 	}
 
 	@Override
-	public ItemKeyPair craftItem(final String recipe)
+	public CraftedItem craftItem(final String recipe)
 	{
 		return craftItem(recipe, 0, false, false);
 	}
@@ -268,12 +268,20 @@ public class Dissertating extends CraftingSkill
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new Vector<Item>(0));
+		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new ArrayList<CraftedItem>(0));
+	}
+
+	private int calculateDuration(final MOB mob, final Ability theSpell)
+	{
+		int duration=getDuration(100+(CMLib.ableMapper().qualifyingLevel(mob,theSpell)*10),mob,CMLib.ableMapper().lowestQualifyingLevel(theSpell.ID()),10);
+		if(duration<10)
+			duration=10;
+		return duration;
 	}
 
 	@Override
 	protected boolean autoGenInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto,
-								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<Item> crafted)
+								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<CraftedItem> crafted)
 	{
 		if(super.checkStop(mob, commands))
 			return true;
@@ -285,7 +293,8 @@ public class Dissertating extends CraftingSkill
 				return false;
 			final int level=spellLevel(mob,theSpell);
 			buildingI=buildScrollItem(null, theSpell, level);
-			crafted.add(buildingI);
+			final int duration=calculateDuration(mob,theSpell);
+			crafted.add(new CraftedItem(buildingI,null,duration));
 			return true;
 		}
 		randomRecipeFix(mob,addRecipes(mob,loadRecipes()),commands,0);
@@ -308,7 +317,7 @@ public class Dissertating extends CraftingSkill
 				return false;
 			if(!mob.isMine(buildingI))
 			{
-				commonTell(mob,L("You'll need to pick that up first."));
+				commonTelL(mob,"You'll need to pick that up first.");
 				return false;
 			}
 			if((((buildingI.material()&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_PAPER))
@@ -316,28 +325,28 @@ public class Dissertating extends CraftingSkill
 			&&(buildingI.material()!=RawMaterial.RESOURCE_HEMP)
 			&&(buildingI.material() != RawMaterial.RESOURCE_SILK))
 			{
-				commonTell(mob,L("@x1 isn't even made of paper or silk!",buildingI.name(mob)));
+				commonTelL(mob,"@x1 isn't even made of paper or silk!",buildingI.name(mob));
 				return false;
 			}
 			if(((buildingI instanceof MiscMagic))
-			||(buildingI instanceof Recipe)
+			||(buildingI instanceof Recipes)
 			||(!buildingI.isGeneric()))
 			{
-				commonTell(mob,L("There's can't write a dissertation on @x1!",buildingI.name(mob)));
+				commonTelL(mob,"There's can't write a dissertation on @x1!",buildingI.name(mob));
 				return false;
 			}
 			if(buildingI instanceof Scroll)
 			{
 				if(((Scroll)buildingI).getSpells().size()>0)
 				{
-					commonTell(mob,L("You can only write on blank scrolls."));
+					commonTelL(mob,"You can only write on blank scrolls.");
 					return false;
 				}
 			}
 			else
 			if(buildingI.readableText().length()>0)
 			{
-				commonTell(mob,L("You can only write on blank paper."));
+				commonTelL(mob,"You can only write on blank paper.");
 				return false;
 			}
 			String recipeName=CMParms.combine(commands,0);
@@ -351,11 +360,19 @@ public class Dissertating extends CraftingSkill
 				if((A!=null)
 				&&(A.name().equalsIgnoreCase(recipeName)))
 				{
+					if((A instanceof ArchonOnly)
+					||((A.classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_ARCHON)
+					||(!CMLib.ableMapper().qualifiesByAnyCharClass(A.ID())))
+					{
+						commonTelL(mob,"You can't write a dissertation on '@x1'.",recipeName);
+						return false;
+					}
+					else
 					if(xlevel(mob)>=spellLevel(mob,A))
 						theSpell=A;
 					else
 					{
-						commonTell(mob,L("You aren't ready to write a dissertation on '@x1' yet.",recipeName));
+						commonTelL(mob,"You aren't ready to write a dissertation on '@x1' yet.",recipeName);
 						return false;
 					}
 				}
@@ -374,19 +391,19 @@ public class Dissertating extends CraftingSkill
 						return false;
 					if(!mob.isMine(scrollFromI))
 					{
-						commonTell(mob,L("You'll need to pick that up first."));
+						commonTelL(mob,"You'll need to pick that up first.");
 						return false;
 					}
 					if((!(scrollFromI instanceof Scroll))
 					||(scrollFromI instanceof MiscMagic))
 					{
-						commonTell(mob,L("@x1 is not a scroll!",scrollFromI.name(mob)));
+						commonTelL(mob,"@x1 is not a scroll!",scrollFromI.name(mob));
 						return false;
 					}
 					if((!(scrollFromI instanceof Scroll))
 					||(((Scroll)scrollFromI).getSpells().size()==0))
 					{
-						commonTell(mob,L("@x1 has nothing on it!",scrollFromI.name(mob)));
+						commonTelL(mob,"@x1 has nothing on it!",scrollFromI.name(mob));
 						return false;
 					}
 					ingredient="";
@@ -399,14 +416,14 @@ public class Dissertating extends CraftingSkill
 								theSpell=A;
 							else
 							{
-								commonTell(mob,L("You aren't ready to write a dissertation on '@x1' yet.",recipeName));
+								commonTelL(mob,"You aren't ready to write a dissertation on '@x1' yet.",recipeName);
 								return false;
 							}
 						}
 					}
 					if(theSpell==null)
 					{
-						commonTell(mob,L("You can't copy the dissertation on '@x1' from the scroll @x2!",recipeName,scrollFromI.name(mob)));
+						commonTelL(mob,"You can't copy the dissertation on '@x1' from the scroll @x2!",recipeName,scrollFromI.name(mob));
 						return false;
 					}
 					fromTheScroll=(Scroll)scrollFromI;
@@ -414,7 +431,7 @@ public class Dissertating extends CraftingSkill
 				else
 				if(theSpell==null)
 				{
-					commonTell(mob,L("You don't know how to write a dissertation on '@x1'.  Try \"SKILLS\" for a list.",recipeName));
+					commonTelL(mob,"You don't know how to write a dissertation on '@x1'.  Try \"SKILLS\" for a list.",recipeName);
 					return false;
 				}
 				manaToLose+=spellLevel(mob,theSpell)*10;
@@ -449,7 +466,7 @@ public class Dissertating extends CraftingSkill
 
 			if(mob.curState().getMana()<manaToLose)
 			{
-				commonTell(mob,L("You need at least @x1 mana to accomplish that.",""+manaToLose));
+				commonTelL(mob,"You need at least @x1 mana to accomplish that.",""+manaToLose);
 			}
 
 			if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
@@ -464,13 +481,11 @@ public class Dissertating extends CraftingSkill
 			if(experienceToLose > 0)
 			{
 				experienceToLose=getXPCOSTAdjustment(mob,experienceToLose);
-				experienceToLose=-CMLib.leveler().postExperience(mob,null,null,-experienceToLose,false);
-				commonTell(mob,L("You lose @x1 experience points for the effort.",""+experienceToLose));
+				experienceToLose=-CMLib.leveler().postExperience(mob,"ABILITY:"+ID(),null,null,-experienceToLose, false);
+				commonTelL(mob,"You lose @x1 experience points for the effort.",""+experienceToLose);
 			}
 
-			int duration=getDuration(100+(CMLib.ableMapper().qualifyingLevel(mob,theSpell)*10),mob,CMLib.ableMapper().lowestQualifyingLevel(theSpell.ID()),10);
-			if(duration<10)
-				duration=10;
+			final int duration=calculateDuration(mob,theSpell);
 			messedUp=!proficiencyCheck(mob,0,auto);
 
 			String msgStr;

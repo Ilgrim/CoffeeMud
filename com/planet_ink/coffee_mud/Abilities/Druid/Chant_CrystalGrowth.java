@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.List;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ public class Chant_CrystalGrowth extends Chant
 			{
 				mob.location().send(mob,msg);
 
-				ItemCraftor.ItemKeyPair pair=null;
+				ItemCraftor.CraftedItem pair=null;
 				int tries=100;
 				while((pair==null)&&(--tries>0))
 				{

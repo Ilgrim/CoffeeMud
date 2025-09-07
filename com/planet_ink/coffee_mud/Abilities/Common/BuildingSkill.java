@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -146,20 +146,20 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 
 	//protected static final int	RCP_FINALNAME		= 0;
 	//protected static final int	RCP_LEVEL			= 1;
-	//protected static final int	RCP_TICKS			= 2;
-	protected final static int	DAT_WOOD			= 3;
-	protected final static int	DAT_WOODTYPE		= 4;
-	protected final static int	DAT_FLAG			= 5;
-	protected final static int	DAT_BUILDCODE		= 6;
-	protected final static int	DAT_CLASS			= 7;
-	protected final static int	DAT_MISC			= 8;
-	protected final static int	DAT_PROPERTIES		= 9;
-	protected final static int	DAT_DESC			= 10;
-	protected final static int	DAT_BUILDERMASK		= 11;
-	protected final static int	DAT_DESCRIPTION		= 12;
+	protected static final int	RCP_TICKS		= 2;
+	protected final static int	DAT_WOOD		= 3;
+	protected final static int	DAT_WOODTYPE	= 4;
+	protected final static int	DAT_FLAG		= 5;
+	protected final static int	DAT_BUILDCODE	= 6;
+	protected final static int	DAT_CLASS		= 7;
+	protected final static int	DAT_MISC		= 8;
+	protected final static int	DAT_PROPERTIES	= 9;
+	protected final static int	DAT_DESC		= 10;
+	protected final static int	DAT_BUILDERMASK	= 11;
+	protected final static int	DAT_DESCRIPTION	= 12;
 
 	@Override
-	public String parametersFormat()
+	public String getRecipeFormat()
 	{
 		if(Resources.getResource("BUILDING_SKILL_CODES_FLAGS")==null)
 		{
@@ -174,7 +174,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 	}
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return "";
 	}
@@ -186,7 +186,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 	}
 
 	@Override
-	protected ExpertiseLibrary.SkillCostDefinition getRawTrainingCost()
+	protected CostDef getRawTrainingCost()
 	{
 		return CMProps.getNormalSkillGainCost(ID());
 	}
@@ -201,7 +201,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 	{
 		if(canBeUninvoked() && (!super.unInvoked))
 		{
-			if((affected!=null)&&(affected instanceof MOB)&&(!helping))
+			if((affected instanceof MOB)&&(!helping))
 			{
 				final MOB mob=(MOB)affected;
 				if(!aborted)
@@ -241,7 +241,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 
 	public String[][] getRecipeData(final MOB mob)
 	{
-		final List<List<String>> recipeData = addRecipes(mob,loadRecipes(parametersFile()));
+		final List<List<String>> recipeData = addRecipes(mob,loadRecipes(getRecipeFilename()));
 		final String[][] finalDat = new String[recipeData.size()][];
 		for(int i=0;i<recipeData.size();i++)
 			finalDat[i] = recipeData.get(i).toArray(new String[recipeData.get(i).size()]);
@@ -268,7 +268,8 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 
 	protected void notifyMessUp(final MOB mob, final String[] recipe)
 	{
-		commonTell(mob,L("You've ruined the "+recipe[DAT_DESC]+"!",CMLib.directions().getDirectionName(dir)));
+		final String what = CMStrings.replaceVariables(recipe[DAT_DESC], CMLib.directions().getDirectionName(dir));
+		commonTelL(mob,"You've ruined the @x1!",what);
 	}
 
 	protected void demolishRoom(final MOB mob, final Room room)
@@ -282,7 +283,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 		for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
 		{
 			final Room R=room.getRoomInDir(d);
-			if(CMLib.law().doesOwnThisLand(mob, R))
+			if(CMLib.law().doesOwnThisLand(mob, R)||(CMSecurity.isAllowed(mob, R, CMSecurity.SecFlag.CMDROOMS)))
 			{
 				returnToRoom=R;
 				break;
@@ -306,6 +307,8 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			returnToRoom=room.getArea().getRandomMetroRoom();
 		if(returnToRoom==null)
 			returnToRoom=CMLib.map().getRandomRoom();
+		if(room instanceof GridLocale)
+			((GridLocale)room).clearGrid(returnToRoom);
 		final Room theRoomToReturnTo=returnToRoom;
 		room.eachInhabitant(new EachApplicable<MOB>()
 		{
@@ -417,7 +420,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 
 	protected Room buildRoomAbility(Room R, final int dir, String extraProp)
 	{
-		synchronized(("SYNC"+room.roomID()).intern())
+		synchronized(CMClass.getSync("SYNC"+room.roomID()))
 		{
 			R=CMLib.map().getRoom(R);
 			extraProp=CMStrings.replaceAll(extraProp, "@dir", CMLib.directions().getDirectionName(dir));
@@ -430,7 +433,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 	protected Exit buildExitAbility(Room R, final int dir, final String extraProp)
 	{
 		Exit E=null;
-		synchronized(("SYNC"+R.roomID()).intern())
+		synchronized(CMClass.getSync("SYNC"+R.roomID()))
 		{
 			R=CMLib.map().getRoom(R);
 			E=R.getExitInDir(dir);
@@ -442,7 +445,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 
 	protected Room removeRoomAbility(Room R, final int dir, String extraProp)
 	{
-		synchronized(("SYNC"+R.roomID()).intern())
+		synchronized(CMClass.getSync("SYNC"+R.roomID()))
 		{
 			R=CMLib.map().getRoom(R);
 			extraProp=CMStrings.replaceAll(extraProp, "@dir", CMLib.directions().getDirectionName(dir));
@@ -455,7 +458,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 	protected Exit removeExitAbility(Room R, final int dir, final String extraProp)
 	{
 		Exit E=null;
-		synchronized(("SYNC"+R.roomID()).intern())
+		synchronized(CMClass.getSync("SYNC"+R.roomID()))
 		{
 			R=CMLib.map().getRoom(R);
 			E=R.getExitInDir(dir);
@@ -468,7 +471,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 	protected Room buildNewRoomType(Room room, String newLocale, final String extraProp, int dimension)
 	{
 		Room R=null;
-		synchronized(("SYNC"+room.roomID()).intern())
+		synchronized(CMClass.getSync("SYNC"+room.roomID()))
 		{
 			if((dimension == 0)&&(room instanceof GridLocale))
 				dimension = ((GridLocale)room).xGridSize();
@@ -520,6 +523,29 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 					M.setLocation(R);
 				}
 			}
+			room.clearSky();
+			if(((room.domainType()==Room.DOMAIN_INDOORS_WATERSURFACE)||(room.domainType()==Room.DOMAIN_OUTDOORS_WATERSURFACE))
+			&&(R.domainType()!=Room.DOMAIN_INDOORS_WATERSURFACE)
+			&&(R.domainType()!=Room.DOMAIN_OUTDOORS_WATERSURFACE))
+			{
+				final Room waterR=room.getRoomInDir(Directions.DOWN);
+				if((waterR!=null)
+				&&((waterR.domainType()==Room.DOMAIN_INDOORS_UNDERWATER)||(waterR.domainType()==Room.DOMAIN_OUTDOORS_UNDERWATER))
+				&&(waterR.roomID().length()>0))
+				{
+					final LandTitle title=CMLib.law().getLandTitle(waterR);
+					if(title!=null)
+					{
+						title.setOwnerName("");
+						title.updateLot(null);
+					}
+					room.setRawExit(Directions.DOWN, null);
+					room.rawDoors()[Directions.DOWN]=null;
+					waterR.setRawExit(Directions.UP, null);
+					waterR.rawDoors()[Directions.UP]=null;
+					CMLib.map().obliterateMapRoom(waterR);
+				}
+			}
 			CMLib.threads().deleteTick(room,-1);
 			for(int d=0;d<R.rawDoors().length;d++)
 			{
@@ -539,7 +565,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			final LandTitle title = CMLib.law().getLandTitle(room);
 			if((title!=null)&&(title.gridLayout()))
 			{
-				final PairVector<Room,int[]> rooms=CMLib.tracking().buildGridList(R, title.getOwnerName(), 100);
+				final PairVector<Room,int[]> rooms=CMLib.tracking().buildGridList(R, null, 100);
 				for(int dir=0;dir<Directions.NUM_DIRECTIONS();dir++)
 				{
 					if(dir==Directions.GATE)
@@ -547,7 +573,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 					Room R3=R.getRoomInDir(dir);
 					if(R3 == null)
 					{
-						R3=CMLib.tracking().getCalculatedAdjacentRoom(rooms, R3, dir);
+						R3=CMLib.tracking().getCalculatedAdjacentGridRoom(rooms, R3, dir);
 						if(R3!=null)
 						{
 							R.rawDoors()[dir]=R3;
@@ -655,7 +681,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 
 	protected void buildDoor(final String[] recipe, Room room, final int dir, final int recipeLevel)
 	{
-		synchronized(("SYNC"+room.roomID()).intern())
+		synchronized(CMClass.getSync("SYNC"+room.roomID()))
 		{
 			final String localeName = recipe[DAT_CLASS];
 			String doorName = recipe[DAT_MISC];
@@ -665,6 +691,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			String openWord=null;
 			String closedWord=null;
 			String displayText="";
+			String description="";
 			if(doorName.indexOf("|")>0)
 			{
 				final List<String> split=CMParms.parseAny(doorName, '|',false);
@@ -678,6 +705,8 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 					closedWord=split.get(3);
 				if((split.size()>4)&&(split.get(4).length()>0))
 					displayText=split.get(4);
+				if((split.size()>5)&&(split.get(5).length()>0))
+					description=split.get(5);
 			}
 			if(closeWord == null)
 				closeWord="close";
@@ -688,7 +717,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			room=CMLib.map().getRoom(room);
 			final Exit X=CMClass.getExit(localeName);
 			X.setName(CMLib.english().startWithAorAn(doorName));
-			X.setDescription("");
+			X.setDescription(description);
 			X.setDisplayText(displayText);
 			X.setOpenDelayTicks(9999);
 			X.setExitParams(doorName,closeWord,openWord,closedWord);
@@ -701,11 +730,12 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			room.setRawExit(dir,X);
 			if(room.rawDoors()[dir]!=null)
 			{
+				final Room oroom = room.rawDoors()[dir].prepareRoomInDir(room, dir);
 				final Exit X2=(Exit)X.copyOf();
 				X2.recoverPhyStats();
 				X2.text();
-				room.rawDoors()[dir].setRawExit(Directions.getOpDirectionCode(dir),X2);
-				CMLib.database().DBUpdateExits(room.rawDoors()[dir]);
+				oroom.setRawExit(Directions.getOpDirectionCode(dir),X2);
+				CMLib.database().DBUpdateExits(oroom);
 			}
 			CMLib.database().DBUpdateExits(room);
 		}
@@ -749,13 +779,13 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 	protected Room buildStairs(final MOB mob, Room room, final int dir, final String[] recipe)
 	{
 		Room newRoom;
-		synchronized(("SYNC"+room.roomID()).intern())
+		synchronized(CMClass.getSync("SYNC"+room.roomID()))
 		{
-			String desc = recipe[DAT_MISC];
+			String varifiableDesc = recipe[DAT_MISC];
 			final String addParms = recipe[DAT_PROPERTIES];
 			final String localeClass = recipe[DAT_CLASS];
-			if(desc.equals("0"))
-				desc="";
+			if(varifiableDesc.equals("0"))
+				varifiableDesc="";
 
 			final int opDir = Directions.getOpDirectionCode(dir);
 			room=CMLib.map().getRoom(room);
@@ -767,22 +797,20 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			newRoom.setRoomID(room.getArea().getNewRoomID(room,dir));
 			if(newRoom.roomID().length()==0)
 			{
-				final String verbDesc = recipe[DAT_DESC];
-				commonTell(mob,L("You've failed to build the "+verbDesc+"!",CMLib.directions().getDirectionName(dir)));
+				final String what = CMStrings.replaceVariables(recipe[DAT_DESC], CMLib.directions().getDirectionName(dir));
+				commonTelL(mob,"You've failed to build the @x1!",what);
 				return null;
 			}
 			newRoom.setArea(room.getArea());
 			LandTitle newTitle=CMLib.law().getLandTitle(room);
 			if((newTitle!=null)&&(CMLib.law().getLandTitle(newRoom)==null))
 			{
-				final List<Room> allRooms = newTitle.getConnectedPropertyRooms();
-				if(allRooms.size()>0)
+				final Room testRoom = newTitle.getAConnectedPropertyRoom();
+				if(testRoom != null)
 				{
-					final Ability cap = allRooms.get(0).fetchEffect("Prop_ReqCapacity");
+					final Ability cap = testRoom.fetchEffect("Prop_ReqCapacity");
 					if(cap != null)
-					{
 						newRoom.addNonUninvokableEffect((Ability)cap.copyOf());
-					}
 				}
 				newTitle = newTitle.generateNextRoomTitle();
 				newTitle.setLandPropertyID(newRoom.roomID());
@@ -809,16 +837,16 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			{
 				newExit=CMClass.getExit("GenExit");
 				newExit.setName(L("a passageway"));
-				newExit.setDescription(L(desc,CMLib.directions().getDirectionName(dir),""+newFloorNum+CMath.numAppendage(newFloorNum)));
-				newExit.setDisplayText(L(desc,CMLib.directions().getDirectionName(dir),""+newFloorNum+CMath.numAppendage(newFloorNum)));
+				newExit.setDescription(L(varifiableDesc,CMLib.directions().getDirectionName(dir),""+newFloorNum+CMath.numAppendage(newFloorNum)));
+				newExit.setDisplayText(L(varifiableDesc,CMLib.directions().getDirectionName(dir),""+newFloorNum+CMath.numAppendage(newFloorNum)));
 				addEffects(newExit, room.getRoomInDir(dir),addParms);
 				newExit.recoverPhyStats();
 				newExit.text();
 
 				returnExit=CMClass.getExit("GenExit");
 				returnExit.setName(L("a passageway"));
-				returnExit.setDescription(L(desc,CMLib.directions().getDirectionName(opDir),""+curFloorNum+CMath.numAppendage(curFloorNum)));
-				returnExit.setDisplayText(L(desc,CMLib.directions().getDirectionName(opDir),""+curFloorNum+CMath.numAppendage(curFloorNum)));
+				returnExit.setDescription(L(varifiableDesc,CMLib.directions().getDirectionName(opDir),""+curFloorNum+CMath.numAppendage(curFloorNum)));
+				returnExit.setDisplayText(L(varifiableDesc,CMLib.directions().getDirectionName(opDir),""+curFloorNum+CMath.numAppendage(curFloorNum)));
 				addEffects(returnExit, room.getRoomInDir(dir),addParms);
 				returnExit.recoverPhyStats();
 				returnExit.text();
@@ -850,7 +878,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			{
 				if(newTitle.gridLayout())
 				{
-					final PairVector<Room,int[]> rooms=CMLib.tracking().buildGridList(newRoom, newTitle.getOwnerName(), 100);
+					final PairVector<Room,int[]> rooms=CMLib.tracking().buildGridList(newRoom, null, 100);
 					for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
 					{
 						if(d==Directions.GATE)
@@ -858,7 +886,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 						Room R3=newRoom.getRoomInDir(d);
 						if(R3 == null)
 						{
-							R3=CMLib.tracking().getCalculatedAdjacentRoom(rooms, R3, d);
+							R3=CMLib.tracking().getCalculatedAdjacentGridRoom(rooms, R3, d);
 							if(R3!=null)
 							{
 								newRoom.rawDoors()[d]=R3;
@@ -881,14 +909,15 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 
 	protected void buildWall(Room room, final int dir)
 	{
-		synchronized(("SYNC"+room.roomID()).intern())
+		synchronized(CMClass.getSync("SYNC"+room.roomID()))
 		{
 			room=CMLib.map().getRoom(room);
 			room.setRawExit(dir,null);
 			if(room.rawDoors()[dir]!=null)
 			{
-				room.rawDoors()[dir].setRawExit(Directions.getOpDirectionCode(dir),null);
-				CMLib.database().DBUpdateExits(room.rawDoors()[dir]);
+				final Room oroom = room.rawDoors()[dir].prepareRoomInDir(room, dir);
+				oroom.setRawExit(Directions.getOpDirectionCode(dir),null);
+				CMLib.database().DBUpdateExits(oroom);
 			}
 			CMLib.database().DBUpdateExits(room);
 			final LandTitle title=CMLib.law().getLandTitle(room);
@@ -899,7 +928,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 
 	protected void buildTitle(Room room, final String designTitle)
 	{
-		synchronized(("SYNC"+room.roomID()).intern())
+		synchronized(CMClass.getSync("SYNC"+room.roomID()))
 		{
 			room=CMLib.map().getRoom(room);
 			Room returnRoom = null;
@@ -923,19 +952,24 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 
 	protected void buildDesc(Room room, final int dir, final String designDescription)
 	{
-		synchronized(("SYNC"+room.roomID()).intern())
+		synchronized(CMClass.getSync("SYNC"+room.roomID()))
 		{
 			room=CMLib.map().getRoom(room);
+			if(room == null)
+				return;
 			if(dir>=0)
 			{
 				Exit E=room.getExitInDir(dir);
-				if((!E.isGeneric())&&(room.getRawExit(dir)==E))
+				if(E!=null)
 				{
-					E=generify(E);
-					room.setRawExit(dir,E);
+					if((!E.isGeneric())&&(room.getRawExit(dir)==E))
+					{
+						E=generify(E);
+						room.setRawExit(dir,E);
+					}
+					E.setDescription(designDescription);
+					CMLib.database().DBUpdateExits(room);
 				}
-				E.setDescription(designDescription);
-				CMLib.database().DBUpdateExits(room);
 			}
 			else
 			{
@@ -961,9 +995,11 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 
 	protected void demolish(final MOB mob, Room room, final int dir, final String[] recipe)
 	{
-		synchronized(("SYNC"+room.roomID()).intern())
+		synchronized(CMClass.getSync("SYNC"+room.roomID()))
 		{
 			room=CMLib.map().getRoom(room);
+			if(room.getGridParent()!=null)
+				room = room.getGridParent();
 			if(dir<0)
 			{
 
@@ -1073,6 +1109,8 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 		if(area!=null)
 			area.delProperRoom(room);
 		R.setArea(room.getArea());
+		if(room instanceof GridLocale)
+			((GridLocale)room).clearGrid(R);
 		for(int a=room.numEffects()-1;a>=0;a--)
 		{
 			final Ability A=room.fetchEffect(a);
@@ -1107,6 +1145,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			R.rawDoors()[d]=room.rawDoors()[d];
 		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 			R.setRawExit(d,room.getRawExit(d));
+		CMLib.threads().rejuv(R, Tickable.TICKID_ROOM_ITEM_REJUV);
 		R.startItemRejuv();
 		try
 		{
@@ -1134,24 +1173,42 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 		return R;
 	}
 
-	public boolean isHomePeerRoom(final Room R)
+	public boolean isHomePeerRoom(final Room R, final boolean anyType)
 	{
-		return ifHomePeerLandTitle(R)!=null;
+		return ifHomePeerLandTitle(R,anyType)!=null;
 	}
 
-	public boolean isHomePeerTitledRoom(final Room R)
+	public boolean isHomePeerTitledRoom(final Room R, final boolean anyType)
 	{
-		final LandTitle title = ifHomePeerLandTitle(R);
+		final LandTitle title = ifHomePeerLandTitle(R,anyType);
 		if(title == null)
 			return false;
 		return title.getOwnerName().length()>0;
 	}
 
-	public LandTitle ifHomePeerLandTitle(final Room R)
+	public boolean countsAsACave(final Room R)
+	{
+		if(R==null)
+			return false;
+		if((R.domainType()==Room.DOMAIN_INDOORS_CAVE)
+		||((R.getAtmosphere()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_ROCK))
+			return true;
+		if(R.domainType()==Room.DOMAIN_INDOORS_CAVE_SEAPORT)
+			return true;
+		if(R.domainType()==Room.DOMAIN_INDOORS_WATERSURFACE)
+		{
+			for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
+				if(countsAsACave(R.getRoomInDir(d)))
+					return true;
+		}
+		return false;
+	}
+
+	public LandTitle ifHomePeerLandTitle(final Room R, final boolean anyType)
 	{
 		if((R!=null)
 		&&(R.ID().length()>0)
-		&&(CMath.bset(R.domainType(),Room.INDOORS)))
+		&&(anyType||CMath.bset(R.domainType(),Room.INDOORS)))
 			return CMLib.law().getLandTitle(R);
 		return null;
 	}
@@ -1166,7 +1223,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			{
 				final Room R=mob.location();
 				boolean roomClassFound = false;
-				for(final List<String> recipeChk : loadRecipes(parametersFile()))
+				for(final List<String> recipeChk : loadRecipes(getRecipeFilename()))
 				{
 					if(R.ID().equalsIgnoreCase(recipeChk.get(DAT_CLASS)))
 						roomClassFound=true;
@@ -1178,13 +1235,13 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 				if((R.domainType()==Room.DOMAIN_INDOORS_UNDERWATER)
 				||(R.domainType()==Room.DOMAIN_OUTDOORS_UNDERWATER))
 				{
-					commonTell(mob,null,null,L("You must demolish a pool from above."));
+					commonTelL(mob,(Environmental)null,null,"You must demolish a pool from above.");
 					return "";
 				}
 				else
 				if(!roomClassFound)
 				{
-					commonTell(mob,null,null,L("This building was not made with @x1, you can`t demolish it.",name()));
+					commonTelL(mob,(Environmental)null,null,"This building was not made with @x1, you can`t demolish it.",name());
 					return "";
 				}
 				else
@@ -1197,7 +1254,8 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 				verb=L("demolishing the wall @x1",CMLib.directions().getInDirectionName(dir).toLowerCase());
 		}
 		else
-			verb = L("building the "+recipe[DAT_DESC],CMLib.directions().getInDirectionName(dir).toLowerCase());
+			verb = L("building the @x1",
+					CMStrings.replaceVariables(recipe[DAT_DESC],CMLib.directions().getInDirectionName(dir).toLowerCase()));
 		return verb;
 	}
 
@@ -1220,11 +1278,11 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 		if(checkStop(mob, commands))
 			return true;
 
-		randomRecipeFix(mob,addRecipes(mob,loadRecipes(parametersFile())),commands,0);
+		randomRecipeFix(mob,addRecipes(mob,loadRecipes(getRecipeFilename())),commands,0);
 
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("What kind of @x1, where? Try @x2 list.",name(),CMStrings.capitalizeAndLower(this.triggerStrings()[0])));
+			commonTelL(mob,"What kind of @x1, where? Try @x2 list.",name(),CMStrings.capitalizeAndLower(this.triggerStrings()[0]));
 			return false;
 		}
 		poundsOfMatsUsed	= 0;
@@ -1246,10 +1304,10 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			if(getInfo)
 			{
 				colWidth=CMLib.lister().fixColWidth(13,mob.session());
-				buf=new StringBuffer(CMStrings.padRight(L("Item"),colWidth) + L(" Description\n\r",this.getMainResourceName()));
+				buf=new StringBuffer("^H"+CMStrings.padRight(L("Item"),colWidth) + L(" Description^N\n\r",this.getMainResourceName()));
 			}
 			else
-				buf=new StringBuffer(CMStrings.padRight(L("Item"),colWidth) + L(" @x1 required\n\r",this.getMainResourceName()));
+				buf=new StringBuffer("^H"+CMStrings.padRight(L("Item"),colWidth) + L(" @x1 required^N\n\r",this.getMainResourceName()));
 			for(int r=0;r<data.length;r++)
 			{
 				if(((data[r][DAT_BUILDERMASK].length()==0)
@@ -1260,7 +1318,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 					||mask.equalsIgnoreCase("all")
 					||CMLib.english().containsString(CMStrings.padRight(data[r][RCP_FINALNAME],colWidth),mask)))
 				{
-					buf.append(CMStrings.padRight(data[r][RCP_FINALNAME],colWidth)+" ");
+					buf.append("^w"+CMStrings.padRight(data[r][RCP_FINALNAME],colWidth)+"^N ");
 					if(getInfo)
 					{
 						if(DAT_DESCRIPTION < data[r].length)
@@ -1318,8 +1376,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 		else
 		if(("SURVEY").startsWith(str.toUpperCase()))
 		{
-			//TODO: FINISH
-			//TODO: OK, but what's it do again?
+			//TODO: finish this, but what's this do again?
 		}
 
 		designTitle="";
@@ -1347,13 +1404,13 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 				return false;
 			if(targetMOB==mob)
 			{
-				commonTell(mob,L("You can not do that."));
+				commonTelL(mob,"You can not do that.");
 				return false;
 			}
 			helpingAbility=targetMOB.fetchEffect(ID());
 			if(helpingAbility==null)
 			{
-				commonTell(mob,L("@x1 is not building anything.",targetMOB.Name()));
+				commonTelL(mob,"@x1 is not building anything.",targetMOB.Name());
 				return false;
 			}
 			if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
@@ -1373,18 +1430,34 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			return true;
 		}
 
-		boolean canBuild=CMLib.law().doesOwnThisLand(mob,mob.location());
+		boolean canBuild=CMLib.law().doesOwnThisLand(mob,mob.location())
+				|| CMSecurity.isAllowed(mob, mob.location(), CMSecurity.SecFlag.CMDROOMS);
 		final String allWords=CMParms.combine(commands,0).toUpperCase();
 		for(int r=0;r<data.length;r++)
 		{
 			final Building buildCode = Building.valueOf(data[r][DAT_BUILDCODE]);
-			if((data[r][0].toUpperCase().startsWith(allWords))
+			if((data[r][0].toUpperCase().equals(allWords))
 			&&((data[r][DAT_BUILDERMASK].length()==0)
 				||(CMLib.masking().maskCheck(data[r][DAT_BUILDERMASK], mob, false))
 				||CMSecurity.isASysOp(mob)))
 			{
 				doingCode=buildCode;
 				recipe = data[r];
+			}
+		}
+		if((doingCode==null) || (recipe == null))
+		{
+			for(int r=0;r<data.length;r++)
+			{
+				final Building buildCode = Building.valueOf(data[r][DAT_BUILDCODE]);
+				if((data[r][0].toUpperCase().startsWith(allWords))
+				&&((data[r][DAT_BUILDERMASK].length()==0)
+					||(CMLib.masking().maskCheck(data[r][DAT_BUILDERMASK], mob, false))
+					||CMSecurity.isASysOp(mob)))
+				{
+					doingCode=buildCode;
+					recipe = data[r];
+				}
 			}
 		}
 		if((doingCode==null) || (recipe == null))
@@ -1404,43 +1477,56 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 		}
 		if((doingCode == null)||(recipe == null))
 		{
-			commonTell(mob,L("'@x1' is not a valid @x2 project.  Try LIST.",firstWord,name()));
+			commonTelL(mob,"'@x1' is not a valid @x2 project.  Try LIST.",firstWord,name());
 			return false;
 		}
 
 		final Set<Flag> flags = makeFlags(recipe);
 
-		if((mob.location()!=null)
-		&&((mob.location() instanceof BoardableShip) || (mob.location().getArea() instanceof BoardableShip)))
+		if((mob.location()!=null) // this is correct!
+		&&((mob.location() instanceof Boardable) || (mob.location().getArea() instanceof Boardable)))
 		{
-			commonTell(mob,L("You may not do @x1 projects here.",name()));
+			commonTelL(mob,"You may not do @x1 projects here.",name());
 			return false;
 		}
 		final String dirName=commands.get(commands.size()-1);
 		dir=CMLib.directions().getGoodDirectionCode(dirName);
 
-		if((doingCode == Building.DEMOLISH)&&(dirName.equalsIgnoreCase("roof"))||(dirName.equalsIgnoreCase("ceiling")))
+		if((doingCode == Building.DEMOLISH)
+		&&(dirName.equalsIgnoreCase("roof")||(dirName.equalsIgnoreCase("ceiling"))))
 		{
 			this.canBeDoneSittingDown = true;
+			if(!canBuild
+			&&(mob.location().getGridParent()!=null)
+			&& (CMLib.law().doesOwnThisLand(mob, mob.location().getGridParent())))
+				canBuild = true;
 			final Room upRoom=mob.location().getRoomInDir(Directions.UP);
-			if(isHomePeerRoom(upRoom))
+			if(isHomePeerRoom(upRoom,flags.contains(Flag.CAVEONLY)))
 			{
-				commonTell(mob,L("You need to demolish the upstairs rooms first."));
+				commonTelL(mob,"You need to demolish the upstairs rooms first.");
 				return false;
+			}
+			if(flags.contains(Flag.CAVEONLY))
+			{
+				if((!countsAsACave(mob.location()))&&(!countsAsACave(upRoom)))
+				{
+					commonTelL(mob,"This can only be done underground.");
+					return false;
+				}
 			}
 			if(mob.location().domainType() == Room.DOMAIN_INDOORS_CAVE)
 			{
-				commonTell(mob,L("A cave can not have its roof demolished."));
+				commonTelL(mob,"A cave can not have its roof demolished.");
 				return false;
 			}
 			if(!CMath.bset(mob.location().domainType(), Room.INDOORS))
 			{
-				commonTell(mob,L("There is no ceiling here!"));
+				commonTelL(mob,"There is no ceiling here!");
 				return false;
 			}
 			if(CMLib.law().isHomeRoomUpstairs(mob.location()))
 			{
-				commonTell(mob,L("You can't demolish a ceiling in an upstairs room.  Try demolishing the room."));
+				commonTelL(mob,"You can't demolish a ceiling in an upstairs room.  Try demolishing the room.");
 				return false;
 			}
 			dir=-1;
@@ -1448,36 +1534,51 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 		else
 		if((doingCode == Building.DEMOLISH)&&(dirName.equalsIgnoreCase("room")))
 		{
+			if(flags.contains(Flag.CAVEONLY))
+			{
+				if(!countsAsACave(mob.location()))
+				{
+					commonTelL(mob,"This can only be done underground.");
+					return false;
+				}
+			}
 			this.canBeDoneSittingDown = true;
-			if((!CMLib.law().doesOwnThisLand(mob, mob.location()))
+			if(!canBuild
+			&&(mob.location().getGridParent()!=null)
+			&& (CMLib.law().doesOwnThisLand(mob, mob.location().getGridParent())))
+				canBuild = true;
+			if((!canBuild)
 			&&(title!=null)
 			&&(title.getOwnerName().length()>0))
 			{
-				commonTell(mob,L("You can't demolish property you don't own."));
+				commonTelL(mob,"You can't demolish property you don't own.");
 				return false;
 			}
 			if((title==null)||(!title.allowsExpansionConstruction()))
 			{
-				commonTell(mob,L("You aren't permitted to demolish this room."));
+				commonTelL(mob,"You aren't permitted to demolish this room.");
 				return false;
 			}
-			if(!CMLib.law().isHomeRoomUpstairs(mob.location()))
+			if(!flags.contains(Flag.CAVEONLY))
 			{
-				commonTell(mob,L("You can only demolish upstairs/downstairs rooms.  You might try just demolishing the ceiling/roof?"));
-				return false;
+				if(!CMLib.law().isHomeRoomUpstairs(mob.location()))
+				{
+					commonTelL(mob,"You can only demolish upstairs/downstairs rooms.  You might try just demolishing the ceiling/roof?");
+					return false;
+				}
 			}
 			int numAdjacentProperties=0;
 			for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
 			{
 				final Room adjacentRoom=mob.location().getRoomInDir(d);
-				if(isHomePeerTitledRoom(adjacentRoom))
+				if(isHomePeerTitledRoom(adjacentRoom,flags.contains(Flag.CAVEONLY)))
 				{
 					numAdjacentProperties++;
 				}
 			}
 			if(numAdjacentProperties>1)
 			{
-				mob.tell(L("You can not demolish a room if there is more than one room adjacent to it.  Demolish those first."));
+				commonTelL(mob,"You can not demolish a room if there is more than one room adjacent to it.  Demolish those first.");
 				return false;
 			}
 			dir=-1;
@@ -1487,14 +1588,14 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 		if(((dir<0)||(dir==Directions.UP)||(dir==Directions.DOWN))
 		&&(flags.contains(Flag.DIR)))
 		{
-			commonTell(mob,L("A valid direction in which to build must also be specified."));
+			commonTelL(mob,"A valid direction in which to build must also be specified.");
 			return false;
 		}
 		else
 		if((dir<0)
 		&&(flags.contains(Flag.DIRUPDOWN)))
 		{
-			commonTell(mob,L("A valid direction in which to build must also be specified."));
+			commonTelL(mob,"A valid direction in which to build must also be specified.");
 			return false;
 		}
 
@@ -1502,7 +1603,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 		&&(dir>=0)
 		&&(mob.location().getExitInDir(dir)==null))
 		{
-			commonTell(mob,L("There is a wall that way that needs to be demolished first."));
+			commonTelL(mob,"There is a wall that way that needs to be demolished first.");
 			return false;
 		}
 
@@ -1510,14 +1611,14 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 		if(((mob.location().domainType()&Room.INDOORS)==0)
 		&&(flags.contains(Flag.INDOOR)))
 		{
-			commonTell(mob,L("That can only be built after a roof, which includes the frame."));
+			commonTelL(mob,"That can only be built after a roof, which includes the frame.");
 			return false;
 		}
 		else
 		if(((mob.location().domainType()&Room.INDOORS)>0)
 		&&(flags.contains(Flag.OUTDOOR)))
 		{
-			commonTell(mob,L("That can only be built outdoors!"));
+			commonTelL(mob,"That can only be built outdoors!");
 			return false;
 		}
 
@@ -1525,7 +1626,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 		{
 			if((dir!=Directions.UP)&&(dir!=Directions.DOWN))
 			{
-				commonTell(mob,L("A valid direction in which to build must also be specified.  Try UP or DOWN."));
+				commonTelL(mob,"A valid direction in which to build must also be specified.  Try UP or DOWN.");
 				return false;
 			}
 		}
@@ -1543,7 +1644,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 					final int floorNumber = this.findFloorNumber(mob.location(), new HashSet<Room>(), 1);
 					if(floorNumber > 1)
 					{
-						commonTell(mob,L("You cannot excavate from above the ground."));
+						commonTelL(mob,"You cannot excavate from above the ground.");
 						return false;
 					}
 					break;
@@ -1554,7 +1655,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 				case Room.DOMAIN_INDOORS_AIR:
 				case Room.DOMAIN_INDOORS_UNDERWATER:
 				case Room.DOMAIN_INDOORS_WATERSURFACE:
-					commonTell(mob,L("You can only excavate down into the ground."));
+					commonTelL(mob,"You can only excavate down into the ground.");
 					return false;
 				}
 				flags.remove(Flag.CAVEONLY);  // caveonly only matters if complex DOWN rules don't apply.
@@ -1565,37 +1666,38 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 		{
 			if((title==null)||(!title.allowsExpansionConstruction()))
 			{
-				commonTell(mob,L("The title here does not permit the building of new places."));
+				commonTelL(mob,"The title here does not permit the building of new places.");
 				return false;
 			}
 			if((!CMath.bset(mob.location().domainType(), Room.INDOORS))&&(dir==Directions.UP))
 			{
-				commonTell(mob,L("You need to build a ceiling (or roof) first!"));
+				commonTelL(mob,"You need to build a ceiling (or roof) first!");
 				return false;
 			}
 			final Room inR=mob.location().getRoomInDir(dir);
 			if(inR!=null)
 			{
 				if(dir == Directions.UP)
-					commonTell(mob,L("There is already something up here."));
+					commonTelL(mob,"There is already something up here.");
 				else
 				if(dir == Directions.DOWN)
-					commonTell(mob,L("There is already something down here."));
+					commonTelL(mob,"There is already something down here.");
 				else
-					commonTell(mob,L("There is already something over there."));
+					commonTelL(mob,"There is already something over there.");
 				return false;
 			}
 
-			final List<Room> allRooms = title.getConnectedPropertyRooms();
-			if(allRooms.size()>0)
+			final Room R = title.getAConnectedPropertyRoom();
+			if(R != null)
 			{
-				final Ability cap = allRooms.get(0).fetchEffect("Prop_ReqCapacity");
+				final Ability cap = R.fetchEffect("Prop_ReqCapacity");
 				if(cap != null)
 				{
+					final int numRooms = title.getNumConnectedPropertyRooms();
 					final int roomLimit = CMParms.getParmInt(cap.text(),"rooms",Integer.MAX_VALUE);
-					if(allRooms.size() >= roomLimit)
+					if(numRooms >= roomLimit)
 					{
-						commonTell(mob,L("You are not allowed to add more rooms."));
+						commonTelL(mob,"You are not allowed to add more rooms.");
 						return false;
 					}
 				}
@@ -1607,12 +1709,12 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			final Room nextRoom=mob.location().getRoomInDir(dir);
 			if((nextRoom!=null)&&(CMLib.law().getLandTitle(nextRoom)==null))
 			{
-				commonTell(mob,L("You can not build a wall blocking off the main entrance!"));
+				commonTelL(mob,"You can not build a wall blocking off the main entrance!");
 				return false;
 			}
 			if(mob.location().getExitInDir(dir)==null)
 			{
-				commonTell(mob,L("There is already a wall in that direction!"));
+				commonTelL(mob,"There is already a wall in that direction!");
 				return false;
 			}
 		}
@@ -1623,7 +1725,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			final Exit exitRoom=mob.location().getExitInDir(Directions.DOWN);
 			if((nextRoom!=null)||(exitRoom!=null))
 			{
-				commonTell(mob,L("You may not build that here!"));
+				commonTelL(mob,"You may not build that here!");
 				return false;
 			}
 		}
@@ -1634,7 +1736,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			final Exit exitRoom=mob.location().getExitInDir(Directions.DOWN);
 			if((nextRoom!=null)&&(exitRoom!=null)&&(nextRoom.roomID().length()>0))
 			{
-				commonTell(mob,L("You may not build that here!"));
+				commonTelL(mob,"You may not build that here!");
 				return false;
 			}
 			dir=Directions.DOWN;
@@ -1646,7 +1748,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			final Exit exitRoom=mob.location().getExitInDir(Directions.UP);
 			if((nextRoom!=null)&&(exitRoom!=null)&&(nextRoom.roomID().length()>0))
 			{
-				commonTell(mob,L("You may not build that here!"));
+				commonTelL(mob,"You may not build that here!");
 				return false;
 			}
 			dir=Directions.UP;
@@ -1654,10 +1756,9 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 
 		if(flags.contains(Flag.CAVEONLY))
 		{
-			if((mob.location().domainType()!=Room.DOMAIN_INDOORS_CAVE)
-			&&((mob.location().getAtmosphere()&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_ROCK))
+			if(!countsAsACave(mob.location()))
 			{
-				commonTell(mob,L("This can only be done underground."));
+				commonTelL(mob,"This can only be done underground.");
 				return false;
 			}
 		}
@@ -1669,7 +1770,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			&&(mob.location().domainType()!=Room.DOMAIN_OUTDOORS_UNDERWATER)
 			&&(mob.location().domainType()!=Room.DOMAIN_INDOORS_UNDERWATER))
 			{
-				commonTell(mob,L("This can only be done in water."));
+				commonTelL(mob,"This can only be done in water.");
 				return false;
 			}
 		}
@@ -1679,7 +1780,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			if((mob.location().domainType()!=Room.DOMAIN_OUTDOORS_WATERSURFACE)
 			&&(mob.location().domainType()!=Room.DOMAIN_INDOORS_WATERSURFACE))
 			{
-				commonTell(mob,L("This can only be done on the water."));
+				commonTelL(mob,"This can only be done on the water.");
 				return false;
 			}
 		}
@@ -1689,7 +1790,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			if((mob.location().domainType()!=Room.DOMAIN_OUTDOORS_UNDERWATER)
 			&&(mob.location().domainType()!=Room.DOMAIN_INDOORS_UNDERWATER))
 			{
-				commonTell(mob,L("This can only be done under the water."));
+				commonTelL(mob,"This can only be done under the water.");
 				return false;
 			}
 		}
@@ -1699,7 +1800,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			if((mob.location().getAtmosphere()!=RawMaterial.RESOURCE_SALTWATER)
 			&&((!(mob.location() instanceof Drink))||(((Drink)mob.location()).liquidType()!=RawMaterial.RESOURCE_SALTWATER)))
 			{
-				commonTell(mob,L("This can only be done in salt water."));
+				commonTelL(mob,"This can only be done in salt water.");
 				return false;
 			}
 		}
@@ -1709,7 +1810,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			if((mob.location().getAtmosphere()!=RawMaterial.RESOURCE_FRESHWATER)
 			&&((!(mob.location() instanceof Drink))||(((Drink)mob.location()).liquidType()!=RawMaterial.RESOURCE_SALTWATER)))
 			{
-				commonTell(mob,L("This can only be done in fresh water."));
+				commonTelL(mob,"This can only be done in fresh water.");
 				return false;
 			}
 		}
@@ -1718,19 +1819,19 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 		{
 			if(!canDescTitleHere(mob.location()))
 			{
-				commonTell(mob,L("You can't do that here."));
+				commonTelL(mob,"You can't do that here.");
 				return false;
 			}
 			String titleStr=CMParms.combine(commands,1);
 			if(titleStr.length()==0)
 			{
-				commonTell(mob,L("A title must be specified."));
+				commonTelL(mob,"A title must be specified.");
 				return false;
 			}
 			titleStr=CMLib.coffeeFilter().secondaryUserInputFilter(titleStr);
 			if(titleStr.length()>253)
 			{
-				commonTell(mob,L("That title is too long."));
+				commonTelL(mob,"That title is too long.");
 				return false;
 			}
 			final TrackingLibrary.TrackingFlags trackingFlags=CMLib.tracking().newFlags();
@@ -1742,7 +1843,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 				{
 					if(R.displayText(mob).equalsIgnoreCase(titleStr))
 					{
-						commonTell(mob,L("That title has already been taken.  Choose another."));
+						commonTelL(mob,"That title has already been taken.  Choose another.");
 						return false;
 					}
 				}
@@ -1754,13 +1855,13 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 		{
 			if(commands.size()<3)
 			{
-				commonTell(mob,L("You must specify an exit direction or the word room, followed by a description for it."));
+				commonTelL(mob,"You must specify an exit direction or the word room, followed by a description for it.");
 				return false;
 			}
 
 			if(!canDescTitleHere(mob.location()))
 			{
-				commonTell(mob,L("You can't do that here."));
+				commonTelL(mob,"You can't do that here.");
 				return false;
 			}
 
@@ -1769,7 +1870,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 				dir=CMLib.directions().getGoodDirectionCode(commands.get(1));
 				if(mob.location().getExitInDir(dir)==null)
 				{
-					commonTell(mob,L("There is no exit @x1 to describe.",CMLib.directions().getInDirectionName(dir)));
+					commonTelL(mob,"There is no exit @x1 to describe.",CMLib.directions().getInDirectionName(dir));
 					return false;
 				}
 				commands.remove(1);
@@ -1777,7 +1878,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			else
 			if(!commands.get(1).equalsIgnoreCase("room"))
 			{
-				commonTell(mob,L("'@x1' is neither the word room, nor an exit direction.",(commands.get(1))));
+				commonTelL(mob,"'@x1' is neither the word room, nor an exit direction.",(commands.get(1)));
 				return false;
 			}
 			else
@@ -1787,7 +1888,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			descStr=CMLib.coffeeFilter().secondaryUserInputFilter(descStr);
 			if(descStr.length()==0)
 			{
-				commonTell(mob,L("A description must be specified."));
+				commonTelL(mob,"A description must be specified.");
 				return false;
 			}
 			designDescription=descStr;
@@ -1801,7 +1902,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			wood=adjustWoodRequired(wood,mob);
 			if(CMLib.beanCounter().getTotalAbsoluteValue(mob, landCurrency) < wood)
 			{
-				commonTell(mob,L("You'll need @x1 to do that.",CMLib.beanCounter().nameCurrencyLong(landCurrency, wood)));
+				commonTelL(mob,"You'll need @x1 to do that.",CMLib.beanCounter().nameCurrencyLong(landCurrency, wood));
 				return false;
 			}
 			woodRequired=0;
@@ -1815,7 +1916,7 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			final double roomValue = landValue * wood;
 			if(CMLib.beanCounter().getTotalAbsoluteValue(mob, landCurrency) < roomValue)
 			{
-				commonTell(mob,L("You'll need @x1 to do that.",CMLib.beanCounter().nameCurrencyLong(landCurrency, roomValue)));
+				commonTelL(mob,"You'll need @x1 to do that.",CMLib.beanCounter().nameCurrencyLong(landCurrency, roomValue));
 				return false;
 			}
 			woodRequired=0;
@@ -1834,13 +1935,14 @@ public class BuildingSkill extends CraftingSkill implements CraftorAbility
 			if((dir>=0)&&(flags.contains(Flag.DIR)))
 			{
 				final Room R=mob.location().getRoomInDir(dir);
-				if((R!=null)&&(CMLib.law().doesOwnThisLand(mob,R)))
+				if((R!=null)
+				&&(CMLib.law().doesOwnThisLand(mob,R)))
 					canBuild=true;
 			}
 		}
 		if(!canBuild)
 		{
-			commonTell(mob,L("You'll need the permission of the owner to do that."));
+			commonTelL(mob,"You'll need the permission of the owner to do that.");
 			return false;
 		}
 

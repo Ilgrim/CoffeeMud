@@ -20,7 +20,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,6 +60,7 @@ public class LifeFountain extends StdDrink implements MiscMagic
 		baseGoldValue=10;
 		material=RawMaterial.RESOURCE_FRESHWATER;
 		basePhyStats().setSensesMask(PhyStats.SENSE_ITEMNOTGET);
+		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_BONUS);
 		recoverPhyStats();
 	}
 

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.List;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -99,11 +99,11 @@ public class Chant_Crossbreed extends Chant
 			&&(msg.tool().Name().equals("MATE <T-NAME>")
 				||msg.tool().Name().equals("SEX <T-NAME>"))
 			&&(msg.sourceMinor()!=CMMsg.TYP_CHANNEL)
-			&&(myChar.charStats().getStat(CharStats.STAT_GENDER)!=mate.charStats().getStat(CharStats.STAT_GENDER))
-			&&((mate.charStats().getStat(CharStats.STAT_GENDER)==('M'))
-				||(mate.charStats().getStat(CharStats.STAT_GENDER)==('F')))
-			&&((myChar.charStats().getStat(CharStats.STAT_GENDER)==('M'))
-				||(myChar.charStats().getStat(CharStats.STAT_GENDER)==('F')))
+			&&(myChar.charStats().reproductiveCode()!=mate.charStats().reproductiveCode())
+			&&((mate.charStats().reproductiveCode()=='M')
+				||(mate.charStats().reproductiveCode()=='F'))
+			&&((myChar.charStats().reproductiveCode()=='M')
+				||(myChar.charStats().reproductiveCode()=='F'))
 			&&(myChar.location()==mate.location())
 			&&(myChar.fetchWornItems(Wearable.WORN_LEGS|Wearable.WORN_WAIST,(short)-2048,(short)0).size()==0)
 			&&(mate.fetchWornItems(Wearable.WORN_LEGS|Wearable.WORN_WAIST,(short)-2048,(short)0).size()==0)
@@ -118,7 +118,7 @@ public class Chant_Crossbreed extends Chant
 			{
 				MOB female=myChar;
 				MOB male=mate;
-				if((mate.charStats().getStat(CharStats.STAT_GENDER)==('F')))
+				if((mate.charStats().reproductiveCode()=='F'))
 				{
 					female=mate;
 					male=myChar;

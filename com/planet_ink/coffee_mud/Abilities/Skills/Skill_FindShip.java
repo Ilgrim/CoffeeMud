@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -203,7 +203,8 @@ public class Skill_FindShip extends StdAbility
 	{
 		if(I==null)
 			return "";
-		if(I instanceof SailingShip)
+		if((I instanceof NavigableItem)
+		&&(((NavigableItem)I).navBasis() == Rideable.Basis.WATER_BASED))
 		{
 			final PrivateProperty prop=CMLib.law().getPropertyRecord(I);
 			if(((prop != null)
@@ -274,16 +275,22 @@ public class Skill_FindShip extends StdAbility
 		final ArrayList<Room> rooms=new ArrayList<Room>();
 		TrackingLibrary.TrackingFlags flags;
 		flags = CMLib.tracking().newFlags()
+				.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 				.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
 				.plus(TrackingLibrary.TrackingFlag.NOAIR);
 		final int range=60 + (2*super.getXLEVELLevel(mob))+(10*super.getXMAXRANGELevel(mob));
-		final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,range);
-		for (final Room room : checkSet)
-		{
-			final Room R=CMLib.map().getRoom(room);
-			if(shipHere(mob,R,null).length()>0)
-				rooms.add(R);
-		}
+		final List<Room> trashRooms = new ArrayList<Room>();
+		if(CMLib.tracking().getRadiantRoomsToTarget(mob.location(), trashRooms, flags, new TrackingLibrary.RFilter() {
+			@Override
+			public boolean isFilteredOut(final Room hostR, Room R, final Exit E, final int dir)
+			{
+				R=CMLib.map().getRoom(R);
+				if(shipHere(mob,R,null).length()>0)
+					return false;
+				return true;
+			}
+		}, range))
+			rooms.add(trashRooms.get(trashRooms.size()-1));
 
 		if(rooms.size()>0)
 			theTrail=CMLib.tracking().findTrailToAnyRoom(mob.location(),rooms,flags,range);

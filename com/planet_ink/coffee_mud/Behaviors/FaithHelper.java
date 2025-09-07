@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -40,9 +40,9 @@ public class FaithHelper extends StdBehavior
 		return "FaithHelper";
 	}
 
-	protected boolean	mobKiller	= false;
 	protected int		num			= 999;
 	protected String	msg			= null;
+	protected String	deityName	= "";
 
 	@Override
 	public String accountForYourself()
@@ -59,39 +59,54 @@ public class FaithHelper extends StdBehavior
 	}
 
 	@Override
+	protected int canImproveCode()
+	{
+		return Behavior.CAN_MOBS|Behavior.CAN_AREAS|Behavior.CAN_ROOMS;
+	}
+
+	@Override
 	public void startBehavior(final PhysicalAgent forMe)
 	{
 		super.startBehavior(forMe);
-		if(forMe instanceof MOB)
+		msg=null;
+		if(parms.length()>0)
 		{
-			if(parms.length()>0)
+			deityName=parms;
+			final MOB M = CMLib.map().getDeity(deityName);
+			if(M != null)
+				deityName=M.Name();
+			if(parms.indexOf(' ')>0)
 			{
-				if(parms.indexOf(' ')>0)
+				String parms=this.parms;
+				final int x=parms.toUpperCase().lastIndexOf("MSG");
+				if((x>0)
+				&&(parms.substring(x+3).trim().startsWith("=")))
 				{
-					msg=null;
-					String parms=this.parms;
-					final int x=parms.toUpperCase().lastIndexOf("MSG");
-					if((x>0)
-					&&(parms.substring(x+3).trim().startsWith("=")))
-					{
-						msg=CMParms.getParmStr(parms.substring(x), "MSG", null);
-						parms=parms.substring(0,x);
-					}
-
-					final List<String> V=CMParms.parse(parms);
-					for(int i=V.size()-1;i>=0;i--)
-					{
-						if(CMath.isInteger(V.get(i)))
-						{
-							num=CMath.s_int(V.get(i));
-							V.remove(i);
-							break;
-						}
-					}
-					((MOB)forMe).setWorshipCharID(CMParms.combine(V));
+					msg=CMParms.getParmStr(parms.substring(x), "MSG", null);
+					parms=parms.substring(0,x);
 				}
-				else
-					((MOB)forMe).setWorshipCharID(parms);
+
+				final List<String> V=CMParms.parse(parms);
+				for(int i=V.size()-1;i>=0;i--)
+				{
+					if(CMath.isInteger(V.get(i)))
+					{
+						num=CMath.s_int(V.get(i));
+						V.remove(i);
+						break;
+					}
+				}
+				deityName=CMParms.combine(V);
+			}
+			if(forMe instanceof MOB)
+			{
+				final MOB mob=(MOB)forMe;
+				mob.baseCharStats().setWorshipCharID(deityName);
+				mob.charStats().setWorshipCharID(deityName);
+				final Room startRoom=mob.getStartRoom();
+				final Area startArea=(startRoom==null)?null:startRoom.getArea();
+				if(startArea!=null)
+					Resources.removeResource("PIETY_"+startArea.Name().toUpperCase());
 			}
 		}
 	}
@@ -100,27 +115,44 @@ public class FaithHelper extends StdBehavior
 	public void executeMsg(final Environmental affecting, final CMMsg msg)
 	{
 		super.executeMsg(affecting,msg);
-		if((msg.target()==null)||(!(msg.target() instanceof MOB)))
+		if((affecting instanceof Room)||(affecting instanceof Area))
+		{
+			if((msg.sourceMinor()==CMMsg.TYP_LIFE)
+			&&(msg.source().isMonster())
+			&&(!msg.source().isPlayer())
+			&&(deityName.length()>0)
+			&&(msg.source().baseCharStats().getWorshipCharID().length()==0))
+			{
+				final MOB M = CMLib.map().getDeity(deityName);
+				if(M != null)
+					deityName=M.Name();
+				msg.source().baseCharStats().setWorshipCharID(deityName);
+				msg.source().recoverCharStats();
+			}
 			return;
+		}
+		else
+		if((!(msg.target() instanceof MOB))
+		||(!(affecting instanceof MOB)))
+			return;
+
 		final MOB source=msg.source();
 		final MOB observer=(MOB)affecting;
 		final MOB target=(MOB)msg.target();
-
-		if((target==null)||(observer==null))
-			return;
 		if((source!=observer)
+		&&(num != 1)
 		&&(CMath.bset(msg.targetMajor(),CMMsg.MASK_MALICIOUS))
 		&&(!observer.isInCombat())
 		&&(target!=observer)
 		&&(source!=target)
-		&&(observer.getWorshipCharID().length()>0)
+		&&(observer.charStats().getWorshipCharID().length()>0)
 		&&(CMLib.flags().canBeSeenBy(source,observer))
 		&&(CMLib.flags().canBeSeenBy(target,observer))
 		&&((!(msg.tool() instanceof DiseaseAffect))||(((DiseaseAffect)msg.tool()).isMalicious()))
 		&&(!BrotherHelper.isBrother(source,observer,false)))
 		{
 			final Room R=source.location();
-			if(observer.getWorshipCharID().equalsIgnoreCase(target.getWorshipCharID())
+			if(observer.charStats().getWorshipCharID().equalsIgnoreCase(target.charStats().getWorshipCharID())
 			&&(R!=null))
 			{
 				int numInFray=0;
@@ -136,9 +168,9 @@ public class FaithHelper extends StdBehavior
 				if(((num==0)||(numInFray<num)))
 				{
 					String reason=(this.msg!=null)?this.msg:"THAT`S MY FRIEND!! CHARGE!!";
-					if((observer.getWorshipCharID().equals(target.getWorshipCharID()))
-					&&(!observer.getWorshipCharID().equals(source.getWorshipCharID())))
-						reason=(this.msg!=null)?this.msg:"BELIEVERS OF "+observer.getWorshipCharID().toUpperCase()+" UNITE! CHARGE!";
+					if((observer.charStats().getWorshipCharID().equals(target.charStats().getWorshipCharID()))
+					&&(!observer.charStats().getWorshipCharID().equals(source.charStats().getWorshipCharID())))
+						reason=(this.msg!=null)?this.msg:"BELIEVERS OF "+observer.charStats().getWorshipCharID().toUpperCase()+" UNITE! CHARGE!";
 					Aggressive.startFight(observer,source,true,false,reason);
 				}
 			}

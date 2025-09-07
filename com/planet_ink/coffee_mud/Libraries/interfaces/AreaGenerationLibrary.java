@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -90,6 +90,7 @@ public interface AreaGenerationLibrary extends CMLibrary
 	 * Given a specific ROOM generation tag, this method will return the room selected
 	 * by that tag piece, with the entrace to it being in the given direction
 	 * @see AreaGenerationLibrary#buildDefinedIDSet(List, Map, Set)
+	 * @param A the area the room is being built for
 	 * @param piece the identified tag that can return a room
 	 * @param defined the defined id set from the entire xml document
 	 * @param exits pre-defined exits from this room, if any
@@ -97,7 +98,7 @@ public interface AreaGenerationLibrary extends CMLibrary
 	 * @return the room generated from the tag.
 	 * @throws CMException any parsing or generation errors
 	 */
-	public Room buildRoom(XMLTag piece, Map<String,Object> defined, Exit[] exits, int direction) throws CMException;
+	public Room buildRoom(final Area A, XMLTag piece, Map<String,Object> defined, Exit[] exits, int direction) throws CMException;
 
 	/**
 	 * Builds a quest script based around the given variables using the given xml tag root.
@@ -231,6 +232,26 @@ public interface AreaGenerationLibrary extends CMLibrary
 	 * @throws MQLException something went wrong
 	 */
 	public List<Map<String,Object>> doMQLSelectObjects(final Modifiable E, final String mql) throws MQLException;
+
+	/**
+	 * Updates objects using an MQL query that begins with UPDATE:
+	 *
+	 * @param E a random object you want to use as a base, or null
+	 * @param mql the MQL query
+	 * @return the list of UpdateSet that should be modified
+	 * @throws MQLException something went wrong
+	 */
+	public List<UpdateSet> doMQLUpdateObjects(final Modifiable E, final String mql) throws MQLException;
+
+	/**
+	 * Returns the string output from an MQL query that begins with SELECT:
+	 *
+	 * @param E a random object you want to use as a base, or null
+	 * @param mql the MQL query
+	 * @return the list of maps that is the reqult of the query
+	 * @throws MQLException something went wrong
+	 */
+	public List<Map<String,String>> doMQLSelectStrings(final Modifiable E, final String mql) throws MQLException;
 
 	/**
 	 * Returns a flattened string result from an MQL query that begins with SELECT:
@@ -438,7 +459,18 @@ public interface AreaGenerationLibrary extends CMLibrary
 		 * @param line which line, 0, 1, or 2
 		 * @return the 3 character string for this line.
 		 */
-		public String getColorRepresentation(char roomChar, int line);
+		public String getFullDirRepresentation(char roomChar, int line);
+
+		/**
+		 * Returns one line of a 2x2 character representation. Each call
+		 * returns 2 characters, with the second being the roomchar, and
+		 * the rest depending on the links.  Call this twice with
+		 * 0, and 2, to get both lines.
+		 * @param roomChar the char to use for this room
+		 * @param line which line, 0, or 2
+		 * @return the 2 character string for this line.
+		 */
+		public String getLinkRepresentation(char roomChar, int line);
 
 		/**
 		 * Returns the room object assigned to this node.
@@ -514,6 +546,22 @@ public interface AreaGenerationLibrary extends CMLibrary
 		ud,
 		nesw,
 		nwse
+	}
+
+	/**
+	 * The result set from an update
+	 *
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public class UpdateSet extends Triad<Modifiable,String,String>
+	{
+		private static final long serialVersionUID = -4823552885917346264L;
+
+		public UpdateSet(final Modifiable obj, final String key, final String value)
+		{
+			super(obj, key, value);
+		}
 	}
 
 	//public void testMQLParsing();

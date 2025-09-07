@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Vector;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -318,6 +318,7 @@ public interface Librarian extends ShopKeeper
 	/**
 	 * Returns the underlying basic book stock of the library, as opposed to the
 	 * current shop, which reflects only what is there at the moment.
+	 * @return the underlying basic book stock of the library
 	 */
 	public CoffeeShop getBaseLibrary();
 }

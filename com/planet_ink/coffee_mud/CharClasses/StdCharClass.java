@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.CharClasses;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMProps.Str;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -21,7 +22,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -391,12 +392,35 @@ public class StdCharClass implements CharClass
 			&&(!multiClassSecondRule.equals("SUB"))
 			&&(!multiClassSecondRule.equals("MULTI"))
 			&&(!multiClassSecondRule.equals("MULTIAPP"))
-			&&(!multiClassSecondRule.equals("SUBONLY")))
+			&&(!multiClassSecondRule.equals("SUBONLY"))
+			&&(!CMath.isInteger(multiClassSecondRule)))
 			{
 				final CharClass possibleClass=CMClass.findCharClass(multiClassSecondRule);
 				if(possibleClass != null)
 					canOnlyBeClassID=possibleClass.ID();
 				multiClassSecondRule="NO";
+			}
+
+			// check the # class limits rule
+			if((multiClassFirstRule.equals("MULTI")
+				||multiClassFirstRule.equals("MULTIAPP")
+				||multiClassFirstRule.equals("SUB"))
+			&&(CMath.isInteger(multiClassSecondRule)))
+			{
+				if((mob!=null)
+				&&(mob.baseCharStats().getClassLevel(this)<0)
+				&&(!mob.baseCharStats().getCurrentClass().ID().equals("StdCharClass")))
+				{
+					final int max=CMath.s_int(multiClassSecondRule);
+					final int num=mob.baseCharStats().numClasses();
+					if(num>=max)
+					{
+						if(!quiet)
+							mob.tell(L("You have already trained for your max @x1 classes.",""+num));
+						return false;
+					}
+				}
+				multiClassSecondRule="";
 			}
 		}
 
@@ -423,7 +447,10 @@ public class StdCharClass implements CharClass
 			{
 				final CharStats cStats = (CharStats)mob.baseCharStats().copyOf();
 				cStats.getMyRace().affectCharStats(mob, cStats);
-				if(cStats.getStat(statCode) < minReq.second.intValue())
+				final String uStat = minReq.first.toUpperCase().trim();
+				if((cStats.getStat(statCode) < minReq.second.intValue())
+					&& (!CMLib.login().isTattooedLike(mob, "CHARCLASS_"+ID()+"+"+uStat))
+					&& (!CMLib.login().isTattooedLike(mob,"CHARCLASS_ALL"+"+"+uStat)))
 				{
 					if(!quiet)
 						mob.tell(L("You need at least a @x1 @x2 to become a @x3.",minReq.second.toString(),CMStrings.capitalizeAndLower(CharStats.CODES.NAME(statCode)),name()));
@@ -432,7 +459,13 @@ public class StdCharClass implements CharClass
 			}
 		}
 		final Race R=mob.baseCharStats().getMyRace();
-		if(!isAllowedRace(R))
+		if(!(isAllowedRace(R)
+			|| (CMLib.login().isTattooedLike(mob,"CHARCLASS_"+ID()+"+RACE_"+R.ID()))
+			|| (CMLib.login().isTattooedLike(mob,"CHARCLASS_"+ID()+"+RACE_ALL"))
+			|| (CMLib.login().isTattooedLike(mob,"CHARCLASS_ALL+RACE_"+R.ID()))
+			|| (CMLib.login().isTattooedLike(mob,"CHARCLASS_ALL+RACE_ALL"))
+			)
+		)
 		{
 			if(!quiet)
 			{
@@ -454,9 +487,11 @@ public class StdCharClass implements CharClass
 					return false;
 				if((canOnlyBeBaseClassID.length()>0)&&(!changeToBaseClassID.equals(canOnlyBeBaseClassID)))
 					return false;
-				if((multiClassRule.equals("NO"))||(multiClassRule.equals("MULTI")))
+				if((multiClassRule.equals("NO"))||(multiClassFirstRule.equals("MULTI")))
 					return true;
-				if((multiClassRule.equals("SUB")||multiClassFirstRule.equals("SUB")||multiClassSecondRule.equals("BASE"))
+				if((multiClassRule.equals("SUB")
+						||multiClassFirstRule.equals("SUB")
+						||multiClassSecondRule.equals("BASE"))
 				&&(changeToBaseClassID.equals(changeToClassID)||(changeToSubClassRule==SubClassRule.ANY)))
 					return true;
 				if((multiClassSecondRule.equals("SUBONLY"))
@@ -621,7 +656,7 @@ public class StdCharClass implements CharClass
 				{
 					for(final Race R : qualRaces)
 						names.add(R.name());
-					str.append(CMLib.english().toEnglishStringList(names.toArray(new String[0])));
+					str.append(CMLib.english().toEnglishStringList(names.toArray(new String[0]),false));
 				}
 				/*
 				else
@@ -684,7 +719,7 @@ public class StdCharClass implements CharClass
 	{
 		if(hitPointsDesc==null)
 		{
-			String formula=getHitPointsFormula();
+			String formula=getHitPointsFormula()+CMProps.getVar(Str.FORMULA_CLASSHPADD);
 			final int x=formula.indexOf("*(1?");
 			if(x>0)
 			{
@@ -703,7 +738,7 @@ public class StdCharClass implements CharClass
 	{
 		if(manaDesc==null)
 		{
-			String formula=getManaFormula();
+			String formula=getManaFormula()+CMProps.getVar(Str.FORMULA_CLASSMNADD);
 			final int x=formula.indexOf("*(1?");
 			if(x>0)
 			{
@@ -722,7 +757,7 @@ public class StdCharClass implements CharClass
 	{
 		if(movementDesc==null)
 		{
-			String formula=getMovementFormula();
+			String formula=getMovementFormula()+CMProps.getVar(Str.FORMULA_CLASSMVADD);
 			final int x=formula.indexOf("*(1?");
 			if(x>0)
 			{
@@ -754,6 +789,14 @@ public class StdCharClass implements CharClass
 			str.append(""+getBonusAttackLevel());
 		str.append(L(" per level"));
 		return str.toString();
+	}
+
+	protected void cleanOutfit(final List<Item> items)
+	{
+		for(final Item I : items)
+		{
+			I.setBaseValue(0);
+		}
 	}
 
 	protected Set<Integer> buildDisallowedWeaponClasses()
@@ -859,12 +902,17 @@ public class StdCharClass implements CharClass
 		return true;
 	}
 
-	protected boolean giveMobAbility(final MOB mob, final Ability A, final int proficiency, final String defaultParm, final boolean isBorrowedClass)
+	protected boolean giveMobAbility(final MOB mob, final Ability A,
+									 final int proficiency, final String defaultParm,
+									 final boolean isBorrowedClass)
 	{
 		return giveMobAbility(mob,A,proficiency,defaultParm,isBorrowedClass,true);
 	}
 
-	protected boolean giveMobAbility(final MOB mob, Ability A, final int proficiency, final String defaultParm, final boolean isBorrowedClass, final boolean autoInvoke)
+	protected boolean giveMobAbility(final MOB mob, Ability A,
+									 final int proficiency, final String defaultParm,
+									 final boolean isBorrowedClass,
+									 final boolean autoInvoke)
 	{
 		if(mob.fetchAbility(A.ID())==null)
 		{
@@ -887,14 +935,20 @@ public class StdCharClass implements CharClass
 	}
 
 	@Override
-	public int addedExpertise(final MOB host, final ExpertiseLibrary.Flag expertiseCode, final String abilityID)
+	public int addedExpertise(final MOB host, final ExpertiseLibrary.XType expertiseCode, final String abilityID)
 	{
 		return 0;
+	}
+
+	protected boolean allowedToAutoGain(final MOB mob, final Ability A)
+	{
+		return true;
 	}
 
 	@Override
 	public void grantAbilities(final MOB mob, final boolean isBorrowedClass)
 	{
+		final AbilityMapper mapper = CMLib.ableMapper();
 		if(CMSecurity.isAllowedEverywhere(mob,CMSecurity.SecFlag.ALLSKILLS)
 		&&(mob.soulMate()==null))
 		{
@@ -912,11 +966,11 @@ public class StdCharClass implements CharClass
 				final Ability A=mob.fetchAbility(a);
 				if(A!=null)
 				{
-					A.setProficiency(CMLib.ableMapper().getMaxProficiency(mob,true,A.ID()));
+					A.setProficiency(mapper.getMaxProficiency(mob,true,A.ID()));
 					A.setSavable(false);
 					final Ability A2=alreadyAff.get(A.ID());
 					if(A2!=null)
-						A2.setProficiency(CMLib.ableMapper().getMaxProficiency(mob,true,A.ID()));
+						A2.setProficiency(mapper.getMaxProficiency(mob,true,A2.ID()));
 					else
 						A.autoInvocation(mob, false);
 					alreadyAble.put(A.ID(),A);
@@ -925,9 +979,9 @@ public class StdCharClass implements CharClass
 			for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
 			{
 				final Ability A=a.nextElement();
-				final int lvl=CMLib.ableMapper().lowestQualifyingLevel(A.ID());
+				final int lvl=mapper.lowestQualifyingLevel(A.ID());
 				if((lvl>=0)
-				&&(CMLib.ableMapper().qualifiesByAnyCharClass(A.ID()))
+				&&(mapper.qualifiesByAnyCharClass(A.ID()))
 				&&(!alreadyAble.containsKey(A.ID())))
 					giveMobAbility(mob,A,100,"",true,false);
 			}
@@ -939,14 +993,16 @@ public class StdCharClass implements CharClass
 		else
 		{
 			final PairList<Ability,AbilityMapping> onesToAdd=new PairVector<Ability,AbilityMapping>();
+			final int classLevel = mob.baseCharStats().getClassLevel(this);
 			for(final Enumeration<Ability> a=CMClass.abilities();a.hasMoreElements();)
 			{
 				final Ability A=a.nextElement();
-				final AbilityMapping mapping = CMLib.ableMapper().getQualifyingMapping(ID(), true, A.ID());
+				final AbilityMapping mapping = mapper.getQualifyingMapping(ID(), true, A.ID());
 				if((mapping != null)
 				&&(mapping.qualLevel()>0)
-				&&(mapping.qualLevel()<=mob.baseCharStats().getClassLevel(this))
-				&&(mapping.autoGain()))
+				&&(mapping.qualLevel()<=classLevel)
+				&&(mapping.autoGain())
+				&&(allowedToAutoGain(mob,A)))
 				{
 					final String extraMask=mapping.extraMask();
 					if((extraMask==null)
@@ -1000,19 +1056,23 @@ public class StdCharClass implements CharClass
 		||CMStrings.containsIgnoreCase(overrideRequiredRaceListCheck,R.racialCategory()))
 			secondCheck = true;
 		else
-		if(CMStrings.containsIgnoreCase(overrideRequiredRaceListCheck,"-"+R.ID())
+		if(CMStrings.containsIgnoreCase(overrideRequiredRaceListCheck,"-All")
+		||CMStrings.containsIgnoreCase(overrideRequiredRaceListCheck,"-"+R.ID())
 		||CMStrings.containsIgnoreCase(overrideRequiredRaceListCheck,"-"+R.name())
 		||CMStrings.containsIgnoreCase(overrideRequiredRaceListCheck,"-"+R.racialCategory()))
 			secondCheck=false;
 		else
+		{
 			secondCheck =
 				(CMStrings.containsIgnoreCase(requiredRaceList,"All")
 				||CMStrings.containsIgnoreCase(requiredRaceList,R.ID())
 				||CMStrings.containsIgnoreCase(requiredRaceList,R.name())
 				||CMStrings.containsIgnoreCase(requiredRaceList,R.racialCategory()))
+			&&(!CMStrings.containsIgnoreCase(requiredRaceList,"-All"))
 			&&(!CMStrings.containsIgnoreCase(requiredRaceList,"-"+R.ID()))
 			&&(!CMStrings.containsIgnoreCase(requiredRaceList,"-"+R.name()))
 			&&(!CMStrings.containsIgnoreCase(requiredRaceList,"-"+R.racialCategory()));
+		}
 
 		synchronized(finalAllowedRaceSet)
 		{
@@ -1063,8 +1123,7 @@ public class StdCharClass implements CharClass
 		CR.setStat("QUAL","");
 
 		final MOB fakeMOB=CMClass.getFactoryMOB();
-		fakeMOB.baseCharStats().setMyClasses(ID());
-		fakeMOB.baseCharStats().setMyLevels("0");
+		fakeMOB.baseCharStats().setAllClassInfo(ID(), "0");
 		fakeMOB.recoverCharStats();
 
 		final PhyStats RS=(PhyStats)CMClass.getCommon("DefaultPhyStats");
@@ -1074,17 +1133,14 @@ public class StdCharClass implements CharClass
 		CR.setStat("ESTATS",CMLib.coffeeMaker().getPhyStatsStr(RS));
 
 		final CharStats S1=(CharStats)CMClass.getCommon("DefaultCharStats");
-		S1.setMyClasses(ID());
-		S1.setMyLevels("0");
+		S1.setAllClassInfo(ID(), "0");
 		S1.setAllValues(0);
 		final CharStats S2=(CharStats)CMClass.getCommon("DefaultCharStats");
 		S2.setAllValues(10);
-		S2.setMyClasses(ID());
-		S2.setMyLevels("0");
+		S2.setAllClassInfo(ID(), "0");
 		final CharStats S3=(CharStats)CMClass.getCommon("DefaultCharStats");
 		S3.setAllValues(11);
-		S3.setMyClasses(ID());
-		S3.setMyLevels("0");
+		S3.setAllClassInfo(ID(), "0");
 		final CharStats SETSTAT=(CharStats)CMClass.getCommon("DefaultCharStats");
 		SETSTAT.setAllValues(0);
 		final CharStats ADJSTAT=(CharStats)CMClass.getCommon("DefaultCharStats");
@@ -1131,7 +1187,7 @@ public class StdCharClass implements CharClass
 			CR.setStat("GETCABLELVL"+i,Integer.toString(able.qualLevel()));
 			CR.setStat("GETCABLEPROF"+i,Integer.toString(able.defaultProficiency()));
 			CR.setStat("GETCABLEGAIN"+i,Boolean.toString(able.autoGain()));
-			CR.setStat("GETCABLESECR"+i,Boolean.toString(able.isSecret()));
+			CR.setStat("GETCABLESECR"+i,able.secretFlag().name());
 			CR.setStat("GETCABLEPARM"+i,able.defaultParm());
 			CR.setStat("GETCABLEPREQ"+i,able.originalSkillPreReqList());
 			CR.setStat("GETCABLEMASK"+i,able.extraMask()==null?"":able.extraMask());
@@ -1281,9 +1337,11 @@ public class StdCharClass implements CharClass
 	@Override
 	public void affectCharStats(final MOB affectedMob, final CharStats affectableStats)
 	{
-		if(affectableStats.getCurrentClass().ID().equals(ID()))
-		for(final int i: CharStats.CODES.MAXCODES())
-			affectableStats.setStat(i,affectableStats.getStat(i)+maxStatAdjustments()[i]+maxStatAdjustments()[CharStats.CODES.toMAXBASE(i)]);
+		if(affectableStats.getCurrentClass()==this)
+		{
+			for(final int i: CharStats.CODES.MAXCODES())
+				affectableStats.setStat(i,affectableStats.getStat(i)+maxStatAdjustments()[i]+maxStatAdjustments()[CharStats.CODES.toMAXBASE(i)]);
+		}
 	}
 
 	@Override
@@ -1372,7 +1430,7 @@ public class StdCharClass implements CharClass
 
 	/**
 	 * Localize an internal string -- shortcut. Same as calling:
-	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.LanguageLibrary#fullSessionTranslation(String, String...)
+	 * @see com.planet_ink.coffee_mud.Libraries.interfaces.LanguageLibrary#fullSessionTranslation(Class, String, String...)
 	 * Call with the string to translate, which may contain variables of the form @x1, @x2, etc. The array in xs
 	 * is then used to replace the variables AFTER the string is translated.
 	 * @param str the string to translate
@@ -1381,7 +1439,7 @@ public class StdCharClass implements CharClass
 	 */
 	public String L(final String str, final String ... xs)
 	{
-		return CMLib.lang().fullSessionTranslation(str, xs);
+		return CMLib.lang().fullSessionTranslation(getClass(),str,xs);
 	}
 
 	@Override

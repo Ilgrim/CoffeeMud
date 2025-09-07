@@ -3,6 +3,7 @@ package com.planet_ink.coffee_mud.WebMacros;
 import com.planet_ink.coffee_web.interfaces.*;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMProps.ListFile;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -21,7 +22,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -197,7 +198,7 @@ public class PlayerData extends StdWebMacro
 			str.append(CMLib.beanCounter().getMoney(M) + ", ");
 			break;
 		case DEITYNAME:
-			str.append(M.getWorshipCharID() + ", ");
+			str.append(M.baseCharStats().getWorshipCharID() + ", ");
 			break;
 		case LIEGE:
 			str.append(M.getLiegeID() + ", ");
@@ -260,7 +261,7 @@ public class PlayerData extends StdWebMacro
 			str.append(M.phyStats().weight() + ", ");
 			break;
 		case GENDERNAME:
-			str.append(CMStrings.capitalizeAndLower(M.baseCharStats().genderName()) + ", ");
+			str.append(CMStrings.capitalizeAndLower(M.baseCharStats().realGenderName()) + ", ");
 			break;
 		case LASTDATETIMEMILLIS:
 			if(M.playerStats()!=null)
@@ -404,9 +405,10 @@ public class PlayerData extends StdWebMacro
 		{
 			if(M.playerStats()!=null)
 			{
-				for(int b=0;b<M.playerStats().getTitles().size();b++)
+				final List<String> roTitles = M.playerStats().getTitles();
+				for(int b=0;b<roTitles.size();b++)
 				{
-					final String B=M.playerStats().getTitles().get(b);
+					final String B=roTitles.get(b);
 					if(B!=null)
 						str.append(B+", ");
 				}
@@ -468,7 +470,7 @@ public class PlayerData extends StdWebMacro
 	@Override
 	public String runMacro(final HTTPRequest httpReq, final String parm, final HTTPResponse httpResp)
 	{
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return CMProps.getVar(CMProps.Str.MUDSTATUS);
 
 		final java.util.Map<String,String> parms=parseParms(parm);
@@ -563,7 +565,7 @@ public class PlayerData extends StdWebMacro
 			{
 				String old=httpReq.getUrlParameter("DEITY");
 				if(firstTime)
-					old=M.getWorshipCharID();
+					old=M.baseCharStats().getWorshipCharID();
 				str.append("<OPTION "+((old.length()==0)?"SELECTED":"")+" VALUE=\"\">Godless");
 				for(final Enumeration<Deity> e=CMLib.map().deities();e.hasMoreElements();)
 				{
@@ -623,9 +625,18 @@ public class PlayerData extends StdWebMacro
 				String old=httpReq.getUrlParameter("BASEGENDER");
 				if(firstTime)
 					old=""+(char)M.baseCharStats().getStat(CharStats.STAT_GENDER);
-				str.append("<OPTION VALUE=M "+((old.equalsIgnoreCase("M"))?"SELECTED":"")+">M");
-				str.append("<OPTION VALUE=F "+((old.equalsIgnoreCase("F"))?"SELECTED":"")+">F");
-				str.append("<OPTION VALUE=N "+((old.equalsIgnoreCase("N"))?"SELECTED":"")+">N");
+				for(final Object[] gset : CMProps.getListFileStringChoices(ListFile.GENDERS))
+				{
+					if((gset.length>0)
+					&&(gset[0].toString().length()>0))
+					{
+						char c= Character.toUpperCase(gset[0].toString().charAt(0));
+						str.append("<OPTION ");
+						if(Character.toUpperCase(old.charAt(0)) == c)
+							str.append("SELECTED ");
+						str.append("VALUE="+c+">"+c);
+					}
+				}
 			}
 			if(parms.containsKey("FLAGS"))
 			{

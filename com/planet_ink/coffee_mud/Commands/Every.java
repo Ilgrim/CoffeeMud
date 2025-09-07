@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -230,14 +230,14 @@ public class Every extends StdCommand
 					break;
 				case EXIT:
 				{
-					final boolean inAShip =(R instanceof BoardableShip)||(R.getArea() instanceof BoardableShip);
+					final Directions.DirType dirType = CMLib.flags().getDirType(R);
 					for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
 					{
 						final Exit E=R.getExitInDir(d);
 						if((E!=null)
 						&&((mask==null)||(CMLib.masking().maskCheck(mask, E, true))))
 						{
-							mob.doCommand(makeNewCommands(commands,inAShip ? CMLib.directions().getShipDirectionName(d) : CMLib.directions().getDirectionName(d)),metaFlags);
+							mob.doCommand(makeNewCommands(commands,CMLib.directions().getDirectionName(d,dirType)),metaFlags);
 						}
 					}
 				}

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -72,7 +72,9 @@ public class Song_Death extends Song
 		if(mob==invoker)
 			return true;
 		final MOB invoker=(invoker()!=null) ? invoker() : mob;
-		int hpLoss=(int)Math.round(Math.floor(mob.curState().getHitPoints()*(0.07+(0.02*(1+super.getXLEVELLevel(invoker()))))));
+		double pctHP = 0.06+CMath.mul(0.02,1+super.getXLEVELLevel(invoker()));
+		pctHP += CMath.mul(0.001,super.avgStat());
+		int hpLoss=(int)Math.round(Math.floor(mob.curState().getHitPoints()*pctHP));
 		if(invoker != null)
 		{
 			final Room R=invoker.location();

@@ -16,10 +16,11 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
+import java.io.IOException;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -86,6 +87,119 @@ public class Alias extends StdCommand
 				}
 				pStats.setAlias(key, define);
 				mob.tell(L("Alias @x1 defined.",key));
+				return false;
+			}
+		}
+		if((commands.size()>2)
+		&&("COPY".equalsIgnoreCase(commands.get(1))))
+		{
+			final String whomName=(commands.size()>2)?CMParms.combine(commands,2):"";
+			if(whomName.length()==0)
+				mob.tell(L("Copy whose aliases?"));
+			else
+			if(!CMLib.players().playerExists(whomName))
+				mob.tell(L("Player '@x1' doesn't exist.",whomName));
+			else
+			{
+				final boolean unloadAfter = CMLib.players().isLoadedPlayer(whomName);
+				final MOB M=CMLib.players().getLoadPlayer(whomName);
+				if((M!=null)
+				&&(M!=mob)
+				&&(!mob.isMonster()))
+				{
+					try
+					{
+						final Session sess = mob.session();
+						final java.util.List<String> changes = new ArrayList<String>();
+						final PlayerStats opStats =M.playerStats();
+						final PlayerStats mpStats =mob.playerStats();
+						if((opStats == null)||(mpStats==null))
+							return false;
+						for(final String alias : opStats.getAliasNames())
+						{
+							if(mpStats.getAlias(alias).length()==0)
+								changes.add(alias);
+						}
+						final MOB M1=mob;
+						final MOB M2=M;
+						if(changes.size()==0)
+							mob.tell(L("Your aliases already match @x1s, at least in key words.",M.name()));
+						else
+						sess.prompt(new InputCallback(InputCallback.Type.CONFIRM,"N",0)
+						{
+							final Session S=sess;
+							final MOB mob=M1;
+							final MOB M=M2;
+							@Override
+							public void showPrompt()
+							{
+								S.promptPrint(L("\n\rCopy the aliases '@x1' from player @x2 (y/N)? ",
+										CMLib.english().toEnglishStringList(changes),
+										M.name()));
+							}
+							@Override
+							public void timedOut()
+							{
+							}
+							@Override
+							public void callBack()
+							{
+								if(this.input.equals("Y"))
+								{
+									if((mob == null)||(M==null))
+										return;
+									final PlayerStats opStats1 =M.playerStats();
+									final PlayerStats mpStats1 =mob.playerStats();
+									if((opStats1 == null)||(mpStats1==null))
+										return;
+									for(final String alias : opStats1.getAliasNames())
+									{
+										if(mpStats1.getAlias(alias).length()==0)
+											mpStats1.setAlias(alias,opStats1.getAlias(alias));
+									}
+									mob.tell(L("Aliases copied and active."));
+								}
+							}
+						});
+					}
+					finally
+					{
+						if(unloadAfter
+						&&(M!=null)
+						&&((M.session()==null)||(M.session().isStopped())))
+							CMLib.players().unloadOfflinePlayer(M);
+					}
+				}
+			}
+			return true;
+		}
+		if((commands.size()>2)
+		&&("TEST".equals(commands.get(1).toUpperCase())))
+		{
+			final String key=commands.get(2).toUpperCase();
+			final String rawAliasDefinition=(pStats!=null)?pStats.getAlias(key):"";
+			final List<List<String>> executableCommands=new LinkedList<List<String>>();
+			if(rawAliasDefinition.length()>0)
+			{
+				final List<String> cmds = new XVector<String>(commands);
+				cmds.remove(0);
+				cmds.remove(0);
+				cmds.remove(0);
+				final boolean[] echo = new boolean[1];
+				CMLib.utensils().deAlias(rawAliasDefinition, cmds, executableCommands, echo);
+				mob.tell(L("^HTest of alias '@x1':^N",key));
+				int i=1;
+				for(final List<String> cmd : executableCommands)
+				{
+					mob.tell("^H"+CMStrings.padRight(""+i, 2)+"^N: "+CMParms.combineQuoted(cmd, 0));
+					i++;
+				}
+				mob.tell(L("^HEnd of Test"));
+				return false;
+			}
+			else
+			{
+				mob.tell(L("'@x1' is not a known alias.",key));
 				return false;
 			}
 		}

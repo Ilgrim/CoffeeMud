@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -100,8 +100,7 @@ public class Skill_BurrowHide extends StdSkill
 		&&(R.domainType()!=Room.DOMAIN_INDOORS_CAVE)
 		&&((R.getAtmosphere()&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_ROCK))
 			return false;
-		if((R.domainType()==Room.DOMAIN_OUTDOORS_CITY)
-		   ||(R.domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT)
+		if((CMLib.flags().isACityRoom(R))
 		   ||(R.domainType()==Room.DOMAIN_OUTDOORS_UNDERWATER)
 		   ||(R.domainType()==Room.DOMAIN_OUTDOORS_AIR)
 		   ||(R.domainType()==Room.DOMAIN_OUTDOORS_WATERSURFACE))
@@ -121,6 +120,7 @@ public class Skill_BurrowHide extends StdSkill
 				final Race mR=M.charStats().getMyRace();
 				if(mR.racialCategory().equals("Rodent")
 				||mR.racialCategory().equals("Worm")
+				||mR.racialCategory().equals("Mustelid")
 				||mR.racialCategory().equals("Ophidian"))
 				{
 					return true;
@@ -176,7 +176,7 @@ public class Skill_BurrowHide extends StdSkill
 			&&(msg.sourceMajor()>0))
 			{
 				isBuried=false;
-				msg.source().tell("You climb out of the burrow.");
+				msg.source().tell(L("You climb out of the burrow."));
 				mob.recoverPhyStats();
 				mob.recoverCharStats();
 			}
@@ -190,7 +190,7 @@ public class Skill_BurrowHide extends StdSkill
 				if(msg.othersMajor(CMMsg.MASK_SOUND))
 				{
 					isBuried=false;
-					msg.source().tell("You climb out of the burrow.");
+					msg.source().tell(L("You climb out of the burrow."));
 					mob.recoverPhyStats();
 					mob.recoverCharStats();
 				}
@@ -201,7 +201,7 @@ public class Skill_BurrowHide extends StdSkill
 				case CMMsg.TYP_CAST_SPELL:
 					{
 						isBuried=false;
-						msg.source().tell("You climb out of the burrow.");
+						msg.source().tell(L("You climb out of the burrow."));
 						mob.recoverPhyStats();
 						mob.recoverCharStats();
 					}
@@ -217,7 +217,7 @@ public class Skill_BurrowHide extends StdSkill
 						   &&(!msg.source().isMine(msg.target())))))
 					{
 						isBuried=false;
-						msg.source().tell("You climb out of the burrow.");
+						msg.source().tell(L("You climb out of the burrow."));
 						mob.recoverPhyStats();
 						mob.recoverCharStats();
 					}
@@ -248,7 +248,7 @@ public class Skill_BurrowHide extends StdSkill
 		&&(msg.source().mayIFight(mob))
 		&&(super.proficiencyCheck(mob, 5*(adjustedLevel(mob,0)-msg.source().phyStats().level()), false)))
 		{
-			mob.tell("Your friends alert you to incoming danger! You quickly burrow out of sight.");
+			mob.tell(L("Your friends alert you to incoming danger! You quickly burrow out of sight."));
 			isBuried=true;
 			mob.recoverPhyStats();
 			mob.recoverCharStats();

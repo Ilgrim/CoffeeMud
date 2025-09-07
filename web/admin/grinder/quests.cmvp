@@ -3,8 +3,10 @@
 @if?!Authenticate@ @AddFile?/grinder/failedlogin.cmvp@ @else@
 @if?!CheckAuthCode?AUTH_CMDQUESTS=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <html>
+	<META CHARSET="utf-8"/>
 <head>
  	<link rel="grinder icon" href="/images/grinder.ico" >
+ 	<link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
 	<title>Manage Quests/Scripts</title>
 	<script language=JavaScript>
 	<!--
@@ -98,15 +100,20 @@
 	<TR><TD WIDTH=100% COLSPAN=6 BGCOLOR=WHITE ALIGN=CENTER><FONT COLOR=BLACK><H2>CoffeeMud @MudServerVersion@ Quests Manager</H2></FONT></TD></TR>
 	<TR>
 	<TD WIDTH=35%><B><FONT COLOR=YELLOW>Name</FONT></B></TD>
-	<TD WIDTH=35%><B><FONT COLOR=YELLOW>Status</FONT></B></TD>
-	<TD WIDTH=30%><B><FONT COLOR=YELLOW>Control</FONT></B></TD>
+	<TD WIDTH=15%><B><FONT COLOR=YELLOW>Area</FONT></B></TD>
+	<TD WIDTH=30%><B><FONT COLOR=YELLOW>Status</FONT></B></TD>
+	<TD WIDTH=20%><B><FONT COLOR=YELLOW>Control</FONT></B></TD>
 	</TD>
 	</TR>
 	@QuestNext?RESET@
 	@loop@
 	<TR>
 	@QuestNext@
-	<TD><a href="javascript:Quest('@QuestData?NAME@')"><FONT COLOR=WHITE><B>@QuestData?NAME@</B></FONT></a></TD>
+	<TD>
+		@AddRequestParameter?QNM=@@QuestData?NAME@@ @
+		<a href="javascript:Quest('@QuestData?NAME@')"><FONT COLOR="#FFFF8F"><U><B>@RequestParameter?QNM&ELLIPSE=50@</B></U></FONT></a>
+	</TD>
+	<TD><FONT COLOR=WHITE><B>@QuestData?AREA@</B></FONT></TD>
 	<TD><FONT COLOR=WHITE>
     @if?QuestData?SUSPENDED@
         Disabled

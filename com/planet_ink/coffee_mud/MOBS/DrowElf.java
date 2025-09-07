@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2020 Lee H. Fox
+   Copyright 2000-2025 Lee H. Fox
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ public class DrowElf extends StdMOB
 			sex = "female";
 
 		// ===== set the basics
-		username="a Drow Elf";
+		_name="a Drow Elf";
 		setDescription("a " + sex + " Drow Fighter");
 		setDisplayText("The drow is armored in black chain mail and carrying a nice arsenal of weapons");
 
@@ -85,7 +85,7 @@ public class DrowElf extends StdMOB
 		baseCharStats().setStat(CharStats.STAT_DEXTERITY,15 + Math.abs(randomizer.nextInt() % 6));
 		baseCharStats().setStat(CharStats.STAT_CONSTITUTION,12 + Math.abs(randomizer.nextInt() % 6));
 		baseCharStats().setStat(CharStats.STAT_CHARISMA,13 + Math.abs(randomizer.nextInt() % 6));
-		baseCharStats().setMyRace(CMClass.getRace("Elf"));
+		baseCharStats().setMyRace(CMClass.getRace("Drow"));
 		baseCharStats().getMyRace().startRacing(this,false);
 
 		recoverMaxState();

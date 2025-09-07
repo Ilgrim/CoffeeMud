@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -47,7 +47,11 @@ public class Who extends StdCommand
 	}
 
 	@SuppressWarnings("rawtypes")
-	private final static Class[][]	filterParameters	= new Class[][] { { Boolean.class, Filterer.class } };
+	private final static Class[][]	filterParameters	= new Class[][]
+	{
+		{ Boolean.class, Filterer.class},
+		{ Boolean.class, Filterer.class, String.class }
+	};
 
 	public int[] getShortColWidths(final MOB seer)
 	{
@@ -73,7 +77,64 @@ public class Who extends StdCommand
 		return head.toString();
 	}
 
-	public StringBuffer showWhoShort(final MOB who, final int[] colWidths)
+	public String getTail(final int[] colWidths, final String word, final int amt)
+	{
+		int width=colWidths[0];
+		for(int i=1;i<=2;i++)
+			width+=colWidths[i]+1;
+		final StringBuilder tail=new StringBuilder("");
+		tail.append("^x["+CMStrings.padRight(L("Total @x1 online",word),width)+"]^.^N "+amt+"\n\r");
+		return tail.toString();
+	}
+
+	public StringBuffer showWhoSingle(final MOB who, final MOB viewerM, final int[] colWidths)
+	{
+		final StringBuffer msg=new StringBuffer("");
+		int datWidth=0;
+		for(int i=0;i<colWidths.length;i++)
+			datWidth += colWidths[i];
+		final int headCol = 1;
+		datWidth -= colWidths[headCol];
+		if(!CMSecurity.isDisabled(CMSecurity.DisFlag.RACES))
+		{
+			msg.append("^x[").append(CMStrings.padRight(L("Race"),colWidths[headCol])).append("]^.^N ");
+			if(who.charStats().getCurrentClass().raceless())
+				msg.append(CMStrings.limit(" ",datWidth));
+			else
+				msg.append(CMStrings.limit(who.charStats().raceName(),datWidth));
+			msg.append("\n\r");
+		}
+		if(!CMSecurity.isDisabled(CMSecurity.DisFlag.CLASSES))
+		{
+			msg.append("^x[").append(CMStrings.padRight(L("Class"),colWidths[headCol])).append("]^.^N ");
+			if(who.charStats().getMyRace().classless())
+				msg.append(CMStrings.limit(" ",datWidth));
+			else
+				msg.append(CMStrings.limit(who.charStats().displayClassName(),datWidth));
+			msg.append("\n\r");
+		}
+		if(!CMSecurity.isDisabled(CMSecurity.DisFlag.LEVELS))
+		{
+			msg.append("^x[").append(CMStrings.padRight(L("Level"),colWidths[headCol])).append("]^.^N ");
+			String levelStr=who.charStats().displayClassLevel(who,true).trim();
+			final int x=levelStr.lastIndexOf(' ');
+			if(x>=0)
+				levelStr=levelStr.substring(x).trim();
+			if(who.charStats().getMyRace().leveless()
+			||who.charStats().getCurrentClass().leveless())
+				msg.append(CMStrings.limit(" ",datWidth));
+			else
+				msg.append(CMStrings.limit(levelStr,datWidth));
+			msg.append("\n\r");
+		}
+		final String name=getWhoName(who, viewerM);
+		msg.append("^x[").append(CMStrings.padRight(L("Name"),colWidths[headCol])).append("]^.^N ");
+		msg.append(CMStrings.limit(name,datWidth));
+		msg.append("\n\r");
+		return msg;
+	}
+
+	public StringBuffer showWhoShort(final MOB who, final MOB viewerM, final int[] colWidths)
 	{
 		final StringBuffer msg=new StringBuffer("");
 		msg.append("[");
@@ -103,13 +164,13 @@ public class Who extends StdCommand
 			else
 				msg.append(CMStrings.padRight(levelStr,colWidths[2]));
 		}
-		final String name=getWhoName(who);
+		final String name=getWhoName(who, viewerM);
 		msg.append("] "+CMStrings.padRight(name,colWidths[3]));
 		msg.append("\n\r");
 		return msg;
 	}
 
-	public String getWhoName(final MOB seenM)
+	public String getWhoName(final MOB seenM, final MOB viewerM)
 	{
 		String name;
 		if(CMLib.flags().isCloaked(seenM))
@@ -144,7 +205,7 @@ public class Who extends StdCommand
 		return false;
 	}
 
-	public String getWho(final MOB mob, final boolean emptyOnNone, final Filterer<MOB> mobFilter, final Comparator<MOB> mobSort)
+	public String getWho(final MOB mob, final boolean emptyOnNone, final Filterer<MOB> mobFilter, final Comparator<MOB> mobSort, final String tailStr)
 	{
 		final StringBuffer msg=new StringBuffer("");
 		final int[] colWidths=getShortColWidths(mob);
@@ -160,8 +221,9 @@ public class Who extends StdCommand
 		}
 		if(mobSort != null)
 			Collections.sort(mobs, mobSort);
+		final int count=mobs.size();
 		for(final MOB mob2 : mobs)
-			msg.append(showWhoShort(mob2,colWidths));
+			msg.append(showWhoShort(mob2,mob,colWidths));
 		mobs.clear();
 		if((emptyOnNone)&&(msg.length()==0))
 			return "";
@@ -169,6 +231,8 @@ public class Who extends StdCommand
 		{
 			final StringBuffer head=new StringBuffer(getHead(colWidths));
 			head.append(msg.toString());
+			if(tailStr != null)
+				head.append(getTail(colWidths, tailStr, count));
 			return head.toString();
 		}
 	}
@@ -196,11 +260,10 @@ public class Who extends StdCommand
 		&&(mob!=null)
 		&&(mobName.startsWith("@")))
 		{
-			if((!(CMLib.intermud().i3online()))
-			&&(!CMLib.intermud().imc2online()))
+			if(!CMLib.intermud().isAnyNonCM1Online())
 				mob.tell(L("Intermud is unavailable."));
 			else
-				CMLib.intermud().i3who(mob,mobName.substring(1));
+				CMLib.intermud().imudWho(mob,mobName.substring(1));
 			return false;
 		}
 
@@ -236,6 +299,8 @@ public class Who extends StdCommand
 			}
 		};
 
+		@SuppressWarnings("unused")
+		String summaryName = "Characters";
 		if((mobName != null) && (mob != null))
 		{
 			if((mobName.equalsIgnoreCase("friends"))
@@ -251,6 +316,7 @@ public class Who extends StdCommand
 					}
 				};
 				mobName=null;
+				summaryName="Friends";
 			}
 			else
 			if((mobName.equalsIgnoreCase("pk")
@@ -274,6 +340,7 @@ public class Who extends StdCommand
 					}
 				};
 				mobName = null;
+				summaryName="Targets";
 			}
 			else
 			if((mobName.equalsIgnoreCase("acct")
@@ -331,16 +398,20 @@ public class Who extends StdCommand
 					msg.append("] "+CMStrings.padRight(name,colWidths[1]));
 					msg.append("\n\r");
 				}
+				//msg.append("^x["+CMStrings.padRight(L("Total Characters"),colWidths[0])+"]^.^N "+mobs.size()+"\n\r"));
 				mob.tell(msg.toString());
 				return false;
 			}
 		}
 
-		final String msg = getWho(mob,mobName!=null,mobFilter,mobSort);
-		if((mobName!=null)&&(msg.length()==0))
-			mob.tell(L("That person doesn't appear to be online.\n\r"));
-		else
-			mob.tell(msg);
+		final String msg = getWho(mob,mobName!=null,mobFilter,mobSort, null);
+		if(mob != null)
+		{
+			if((mobName!=null)&&(msg.length()==0))
+				mob.tell(L("That person doesn't appear to be online.\n\r"));
+			else
+				mob.tell(msg);
+		}
 		return false;
 	}
 
@@ -349,10 +420,18 @@ public class Who extends StdCommand
 	public Object executeInternal(final MOB mob, final int metaFlags, final Object... args) throws java.io.IOException
 	{
 		if(args.length==0)
-			return getWho(mob,false,null,null);
+			return getWho(mob,false,null,null, null);
 		else
 		if(super.checkArguments(filterParameters, args))
-			return getWho(mob,((Boolean)args[0]).booleanValue(),(Filterer<MOB>)args[1],null);
+		{
+			if(args.length<=2)
+				return getWho(mob,((Boolean)args[0]).booleanValue(),(Filterer<MOB>)args[1],null,null);
+			else
+			if(args[2] instanceof String)
+				return getWho(mob,((Boolean)args[0]).booleanValue(),(Filterer<MOB>)args[1],null,(String)args[2]);
+			else
+				return getWho(mob,((Boolean)args[0]).booleanValue(),(Filterer<MOB>)args[1],null,null);
+		}
 		return Boolean.FALSE;
 	}
 

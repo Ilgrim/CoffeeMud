@@ -8,7 +8,7 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
-import com.planet_ink.coffee_mud.Common.interfaces.AccountStats.PrideStat;
+import com.planet_ink.coffee_mud.Common.interfaces.PrideStats.PrideStat;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -93,12 +93,7 @@ public class GenSuperPill extends GenPill implements ArchonOnly
 			final int y=id.indexOf(""+val,x);
 			if((val!=0)&&(y>x))
 			{
-				final StringBuffer middle=new StringBuffer("");
-				for(int num=0;num<PhyStats.IS_VERBS.length;num++)
-				{
-					if(CMath.bset(val,CMath.pow(2,num)))
-						middle.append(PhyStats.IS_VERBS[num]+" ");
-				}
+				final String middle = CMLib.flags().getDispositionVerbList(val, " ");
 				id=id.substring(0,x)+middle.toString().trim()+id.substring(y+((""+val).length()));
 			}
 		}
@@ -109,12 +104,7 @@ public class GenSuperPill extends GenPill implements ArchonOnly
 			final int y=id.indexOf(""+val,x);
 			if((val!=0)&&(y>x))
 			{
-				final StringBuffer middle=new StringBuffer("");
-				for(int num=0;num<PhyStats.CAN_SEE_VERBS.length;num++)
-				{
-					if(CMath.bset(val,CMath.pow(2,num)))
-						middle.append(PhyStats.CAN_SEE_VERBS[num]+" ");
-				}
+				final String middle = CMLib.flags().getSensesVerbList(val, " ");
 				id=id.substring(0,x)+middle.toString().trim()+id.substring(y+((""+val).length()));
 			}
 		}
@@ -137,7 +127,7 @@ public class GenSuperPill extends GenPill implements ArchonOnly
 		mob.basePhyStats().setLevel(mob.basePhyStats().level());
 		mob.basePhyStats().setRejuv(mob.basePhyStats().rejuv()+CMParms.getParmPlus(readableText,"rej"));
 		mob.basePhyStats().setSensesMask(mob.basePhyStats().sensesMask()|CMParms.getParmPlus(readableText,"sen"));
-		mob.basePhyStats().setSpeed(mob.basePhyStats().speed()+CMParms.getParmPlus(readableText,"spe"));
+		mob.basePhyStats().setSpeed(mob.basePhyStats().speed()+(CMParms.getParmPlus(readableText,"spe")));
 		mob.basePhyStats().setWeight(mob.basePhyStats().weight()+CMParms.getParmPlus(readableText,"wei"));
 		if(CMParms.getParmPlus(readableText,"wei")!=0)
 			redress=true;
@@ -179,7 +169,12 @@ public class GenSuperPill extends GenPill implements ArchonOnly
 					||(mob.charStats().getMyRace().expless()))
 						CMLib.leveler().level(mob);
 					else
-						CMLib.leveler().postExperience(mob,null,null,mob.getExpNeededLevel()+1,false);
+					{
+						final int targetXp = mob.getExpNextLevel()+1;
+						int tries = 100;
+						while((--tries>0)&&(mob.getExperience()<targetXp))
+								CMLib.leveler().postExperience(mob,"MISC:"+ID(),null,null,mob.getExpNeededLevel()+1, false);
+					}
 				}
 			}
 			else
@@ -190,7 +185,7 @@ public class GenSuperPill extends GenPill implements ArchonOnly
 				{
 					if(mob.basePhyStats().level() > 1)
 					{
-						CMLib.leveler().unLevel(mob);
+						CMLib.leveler().unLevel(mob, true);
 					}
 				}
 			}
@@ -227,7 +222,7 @@ public class GenSuperPill extends GenPill implements ArchonOnly
 			CMLib.beanCounter().setMoney(mob,CMLib.beanCounter().getMoney(mob)+newMoney);
 		final int exp=CMParms.getParmPlus(readableText,"expe");
 		if(exp!=0)
-			CMLib.leveler().postExperience(mob,null,null,exp,false);
+			CMLib.leveler().postExperience(mob,ID(),null,null,exp, false);
 		mob.recoverCharStats();
 		mob.recoverPhyStats();
 		mob.recoverMaxState();

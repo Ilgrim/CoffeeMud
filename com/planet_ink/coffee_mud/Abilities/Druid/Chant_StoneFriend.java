@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -175,7 +175,9 @@ public class Chant_StoneFriend extends Chant
 
 		super.unInvoke();
 
-		if((canBeUninvoked())&&(!mob.amDead()))
+		if((canBeUninvoked())
+		&&(!mob.amDead())
+		&&(mob.location()!=null))
 		{
 			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-YOUPOSS> free-will returns."));
 			if(mob.amFollowing()!=null)

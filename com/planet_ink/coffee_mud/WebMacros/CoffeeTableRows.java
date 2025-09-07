@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -42,12 +42,16 @@ public class CoffeeTableRows extends StdWebMacro
 		return "CoffeeTableRows";
 	}
 
-	//HEADER, FOOTER, DATERANGE, DATESTART, DATEEND, LEVELSUP, DIVORCES, BIRTHS, MARRIAGES, PURGES, CLASSCHANGES, PKDEATHS, DEATHS, NEWPLAYERS, TOTALHOURS, AVERAGETICKS, AVERAGEONLINE, MOSTONLINE, LOGINS,
+	//HEADER, FOOTER, DATERANGE, DATESTART, DATEEND, LEVELSUP, DIVORCES, BIRTHS, MARRIAGES, PURGES, CLASSCHANGES,
+	//PKDEATHS, DEATHS, NEWPLAYERS, TOTALHOURS, AVERAGETICKS, AVERAGEONLINE, MOSTONLINE, AVERAGEPONLINE, MOSTPONLINE, LOGINS,
 	@Override
 	public String runMacro(final HTTPRequest httpReq, String parm, final HTTPResponse httpResp)
 	{
 		if(parm.length()==0)
-			parm="DATERANGE&LOGINS&MOSTONLINE&AVERAGEONLINE&TOTALHOURS&NEWPLAYERS&DEATHS&PKDEATHS&CLASSCHANGES&PURGES&MARRIAGES&BIRTHS&DIVORCES";
+		{
+			parm="DATERANGE&LOGINS&MOSTONLINE&AVERAGEONLINE&MOSTPONLINE&AVERAGEPONLINE&TOTALHOURS"
+				+ "&NEWPLAYERS&DEATHS&PKDEATHS&CLASSCHANGES&PURGES&MARRIAGES&BIRTHS&DIVORCES";
+		}
 		final java.util.Map<String,String> parms=parseParms(parm);
 		final PairSVector<String,String> orderedParms=parseOrderedParms(parm,false);
 		String header=parms.get("HEADER");
@@ -74,7 +78,7 @@ public class CoffeeTableRows extends StdWebMacro
 		ENDQ.set(Calendar.SECOND,59);
 		ENDQ.set(Calendar.MILLISECOND,000);
 		CMLib.coffeeTables().update();
-		final List<CoffeeTableRow> V=CMLib.database().DBReadStats(ENDQ.getTimeInMillis()-1,0);
+		final List<CoffeeTableRow> V=CMLib.coffeeTables().readRawStats(ENDQ.getTimeInMillis()-1,0);
 		if(V.size()==0)
 		{
 			return "";
@@ -97,7 +101,7 @@ public class CoffeeTableRows extends StdWebMacro
 				classes.add((S==null)?null:S.baseName());
 			}
 			if(classes.size()==0)
-				classes.addAll(CMLib.socials().getSocialsList());
+				classes.addAll(CMLib.socials().getSocialsBaseList());
 
 			final long[][] totals=new long[classes.size()][CoffeeTableRow.STAT_TOTAL];
 			while((V.size()>0)&&(curTime>(ENDQ.getTimeInMillis())))
@@ -275,14 +279,14 @@ public class CoffeeTableRows extends StdWebMacro
 			final String typeName=parms.get("ABLETYPE");
 			if(typeName!=null)
 			{
-				onlyAbilityTypes=CMParms.indexOf(Ability.ACODE_DESCS, typeName.toUpperCase().trim());
+				onlyAbilityTypes=CMParms.indexOf(Ability.ACODE.DESCS, typeName.toUpperCase().trim());
 				if(onlyAbilityTypes<0)
-					onlyAbilityTypes=CMParms.indexOf(Ability.ACODE_DESCS_, typeName.toUpperCase().trim());
+					onlyAbilityTypes=CMParms.indexOf(Ability.ACODE.DESCS_, typeName.toUpperCase().trim());
 			}
 			final String domainName=parms.get("ABLEDOMAIN");
 			if(domainName!=null)
 			{
-				final int domainIndex=CMParms.indexOf(Ability.DOMAIN_DESCS, domainName.toUpperCase().trim());
+				final int domainIndex=CMParms.indexOf(Ability.DOMAIN.DESCS, domainName.toUpperCase().trim());
 				if(domainIndex>=0)
 					onlyAbilityDomains=domainIndex<<5;
 			}
@@ -494,21 +498,28 @@ public class CoffeeTableRows extends StdWebMacro
 				{
 					code = "X"+A.Name().toUpperCase().replace(' ','_');
 					final long[] totals=new long[CoffeeTableRow.STAT_TOTAL];
-					long highestOnline=0;
-					long numberOnlineTotal=0;
+					long highestCOnline=0;
+					long numberCOnlineTotal=0;
+					long highestPOnline=0;
+					long numberPOnlineTotal=0;
 					long numberOnlineCounter=0;
 					for(int s=0;s<set.size();s++)
 					{
 						final CoffeeTableRow T=set.get(s);
 						T.totalUp(code,totals);
-						if(T.highestOnline()>highestOnline)
-							highestOnline=T.highestOnline();
-						numberOnlineTotal+=T.numberOnlineTotal();
+						if(T.highestCharsOnline()>highestCOnline)
+							highestCOnline=T.highestCharsOnline();
+						numberCOnlineTotal+=T.numberCharsOnlineTotal();
+						if(T.highestOnline()>highestPOnline)
+							highestPOnline=T.highestOnline();
+						numberPOnlineTotal+=T.numberOnlineTotal();
 						numberOnlineCounter+=T.numberOnlineCounter();
 					}
 					final long minsOnline=(totals[CoffeeTableRow.STAT_TICKSONLINE]*CMProps.getTickMillis())/(1000*60);
-					double avgOnline=(numberOnlineCounter>0)?CMath.div(numberOnlineTotal,numberOnlineCounter):0.0;
+					double avgOnline=(numberOnlineCounter>0)?CMath.div(numberCOnlineTotal,numberOnlineCounter):0.0;
 					avgOnline=CMath.div(Math.round(avgOnline*10.0),10.0);
+					double avgPOnline=(numberOnlineCounter>0)?CMath.div(numberPOnlineTotal,numberOnlineCounter):0.0;
+					avgPOnline=CMath.div(Math.round(avgPOnline*10.0),10.0);
 					table.append("<TR>");
 					for(int i=0;i<orderedParms.size();i++)
 					{
@@ -532,10 +543,16 @@ public class CoffeeTableRows extends StdWebMacro
 							table.append("<TD" + colspan + ">" + header + totals[CoffeeTableRow.STAT_LOGINS] + footer + "</TD>");
 						else
 						if (key.equalsIgnoreCase("MOSTONLINE"))
-							table.append("<TD" + colspan + ">" + header + highestOnline + footer + "</TD>");
+							table.append("<TD" + colspan + ">" + header + highestCOnline + footer + "</TD>");
 						else
 						if (key.equalsIgnoreCase("AVERAGEONLINE"))
 							table.append("<TD" + colspan + ">" + header + avgOnline + footer + "</TD>");
+						else
+						if (key.equalsIgnoreCase("MOSTPONLINE"))
+							table.append("<TD" + colspan + ">" + header + highestPOnline + footer + "</TD>");
+						else
+						if (key.equalsIgnoreCase("AVERAGEPONLINE"))
+							table.append("<TD" + colspan + ">" + header + avgPOnline + footer + "</TD>");
 						else
 						if (key.equalsIgnoreCase("AVERAGETICKS"))
 							table.append("<TD" + colspan + ">" + header + ((totals[CoffeeTableRow.STAT_LOGINS] > 0) ? (minsOnline / totals[CoffeeTableRow.STAT_LOGINS]) : 0) + "</TD>");
@@ -577,6 +594,7 @@ public class CoffeeTableRows extends StdWebMacro
 			}
 		}
 		else
+		if(parms.containsKey("CRIMERPT"))
 		{
 			while((V.size()>0)&&(curTime>(ENDQ.getTimeInMillis())))
 			{
@@ -601,20 +619,90 @@ public class CoffeeTableRows extends StdWebMacro
 					}
 				}
 				final long[] totals=new long[CoffeeTableRow.STAT_TOTAL];
-				long highestOnline=0;
-				long numberOnlineTotal=0;
+				for(final CoffeeTableRow T :set)
+					T.totalUp(code,totals);
+				table.append("<TR>");
+				for(int i=0;i<orderedParms.size();i++)
+				{
+					final String key=orderedParms.getFirst(i);
+					if(key.equals("COLSPAN"))
+						colspan=" COLSPAN="+orderedParms.getSecond(i);
+					else
+					if (key.equalsIgnoreCase("DATERANGE"))
+						table.append("<TD" + colspan + ">" + header + CMLib.time().date2DateString(curTime + 1) + " - " + CMLib.time().date2DateString(lastCur - 1) + footer + "</TD>");
+					else
+					if (key.equalsIgnoreCase("DATESTART"))
+						table.append("<TD" + colspan + ">" + header + CMLib.time().date2DateString(curTime + 1) + footer + "</TD>");
+					else
+					if (key.equalsIgnoreCase("DATEEND"))
+						table.append("<TD" + colspan + ">" + header + CMLib.time().date2DateString(lastCur) + footer + "</TD>");
+					else
+					if (key.equalsIgnoreCase("WARRANTS"))
+						table.append("<TD" + colspan + ">" + header + totals[CoffeeTableRow.STAT_WARRANTS] + footer + "</TD>");
+					else
+					if (key.equalsIgnoreCase("ARRESTS"))
+						table.append("<TD" + colspan + ">" + header + totals[CoffeeTableRow.STAT_ARRESTS] + "</TD>");
+					else
+					if (key.equalsIgnoreCase("PAROLES"))
+						table.append("<TD" + colspan + ">" + header + totals[CoffeeTableRow.STAT_PAROLES] + "</TD>");
+					else
+					if (key.equalsIgnoreCase("JAILINGS"))
+						table.append("<TD" + colspan + ">" + header + totals[CoffeeTableRow.STAT_JAILINGS] + "</TD>");
+					else
+					if (key.equalsIgnoreCase("EXECUTIONS"))
+						table.append("<TD" + colspan + ">" + header + totals[CoffeeTableRow.STAT_EXECUTIONS] + "</TD>");
+				}
+				table.append("</TR>");
+				if(scale==0)
+					break;
+			}
+		}
+		else
+		{
+			while((V.size()>0)&&(curTime>(ENDQ.getTimeInMillis())))
+			{
+				lastCur=curTime;
+				final Calendar C2=Calendar.getInstance();
+				C2.setTimeInMillis(curTime);
+				C2.add(Calendar.DATE,-scale);
+				curTime=C2.getTimeInMillis();
+				C2.set(Calendar.HOUR_OF_DAY,23);
+				C2.set(Calendar.MINUTE,59);
+				C2.set(Calendar.SECOND,59);
+				C2.set(Calendar.MILLISECOND,999);
+				curTime=C2.getTimeInMillis();
+				final List<CoffeeTableRow> set=new LinkedList<CoffeeTableRow>();
+				for(int v=V.size()-1;v>=0;v--)
+				{
+					final CoffeeTableRow T=V.get(v);
+					if((T.startTime()>curTime)&&(T.endTime()<=lastCur))
+					{
+						set.add(T);
+						V.remove(v);
+					}
+				}
+				final long[] totals=new long[CoffeeTableRow.STAT_TOTAL];
+				long highestCOnline=0;
+				long numberCOnlineTotal=0;
+				long highestPOnline=0;
+				long numberPOnlineTotal=0;
 				long numberOnlineCounter=0;
 				for(final CoffeeTableRow T :set)
 				{
 					T.totalUp(code,totals);
-					if(T.highestOnline()>highestOnline)
-						highestOnline=T.highestOnline();
-					numberOnlineTotal+=T.numberOnlineTotal();
+					if(T.highestCharsOnline()>highestCOnline)
+						highestCOnline=T.highestCharsOnline();
+					numberCOnlineTotal+=T.numberCharsOnlineTotal();
+					if(T.highestOnline()>highestPOnline)
+						highestPOnline=T.highestOnline();
+					numberPOnlineTotal+=T.numberOnlineTotal();
 					numberOnlineCounter+=T.numberOnlineCounter();
 				}
 				final long minsOnline=(totals[CoffeeTableRow.STAT_TICKSONLINE]*CMProps.getTickMillis())/(1000*60);
-				double avgOnline=(numberOnlineCounter>0)?CMath.div(numberOnlineTotal,numberOnlineCounter):0.0;
+				double avgOnline=(numberOnlineCounter>0)?CMath.div(numberCOnlineTotal,numberOnlineCounter):0.0;
 				avgOnline=CMath.div(Math.round(avgOnline*10.0),10.0);
+				double avgPOnline=(numberOnlineCounter>0)?CMath.div(numberPOnlineTotal,numberOnlineCounter):0.0;
+				avgPOnline=CMath.div(Math.round(avgPOnline*10.0),10.0);
 				table.append("<TR>");
 				for(int i=0;i<orderedParms.size();i++)
 				{
@@ -635,10 +723,16 @@ public class CoffeeTableRows extends StdWebMacro
 						table.append("<TD" + colspan + ">" + header + totals[CoffeeTableRow.STAT_LOGINS] + footer + "</TD>");
 					else
 					if (key.equalsIgnoreCase("MOSTONLINE"))
-						table.append("<TD" + colspan + ">" + header + highestOnline + footer + "</TD>");
+						table.append("<TD" + colspan + ">" + header + highestCOnline + footer + "</TD>");
 					else
 					if (key.equalsIgnoreCase("AVERAGEONLINE"))
 						table.append("<TD" + colspan + ">" + header + avgOnline + footer + "</TD>");
+					else
+					if (key.equalsIgnoreCase("MOSTPONLINE"))
+						table.append("<TD" + colspan + ">" + header + highestPOnline + footer + "</TD>");
+					else
+					if (key.equalsIgnoreCase("AVERAGEPONLINE"))
+						table.append("<TD" + colspan + ">" + header + avgPOnline + footer + "</TD>");
 					else
 					if (key.equalsIgnoreCase("AVERAGETICKS"))
 						table.append("<TD" + colspan + ">" + header + ((totals[CoffeeTableRow.STAT_LOGINS] > 0) ? (minsOnline / totals[CoffeeTableRow.STAT_LOGINS]) : 0) + "</TD>");

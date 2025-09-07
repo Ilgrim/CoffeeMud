@@ -17,6 +17,8 @@ import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.ColorLibrary.Color;
+import com.planet_ink.coffee_mud.Libraries.interfaces.ColorLibrary.ColorState;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
@@ -31,7 +33,7 @@ import java.net.InetAddress;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -112,12 +114,13 @@ public class StdWebMacro implements WebMacro
 		return CMClass.classID(this).compareToIgnoreCase(CMClass.classID(o));
 	}
 
-	protected StringBuffer colorwebifyOnly(final StringBuffer s)
+	protected static StringBuffer colorwebifyOnly(final StringBuffer s)
 	{
 		if(s==null)
 			return null;
 		int i=0;
 		final String[] lookup=CMLib.color().standardHTMLlookups();
+		boolean priorFont = false;
 		while(i<s.length())
 		{
 			if(s.charAt(i)=='^')
@@ -130,6 +133,16 @@ public class StdWebMacro implements WebMacro
 					if(code!=null)
 					{
 						s.delete(i,i+2);
+						if(code.startsWith("<FONT"))
+						{
+							if(priorFont)
+								s.insert(i,"</FONT>"+code+">");
+							else
+								s.insert(i,code+">");
+							priorFont=true;
+							i+=code.length();
+						}
+						else
 						if(code.startsWith("<"))
 						{
 							s.insert(i,code+">");
@@ -152,10 +165,17 @@ public class StdWebMacro implements WebMacro
 			}
 			i++;
 		}
+		if(priorFont)
+			s.append("</FONT>");
 		return s;
 	}
 
-	protected StringBuffer webify(StringBuffer s)
+	protected static String webify(final String s)
+	{
+		return webify(new StringBuffer(s)).toString();
+	}
+
+	protected static StringBuffer webify(StringBuffer s)
 	{
 		if(s==null)
 			return null;
@@ -213,27 +233,22 @@ public class StdWebMacro implements WebMacro
 		return CMLib.webMacroFilter().clearWebMacros(s);
 	}
 
-	protected StringBuilder helpHelp(final StringBuilder s)
+	protected String helpHelp(final String s)
 	{
 		return helpHelp(s, 70);
 	}
 
-	protected StringBuilder helpHelp(final String s)
+	protected String helpHelp(final String s1, final int limit)
 	{
-		return helpHelp(new StringBuilder(s), 70);
-	}
-
-	protected StringBuilder helpHelp(StringBuilder s, final int limit)
-	{
-		if(s!=null)
+		if(s1!=null)
 		{
 			final String[] lookup=CMLib.color().standardHTMLlookups();
-			s=new StringBuilder(s.toString());
+			final StringBuilder s=new StringBuilder(s1.toString());
 			int x=0;
 			int count=0;
 			x=0;
 			int lastSpace=0;
-			//TODO: limit should adjust or lastspace should -- something is wrong RIGHT HERE!
+			boolean priorFont = false;
 			while((x>=0)&&(x<s.length()))
 			{
 				count++;
@@ -340,10 +355,84 @@ public class StdWebMacro implements WebMacro
 						char c=s.charAt(x+1);
 						if(c=='?')
 							c='w';
-						final String code=lookup[c];
+						final String code;
+						if((c==ColorLibrary.COLORCODE_BACKGROUND)
+						&&(x<(s.length()-2)))
+						{
+							c=s.charAt(x+2);
+							s.delete(x, x+1);
+							code=CMLib.color().getBackgroundHtmlTag(c);
+						}
+						else
+						if(((c==ColorLibrary.COLORCODE_FANSI256)||(c==ColorLibrary.COLORCODE_BANSI256))
+						&&(x<(s.length()-8))
+						&&(s.charAt(x+2)==c)) // true color
+						{
+							String finalHex= s.substring(x+3,x+9);
+							if(!CMath.isHexNumber(finalHex))
+							{
+								if(CMath.isHexNumber(s.substring(x+3,x+5)))
+									finalHex = ColorLibrary.Color.html256[CMath.s_parseHex(s.substring(x+3,x+5))];
+							}
+							final boolean isFg = (c==ColorLibrary.COLORCODE_FANSI256);
+							if(isFg)
+								code = "<FONT COLOR=\"#" +finalHex + "\"";
+							else
+								code = "<FONT STYLE=\"background-color: #" +finalHex + ";\"";
+						}
+						else
+						if(((c==ColorLibrary.COLORCODE_FANSI256)||(c==ColorLibrary.COLORCODE_BANSI256))
+						&&(x<(s.length()-4)))
+						{
+							final StringBuilder finalHex = new StringBuilder("");
+							int num=s.charAt(x+2)-'0';
+							if((num>=0)&&(num<=5))
+							{
+								num = 256+(int)Math.round(CMath.div(num, 5) * 256.0);
+								finalHex.append(Integer.toHexString(num).toUpperCase().substring(1));
+								num=s.charAt(x+3)-'0';
+								if((num>=0)&&(num<=5))
+								{
+									num = 256+(int)Math.round(CMath.div(num, 5) * 256.0);
+									finalHex.append(Integer.toHexString(num).toUpperCase().substring(1));
+									num=s.charAt(x+4)-'0';
+									if((num>=0)&&(num<=5))
+									{
+										num = 256+(int)Math.round(CMath.div(num, 5) * 256.0);
+										finalHex.append(Integer.toHexString(num).toUpperCase().substring(1));
+										s.delete(x,x+3);
+									}
+								}
+							}
+							if(finalHex.length()==6)
+							{
+								final boolean isFg = (c==ColorLibrary.COLORCODE_FANSI256);
+								if(isFg)
+									code = "<FONT COLOR=\"#" +finalHex.toString()+"\"";
+								else
+									code = "<FONT STYLE=\"background-color: #" +finalHex.toString()+";\"";
+							}
+							else
+								code=null;
+						}
+						else
+							code=lookup[c];
 						if(code!=null)
 						{
 							s.delete(x,x+2);
+							if(code.startsWith("<FONT"))
+							{
+								if(priorFont)
+								{
+									s.insert(x,"</FONT>"+code+">");
+									x+=7;
+								}
+								else
+									s.insert(x,code+">");
+								priorFont = true;
+								x+=code.length();
+							}
+							else
 							if(code.startsWith("<"))
 							{
 								s.insert(x,code+">");
@@ -351,7 +440,7 @@ public class StdWebMacro implements WebMacro
 							}
 							else
 							{
-								s.insert(x,code);
+								s.insert(x-1,code);
 								x+=code.length()-1;
 							}
 						}
@@ -371,12 +460,14 @@ public class StdWebMacro implements WebMacro
 				else
 					x++;
 			}
-			return s;
+			if(priorFont)
+				s.append("</FONT>");
+			return s.toString();
 		}
-		return new StringBuilder("");
+		return "";
 	}
 
-	protected PairSVector<String,String> parseOrderedParms(final String parm, final boolean preserveCase)
+	protected PairSVector<String,String> parseOrderedParms(String parm, final boolean preserveCase)
 	{
 		final PairSVector<String,String> requestParms=new PairSVector<String,String>();
 		if((parm!=null)&&(parm.length()>0))
@@ -392,6 +483,14 @@ public class StdWebMacro implements WebMacro
 					break;
 				case '&':
 				{
+					if((i<parm.length()-4)
+					&&(parm.charAt(i+1)=='a')
+					&&(parm.substring(i+1,i+5).equals("amp;")))
+					{
+						parm=parm.substring(0,i+1)+parm.substring(i+5);
+						break;
+					}
+					else
 					if(varSeq==null)
 					{
 						if(preserveCase)
@@ -499,12 +598,14 @@ public class StdWebMacro implements WebMacro
 		return buf;
 	}
 
-	protected String htmlOutgoingFilter(final String buf)
+	protected static String htmlOutgoingFilter(final String buf)
 	{
+		if(buf == null)
+			return null;
 		return htmlOutgoingFilter(new StringBuffer(buf)).toString();
 	}
 
-	protected StringBuffer htmlOutgoingFilter(final StringBuffer buf)
+	protected static StringBuffer htmlOutgoingFilter(final StringBuffer buf)
 	{
 		int loop=0;
 
@@ -878,6 +979,6 @@ public class StdWebMacro implements WebMacro
 
 	public String L(final String str, final String ... xs)
 	{
-		return CMLib.lang().fullSessionTranslation(str, xs);
+		return CMLib.lang().fullSessionTranslation(getClass(), str, xs);
 	}
 }

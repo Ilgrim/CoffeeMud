@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class LizardMan extends StdMOB
 	public LizardMan()
 	{
 		super();
-		username="a Lizard Man";
+		_name="a Lizard Man";
 		setDescription("a 6 foot tall reptilian humanoid.");
 		setDisplayText("A mean looking Lizard Man stands here.");
 		CMLib.factions().setAlignment(this,Faction.Align.EVIL);
@@ -56,9 +56,9 @@ public class LizardMan extends StdMOB
 		baseCharStats().setStat(CharStats.STAT_STRENGTH,18);
 
 		baseCharStats().setMyRace(CMClass.getRace("LizardMan"));
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setDamage(6);
-		basePhyStats().setSpeed(3);
+		basePhyStats().setSpeed(3.0);
 		basePhyStats().setLevel(2);
 		basePhyStats().setArmor(90);
 

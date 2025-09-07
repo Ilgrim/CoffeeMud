@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,7 +45,8 @@ public class CaveRoom extends StdRoom
 		super();
 		name="the cave";
 		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_DARK);
-		basePhyStats.setWeight(2);
+		setMovementCost(2);
+		setRoomSize(5);
 		recoverPhyStats();
 		climask=Places.CLIMASK_NORMAL;
 	}
@@ -54,12 +55,6 @@ public class CaveRoom extends StdRoom
 	public int domainType()
 	{
 		return Room.DOMAIN_INDOORS_CAVE;
-	}
-
-	@Override
-	public int maxRange()
-	{
-		return 5;
 	}
 
 	@Override
@@ -113,7 +108,10 @@ public class CaveRoom extends StdRoom
 		Integer.valueOf(RawMaterial.RESOURCE_AGATE),
 		Integer.valueOf(RawMaterial.RESOURCE_DIRT),
 		Integer.valueOf(RawMaterial.RESOURCE_CITRINE),
-		Integer.valueOf(RawMaterial.RESOURCE_PLATINUM)};
+		Integer.valueOf(RawMaterial.RESOURCE_PLATINUM),
+		Integer.valueOf(RawMaterial.RESOURCE_PALLADIUM),
+		Integer.valueOf(RawMaterial.RESOURCE_NICKEL)
+	};
 	public static final List<Integer> roomResources=new Vector<Integer>(Arrays.asList(resourceList));
 
 	@Override

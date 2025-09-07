@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ public class Deposit extends StdCommand
 		throws java.io.IOException
 	{
 		final Vector<String> origCmds=new XVector<String>(commands);
-		final Environmental shopkeeper=CMLib.english().parseShopkeeper(mob,commands,"Deposit how much with whom?");
+		final Environmental shopkeeper=CMLib.english().parseShopkeeper(mob,commands,"with", "Deposit how much with whom?");
 		final ShopKeeper SHOP=CMLib.coffeeShops().getShopKeeper(shopkeeper);
 		if(shopkeeper==null)
 			return false;
@@ -80,17 +80,20 @@ public class Deposit extends StdCommand
 		else
 		if(((Coins)thisThang).getNumberOfCoins()<CMLib.english().parseNumPossibleGold(mob,thisName))
 			return false;
-		CMMsg newMsg=null;
+		CMMsg msg=null;
 		if(SHOP instanceof Librarian)
-			newMsg=CMClass.getMsg(mob,shopkeeper,thisThang,CMMsg.MSG_DEPOSIT,L("<S-NAME> deposit(s) <O-NAME> with <T-NAMESELF>."));
+			msg=CMClass.getMsg(mob,shopkeeper,thisThang,CMMsg.MSG_DEPOSIT,L("<S-NAME> deposit(s) <O-NAME> with <T-NAMESELF>."));
 		else
 		if(SHOP instanceof Banker)
-			newMsg=CMClass.getMsg(mob,shopkeeper,thisThang,CMMsg.MSG_DEPOSIT,L("<S-NAME> deposit(s) <O-NAME> into <S-HIS-HER> account with <T-NAMESELF>."));
+			msg=CMClass.getMsg(mob,shopkeeper,thisThang,CMMsg.MSG_DEPOSIT,L("<S-NAME> deposit(s) <O-NAME> into <S-HIS-HER> account with <T-NAMESELF>."));
 		else
 		if(SHOP instanceof PostOffice)
-			newMsg=CMClass.getMsg(mob,shopkeeper,thisThang,CMMsg.MSG_DEPOSIT,L("<S-NAME> mail(s) <O-NAME>."));
-		if(mob.location().okMessage(mob,newMsg))
-			mob.location().send(mob,newMsg);
+			msg=CMClass.getMsg(mob,shopkeeper,thisThang,CMMsg.MSG_DEPOSIT,L("<S-NAME> mail(s) <O-NAME>."));
+		if(mob.location().okMessage(mob,msg))
+			mob.location().send(mob,msg);
+		else
+		if(msg != null)
+			CMLib.commands().postCommandRejection(msg.source(),msg.target(),msg.tool(),origCmds);
 		return false;
 	}
 

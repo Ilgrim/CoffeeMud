@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ public class Song_Nothing extends Song
 		for(int a=0;a<mob.numEffects();a++)
 		{
 			final Ability A=mob.fetchEffect(a);
-			if((A!=null)&&(A instanceof Song))
+			if((A instanceof Song))
 				foundOne=true;
 		}
 		unSingAll(mob,mob,false,true);

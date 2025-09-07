@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -98,27 +98,25 @@ public class Chopping extends GatheringSkill
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			final MOB mob=(MOB)affected;
 			if(tickUp==6)
 			{
 				if(found!=null)
 				{
-					commonTell(mob,L("You have a good tree for @x1.",foundShortName));
+					commonTelL(mob,"You have a good tree for @x1.",foundShortName);
 					displayText=L("You are chopping up @x1",foundShortName);
 					verb=L("chopping @x1",foundShortName);
 					playSound="chopping.wav";
 				}
 				else
 				{
-					final StringBuffer str=new StringBuffer(L("You can't seem to find any trees worth cutting around here.\n\r"));
 					final int d=lookingForMat(RawMaterial.MATERIAL_WOODEN,mob.location());
 					if(d<0)
-						str.append(L("You might try elsewhere."));
+						commonTelL(mob,"You can't seem to find any trees worth cutting around here.\n\rYou might try elsewhere.");
 					else
-						str.append(L("You might try @x1.",CMLib.directions().getInDirectionName(d)));
-					commonTell(mob,str.toString());
+						commonTelL(mob,"You might try @x1.",CMLib.directions().getInDirectionName(d));
 					unInvoke();
 				}
 
@@ -142,10 +140,10 @@ public class Chopping extends GatheringSkill
 					msg.setValue(yield);
 					if(mob.location().okMessage(mob, msg))
 					{
-						String s="s";
-						if(msg.value()==1)
-							s="";
-						msg.modify(L("<S-NAME> manage(s) to chop up @x1 pound@x2 of @x3.",""+msg.value(),s,foundShortName));
+						if(msg.value()<2)
+							msg.modify(L("<S-NAME> manage(s) to chop up @x1.",found.name()));
+						else
+							msg.modify(L("<S-NAME> manage(s) to chop up @x1 pounds of @x2.",""+msg.value(),foundShortName));
 						mob.location().send(mob, msg);
 						for(int i=0;i<msg.value();i++)
 						{
@@ -184,7 +182,7 @@ public class Chopping extends GatheringSkill
 		if((!confirmPossibleMaterialLocation(RawMaterial.MATERIAL_WOODEN,mob.location()))
 		&&(!CMParms.contains(RawMaterial.CODES.WOODIES(), mob.location().myResource())))
 		{
-			commonTell(mob,L("You can't find anything to chop here."));
+			commonTelL(mob,"You can't find anything to chop here.");
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
@@ -209,11 +207,14 @@ public class Chopping extends GatheringSkill
 			}
 		}
 		final int duration=getDuration(mob,1);
+		final String oldFoundName = (found==null)?"":found.Name();
 		final CMMsg msg=CMClass.getMsg(mob,found,this,getActivityMessageType(),L("<S-NAME> start(s) looking for a good tree to chop."));
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);
 			found=(Item)msg.target();
+			if((found!=null)&&(!found.Name().equals(oldFoundName)))
+				foundShortName=CMLib.english().removeArticleLead(found.Name());
 			beneficialAffect(mob,mob,asLevel,duration);
 		}
 		return true;

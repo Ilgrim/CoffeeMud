@@ -12,6 +12,7 @@ import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.Factions;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -19,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -132,6 +133,7 @@ public class Purist extends Cleric
 			CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Prayer_HuntEvil",false);
 		if(CMLib.factions().isAlignmentLoaded(Faction.Align.CHAOTIC))
 			CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Prayer_ProtChaos",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Prayer_SenseDevotion",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Prayer_Freedom",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Prayer_ProtParalyzation",true);
@@ -202,6 +204,9 @@ public class Purist extends Cleric
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Prayer_IceHealing",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Prayer_AuraIntolerance",false);
+
+		CMLib.ableMapper().addCharAbilityMapping(ID(),35,"Prayer_BenignedPortal", 35, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
 	}
 
 	@Override
@@ -327,6 +332,7 @@ public class Purist extends Cleric
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

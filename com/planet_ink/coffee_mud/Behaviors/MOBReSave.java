@@ -19,7 +19,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ public class MOBReSave extends ActiveTicker
 		&&(tickID==Tickable.TICKID_MOB)
 		&&(!((MOB)ticking).amDead())
 		&&(!noRecurse)
-		&&(CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		&&(CMProps.isState(CMProps.HostState.RUNNING))
 		&&(((MOB)ticking).getStartRoom()!=null)
 		&&(((MOB)ticking).getStartRoom().roomID().length()>0)
 		&&(((MOB)ticking).databaseID().length()>0))

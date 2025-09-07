@@ -10,6 +10,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary.CompiledZMask;
 import com.planet_ink.coffee_mud.Libraries.interfaces.TrackingLibrary;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,7 +54,7 @@ public class Prop_ClosedDayNight extends Property
 	}
 
 	protected boolean	doneToday	= false;
-	protected int		lastClosed	= -1;
+	protected Boolean	amClosed	= null;
 	protected boolean	dayFlag		= false;
 	protected boolean	sleepFlag	= false;
 	protected boolean	sitFlag		= false;
@@ -62,7 +63,24 @@ public class Prop_ClosedDayNight extends Property
 	protected int		closeTime	= -1;
 	protected String	homeStr		= null;
 	protected String	shopMsg		= null;
+	protected String[]	warnMsgs	= null;
 	protected Room		exitRoom	= null;
+
+	protected volatile String	pending = null;
+	protected volatile long 	nextChck= 0;
+	protected CompiledZMask 	mask	= null;
+
+	protected final static Set<Integer> shopCmds = new XHashSet<Integer>(new Integer[] {
+		Integer.valueOf(CMMsg.TYP_BUY),
+		Integer.valueOf(CMMsg.TYP_BID),
+		Integer.valueOf(CMMsg.TYP_SELL),
+		Integer.valueOf(CMMsg.TYP_LIST),
+		Integer.valueOf(CMMsg.TYP_VALUE),
+		Integer.valueOf(CMMsg.TYP_DEPOSIT),
+		Integer.valueOf(CMMsg.TYP_WITHDRAW),
+		Integer.valueOf(CMMsg.TYP_BORROW),
+		Integer.valueOf(CMMsg.TYP_VIEW)
+	});
 
 	@Override
 	public String accountForYourself()
@@ -77,20 +95,35 @@ public class Prop_ClosedDayNight extends Property
 	}
 
 	@Override
-	public void setMiscText(final String text)
+	public void setMiscText(String text)
 	{
 		super.setMiscText(text);
+		int x=text.toUpperCase().lastIndexOf("MASK=");
+		if(x<0)
+			x=text.toUpperCase().lastIndexOf("MASK =");
+		if(x>0)
+		{
+			String mask=text.substring(text.indexOf("=",x+1)+1).trim();
+			if(mask.startsWith("\"")&&(mask.endsWith("\"")))
+				mask = CMStrings.deEscape(mask.substring(1,mask.length()-1));
+			text=text.substring(0,x);
+			this.mask = CMLib.masking().getPreCompiledMask(mask);
+		}
+		else
+			this.mask = null;
 		final Vector<String> V=CMParms.parse(text);
-		dayFlag=false;
-		doneToday=false;
-		lockupFlag=false;
-		sleepFlag=false;
-		sitFlag=false;
-		openTime=-1;
-		closeTime=-1;
-		lastClosed=-1;
-		homeStr=null;
-		shopMsg=null;
+		dayFlag = false;
+		doneToday = false;
+		lockupFlag = false;
+		sleepFlag = false;
+		sitFlag = false;
+		openTime = -1;
+		closeTime = -1;
+		amClosed = null;
+		homeStr = null;
+		shopMsg = null;
+		warnMsgs = null;
+		nextChck = 0;
 		for(int v=0;v<V.size();v++)
 		{
 			String s=V.elementAt(v).toUpperCase();
@@ -109,7 +142,7 @@ public class Prop_ClosedDayNight extends Property
 			if(s.startsWith("HOURS="))
 			{
 				s=s.substring(6);
-				final int x=s.indexOf('-');
+				x=s.indexOf('-');
 				if(x>=0)
 				{
 					openTime=CMath.s_int(s.substring(0,x));
@@ -122,6 +155,26 @@ public class Prop_ClosedDayNight extends Property
 			else
 			if(s.startsWith("SHOPMSG="))
 				shopMsg=V.elementAt(v).substring(8);
+			else
+			if(s.startsWith("WARNMSG"))
+			{
+				final String ss = V.elementAt(v).substring(7);
+				final int sx = ss.indexOf('=');
+				if((sx > 0)&&(CMath.isInteger(ss.substring(0,sx))))
+				{
+					final int t = CMath.s_int(ss.substring(0,sx));
+					if((t>=0)&&(t<100))
+					{
+						final String val = ss.substring(sx+1).trim();
+						if(this.warnMsgs == null)
+							this.warnMsgs = new String[t+1];
+						else
+						if(this.warnMsgs.length<=t)
+							this.warnMsgs=Arrays.copyOf(this.warnMsgs, t+1);
+						this.warnMsgs[t] = val;
+					}
+				}
+			}
 		}
 	}
 
@@ -133,12 +186,25 @@ public class Prop_ClosedDayNight extends Property
 			return;
 		if(msg.source().location()!=null)
 			exitRoom=msg.source().location();
+		if((msg.targetMinor()==CMMsg.TYP_ENTER)
+		&&(this.warnMsgs!=null)
+		&&(pending==null))
+		{
+			final TimeClock C = CMLib.time().homeClock(affected);
+			if(C!=null)
+			{
+				final int hr = C.getHourOfDay();
+				if((hr < this.warnMsgs.length)
+				&&(this.warnMsgs[hr]!=null))
+					pending = this.warnMsgs[hr];
+			}
+		}
 	}
 
-	protected boolean closed(final Environmental E)
+	protected boolean checkClosed(final Physical P)
 	{
 		boolean closed=false;
-		Room R=CMLib.map().roomLocation(E);
+		Room R=CMLib.map().roomLocation(P);
 		if(R==null)
 		{
 			if(CMLib.map().numRooms()<=0)
@@ -166,6 +232,10 @@ public class Prop_ClosedDayNight extends Property
 					&&(R.getArea().getTimeObj().getHourOfDay()<openTime);
 			}
 		}
+		if((closed)
+		&& (this.mask != null)
+		&& (!CMLib.masking().maskCheck(mask, P, true)))
+			closed = false;
 		return closed;
 	}
 
@@ -175,23 +245,26 @@ public class Prop_ClosedDayNight extends Property
 		if(!super.okMessage(host,msg))
 			return false;
 
-		if((affected!=null)
-		&&(affected instanceof MOB)
-		&&(closed(affected))
-		&&(homeStr!=null)
-		&&(!CMLib.flags().isSleeping(affected))
-		&&((msg.targetMinor()==CMMsg.TYP_BUY)
-		   ||(msg.targetMinor()==CMMsg.TYP_BID)
-		   ||(msg.targetMinor()==CMMsg.TYP_SELL)
-		   ||(msg.targetMinor()==CMMsg.TYP_VALUE)
-		   ||(msg.targetMinor()==CMMsg.TYP_DEPOSIT)
-		   ||(msg.targetMinor()==CMMsg.TYP_WITHDRAW)
-		   ||(msg.targetMinor()==CMMsg.TYP_BORROW)
-		   ||(msg.targetMinor()==CMMsg.TYP_VIEW)))
+		if((amClosed!=null)
+		&&(amClosed.booleanValue())
+		&&(msg.target()==affected)
+		&&(shopCmds.contains(Integer.valueOf(msg.targetMinor()))))
 		{
-			final ShopKeeper sk=CMLib.coffeeShops().getShopKeeper(affected);
-			if(sk!=null)
-				CMLib.commands().postSay((MOB)affected,msg.source(),(shopMsg!=null)?shopMsg:L("Sorry, I'm off right now.  Try me tomorrow."),false,false);
+			if(affected instanceof MOB)
+			{
+				if(CMLib.flags().isSleeping(affected))
+					msg.source().tell(msg.source(),affected,null,L("<T-NAME> looks asleep."));
+				else
+				{
+					final ShopKeeper sk=CMLib.coffeeShops().getShopKeeper(affected);
+					if(sk!=null)
+						CMLib.commands().postSay((MOB)affected,msg.source(),(shopMsg!=null)?shopMsg:L("Sorry, I'm off right now.  Try me tomorrow."),false,false);
+					else
+						msg.source().tell(msg.source(),affected,null,L("<T-NAME> looks uninterested."));
+				}
+				return false;
+			}
+			msg.source().tell(msg.source(),affected,null,L("<T-NAME> looks uninterested."));
 			return false;
 		}
 		return true;
@@ -233,12 +306,12 @@ public class Prop_ClosedDayNight extends Property
 				return R;
 			try
 			{
-				final List<Room> rooms=CMLib.map().findRooms(CMLib.map().rooms(), mob, homeStr,false,10);
+				final List<Room> rooms=CMLib.hunt().findRooms(CMLib.map().rooms(), mob, homeStr,false,10);
 				if(rooms.size()>0)
 					R=rooms.get(CMLib.dice().roll(1,rooms.size(),-1));
 				else
 				{
-					final List<MOB> inhabs=CMLib.map().findInhabitantsFavorExact(CMLib.map().rooms(), mob, homeStr, false, 10);
+					final List<MOB> inhabs=CMLib.hunt().findInhabitantsFavorExact(CMLib.map().rooms(), mob, homeStr, false, 10);
 					if(inhabs.size()>0)
 						R=CMLib.map().roomLocation(inhabs.get(CMLib.dice().roll(1,inhabs.size(),-1)));
 				}
@@ -255,13 +328,12 @@ public class Prop_ClosedDayNight extends Property
 	{
 		if(!super.tick(ticking,tickID))
 			return false;
-		if((affected!=null)
-		&&(affected instanceof MOB)
+		if((affected instanceof MOB)
 		&&(!((MOB)affected).amDead())
-		&&((lastClosed<0)||(closed(affected)!=(lastClosed==1))))
+		&&((amClosed==null)||(checkClosed(affected)!=amClosed.booleanValue())))
 		{
 			final MOB mob=(MOB)affected;
-			if(closed(affected))
+			if(checkClosed(affected))
 			{
 				CMLib.commands().postStand(mob,true, false);
 				if(!CMLib.flags().isAliveAwakeMobile(mob,true)||(mob.isInCombat()))
@@ -316,7 +388,8 @@ public class Prop_ClosedDayNight extends Property
 						if(A!=null)
 						{
 							A.setAbilityCode(1);
-							A.invoke(mob,R,true,0);
+							final List<String> lst = new XVector<String>(CMLib.map().getExtendedRoomID(R), "NPC");
+							A.invoke(mob,lst,R,true,0);
 						}
 						return true;
 					}
@@ -334,7 +407,7 @@ public class Prop_ClosedDayNight extends Property
 							&&(I.container()==null)
 							&&(I instanceof Rideable)
 							&&(!(I instanceof Exit))
-							&&(((Rideable)I).rideBasis()==Rideable.RIDEABLE_SLEEP))
+							&&(((Rideable)I).rideBasis()==Rideable.Basis.FURNITURE_SLEEP))
 							{
 								final String itemName=R.getContextName(I);
 								if(!CMLib.flags().isSleeping(mob))
@@ -361,7 +434,7 @@ public class Prop_ClosedDayNight extends Property
 							&&(I.container()==null)
 							&&(I instanceof Rideable)
 							&&(!(I instanceof Exit))
-							&&(((Rideable)I).rideBasis()==Rideable.RIDEABLE_SIT))
+							&&(((Rideable)I).rideBasis()==Rideable.Basis.FURNITURE_SIT))
 							{
 								final String itemName=R.getContextName(I);
 								if(!CMLib.flags().isSitting(mob))
@@ -375,7 +448,7 @@ public class Prop_ClosedDayNight extends Property
 					if(!CMLib.flags().isSitting(mob))
 						mob.doCommand(CMParms.parse("SIT"),MUDCmdProcessor.METAFLAG_FORCED);
 				}
-				lastClosed=1;
+				amClosed = Boolean.valueOf(true);
 			}
 			else
 			{
@@ -398,8 +471,7 @@ public class Prop_ClosedDayNight extends Property
 						return true;
 					}
 				}
-				lastClosed=0;
-
+				amClosed = Boolean.valueOf(false);
 				if((mob.location()==mob.getStartRoom())
 				&&(lockupFlag))
 				{
@@ -435,6 +507,17 @@ public class Prop_ClosedDayNight extends Property
 				}
 			}
 		}
+		if(pending != null)
+		{
+			if(affected instanceof MOB)
+				CMLib.commands().postSay((MOB)affected, pending);
+			else
+			{
+				final Room R = CMLib.map().roomLocation(affected);
+				R.showHappens(CMMsg.MSG_OK_VISUAL, pending);
+			}
+			pending = null;
+		}
 		return true;
 	}
 
@@ -443,29 +526,39 @@ public class Prop_ClosedDayNight extends Property
 	{
 		if(affected==null)
 			return;
+
+		Boolean amClosed = this.amClosed;
+		if((amClosed == null) || (System.currentTimeMillis() > nextChck))
+		{
+			amClosed = Boolean.valueOf(checkClosed(affected));
+			if(!(affected instanceof MOB))
+			{
+				this.amClosed = amClosed;
+				nextChck = System.currentTimeMillis() + CMProps.getTickMillis() +1;
+			}
+		}
 		if((affected instanceof MOB)
 		||(affected instanceof Item))
 		{
-			if((closed(affected))
+			if(amClosed.booleanValue()
 			&&(homeStr==null)
 			&&(!sleepFlag)
 			&&(!sitFlag)
 			&&((!(affected instanceof MOB))||(!((MOB)affected).isInCombat())))
 			{
 				affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_NOT_SEEN);
-				affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_SEE);
-				affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_MOVE);
-				affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_SPEAK);
-				affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_NOT_HEAR);
+				affectableStats.setSensesMask(affectableStats.sensesMask()
+						|PhyStats.CAN_NOT_SEE|PhyStats.CAN_NOT_MOVE|PhyStats.CAN_NOT_SPEAK|PhyStats.CAN_NOT_HEAR);
 			}
 		}
 		else
-		if((affected instanceof Room)&&(closed(affected)))
+		if((affected instanceof Room)
+		&&(amClosed.booleanValue()))
 			affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_DARK);
 		else
 		if(affected instanceof Exit)
 		{
-			if(closed(affected))
+			if(amClosed.booleanValue())
 			{
 				if(!doneToday)
 				{

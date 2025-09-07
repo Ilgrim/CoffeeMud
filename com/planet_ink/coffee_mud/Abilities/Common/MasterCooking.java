@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ public class MasterCooking extends Cooking
 	@Override
 	public String name()
 	{
-		return L("Master Cooking" + cookingID);
+		return L("Master Cooking@x1",cookingID);
 	}
 
 	private static final String[]	triggerStrings	= I(new String[] { "MCOOK", "MCOOKING", "MASTERCOOK", "MASTERCOOKING" });
@@ -85,6 +85,18 @@ public class MasterCooking extends Cooking
 		{
 			cookingID="";
 			int num=1;
+			while(mob.fetchEffect("MasterCooking"+cookingID)!=null)
+				cookingID=Integer.toString(++num);
+			num--;
+			if(num>1)
+				cookingID=Integer.toString(num);
+			else
+				cookingID="";
+			if(super.checkStop(mob, commands))
+				return true;
+
+			cookingID="";
+			num=1;
 			while(mob.fetchEffect("MasterCooking"+cookingID)!=null)
 				cookingID=Integer.toString(++num);
 			final List<String> noUninvokes=new Vector<String>(1);

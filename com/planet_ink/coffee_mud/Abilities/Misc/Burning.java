@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -138,6 +138,7 @@ public class Burning extends StdAbility
 		Physical affected=this.affected;
 		if((affected instanceof Item)
 		&&(((Item)affected).owner() instanceof Room)
+		&&(((Item)affected).container()==null)
 		&&(!CMath.bset(abilityCode(), Burning.FIREFLAG_UNEXTINGUISHABLE)))
 		{
 			int unInvokeChance;
@@ -183,27 +184,44 @@ public class Burning extends StdAbility
 		{
 			if(affected instanceof Item)
 			{
-				final Environmental E=((Item)affected).owner();
+				final Item affI = (Item)affected;
+				final Environmental E=affI.owner();
 				if(E==null)
 				{
 					if(!isFlagSet(FIREFLAG_NEVERDESTROYHOST))
-						((Item)affected).destroy();
+						affI.destroy();
 				}
 				else
 				if(E instanceof Room)
 				{
 					final Room room=(Room)E;
-					if((affected instanceof RawMaterial)
+					if(((affI instanceof RawMaterial)||(affI.container()!=null))
 					&&(!CMath.bset(abilityCode(), Burning.FIREFLAG_NOSPREAD))
-					&&(room.isContent((Item)affected)))
+					&&(room.isContent(affI)))
 					{
+						final Container C=affI.container();
+						if((C instanceof Drink)
+						&&(affI.material()==((Drink)C).liquidType())
+						&&(((Drink)C).liquidRemaining()>0)
+						&&(C.getContents().size()<2))
+						{
+							final Item testResource = CMLib.materials().makeItemResource(((Drink)C).liquidType());
+							if(CMLib.materials().getBurnDuration(testResource)>0)
+							{
+								testResource.setContainer(C);
+								((Drink)C).setLiquidRemaining(((Drink)C).liquidRemaining()-1);
+								C.owner().addItem(testResource);
+							}
+						}
 						for(int i=0;i<room.numItems();i++)
 						{
 							final Item I=room.getItem(i);
-							if(I.name().equals(affected.name())
-							&&(I!=affected)
-							&&(I instanceof RawMaterial)
-							&&(I.material()==((Item)affected).material()))
+							if(I.name().equals(affI.name())
+							&&(I!=affI)
+							&&(I.container()==C)
+							&&((I instanceof RawMaterial)||(C!=null))
+							&&(I.material()==affI.material())
+							&&(CMLib.utensils().canBeRuined(I)))
 							{
 								int durationOfBurn=CMLib.materials().getBurnDuration(I);
 								if(durationOfBurn<=0)
@@ -216,9 +234,10 @@ public class Burning extends StdAbility
 							}
 						}
 					}
-					if(!(affected instanceof ClanItem))
+					if((!(affI instanceof ClanItem))
+					&&(CMLib.utensils().canBeRuined(affI)))
 					{
-						switch(((Item)affected).material()&RawMaterial.MATERIAL_MASK)
+						switch(affI.material()&RawMaterial.MATERIAL_MASK)
 						{
 						case RawMaterial.MATERIAL_LIQUID:
 						case RawMaterial.MATERIAL_METAL:
@@ -231,23 +250,23 @@ public class Burning extends StdAbility
 							break;
 						default:
 						{
-							if(CMLib.flags().isABonusItems(affected))
+							if(CMLib.flags().isABonusItems(affI))
 							{
 								if(invoker==null)
 								{
 									invoker=CMClass.getMOB("StdMOB");
 									invoker.setLocation(CMClass.getLocale("StdRoom"));
-									invoker.basePhyStats().setLevel(affected.phyStats().level());
-									invoker.phyStats().setLevel(affected.phyStats().level());
+									invoker.basePhyStats().setLevel(affI.phyStats().level());
+									invoker.phyStats().setLevel(affI.phyStats().level());
 								}
-								room.showHappens(CMMsg.MSG_OK_ACTION,L("@x1 EXPLODES!!!",affected.name()));
+								room.showHappens(CMMsg.MSG_OK_ACTION,L("@x1 EXPLODES!!!",affI.name()));
 								for(int i=0;i<room.numInhabitants();i++)
 								{
 									final MOB target=room.fetchInhabitant(i);
-									CMLib.combat().postDamage(invoker(),target,null,CMLib.dice().roll(affected.phyStats().level(),5,1),CMMsg.MASK_ALWAYS|CMMsg.TYP_FIRE,Weapon.TYPE_BURNING,L("The blast <DAMAGE> <T-NAME>!"));
+									CMLib.combat().postDamage(invoker(),target,null,CMLib.dice().roll(affI.phyStats().level(),5,1),CMMsg.MASK_ALWAYS|CMMsg.TYP_FIRE,Weapon.TYPE_BURNING,L("The blast <DAMAGE> <T-NAME>!"));
 								}
 								if(!isFlagSet(FIREFLAG_NEVERDESTROYHOST))
-									((Item)affected).destroy();
+									affI.destroy();
 							}
 							else
 							{
@@ -258,21 +277,22 @@ public class Burning extends StdAbility
 								ash.basePhyStats().setWeight(1);
 								ash.recoverPhyStats();
 								room.addItem(ash,ItemPossessor.Expire.Monster_EQ);
+								ash.setContainer(affI.container());
 								((RawMaterial)ash).rebundle();
-								if((affected instanceof RawMaterial)
-								&&(affected.basePhyStats().weight()>1)
-								&&(CMLib.materials().getBurnDuration(affected)>0))
+								if((affI instanceof RawMaterial)
+								&&(affI.basePhyStats().weight()>1)
+								&&(CMLib.materials().getBurnDuration(affI)>0))
 								{
-									affected.basePhyStats().setWeight(affected.basePhyStats().weight()-1);
-									affected.recoverPhyStats();
-									this.tickDown = CMLib.materials().getBurnDuration(affected);
-									CMLib.materials().adjustResourceName((Item)affected);
+									affI.basePhyStats().setWeight(affI.basePhyStats().weight()-1);
+									affI.recoverPhyStats();
+									this.tickDown = CMLib.materials().getBurnDuration(affI);
+									CMLib.materials().adjustResourceName(affI);
 									room.recoverRoomStats();
 									return super.tick(ticking,tickID);
 								}
-								room.showHappens(CMMsg.MSG_OK_VISUAL, L("@x1 is no longer burning.",affected.name()));
+								room.showHappens(CMMsg.MSG_OK_VISUAL, L("@x1 is no longer burning.",affI.name()));
 								if(!isFlagSet(FIREFLAG_NEVERDESTROYHOST))
-									((Item)affected).destroy();
+									affI.destroy();
 							}
 							break;
 						}
@@ -283,7 +303,7 @@ public class Burning extends StdAbility
 				else
 				if(E instanceof MOB)
 				{
-					switch(((Item)affected).material()&RawMaterial.MATERIAL_MASK)
+					switch(affI.material()&RawMaterial.MATERIAL_MASK)
 					{
 					case RawMaterial.MATERIAL_LIQUID:
 					case RawMaterial.MATERIAL_METAL:
@@ -295,7 +315,7 @@ public class Burning extends StdAbility
 						break;
 					default:
 						if(!isFlagSet(FIREFLAG_NEVERDESTROYHOST))
-							((Item)affected).destroy();
+							affI.destroy();
 						break;
 					}
 					((MOB)E).location().recoverRoomStats();
@@ -419,7 +439,7 @@ public class Burning extends StdAbility
 			final Item I=(Item)affected;
 			final Item C=(Container)msg.target();
 			if((C instanceof Drink)
-			   &&(((Drink)C).containsDrink()))
+			   &&(((Drink)C).containsLiquid()))
 			{
 				msg.addTrailerMsg(CMClass.getMsg(invoker,null,CMMsg.MSG_OK_VISUAL,L("@x1 is extinguished.",I.name())));
 				I.delEffect(this);

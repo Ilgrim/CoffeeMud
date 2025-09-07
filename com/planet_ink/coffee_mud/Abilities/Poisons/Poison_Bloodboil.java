@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,51 +70,57 @@ public class Poison_Bloodboil extends Poison
 	@Override
 	protected String POISON_DONE()
 	{
-		return "Your blood stops burning.";
+		return L("Your blood stops burning.");
 	}
 
 	@Override
 	protected String POISON_START()
 	{
-		return "^R<S-NAME> turn(s) red.^?";
+		return L("^R<S-NAME> turn(s) red.^?");
 	}
 
 	@Override
 	protected String POISON_AFFECT()
 	{
-		return "<S-NAME> cringe(s) as <S-HIS-HER> blood burns.";
+		return L("<S-NAME> cringe(s) as <S-HIS-HER> blood burns.");
 	}
 
 	@Override
 	protected String POISON_CAST()
 	{
-		return "^F^<FIGHT^><S-NAME> sting(s) <T-NAMESELF>!^</FIGHT^>^?";
+		return L("^F^<FIGHT^><S-NAME> sting(s) <T-NAMESELF>!^</FIGHT^>^?");
 	}
 
 	@Override
 	protected String POISON_FAIL()
 	{
-		return "<S-NAME> attempt(s) to sting <T-NAMESELF>, but fail(s).";
+		return L("<S-NAME> attempt(s) to sting <T-NAMESELF>, but fail(s).");
 	}
 
 	@Override
 	protected int POISON_DAMAGE()
 	{
-		return (invoker!=null)?CMLib.dice().roll(1,2,0):0;
+		return (invoker!=null)?CMLib.dice().roll((int)Math.round(rank),2,0):0;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_POTENTIALLY_DEADLY;
 	}
 
 	@Override
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
 		if(affected instanceof MOB)
-			affectableStats.setAttackAdjustment(affectableStats.attackAdjustment()-20);
+			affectableStats.setAttackAdjustment(affectableStats.attackAdjustment()-(int)Math.round(20*rank));
 	}
 
 	@Override
 	public void affectCharStats(final MOB affected, final CharStats affectableStats)
 	{
-		affectableStats.setStat(CharStats.STAT_CONSTITUTION,affectableStats.getStat(CharStats.STAT_CONSTITUTION)-1);
-		affectableStats.setStat(CharStats.STAT_STRENGTH,affectableStats.getStat(CharStats.STAT_STRENGTH)-5);
+		affectableStats.setStat(CharStats.STAT_CONSTITUTION,affectableStats.getStat(CharStats.STAT_CONSTITUTION)-(int)Math.round(rank));
+		affectableStats.setStat(CharStats.STAT_STRENGTH,affectableStats.getStat(CharStats.STAT_STRENGTH)-(4+(int)Math.round(rank)));
 		if(affectableStats.getStat(CharStats.STAT_CONSTITUTION)<=0)
 			affectableStats.setStat(CharStats.STAT_CONSTITUTION,1);
 		if(affectableStats.getStat(CharStats.STAT_STRENGTH)<=0)

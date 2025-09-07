@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,10 +48,10 @@ public class Trap_DeepThruPit extends Trap_DeepPit
 		return localizedName;
 	}
 
-	@Override
-	protected int trapLevel()
+	public Trap_DeepThruPit()
 	{
-		return 13;
+		super();
+		trapLevel = 13;
 	}
 
 	@Override

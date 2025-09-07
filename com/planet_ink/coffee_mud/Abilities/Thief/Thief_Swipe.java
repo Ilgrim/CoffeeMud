@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.ExpertiseLibrary;
+import com.planet_ink.coffee_mud.Libraries.interfaces.MoneyLibrary;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -103,6 +104,12 @@ public class Thief_Swipe extends ThiefSkill
 	protected boolean ignoreCompounding()
 	{
 		return true;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_STEALING;
 	}
 
 	private final PairVector<MOB,Integer> lastOnes=new PairVector<MOB,Integer>();
@@ -213,6 +220,7 @@ public class Thief_Swipe extends ThiefSkill
 			return false;
 
 		final String currency=CMLib.beanCounter().getCurrency(target);
+		final MoneyLibrary.MoneyDefinition def = CMLib.beanCounter().getCurrencySet(currency);
 		final int discoverChance=this.getDiscoverChance(mob, target);
 
 		int levelDiff = this.getBaseLevelDiff(mob, target);
@@ -222,7 +230,7 @@ public class Thief_Swipe extends ThiefSkill
 			levelDiff=-(levelDiff*((CMLib.flags().canBeSeenBy(mob,target))?1:2));
 		if(!CMLib.flags().isAliveAwakeMobile(target,true))
 			levelDiff=100;
-		final boolean success=proficiencyCheck(mob,levelDiff,auto);
+		final boolean success=proficiencyCheck(mob,levelDiff,auto) && ((def==null)||(def.canTrade()));
 		if(!success)
 		{
 			if(CMLib.dice().rollPercentage()>discoverChance)

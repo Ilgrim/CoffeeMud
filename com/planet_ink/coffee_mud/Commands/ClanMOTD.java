@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ public class ClanMOTD extends StdCommand
 			for(final Pair<Clan,Integer> c : mob.clans())
 			{
 				if((clanName.length()==0)||(CMLib.english().containsString(c.first.getName(), clanName))
-				&&(c.first.getAuthority(c.second.intValue(), Clan.Function.CLAN_MOTD)!=Authority.CAN_NOT_DO))
+				&&(c.first.getAuthority(c.second.intValue(), Clan.Function.READ_MOTD)!=Authority.CAN_NOT_DO))
 				{
 					chkC = c.first;
 					break;
@@ -81,7 +81,7 @@ public class ClanMOTD extends StdCommand
 			return false;
 		}
 
-		if((!skipChecks)&&(!CMLib.clans().goForward(mob,C,commands,Clan.Function.PREMISE,false)))
+		if((!skipChecks)&&(!CMLib.clans().goForward(mob,C,commands,Clan.Function.CREATE_MOTD,false)))
 		{
 			mob.tell(L("You aren't in the right position to set the message for your @x1.",C.getGovernmentName()));
 			return false;
@@ -126,7 +126,7 @@ public class ClanMOTD extends StdCommand
 				final Vector<String> cmds=new Vector<String>();
 				cmds.add(getAccessWords()[0]);
 				cmds.add(premise);
-				if(skipChecks||CMLib.clans().goForward(mob,C,cmds,Clan.Function.CLAN_MOTD,true))
+				if(skipChecks||CMLib.clans().goForward(mob,C,cmds,Clan.Function.READ_MOTD,true))
 				{
 					addClanMOTD(mob,C,premise);
 				}

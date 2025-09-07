@@ -27,7 +27,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -143,6 +143,7 @@ public class DefaultItemCollection implements ItemCollection, CMCommon
 	}
 
 	@SuppressWarnings("unchecked")
+	@Override
 	public List<Item> findItems(final String itemID)
 	{
 		@SuppressWarnings("rawtypes")
@@ -218,7 +219,7 @@ public class DefaultItemCollection implements ItemCollection, CMCommon
 		{
 			return contents.elementAt(i);
 		}
-		catch(final java.lang.ArrayIndexOutOfBoundsException x)
+		catch(final IndexOutOfBoundsException x)
 		{
 		}
 		return null;

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -194,7 +194,8 @@ public class Spell_Brainwash extends Spell
 		{
 			final MOB oldVictim=mob.getVictim();
 			final MOB oldVictim2=target.getVictim();
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L(auto?"@x1":"^S<S-NAME> invoke(s) a spell upon the mind of <T-NAMESELF>, saying '@x1'.^?",message));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					auto?message:L("^S<S-NAME> invoke(s) a spell upon the mind of <T-NAMESELF>, saying '@x1'.^?",message));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

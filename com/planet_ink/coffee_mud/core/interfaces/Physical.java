@@ -6,7 +6,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.PhyStats;
 import com.planet_ink.coffee_mud.MOBS.interfaces.MOB;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,4 +59,13 @@ public interface Physical extends Environmental, Affectable
 	 * @return the description as seen by the viewer
 	 */
 	public String description(MOB viewerMob);
+
+	/**
+	 * Returns a generic name for this object, devoid of its particular
+	 * identifying details.  e.g. for a mob, this would return
+	 * the age-range and race of this mob, as if it were someone
+	 * spotted on the street that you didn't know.
+	 * @return the generic name of this thing
+	 */
+	public String genericName();
 }

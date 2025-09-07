@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -82,16 +82,31 @@ public class Chant_BestowName extends Chant
 	public void affectPhyStats(final Physical affected, final PhyStats affectedStats)
 	{
 		super.affectPhyStats(affected,affectedStats);
-		if((affected instanceof MOB)
-		&&(((MOB)affected).amFollowing()==null)
-		&&(CMLib.flags().isInTheGame((MOB)affected,true)))
-		{
-			affected.delEffect(affected.fetchEffect(ID()));
-			affectedStats.setName(null);
-		}
-		else
-		if((text().length()>0))
+		if(text().length()>0)
 			affectedStats.setName(text());
+	}
+
+	public volatile int nameCheckCtr = 0;
+
+	@Override
+	public boolean tick(final Tickable ticking, final int tickID)
+	{
+		if(!super.tick(ticking, tickID))
+			return false;
+		if(++nameCheckCtr > 10)
+		{
+			nameCheckCtr = 0;
+			final Physical P = affected;
+			if((P instanceof MOB)
+			&&(((MOB)P).amFollowing()==null)
+			&&(CMLib.flags().isInTheGame((MOB)P,true)))
+			{
+				P.delEffect(P.fetchEffect(ID()));
+				P.recoverPhyStats();
+				return false;
+			}
+		}
+		return true;
 	}
 
 	@Override
@@ -102,8 +117,7 @@ public class Chant_BestowName extends Chant
 			mob.tell(L("You must specify the animal, and a name to give him."));
 			return false;
 		}
-		String myName=(commands.get(commands.size()-1)).trim();
-		commands.remove(commands.size()-1);
+		String myName=CMStrings.capitalizeAndLower(commands.remove(commands.size()-1)).trim();
 		if(myName.length()==0)
 		{
 			mob.tell(L("You must specify a name."));
@@ -119,7 +133,7 @@ public class Chant_BestowName extends Chant
 		final MOB target=this.getTarget(mob,commands,givenTarget);
 		if(target==null)
 			return false;
-		if((!CMLib.flags().isAnimalIntelligence(target))
+		if((!CMLib.flags().isAnAnimal(target))
 		||(!target.isMonster())
 		||(!mob.getGroupMembers(new HashSet<MOB>()).contains(target)))
 		{

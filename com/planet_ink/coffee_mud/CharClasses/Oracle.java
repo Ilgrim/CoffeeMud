@@ -12,6 +12,7 @@ import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.AbilityMapping;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -19,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -124,6 +125,7 @@ public class Oracle extends Cleric
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Prayer_CureSerious",true,CMParms.parseSemicolons("Prayer_CureLight",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Prayer_SenseDisease",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Prayer_Fluency",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Prayer_Bless",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Prayer_CureFatigue",false);
@@ -158,6 +160,7 @@ public class Oracle extends Cleric
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Prayer_LowerLaw",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Prayer_HolyAura",false,CMParms.parseSemicolons("Prayer_Bless",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Prayer_SenseParish",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Prayer_Prophecy",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Skill_Thiefcraft",true);
@@ -173,6 +176,7 @@ public class Oracle extends Cleric
 		if(CMLib.factions().isAlignmentLoaded(Faction.Align.LAWFUL)||CMLib.factions().isAlignmentLoaded(Faction.Align.CHAOTIC))
 			CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Prayer_InfuseModeration",false);
 
+		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Prayer_SenseChants",true);
 		if(CMLib.factions().isAlignmentLoaded(Faction.Align.EVIL))
 			CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Prayer_Godstrike",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Prayer_CureExhaustion",false);
@@ -182,6 +186,7 @@ public class Oracle extends Cleric
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Prayer_Heal",true,CMParms.parseSemicolons("Prayer_CureCritical",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Prayer_Philosophy",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Prayer_SenseResistances",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Prayer_BlessItem",false,CMParms.parseSemicolons("Prayer_Bless",true));
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Prayer_SenseSpells",true);
@@ -289,37 +294,48 @@ public class Oracle extends Cleric
 
 			Ability newOne=null;
 			int tries=0;
-			while((newOne==null)&&((++tries)<100))
+			while((newOne==null)&&((++tries)<1000))
 			{
 				final CharClass C=CMClass.randomCharClass();
 				if((C!=null)
 				&&(!C.ID().equals(ID()))
-				&&(!C.ID().equalsIgnoreCase("Archon"))
+				&&(!(C instanceof ArchonOnly))
+				&&((C.availabilityCode()&Area.THEME_FANTASY)==Area.THEME_FANTASY)
+				&&((C.availabilityCode()&Area.THEME_SKILLONLYMASK)==0)
 				&&(mob.charStats().getClassLevel(C)<0))
 				{
-					int tries2=0;
-					while((newOne==null)&&((++tries2)<10000))
+					final List<AbilityMapping> list = CMLib.ableMapper().getUpToLevelListings(C.ID(),25,true,false);
+					for(final Iterator<AbilityMapping> i = list.iterator();i.hasNext();)
 					{
-						final Ability A=CMClass.randomAbility();
-						if( A != null )
+						final AbilityMapping aM = i.next();
+						final Ability A = CMClass.getAbility(aM.abilityID());
+						if(A == null)
 						{
-							final int lql=CMLib.ableMapper().lowestQualifyingLevel(A.ID());
-							if((lql<25)
-							&&(lql>0))
-							{
-								if((!CMLib.ableMapper().getSecretSkill(C.ID(),true,A.ID()))
-								&&(CMLib.ableMapper().getQualifyingLevel(ID(),true,A.ID())<0)
-								&&(CMLib.ableMapper().availableToTheme(A.ID(),Area.THEME_FANTASY,true))
-								&&(CMLib.ableMapper().qualifiesByAnyCharClass(A.ID()))
-								&&(A.isAutoInvoked()||((A.triggerStrings()!=null)&&(A.triggerStrings().length>0)))
-								&&(mob.fetchAbility(A.ID())==null))
-								{
-									final DVector prereqs=CMLib.ableMapper().getUnmetPreRequisites(mob,A);
-									if((prereqs==null)||(prereqs.size()==0))
-										newOne=A;
-								}
-							}
+							i.remove();
+							continue;
 						}
+						final int lql=CMLib.ableMapper().getQualifyingLevel(C.ID(), false, A.ID());
+						if((lql<25)
+						&&(lql>0)
+						&&(CMLib.ableMapper().getSecretSkill(C.ID(),true,A.ID())==SecretFlag.PUBLIC)
+						&&(CMLib.ableMapper().getQualifyingLevel(ID(),true,A.ID())<0)
+						&&(CMLib.ableMapper().availableToTheme(A.ID(),Area.THEME_FANTASY,true))
+						&&(A.isAutoInvoked()||((A.triggerStrings()!=null)&&(A.triggerStrings().length>0)))
+						&&(mob.fetchAbility(A.ID())==null))
+						{ /* hurray */	}
+						else
+							i.remove();
+					}
+					if(list.size()==0)
+						continue;
+					int sz = list.size();
+					while((--sz>=0)&&(newOne==null))
+					{
+						final AbilityMapping aM = list.get(CMLib.dice().roll(1,list.size(),-1));
+						final Ability A = CMClass.getAbility(aM.abilityID());
+						final DVector prereqs=CMLib.ableMapper().getUnmetPreRequisites(mob,A);
+						if((prereqs==null)||(prereqs.size()==0))
+							newOne=A;
 					}
 				}
 			}
@@ -338,6 +354,7 @@ public class Oracle extends Cleric
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

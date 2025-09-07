@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -76,13 +76,27 @@ public class Fighter_Sweep extends FighterSkill
 	@Override
 	public int classificationCode()
 	{
-		return Ability.ACODE_SKILL|Ability.DOMAIN_DIRTYFIGHTING;
+		return Ability.ACODE_SKILL|Ability.DOMAIN_MARTIALLORE;
 	}
 
 	@Override
 	public int usageType()
 	{
 		return USAGE_MOVEMENT;
+	}
+
+	private volatile int weaponRange = 0;
+
+	@Override
+	public int maxRange()
+	{
+		return adjustedMaxInvokerRange(weaponRange);
+	}
+
+	@Override
+	public int minRange()
+	{
+		return 0;
 	}
 
 	@Override
@@ -100,7 +114,7 @@ public class Fighter_Sweep extends FighterSkill
 		if((mob!=null)&&(target!=null))
 		{
 			final Set<MOB> h=properTargets(mob,target,false);
-			if(h.size()<2)
+			if((h==null)||(h.size()<2))
 				return Ability.QUALITY_INDIFFERENT;
 			for(final MOB M : h)
 			{
@@ -126,10 +140,21 @@ public class Fighter_Sweep extends FighterSkill
 			mob.tell(L("You must be in combat to sweep!"));
 			return false;
 		}
-		final Set<MOB> h=properTargets(mob,givenTarget,false);
+		final Item w=mob.fetchWieldedItem();
+		if((w==null)||(!(w instanceof Weapon)))
+		{
+			mob.tell(L("You need a weapon to sweep!"));
+			return false;
+		}
+		final Weapon wp=(Weapon)w;
+		weaponRange=Math.min(1,wp.maxRange());
+
+		Set<MOB> h=properTargets(mob,givenTarget,false);
+		if(h==null)
+			h=new HashSet<MOB>();
 		for(final MOB M : h)
 		{
-			if((M.rangeToTarget()<0)||(M.rangeToTarget()>0))
+			if((M.rangeToTarget()<0)||(M.rangeToTarget()>weaponRange))
 				h.remove(M);
 		}
 
@@ -139,13 +164,6 @@ public class Fighter_Sweep extends FighterSkill
 			return false;
 		}
 
-		final Item w=mob.fetchWieldedItem();
-		if((w==null)||(!(w instanceof Weapon)))
-		{
-			mob.tell(L("You need a weapon to sweep!"));
-			return false;
-		}
-		final Weapon wp=(Weapon)w;
 		if(wp.weaponDamageType()!=Weapon.TYPE_SLASHING)
 		{
 			mob.tell(L("You cannot sweep with @x1!",wp.name()));

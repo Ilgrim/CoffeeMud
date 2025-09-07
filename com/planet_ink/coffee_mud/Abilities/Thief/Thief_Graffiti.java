@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -92,9 +92,8 @@ public class Thief_Graffiti extends ThiefSkill
 		if((auto)&&(givenTarget!=null)&&(givenTarget instanceof Room))
 			target=(Room)givenTarget;
 
-		if((mob.location().domainType()!=Room.DOMAIN_OUTDOORS_CITY)
-		   &&(mob.location().domainType()!=Room.DOMAIN_INDOORS_WOOD)
-		   &&(mob.location().domainType()!=Room.DOMAIN_INDOORS_STONE))
+		if((!CMLib.flags().isACityRoom(mob.location()))
+		&&(mob.location().domainType()!=Room.DOMAIN_INDOORS_STONE))
 		{
 			mob.tell(L("You can't put graffiti here."));
 			return false;
@@ -146,7 +145,7 @@ public class Thief_Graffiti extends ThiefSkill
 			}
 		}
 		else
-			beneficialVisualFizzle(mob,target,L("<S-NAME> attempt(s) to write graffiti here, but fails."));
+			beneficialVisualFizzle(mob,target,L("<S-NAME> attempt(s) to write graffiti here, but fail(s)."));
 		return success;
 	}
 }

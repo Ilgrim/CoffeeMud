@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -78,11 +78,12 @@ public class Spell_FaerieFire extends Spell
 	@Override
 	public void unInvoke()
 	{
-		if(!(affected instanceof MOB))
-			return;
-		final MOB mob=(MOB)affected;
-		if(canBeUninvoked())
-			mob.location().show(mob, null, CMMsg.MSG_OK_VISUAL, L("The faerie fire around <S-NAME> fades."));
+		if(affected instanceof MOB)
+		{
+			final MOB mob=(MOB)affected;
+			if(canBeUninvoked() && (mob.location() != null))
+				mob.location().show(mob, null, CMMsg.MSG_OK_VISUAL, L("The faerie fire around <S-NAME> fades."));
+		}
 		super.unInvoke();
 	}
 
@@ -130,7 +131,9 @@ public class Spell_FaerieFire extends Spell
 		if(success)
 		{
 
-			final CMMsg msg = CMClass.getMsg(mob, target, this, somanticCastCode(mob,target,auto),L((auto?"A ":"^S<S-NAME> speak(s) and gesture(s) and a ")+"twinkling fire envelopes <T-NAME>.^?"));
+			final CMMsg msg = CMClass.getMsg(mob, target, this, somaticCastCode(mob,target,auto),
+					auto?L("A twinkling fire envelopes <T-NAME>.^?"):
+						L("^S<S-NAME> speak(s) and gesture(s) and a twinkling fire envelopes <T-NAME>.^?"));
 			if(R.okMessage(mob,msg))
 			{
 				R.send(mob,msg);

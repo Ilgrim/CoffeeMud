@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -161,9 +161,7 @@ public class Disease extends StdAbility implements DiseaseAffect
 
 	protected int getTicksPerDay()
 	{
-		TimeClock C=(affected != null)?CMLib.time().localClock(affected):CMLib.time().globalClock();
-		if(C==null)
-			C=CMLib.time().globalClock();
+		final TimeClock C=CMLib.time().homeClock(affected);
 		return (int)(C.getHoursInDay() * CMProps.getTicksPerMudHour());
 	}
 
@@ -367,7 +365,10 @@ public class Disease extends StdAbility implements DiseaseAffect
 				if(msg.value()<=0)
 				{
 					R.show(target,null,CMMsg.MSG_OK_VISUAL,DISEASE_START());
-					success=maliciousAffect(mob,target,asLevel,DISEASE_TICKS(),-1)!=null;
+					final Disease dA=(Disease)maliciousAffect(mob,target,asLevel,DISEASE_TICKS(),-1);
+					success=dA!=null;
+					if(dA!=null)
+						dA.setMiscText(text());
 				}
 				else
 					spreadImmunity(target);

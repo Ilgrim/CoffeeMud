@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Crocodile extends StdMOB
 	public Crocodile()
 	{
 		super();
-		username="a crocodile";
+		_name="a crocodile";
 		setDescription("A long green lizard with long ferocious rows of teeth.");
 		setDisplayText("A crocodile is waiting patiently for prey.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -53,7 +53,7 @@ public class Crocodile extends StdMOB
 
 		baseCharStats().setStat(CharStats.STAT_INTELLIGENCE,1);
 
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(5);
 		basePhyStats().setArmor(70);
 

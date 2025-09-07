@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -151,9 +151,9 @@ public class Chant_SummonFlyTrap extends Chant
 			{
 				if((R.domainType()&Room.INDOORS)>0)
 					return Ability.QUALITY_INDIFFERENT;
-				if((R.domainType()==Room.DOMAIN_OUTDOORS_CITY)
-				||(R.domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT)
-				||(R.domainType()==Room.DOMAIN_OUTDOORS_AIR)
+				if(CMLib.flags().isACityRoom(R))
+					return Ability.QUALITY_INDIFFERENT;
+				if((R.domainType()==Room.DOMAIN_OUTDOORS_AIR)
 				||(CMLib.flags().isWateryRoom(R)))
 					return Ability.QUALITY_INDIFFERENT;
 				if(!mob.isInCombat())
@@ -173,8 +173,7 @@ public class Chant_SummonFlyTrap extends Chant
 			return false;
 		}
 
-		if((mob.location().domainType()==Room.DOMAIN_OUTDOORS_CITY)
-		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT)
+		if((CMLib.flags().isACityRoom(mob.location()))
 		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_AIR)
 		   ||(CMLib.flags().isWateryRoom(mob.location())))
 		{
@@ -212,9 +211,13 @@ public class Chant_SummonFlyTrap extends Chant
 	{
 		final MOB newMOB=CMClass.getMOB("GenMOB");
 		int level=adjustedLevel(caster,0);
+		final int altLevel = (caster.phyStats().level()-5)+(super.getXLEVELLevel(caster)/2);
+		if(altLevel > level)
+			level = altLevel;
 		if(level<1)
 			level=1;
 		newMOB.basePhyStats().setLevel(level);
+		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase());//normal
 		newMOB.baseCharStats().setMyRace(CMClass.getRace("Vine"));
 		newMOB.setName(L("a large flytrap"));
 		newMOB.setDisplayText(L("@x1 is planted here",newMOB.Name()));
@@ -230,7 +233,9 @@ public class Chant_SummonFlyTrap extends Chant
 		newMOB.basePhyStats().setDamage(CMLib.leveler().getLevelMOBDamage(newMOB));
 		newMOB.basePhyStats().setSpeed(CMLib.leveler().getLevelMOBSpeed(newMOB));
 		newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'N');
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		newMOB.basePhyStats().setSensesMask(newMOB.basePhyStats().sensesMask()|PhyStats.CAN_SEE_DARK);
 		newMOB.setLocation(caster.location());
 		newMOB.basePhyStats().setRejuv(PhyStats.NO_REJUV);

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -146,7 +146,9 @@ public class Spell_MagicMouth extends Spell
 
 		if(commands.size()<3)
 		{
-			mob.tell(L("You must specify:\n\r 1. What object you want the spell cast on.\n\r 2. Whether it is triggered by TOUCH, HOLD, WIELD, WEAR, or someone ENTERing the same room. \n\r 3. The message you wish the object to impart. "));
+			mob.tell(L("You must specify:\n\r 1. What object you want the spell cast on.\n\r "
+					+ "2. Whether it is triggered by TOUCH, HOLD, WIELD, WEAR, or someone ENTERing the same room. \n\r "
+					+ "3. The message you wish the object to impart. "));
 			return false;
 		}
 		final Physical target=mob.location().fetchFromMOBRoomFavorsItems(mob,null,(commands.get(0)),Wearable.FILTER_UNWORNONLY);

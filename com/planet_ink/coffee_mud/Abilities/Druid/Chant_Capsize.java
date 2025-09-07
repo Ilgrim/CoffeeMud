@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -91,9 +91,9 @@ public class Chant_Capsize extends Chant
 		final List<Item> items = new ArrayList<Item>();
 		if(I instanceof Container)
 			items.addAll(((Container)I).getContents());
-		if(I instanceof BoardableShip)
+		if(I instanceof Boardable)
 		{
-			final Area A=((BoardableShip)I).getShipArea();
+			final Area A=((Boardable)I).getArea();
 			if(A!=null)
 			{
 				for(final Enumeration<Room> r=A.getFilledProperMap();r.hasMoreElements();)
@@ -154,9 +154,9 @@ public class Chant_Capsize extends Chant
 				}
 			}
 		}
-		if(I instanceof BoardableShip)
+		if(I instanceof Boardable)
 		{
-			final Area A=((BoardableShip)I).getShipArea();
+			final Area A=((Boardable)I).getArea();
 			if(A!=null)
 			{
 				for(final Enumeration<Room> r=A.getFilledProperMap();r.hasMoreElements();)
@@ -198,7 +198,7 @@ public class Chant_Capsize extends Chant
 	{
 		if(mob!=null)
 		{
-			if(!(target instanceof BoardableShip))
+			if(!(target instanceof NavigableItem))
 				return Ability.QUALITY_INDIFFERENT;
 		}
 		return super.castingQuality(mob,target);
@@ -233,11 +233,11 @@ public class Chant_Capsize extends Chant
 			}
 		}
 		else
-		if((target instanceof Rideable) && (((Rideable)target).rideBasis() == Rideable.RIDEABLE_WATER))
+		if((target instanceof Rideable) && (((Rideable)target).rideBasis() == Rideable.Basis.WATER_BASED))
 		{ //ok
 		}
 		else
-		if(target instanceof BoardableShip)
+		if(target instanceof Boardable)
 		{ //ok
 		}
 		else
@@ -294,7 +294,7 @@ public class Chant_Capsize extends Chant
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L(""):L("^S<S-NAME> chant(s) to <T-NAMESELF>, pummeling it with a massive wave.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> chant(s) to <T-NAMESELF>, pummeling it with a massive wave.^?"));
 			if(R.okMessage(mob,msg))
 			{
 				final List<Item> items = this.getAllTheStuff(target);

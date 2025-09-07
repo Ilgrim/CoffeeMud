@@ -1,8 +1,10 @@
 package com.planet_ink.coffee_mud.core.threads;
 import com.planet_ink.coffee_mud.core.database.DBInterface;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.TickableGroup.LocalType;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.CMLib.Library;
+import com.planet_ink.coffee_mud.core.CMProps.HostState;
 import com.planet_ink.coffee_mud.core.CMProps.Str;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -18,6 +20,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.io.File;
+import java.io.PrintStream;
 import java.util.*;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -27,7 +30,7 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_web.interfaces.HTTPRequest;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -76,7 +79,7 @@ public class ServiceEngine implements ThreadEngine
 	{
 		try
 		{
-			return getClass().newInstance();
+			return getClass().getDeclaredConstructor().newInstance();
 		}
 		catch (final Exception e)
 		{
@@ -87,7 +90,13 @@ public class ServiceEngine implements ThreadEngine
 	@Override
 	public String L(final String str, final String... xs)
 	{
-		return CMLib.lang().fullSessionTranslation(str, xs);
+		return CMLib.lang().fullSessionTranslation(getClass(), str, xs);
+	}
+
+	@Override
+	public String L(final Class<?> clazz, final String str, final String... xs)
+	{
+		return CMLib.lang().fullSessionTranslation(clazz, str, xs);
 	}
 
 	@Override
@@ -135,7 +144,7 @@ public class ServiceEngine implements ThreadEngine
 		final CMThreadPoolExecutor pool = threadPools[threadGroupNum];
 		if(pool != null)
 			return pool;
-		final int minThreads = CMProps.getIntVar(CMProps.Int.MINWORKERTHREADS);
+		final int minThreads = Math.max(1,CMProps.getIntVar(CMProps.Int.MINWORKERTHREADS));
 		int maxThreads = CMProps.getIntVar(CMProps.Int.MAXWORKERTHREADS);
 		if(maxThreads<=0)
 			maxThreads=Integer.MAX_VALUE;
@@ -172,31 +181,25 @@ public class ServiceEngine implements ThreadEngine
 				continue;
 			if(possR!=null)
 			{
-				synchronized(executor.active)
-				{
-					if(executor.active.get(possR)==thread)
-						return possR;
-				}
+				if(executor.active.get(possR)==thread)
+					return possR;
 			}
 			if((executor.getThreadFactory() instanceof CMThreadFactory)
 			&&(!((CMThreadFactory)executor.getThreadFactory()).getThreads().contains(thread)))
 				continue;
-			synchronized(executor.active)
+			if(!executor.active.containsValue(thread))
+				continue;
+			for(final Map.Entry<Runnable, Thread> e : executor.active.entrySet())
 			{
-				if(!executor.active.containsValue(thread))
-					continue;
-				for(final Map.Entry<Runnable, Thread> e : executor.active.entrySet())
-				{
-					if(e.getValue()==thread)
-						return e.getKey();
-				}
+				if(e.getValue()==thread)
+					return e.getKey();
 			}
 		}
 		return null;
 	}
 
 	@Override
-    public void scheduleRunnable(final Runnable R, final long ellapsedMs)
+	public void scheduleRunnable(final Runnable R, final long ellapsedMs)
 	{
 		try
 		{
@@ -305,8 +308,7 @@ public class ServiceEngine implements ThreadEngine
 		return 128;
 	}
 
-	@Override
-	public long getTicksEllapsedSinceStartup()
+	protected long getTicksEllapsedSinceStartup()
 	{
 		return globalTickID;
 	}
@@ -326,6 +328,23 @@ public class ServiceEngine implements ThreadEngine
 			drivingThread.interrupt();
 	}
 
+	protected ThreadGroup getAreaThemeThreadGroup(final Tickable E)
+	{
+		final Area area=CMLib.map().areaLocation(E);
+		if(area != null)
+		{
+			final int theme=area.getTheme();
+			if((theme>0)
+			&&(theme<Area.THEME_NAMES.length))
+			{
+				final ThreadGroup group = CMProps.getPrivateOwner(Area.THEME_NAMES[theme]+"AREAS");
+				if(group != null)
+					return group;
+			}
+		}
+		return Thread.currentThread().getThreadGroup();
+	}
+
 	@Override
 	public TickClient startTickDown(final Tickable E, final int tickID, final int numTicks)
 	{
@@ -335,7 +354,20 @@ public class ServiceEngine implements ThreadEngine
 	@Override
 	public TickClient startTickDown(final Tickable E, final int tickID, final long tickTimeMs, final int numTicks)
 	{
-		return startTickDown(CMLib.map().getOwnedThreadGroup(E),E,tickID,tickTimeMs,numTicks);
+		return startTickDown(getAreaThemeThreadGroup(E),E,tickID,tickTimeMs,numTicks);
+	}
+
+	@Override
+	public synchronized long getTickGroupPeriod(final Tickable E, final int tickID)
+	{
+		for(final TickableGroup almostTock : allTicks)
+		{
+			if(almostTock.contains(E,tickID))
+			{
+				return almostTock.getTickInterval();
+			}
+		}
+		return -1;
 	}
 
 	public synchronized TickClient startTickDown(ThreadGroup group, final Tickable E, final int tickID, final long tickTimeMs, final int numTicks)
@@ -407,7 +439,7 @@ public class ServiceEngine implements ThreadEngine
 	}
 
 	@Override
-	public long msToNextTick(final Tickable E, final int tickID)
+	public long getTimeMsToNextTick(final Tickable E, final int tickID)
 	{
 		for(final Iterator<TickableGroup> e=tickGroups();e.hasNext();)
 		{
@@ -492,7 +524,17 @@ public class ServiceEngine implements ThreadEngine
 	}
 
 	@Override
-	public String systemReport(final String itemCode)
+	public void resetReportTotals()
+	{
+		for(final Iterator<TickableGroup> e=tickGroups();e.hasNext();)
+		{
+			final TickableGroup almostTock=e.next();
+			almostTock.resetTotals();
+		}
+	}
+
+	@Override
+	public String getSystemReport(final String itemCode)
 	{
 		final String cd=itemCode.toLowerCase();
 		if(cd.startsWith("topmob")||cd.startsWith("totalmob"))
@@ -882,7 +924,7 @@ public class ServiceEngine implements ThreadEngine
 		TickableGroup almostTock=null;
 		TickClient C=null;
 		Tickable E2=null;
-		final WorldMap map=CMLib.map();
+		final WorldHuntLibrary hunt = CMLib.hunt();
 		for(final Iterator<TickableGroup> e=tickGroups();e.hasNext();)
 		{
 			almostTock=e.next();
@@ -898,14 +940,14 @@ public class ServiceEngine implements ThreadEngine
 							almostTock.delTicker(C);
 					}
 					else
-					if(map.isHere(E2,here))
+					if(hunt.isHere(E2,here))
 					{
 						if(C.tickTicker(false))
 							almostTock.delTicker(C);
 					}
 					else
 					if((E2 instanceof Ability)
-					&&(map.isHere(((Ability)E2).affecting(),here)))
+					&&(hunt.isHere(((Ability)E2).affecting(),here)))
 					{
 						if(C.tickTicker(false))
 							almostTock.delTicker(C);
@@ -925,8 +967,8 @@ public class ServiceEngine implements ThreadEngine
 		{
 			final Item I=(Item)O;
 			suspendResumeTicking(I, -1, suspend);
-			if((I instanceof BoardableShip)&&(!skipEmbeddedAreas))
-				suspendResumeRecurse(((BoardableShip)I).getShipArea(),true,suspend);
+			if((I instanceof Boardable)&&(!skipEmbeddedAreas))
+				suspendResumeRecurse(((Boardable)I).getArea(),true,suspend);
 		}
 		else
 		if(O instanceof MOB)
@@ -975,12 +1017,12 @@ public class ServiceEngine implements ThreadEngine
 	}
 
 	@Override
-	public boolean deleteAllTicks(final Tickable ticker)
+	public boolean unTickAll(final Tickable ticker)
 	{
 		if(ticker==null)
 			return false;
 		deleteTick(ticker, -1);
-		final WorldMap map=CMLib.map();
+		final WorldHuntLibrary hunt=CMLib.hunt();
 		boolean deleted = false;
 		if(ticker instanceof MOB)
 		{
@@ -1009,11 +1051,11 @@ public class ServiceEngine implements ThreadEngine
 					{
 						C=i.next();
 						E2=C.getClientObject();
-						if(map.isHere(E2,(Room)ticker))
+						if(hunt.isHere(E2,(Room)ticker))
 							deleted = almostTock.delTicker(C) || deleted;
 						else
 						if((E2 instanceof Ability)
-						&&(map.isHere(((Ability)E2).affecting(),(Room)ticker)))
+						&&(hunt.isHere(((Ability)E2).affecting(),(Room)ticker)))
 							deleted = almostTock.delTicker(C) || deleted;
 						else
 							continue;
@@ -1048,11 +1090,11 @@ public class ServiceEngine implements ThreadEngine
 					{
 						C=i.next();
 						E2=C.getClientObject();
-						if(map.isHere(E2,(Area)ticker))
+						if(hunt.isHere(E2,(Area)ticker))
 							deleted = almostTock.delTicker(C) || deleted;
 						else
 						if((E2 instanceof Ability)
-						&&(map.isHere(((Ability)E2).affecting(),(Area)ticker)))
+						&&(hunt.isHere(((Ability)E2).affecting(),(Area)ticker)))
 							deleted = almostTock.delTicker(C) || deleted;
 						else
 							continue;
@@ -1076,7 +1118,7 @@ public class ServiceEngine implements ThreadEngine
 	}
 
 	@Override
-	public String tickInfo(final String which)
+	public String getTickInfoReport(final String which)
 	{
 		int grpstart=-1;
 		for(int i=0;i<which.length();i++)
@@ -1087,7 +1129,7 @@ public class ServiceEngine implements ThreadEngine
 				break;
 			}
 		}
-		if(which.equalsIgnoreCase("tickGroupSize"))
+		if(which.equalsIgnoreCase("tickgroupsize"))
 			return ""+allTicks.size();
 		else
 		if(which.toLowerCase().startsWith("tickerssize"))
@@ -1207,16 +1249,21 @@ public class ServiceEngine implements ThreadEngine
 		CMProps.setUpAllLowVar(CMProps.Str.MUDSTATUS,"Shutting down...shutting down Service Engine: "+ID()+": thread shutdown");
 		CMLib.killThread(drivingThread,100,10);
 		// force final time tick!
-		final Vector<TimeClock> timeObjects=new Vector<TimeClock>();
+		final Set<TimeClock> timeObjects=new HashSet<TimeClock>();
 		for(final Enumeration<Area> e=CMLib.map().areas();e.hasMoreElements();)
 		{
 			final Area A=(e.nextElement());
-			if(!timeObjects.contains(A.getTimeObj()))
-				timeObjects.addElement(A.getTimeObj());
+			final TimeClock C = (A!=null)?A.getTimeObj():null;
+			if((C!=null)&&(!timeObjects.contains(C)))
+			{
+				C.tick(null, -1);
+				timeObjects.add(C);
+			}
 		}
 		CMProps.setUpAllLowVar(CMProps.Str.MUDSTATUS,"Shutting down...shutting down Service Engine: "+ID()+": saving time objects");
-		for(int t=0;t<timeObjects.size();t++)
-			timeObjects.elementAt(t).save();
+		for(final TimeClock C : timeObjects)
+			C.save();
+		timeObjects.clear();
 		for(final CMThreadPoolExecutor pool : threadPools)
 		{
 			if(pool != null)
@@ -1239,42 +1286,42 @@ public class ServiceEngine implements ThreadEngine
 				}
 			}
 		}
-		Log.sysOut("ServiceEngine","Shutdown complete.");
+		Log.sysOut("ServiceEngine","Threads Service shutdown complete.");
 		return true;
 	}
 
 	@Override
-	public synchronized void clearDebri(final Room room, final int taskCode)
+	public synchronized void clearDebri(final Room room, final LocalType typeCode)
 	{
-		TickableGroup almostTock=null;
-		TickClient C=null;
-		ItemTicker  I=null;
+		TickableGroup almostTock = null;
+		TickClient C = null;
+		ItemTicker I = null;
+		MOB mob = null;
 		Iterator<TickClient> roomSet;
-		MOB mob=null;
 		for(final Iterator<TickableGroup> e=tickGroups();e.hasNext();)
 		{
-			almostTock=e.next();
-			roomSet=almostTock.getLocalItems(taskCode,room);
-			if(roomSet!=null)
+			almostTock = e.next();
+			roomSet = almostTock.getLocalItems(typeCode,room);
+			if(roomSet != null)
 			{
 				for(;roomSet.hasNext();)
 				{
-					C=roomSet.next();
+					C = roomSet.next();
 					if(C.getClientObject() instanceof ItemTicker)
 					{
-						I=(ItemTicker)C.getClientObject();
+						I = (ItemTicker)C.getClientObject();
 						almostTock.delTicker(C);
 						I.setProperLocation(null);
 					}
 					else
 					if(C.getClientObject() instanceof MOB)
 					{
-						mob=(MOB)C.getClientObject();
+						mob = (MOB)C.getClientObject();
 						if((mob.isMonster())
 						&&(!room.isInhabitant(mob))
 						&&((mob.amFollowing()==null)
-							||(!mob.amUltimatelyFollowing().isPlayer())
-							||(!CMLib.flags().isInTheGame(mob.amUltimatelyFollowing(), true))))
+							||(!mob.getGroupLeader().isPlayer())
+							||(!CMLib.flags().isInTheGame(mob.getGroupLeader(), true))))
 						{
 							mob.destroy();
 							almostTock.delTicker(C);
@@ -1408,18 +1455,18 @@ public class ServiceEngine implements ThreadEngine
 		return codeWord;
 	}
 
-	public void insertOrderDeathInOrder(final DVector DV, final long lastStart, final String msg, final TickableGroup tock)
+	public void insertOrderDeathInOrder(final TriadList<Long,String,TickableGroup> DV, final long lastStart, final String msg, final TickableGroup tock)
 	{
 		if(DV.size()>0)
 		for(int i=0;i<DV.size();i++)
 		{
-			if(((Long)DV.elementAt(i,1)).longValue()>lastStart)
+			if(DV.get(i).first.longValue()>lastStart)
 			{
-				DV.insertElementAt(i,Long.valueOf(lastStart),msg,tock);
+				DV.add(i,Long.valueOf(lastStart),msg,tock);
 				return;
 			}
 		}
-		DV.addElement(Long.valueOf(lastStart),msg,tock);
+		DV.add(Long.valueOf(lastStart),msg,tock);
 	}
 
 	public void setSupportStatus(final String s)
@@ -1433,7 +1480,7 @@ public class ServiceEngine implements ThreadEngine
 	}
 
 	@Override
-	public void debugDumpStack(final String ID, final Thread theThread)
+	public void dumpDebugStack(final String ID, final Thread theThread)
 	{
 		// I wish Java had compiler directives.  Would be great to un-comment this for 1.5 JVMs
 		final StringBuffer dump = new StringBuffer("");
@@ -1446,6 +1493,29 @@ public class ServiceEngine implements ThreadEngine
 				dump.append("\n   "+element.getClassName()+": "+element.getMethodName()+"("+element.getFileName()+": "+element.getLineNumber()+")");
 		}
 		Log.debugOut(ID,dump.toString());
+	}
+
+	@Override
+	public String getFileStackTrace()
+	{
+		final StackTraceElement[] stackTrace = new Throwable().getStackTrace();
+		final StringBuilder sb = new StringBuilder("");
+		final Set<String> done=new TreeSet<String>();
+		final int depth = stackTrace.length;
+		for (int i = 1; i < depth; i++)
+		{
+			String filename = stackTrace[i].getFileName();
+			if(filename.endsWith(".java"))
+				filename = filename.substring(0, filename.length()-5);
+			if(!done.contains(filename))
+			{
+				done.add(filename);
+				sb.append(filename);
+				if (i < depth - 1)
+					sb.append(" <- ");
+			}
+		}
+		return sb.toString();
 	}
 
 	protected static void debugDumpThreadGroup(final ThreadGroup tGroup, final StringBuilder lines)
@@ -1496,7 +1566,7 @@ public class ServiceEngine implements ThreadEngine
 		setSupportStatus("checking");
 
 		setSupportStatus("checking tick groups.");
-		final DVector orderedDeaths=new DVector(3);
+		final TriadList<Long,String,TickableGroup> orderedDeaths=new TriadArrayList<Long,String,TickableGroup>(3);
 		try
 		{
 			TickableGroup almostTock = null;
@@ -1544,7 +1614,7 @@ public class ServiceEngine implements ThreadEngine
 						}
 					}
 					// no isDEBUGGING check -- just always let her rip.
-					debugDumpStack(Thread.currentThread().getName(),almostTock.getCurrentThread());
+					dumpDebugStack(Thread.currentThread().getName(),almostTock.getCurrentThread());
 				}
 			}
 		}
@@ -1552,17 +1622,17 @@ public class ServiceEngine implements ThreadEngine
 		{
 		}
 		for(int i=0;i<orderedDeaths.size();i++)
-			Log.errOut(Thread.currentThread().getName(),(String)orderedDeaths.elementAt(i,2));
+			Log.errOut(Thread.currentThread().getName(),orderedDeaths.get(i).second);
 
 		setSupportStatus("killing tick groups.");
 		for(int x=0;x<orderedDeaths.size();x++)
 		{
-			final TickableGroup almostTock=(TickableGroup)orderedDeaths.elementAt(x,3);
-			final Vector<TickClient> tockClients=new Vector<TickClient>();
+			final TickableGroup almostTock=orderedDeaths.get(x).third;
+			final List<TickClient> tockClients=new LinkedList<TickClient>();
 			try
 			{
 				for(final Iterator<TickClient> e=almostTock.tickers();e.hasNext();)
-					tockClients.addElement(e.next());
+					tockClients.add(e.next());
 			}
 			catch (final NoSuchElementException e)
 			{
@@ -1581,11 +1651,8 @@ public class ServiceEngine implements ThreadEngine
 			}
 			if(CMLib.threads() instanceof ServiceEngine)
 				((ServiceEngine)CMLib.threads()).delTickGroup(almostTock);
-			for(int i=0;i<tockClients.size();i++)
-			{
-				final TickClient c=tockClients.elementAt(i);
+			for(final TickClient c : tockClients)
 				startTickDown(c.getClientObject(),c.getTickID(),c.getTotalTickDown());
-			}
 		}
 
 		setSupportStatus("Checking mud threads");
@@ -1613,15 +1680,14 @@ public class ServiceEngine implements ThreadEngine
 	@Override
 	public void run()
 	{
-		while(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		while(!CMProps.isState(CMProps.HostState.RUNNING))
 			CMLib.s_sleep(1000);
 		final CMProps props = CMProps.instance();
-		final CMProps.Bool MUDSHUTTINGDOWN=CMProps.Bool.MUDSHUTTINGDOWN;
-		while(!props.getBool(MUDSHUTTINGDOWN))
+		while(!props._isState(HostState.SHUTTINGDOWN))
 		{
 			try
 			{
-				while(isAllSuspended() && (!props.getBool(MUDSHUTTINGDOWN)))
+				while(isAllSuspended() && (!props._isState(HostState.SHUTTINGDOWN)))
 				{
 					if((unsuspendedRunnables!=null)&&(unsuspendedRunnables.length>0))
 					{
@@ -1796,8 +1862,10 @@ public class ServiceEngine implements ThreadEngine
 		{
 			debugDumpThreadGroup(topTG,str);
 		}
-		System.err.println(str.toString());
-		System.out.println(str.toString());
+		final PrintStream sysOut=System.out;
+		final PrintStream errOut=System.out;
+		errOut.println(str.toString());
+		sysOut.println(str.toString());
 		Log.errOut(str.toString());
 	}
 }

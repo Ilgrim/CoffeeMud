@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -138,7 +138,7 @@ public class Prayer_FaithfulHellhound extends Prayer
 				mob.location().send(mob,msg);
 				final MOB caster=mob;
 				final MOB newMOB=CMClass.getMOB("GenMOB");
-				newMOB.basePhyStats().setAbility(newMOB.basePhyStats().ability()+(4*super.getXLEVELLevel(caster)));
+				newMOB.basePhyStats().setAbility(CMProps.getMobHPBase()+(4*super.getXLEVELLevel(caster)));
 				newMOB.basePhyStats().setLevel(mob.phyStats().level()+super.getXLEVELLevel(caster));
 				newMOB.basePhyStats().setWeight(500);
 				newMOB.basePhyStats().setRejuv(PhyStats.NO_REJUV);
@@ -157,7 +157,10 @@ public class Prayer_FaithfulHellhound extends Prayer
 				newMOB.setName(L("a faithful hellhound"));
 				newMOB.setDisplayText(L("an ferocious hellhound is here watching you carefully"));
 				newMOB.setDescription(L("He looks like he likes his meat well done."));
-				newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+				newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+				newMOB.addTattoo("SYSTEM_SUMMONED");
+				newMOB.addTattoo("SUMMONED_BY:"+mob.name());
+				newMOB.basePhyStats().setRejuv(PhyStats.NO_REJUV);
 				newMOB.recoverCharStats();
 				newMOB.recoverPhyStats();
 				newMOB.recoverMaxState();
@@ -181,7 +184,7 @@ public class Prayer_FaithfulHellhound extends Prayer
 					fireA.setProficiency(100);
 					newMOB.addAbility(fireA);
 				}
-				newMOB.text();
+				newMOB.setMiscText(newMOB.text());
 				newMOB.bringToLife(caster.location(),true);
 				CMLib.beanCounter().clearZeroMoney(newMOB,null);
 				newMOB.setMoneyVariation(0);

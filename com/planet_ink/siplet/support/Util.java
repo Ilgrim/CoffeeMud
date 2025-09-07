@@ -3,7 +3,7 @@ package com.planet_ink.siplet.support;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -659,7 +659,7 @@ public class Util
 	 * Usage: int num=s_bool(CMD.substring(14));
 	 *
 	 * @param INT
-	 *            Boolean value of string
+	 *  		  Boolean value of string
 	 * @return int Boolean value of the string
 	 */
 	public static boolean s_bool(final String BOOL)
@@ -675,7 +675,7 @@ public class Util
 	 * Usage: int num=s_int(CMD.substring(14));
 	 *
 	 * @param INT
-	 *            Integer value of string
+	 *  		  Integer value of string
 	 * @return int Integer value of the string
 	 */
 	public static int s_int(final String INT)
@@ -700,7 +700,7 @@ public class Util
 	 * Usage: int num=s0_int(CMD.substring(14));
 	 *
 	 * @param INT
-	 *            Integer value of string
+	 *  		  Integer value of string
 	 * @return int Integer value of the string
 	 */
 	public static int s0_int(String INT)
@@ -1241,7 +1241,7 @@ public class Util
 				if ((quotes.size() > 0) && (quotes.lastElement().charValue() == buf.charAt(i)))
 					quotes.removeElementAt(quotes.size() - 1);
 				else
-					quotes.addElement(new Character(buf.charAt(i)));
+					quotes.addElement(Character.valueOf(buf.charAt(i)));
 				break;
 			default:
 				if (bit != null)
@@ -1441,7 +1441,7 @@ public class Util
 	 * Usage: Return=MiscFunc.convertToRoman(Number)+".";
 	 *
 	 * @param i
-	 *            Integer to convert
+	 *  		  Integer to convert
 	 *
 	 * @return String Converted integer
 	 */

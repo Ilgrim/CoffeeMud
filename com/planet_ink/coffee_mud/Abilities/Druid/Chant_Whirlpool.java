@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -122,7 +122,7 @@ public class Chant_Whirlpool extends Chant
 		return true;
 	}
 
-	public boolean canEnterTheWhirlpool(final BoardableShip S)
+	public boolean canEnterTheWhirlpool(final Boardable S)
 	{
 		if(S instanceof PrivateProperty)
 		{
@@ -152,10 +152,10 @@ public class Chant_Whirlpool extends Chant
 		boolean enterThePool = false;
 		if((M.riding()!=null)&&(!CMLib.flags().isFlying(M.riding())))
 		{
-			if(M.riding() instanceof BoardableShip)
-				enterThePool = canEnterTheWhirlpool((BoardableShip)M.riding());
+			if(M.riding() instanceof Boardable)
+				enterThePool = canEnterTheWhirlpool((Boardable)M.riding());
 			else
-			if(M.riding().rideBasis()==CMMsg.TYP_WATER)
+			if(M.riding().rideBasis()==Rideable.Basis.WATER_BASED)
 				enterThePool = canEnterTheWhirlpool(M.riding());
 		}
 		if(canEnterTheWhirlpool(M))
@@ -167,11 +167,11 @@ public class Chant_Whirlpool extends Chant
 
 	public boolean canEverEnterThePool(final Item I)
 	{
-		if(I instanceof BoardableShip)
-			return canEnterTheWhirlpool((BoardableShip)I);
+		if(I instanceof Boardable)
+			return canEnterTheWhirlpool((Boardable)I);
 		else
 		if((I instanceof Rideable)
-		&&(((Rideable)I).rideBasis()==CMMsg.TYP_WATER))
+		&&(((Rideable)I).rideBasis()==Rideable.Basis.WATER_BASED))
 			return canEnterTheWhirlpool((Rideable)I);
 		if(I.container()!=null)
 			return false;
@@ -191,9 +191,9 @@ public class Chant_Whirlpool extends Chant
 				final Item I=r.nextElement();
 				if((I!=null)&&(canEverEnterThePool(I)))
 				{
-					if(I instanceof BoardableShip)
+					if(I instanceof Boardable)
 					{
-						final Area A=((BoardableShip)I).getShipArea();
+						final Area A=((Boardable)I).getArea();
 						if(A!=null)
 						{
 							for(final Enumeration<Room> r2=A.getProperMap();r2.hasMoreElements();)
@@ -207,7 +207,8 @@ public class Chant_Whirlpool extends Chant
 					R.showHappens(CMMsg.MSG_OK_ACTION, L("@x1 is swept into a massive whirlpool!",I.Name()));
 					final GridLocale grid = (GridLocale)theWhirlpool;
 					final Room targetRoom = grid.getGridChild(grid.xGridSize()-1, 0);
-					targetRoom.moveItemTo(I);
+					if(targetRoom != null)
+						targetRoom.moveItemTo(I);
 				}
 			}
 			for(final Enumeration<MOB> r=R.inhabitants();r.hasMoreElements();)
@@ -219,7 +220,8 @@ public class Chant_Whirlpool extends Chant
 						M.tell(L("^XYou're swept into a terrible whirlpool!"));
 					final GridLocale grid = (GridLocale)theWhirlpool;
 					final Room targetRoom = grid.getGridChild(grid.xGridSize()-1, 0);
-					targetRoom.bringMobHere(M, false);
+					if(targetRoom != null)
+						targetRoom.bringMobHere(M, false);
 				}
 			}
 		}
@@ -245,7 +247,8 @@ public class Chant_Whirlpool extends Chant
 						M.tell(L("^XYou've stumbled into a terrible whirlpool!"));
 					final GridLocale grid = (GridLocale)theWhirlpool;
 					final Room targetRoom = grid.getGridChild(grid.xGridSize()-1, 0);
-					msg.setTarget(targetRoom);
+					if(targetRoom != null)
+						msg.setTarget(targetRoom);
 				}
 			}
 		}
@@ -304,7 +307,7 @@ public class Chant_Whirlpool extends Chant
 					W.theWhirlpool.setDisplayText(L("You are caught in a massive whirlpool"));
 					W.theWhirlpool.setDescription(L("The only way out appear to be to fight against the currents."));
 					final Area tempArea=CMClass.getAreaType("StdArea");
-					tempArea.setName("A Whirlpool");
+					tempArea.setName(L("A Whirlpool"));
 					W.theWhirlpool.setSavable(false);
 					W.theWhirlpool.setRoomID("");
 					W.theWhirlpool.setArea(tempArea);

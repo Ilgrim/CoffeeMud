@@ -18,7 +18,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,14 +57,14 @@ public class GenLightSource extends LightSource
 	@Override
 	public void setDuration(final int duration)
 	{
-		readableText=""+duration;
+		readableText=""+duration;	// required because lazy way back when
 		super.setDuration(duration);
 	}
 
 	@Override
 	public int getDuration()
 	{
-		durationTicks = CMath.s_int(readableText);
+		durationTicks = CMath.s_int(readableText);	// required because lazy way back when
 		return super.getDuration();
 	}
 
@@ -77,7 +77,7 @@ public class GenLightSource extends LightSource
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this,false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 	}
 
 	@Override
@@ -90,13 +90,15 @@ public class GenLightSource extends LightSource
 	public void setReadableText(final String text)
 	{
 		readableText=text;
+		if(CMath.isInteger(text))	// required because lazy way back when
+			super.setDuration(CMath.s_int(text));
 	}
 
 	@Override
 	public void setMiscText(final String newText)
 	{
 		miscText="";
-		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this,newText,false);
 		recoverPhyStats();
 	}
 

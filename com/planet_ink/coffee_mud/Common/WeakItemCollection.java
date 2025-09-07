@@ -27,7 +27,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -77,34 +77,49 @@ public class WeakItemCollection implements ItemCollection, CMCommon
 	public CMObject copyOf()
 	{
 		final WeakItemCollection c=(WeakItemCollection)newInstance();
-		for(int i=0;i<contents.size();i++)
+		try
 		{
-			final Item I=contents.get(i);
-			if(I!=null)
+			for(int i=0;i<contents.size();i++)
 			{
-				final Item I2=(Item)I.copyOf();
-				I2.setOwner(I.owner());
-				c.innerContents.add(new WeakReference<Item>(I2));
+				final Item I=contents.get(i);
+				if(I!=null)
+				{
+					final Item I2=(Item)I.copyOf();
+					I2.setOwner(I.owner());
+					c.innerContents.add(new WeakReference<Item>(I2));
+				}
 			}
 		}
+		catch(final java.lang.ArrayIndexOutOfBoundsException ae)
+		{}
 		for(int i=0;i<contents.size();i++)
 		{
-			final Item I=contents.get(i);
-			final Item I2=c.contents.get(i);
-			if((I!=null)&&(I2!=null))
+			try
 			{
-				if(I.container() != null)
+				final Item I=contents.get(i);
+				final Item I2=c.contents.get(i);
+				if((I!=null)&&(I2!=null))
 				{
-					for(int i2=0;i2<contents.size();i2++)
+					if(I.container() != null)
 					{
-						if(I.container() == contents.get(i2))
+						try
 						{
-							I2.setContainer((Container)c.contents.get(i2));
-							break;
+							for(int i2=0;i2<contents.size();i2++)
+							{
+								if(I.container() == contents.get(i2))
+								{
+									I2.setContainer((Container)c.contents.get(i2));
+									break;
+								}
+							}
 						}
+						catch(final java.lang.ArrayIndexOutOfBoundsException ae)
+						{}
 					}
 				}
 			}
+			catch(final java.lang.ArrayIndexOutOfBoundsException ae)
+			{}
 		}
 		return c;
 	}

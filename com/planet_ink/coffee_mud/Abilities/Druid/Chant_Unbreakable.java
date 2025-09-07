@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -127,7 +127,7 @@ public class Chant_Unbreakable extends Chant
 		// undo the affects of this spell
 		if(canBeUninvoked())
 		{
-			if(((affected!=null)&&(affected instanceof Item))
+			if(((affected instanceof Item))
 			&&((((Item)affected).owner()!=null)
 			&&(((Item)affected).owner() instanceof MOB)))
 				((MOB)((Item)affected).owner()).tell(L("The enchantment on @x1 fades.",((Item)affected).name()));

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,9 +59,11 @@ public class Prop_Weather extends Property
 	public void setMiscText(final String newMiscText)
 	{
 		super.setMiscText(newMiscText);
-		final List<String> parms=CMParms.parse(newMiscText);
 		code=-1;
 		climask=-1;
+		if(newMiscText.length()==0)
+			return;
+		final List<String> parms=CMParms.parse(newMiscText.toUpperCase().trim());
 		if(text().length()>0)
 		{
 			for(String parm : parms)
@@ -113,7 +115,7 @@ public class Prop_Weather extends Property
 		if(climask>=0)
 		{
 			if(affected instanceof Room)
-				((Room)affected).getArea().setClimateType(climask);
+				((Room)affected).setClimateType(climask);
 			else
 				((Area)affected).setClimateType(climask);
 		}

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,12 +48,14 @@ public class Fighter_WeaponSharpening extends FighterSkill
 		return localizedName;
 	}
 
-	protected String displayString="Sharpening";
+	private static final String DEFAULT_DISPLAY_TEXT=CMLib.lang().L("(Sharpening)");
+
+	protected String displayString=DEFAULT_DISPLAY_TEXT;
 
 	@Override
 	public String displayText()
 	{
-		return L("("+displayString+")");
+		return displayString;
 	}
 
 	private static final String[] triggerStrings =I(new String[] {"WEAPONSHARPENING","SHARPEN"});
@@ -117,7 +119,12 @@ public class Fighter_WeaponSharpening extends FighterSkill
 		if(affected instanceof MOB)
 		{
 			final MOB mob=(MOB)affected;
-			if((weapon==null)||(weapon.owner()!=affected)||(weapon.amDestroyed())||(!CMLib.flags().isInTheGame(mob, true))||(mob.location()==null))
+			if((weapon==null)
+			||(weapon.owner()!=affected)
+			||(weapon.amDestroyed())
+			||(mob.isInCombat())
+			||(!CMLib.flags().isInTheGame(mob, true))
+			||(mob.location()==null))
 			{
 				weapon=null;
 				unInvoke();
@@ -271,7 +278,7 @@ public class Fighter_WeaponSharpening extends FighterSkill
 			final CMMsg msg=CMClass.getMsg(mob,weapon,this,CMMsg.MSG_NOISYMOVEMENT,str);
 			if(mob.location().okMessage(mob,msg))
 			{
-				displayString="Sharpening "+weapon.name();
+				displayString=L("(Sharpening @x1)",weapon.name());
 				mob.location().send(mob,msg);
 				if(auto)
 				{

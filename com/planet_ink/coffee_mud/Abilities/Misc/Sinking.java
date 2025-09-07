@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -65,6 +65,12 @@ public class Sinking extends StdAbility
 	protected int canTargetCode()
 	{
 		return 0;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_NONENCHANTMENT;
 	}
 
 	protected boolean	isTreading		= false;
@@ -120,7 +126,7 @@ public class Sinking extends StdAbility
 	{
 		if(!super.okMessage(myHost,msg))
 			return false;
-		if((affected!=null)&&(affected instanceof MOB)&&(msg.amISource((MOB)affected)))
+		if((affected instanceof MOB)&&(msg.amISource((MOB)affected)))
 		{
 			if((msg.sourceMinor()==CMMsg.TYP_ENTER)
 			&&(msg.target() instanceof Room)
@@ -231,7 +237,7 @@ public class Sinking extends StdAbility
 
 			if((room==null)
 			||((room!=null)&&(!room.isContent(item)))
-			||((!CMLib.flags().isGettable(item)&&(!(item instanceof BoardableShip)))))
+			||((!CMLib.flags().isGettable(item)&&(!(item instanceof Boardable)))))
 			{
 				unInvoke();
 				return false;
@@ -257,13 +263,18 @@ public class Sinking extends StdAbility
 			if((nextRoom!=null)&&(canSinkFrom(room,direction)))
 			{
 				final MOB mob;
-				if((item instanceof Rideable)&&(item instanceof BoardableShip))
+				if((item instanceof Rideable)&&(item instanceof Boardable))
 				{
 					mob = CMClass.getFactoryMOB(item.name(),item.phyStats().level(),room);
 					if(item instanceof PrivateProperty)
 					{
-						if(((PrivateProperty)item).getOwnerObject() instanceof Clan)
-							mob.setClan(((PrivateProperty)item).getOwnerObject().name(), ((Clan)((PrivateProperty)item).getOwnerObject()).getAutoPosition());
+						final PrivateProperty P=(PrivateProperty)item;
+						if((P.getOwnerName()!=null)&&(P.getOwnerName().length()>0))
+						{
+							final Clan clan = CMLib.clans().getClanExact(P.getOwnerName());
+							if(clan != null)
+								mob.setClan(clan.name(), clan.getAutoPosition());
+						}
 					}
 					mob.setRiding((Rideable)item);
 				}
@@ -332,15 +343,21 @@ public class Sinking extends StdAbility
 			return false;
 		if(target.fetchEffect("Sinking")==null)
 		{
+			final Room R=CMLib.map().roomLocation(target);
+			final MOB causeM=(mob!=null)?mob:((target instanceof MOB)?((MOB)target):CMLib.map().deity());
 			final Sinking F=new Sinking();
 			F.setMiscText(this.reversed()?"REVERSED":"NORMAL");
-			F.invoker=null;
-			if(target instanceof MOB)
-				F.invoker=(MOB)target;
-			else
-				F.invoker=CMClass.getMOB("StdMOB");
-			target.addEffect(F);
+			F.invoker=causeM;
 			F.setSavable(false);
+			target.addEffect(F);
+			if(R!=null)
+			{
+				if(!R.show(CMLib.map().deity(), target, CMMsg.MSG_CAUSESINK, null))
+				{
+					target.delEffect(F);
+					return false;
+				}
+			}
 			F.makeLongLasting();
 			if(!(target instanceof MOB))
 				CMLib.threads().startTickDown(F,Tickable.TICKID_MOB,1);

@@ -2,6 +2,9 @@ package com.planet_ink.coffee_mud.Items.interfaces;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
+
+import java.util.List;
+
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -16,7 +19,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,6 +46,21 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 public interface Software extends Item, Technical
 {
 	/**
+	 * A list of services provided by software
+	 * This is used in signals and messages between
+	 * software.
+	 *
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public enum SWServices
+	{
+		TARGETING,
+		IDENTIFICATION,
+		COORDQUERY
+	}
+
+	/**
 	 * The parent menu that this software gets access from.
 	 * When Software is available from root, "" is returned.
 	 * @return parent menu that this software gets access from
@@ -50,10 +68,43 @@ public interface Software extends Item, Technical
 	public String getParentMenu();
 
 	/**
+	 * The parent menu that this software gets access from.
+	 * When Software is available from root, "" is set.
+	 *
+	 * @param name parent menu that this software gets access from
+	 */
+	public void setParentMenu(String name);
+
+	/**
 	 * Returns the internal name of this software.
 	 * @return the internal name of this software.
 	 */
 	public String getInternalName();
+
+	/**
+	 * The internal name of this software.
+	 *
+	 * @param name the internal name of this software.
+	 */
+	public void setInternalName(String name);
+
+	/**
+	 * Returns settings specific to this disk.
+	 *
+	 * @see Software#setSettings(String)
+	 *
+	 * @return settings
+	 */
+	public String getSettings();
+
+	/**
+	 * Sets settings specific to this disk.
+	 *
+	 * @see Software#getSettings()
+	 *
+	 * @param settings the new settings
+	 */
+	public void setSettings(final String settings);
 
 	/**
 	 * Returns whether the given computer-entry command
@@ -128,5 +179,17 @@ public interface Software extends Item, Technical
 	 * @param key the circuit key
 	 */
 	public void setCircuitKey(String key);
+
+	/**
+	 * An internal interface for various software procedure
+	 * classes, allowing software to be more "plug and play".
+	 *  
+	 * @author BZ
+	 *
+	 */
+	public static interface SoftwareProcedure
+	{
+		public boolean execute(final Software sw, final String uword, final MOB mob, final String unparsed, final List<String> parsed);
+	}
 }
 

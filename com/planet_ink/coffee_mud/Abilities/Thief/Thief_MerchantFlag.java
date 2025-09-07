@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -115,9 +115,9 @@ public class Thief_MerchantFlag extends ThiefSkill
 	{
 		if(!super.tick(ticking, tickID))
 			return false;
-		if(affected instanceof SailingShip)
+		if(affected instanceof SiegableItem)
 		{
-			final SailingShip I=(SailingShip)affected;
+			final SiegableItem I=(SiegableItem)affected;
 			if(I.subjectToWearAndTear())
 			{
 				if(I.isInCombat())
@@ -134,11 +134,10 @@ public class Thief_MerchantFlag extends ThiefSkill
 	{
 		super.executeMsg(myHost, msg);
 		if((msg.targetMinor() == CMMsg.TYP_ADVANCE)
-		&&((msg.target() instanceof BoardableShip)
+		&&((msg.target() instanceof Boardable)
 			||(msg.target() instanceof Rideable))
 		&&(msg.targetMajor(CMMsg.MASK_MALICIOUS))
-		&&(msg.source().riding() instanceof BoardableShip)
-		&&(msg.source().riding().Name().equals(msg.source().Name())))
+		&&(CMLib.flags().getDirType(msg.source())==Directions.DirType.SHIP))
 		{
 			if((msg.source().riding() == affected)
 			&&(msg.source().Name().equals(affected.Name())))
@@ -155,11 +154,10 @@ public class Thief_MerchantFlag extends ThiefSkill
 		if(!super.okMessage(myHost, msg))
 			return false;
 		if((msg.targetMinor() == CMMsg.TYP_ADVANCE)
-		&&((msg.target() instanceof BoardableShip)
+		&&((msg.target() instanceof Boardable)
 			||(msg.target() instanceof Rideable))
 		&&(msg.targetMajor(CMMsg.MASK_MALICIOUS))
-		&&(msg.source().riding() instanceof BoardableShip)
-		&&(msg.source().riding().Name().equals(msg.source().Name())))
+		&&(CMLib.flags().getDirType(msg.source())==Directions.DirType.SHIP))
 		{
 			if(msg.source().riding() == affected)
 			{
@@ -169,10 +167,10 @@ public class Thief_MerchantFlag extends ThiefSkill
 			if(msg.target() == affected)
 			{
 				boolean pirateAboard=false;
-				final BoardableShip ship=(BoardableShip)msg.source().riding();
+				final Boardable ship=(Boardable)msg.source().riding();
 				if(ship != null)
 				{
-					final Area area=ship.getShipArea();
+					final Area area=ship.getArea();
 					for(final Enumeration<Room> r=area.getProperMap();r.hasMoreElements();)
 					{
 						final Room R=r.nextElement();
@@ -210,7 +208,7 @@ public class Thief_MerchantFlag extends ThiefSkill
 	{
 		final Physical P=affected;
 		super.unInvoke();
-		if(P instanceof BoardableShip)
+		if(P instanceof Boardable)
 		{
 			final Room R=CMLib.map().roomLocation(P);
 			if((R!=null)&&(CMLib.flags().isWaterySurfaceRoom(R))&&(super.canBeUninvoked()))
@@ -234,11 +232,12 @@ public class Thief_MerchantFlag extends ThiefSkill
 		if(R==null)
 			return false;
 
-		final SailingShip ship;
-		if((R.getArea() instanceof BoardableShip)
-		&&(((BoardableShip)R.getArea()).getShipItem() instanceof SailingShip))
+		final NavigableItem ship;
+		if((R.getArea() instanceof Boardable)
+		&&(((Boardable)R.getArea()).getBoardableItem() instanceof NavigableItem)
+		&&(((NavigableItem)(((Boardable)R.getArea()).getBoardableItem())).navBasis() == Rideable.Basis.WATER_BASED))
 		{
-			ship=(SailingShip)((BoardableShip)R.getArea()).getShipItem();
+			ship=(NavigableItem)((Boardable)R.getArea()).getBoardableItem();
 		}
 		else
 		{

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -80,20 +80,24 @@ public class Learn extends StdCommand
 		}
 
 		final String what=CMParms.combine(commands,0);
-		final List<String> V=Train.getAllPossibleThingsToTrainFor();
+		final Train trainCmd = (Train)CMClass.getCommand("Train");
+		final List<String> V=trainCmd.getAllPossibleThingsToTrainFor();
 		if(V.contains(what.toUpperCase().trim()))
 		{
 			final Vector<String> CC=CMParms.parse(sayTo+" "+teacherName+" I would like to be trained in "+what);
 			mob.doCommand(CC,metaFlags);
 			final Command C=CMClass.getCommand("TRAIN");
 			if(C!=null)
-				C.execute(mob, commands,metaFlags);
+				C.execute(mob, commands, metaFlags);
 			return true;
 		}
 		if(CMClass.findAbility(what, mob)!=null)
 		{
 			final Vector<String> CC=CMParms.parse(sayTo+" "+teacherName+" I would like you to teach me "+what);
 			mob.doCommand(CC,metaFlags);
+			final Command C=CMClass.getCommand("TRAIN");
+			if(C!=null)
+				C.execute(mob, commands, metaFlags);
 			return true;
 		}
 		ExpertiseLibrary.ExpertiseDefinition theExpertise=null;
@@ -125,6 +129,9 @@ public class Learn extends StdCommand
 		{
 			final Vector<String> CC=new XVector<String>("SAY","I would like you to teach me "+theExpertise.name());
 			mob.doCommand(CC,metaFlags);
+			final Command C=CMClass.getCommand("TRAIN");
+			if(C!=null)
+				C.execute(mob, commands, metaFlags);
 			return true;
 		}
 

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@ public class Spell_FakeWeapon extends Spell
 	@Override
 	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
-		if((affected!=null)&&(affected instanceof Item))
+		if((affected instanceof Item))
 		{
 			if((msg.tool()==affected)
 			&&(msg.targetMinor()==CMMsg.TYP_DAMAGE))
@@ -157,11 +157,11 @@ public class Spell_FakeWeapon extends Spell
 		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> arms around dramatically.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,null,this,somaticCastCode(mob,null,auto),auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> arms around dramatically.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				final Weapon weapon=(Weapon)CMClass.getItem("GenWeapon");
+				final Weapon weapon=CMClass.getWeapon("GenWeapon");
 				weapon.basePhyStats().setAttackAdjustment(100 +(10 * super.getXLEVELLevel(mob)));
 				weapon.basePhyStats().setDamage(75+(3 * super.getXLEVELLevel(mob)));
 				weapon.basePhyStats().setDisposition(weapon.basePhyStats().disposition()|PhyStats.IS_BONUS);

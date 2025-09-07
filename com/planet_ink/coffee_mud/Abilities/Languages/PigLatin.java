@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,8 +48,14 @@ public class PigLatin extends StdLanguage
 		return localizedName;
 	}
 
+	@Override
+	public String getTranslationVerb()
+	{
+		return "ays(es)";
+	}
+
 	protected final static char[] vowels = new char[] {'a','e','u','i','o','A','E','U','I','O'};
-	
+
 	protected final static String[] baseComboSounds = new String[] {
 		"bl","br","ch","cl","cr","dr","fl","fr",
 		"gl","gr","pl","pr","sc","sh","sk","sl",
@@ -69,7 +75,7 @@ public class PigLatin extends StdLanguage
 		Collections.sort(builder, new Comparator<String>()
 		{
 			@Override
-			public int compare(String o1, String o2)
+			public int compare(final String o1, final String o2)
 			{
 				if(o1.length()==o2.length())
 					return 0;
@@ -77,12 +83,12 @@ public class PigLatin extends StdLanguage
 					return -1;
 				return 1;
 			}
-	
+
 		});
 		comboSounds = builder.toArray(new String[0]);
 	}
-	
-	
+
+
 	@Override
 	public String translate(final String language, final String word)
 	{

@@ -1,9 +1,11 @@
 package com.planet_ink.coffee_mud.WebMacros.grinder;
 
 import com.planet_ink.coffee_web.interfaces.*;
+import com.planet_ink.coffee_mud.WebMacros.AbilityData;
 import com.planet_ink.coffee_mud.WebMacros.RoomData;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMClass.CMObjectType;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -20,7 +22,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -54,6 +56,8 @@ public class GrinderAbilities
 			httpReq.addFakeUrlParameter(field, value);
 			httpReq.addFakeUrlParameter("REPLACE","");
 		}
+		String newid=httpReq.getUrlParameter("NEWID");
+		newid = CMStrings.replaceAll(newid, " ", "");
 		String old;
 		old=httpReq.getUrlParameter("NAME");
 		A.setStat("NAME",(old==null)?"NAME":old);
@@ -75,7 +79,30 @@ public class GrinderAbilities
 		old=httpReq.getUrlParameter("TICKAFFECTS");
 		A.setStat("TICKAFFECTS",(old==null)?"":""+old.equalsIgnoreCase("on"));
 		old=httpReq.getUrlParameter("AUTOINVOKE");
-		A.setStat("AUTOINVOKE",(old==null)?"":""+old.equalsIgnoreCase("on"));
+		if(A.getStat("JAVACLASS").toLowerCase().indexOf("tweak")>=0)
+		{
+			if(old != null)
+			{
+				if (old.equalsIgnoreCase("on"))
+					A.setStat("AUTOINVOKE", "true");
+				else if (old.equalsIgnoreCase("off"))
+					A.setStat("AUTOINVOKE", "false");
+				else
+					A.setStat("AUTOINVOKE", "");
+			}
+			old=httpReq.getUrlParameter("MAYENCHANT");
+			if(old != null)
+			{
+				if (old.equalsIgnoreCase("on"))
+					A.setStat("MAYENCHANT", "true");
+				else if (old.equalsIgnoreCase("off"))
+					A.setStat("MAYENCHANT", "false");
+				else
+					A.setStat("MAYENCHANT", "");
+			}
+		}
+		else
+			A.setStat("AUTOINVOKE",(old==null)?"":""+old.equalsIgnoreCase("on"));
 		final Vector<String> V=new Vector<String>();
 		if(httpReq.isUrlParameter("ABILITY_FLAGS"))
 		{
@@ -85,11 +112,11 @@ public class GrinderAbilities
 				V.addElement(httpReq.getUrlParameter("ABILITY_FLAGS"+id));
 		}
 		A.setStat("FLAGS",CMParms.toListString(V));
-		old=httpReq.getUrlParameter("GENHELP");
+		old=CMStrings.fixMudCRLF(httpReq.getUrlParameter("GENHELP"));
 		A.setStat("HELP", old==null?"":old);
 		old=httpReq.getUrlParameter("OVERRIDEMANA");
 		x1=CMath.s_int(old);
-		if(((x1>0)&&(x1<Ability.COST_PCT)))
+		if((old==null)||(old.trim().length()==0))
 			old=httpReq.getUrlParameter("CUSTOMOVERRIDEMANA");
 		A.setStat("OVERRIDEMANA",(old==null)?"-1":old);
 		V.clear();
@@ -128,6 +155,10 @@ public class GrinderAbilities
 				V.addElement(httpReq.getUrlParameter("CANTARGETMASK"+id));
 		}
 		A.setStat("CANTARGETMASK",CMParms.toListString(V));
+		old=httpReq.getUrlParameter("NUMARGS");
+		A.setStat("NUMARGS",(old==null)?"0":old);
+		old=httpReq.getUrlParameter("PERMRESET");
+		A.setStat("PERMRESET",(old==null)?"30":old);
 		old=httpReq.getUrlParameter("CANMEND");
 		A.setStat("CANMEND",(old==null)?"false":Boolean.toString(old.equalsIgnoreCase("on")));
 		old=httpReq.getUrlParameter("CANREFIT");
@@ -142,6 +173,8 @@ public class GrinderAbilities
 		A.setStat("SOUND",(old==null)?"":old);
 		old=httpReq.getUrlParameter("VERB");
 		A.setStat("VERB",(old==null)?"":old);
+		old=httpReq.getUrlParameter("TRANSVERB");
+		A.setStat("TRANSVERB",(old==null)?"":old);
 		old=httpReq.getUrlParameter("FILENAME");
 		A.setStat("FILENAME",(old==null)?"":old);
 		old=httpReq.getUrlParameter("VQUALITY");
@@ -172,6 +205,8 @@ public class GrinderAbilities
 		A.setStat("MOCKABILITY",(old==null)?"":old);
 		old=httpReq.getUrlParameter("MOCKABLETEXT");
 		A.setStat("MOCKABLETEXT",(old==null)?"":old);
+		old=httpReq.getUrlParameter("TARGETFAILMSG");
+		A.setStat("TARGETFAILMSG",(old==null)?"":old);
 
 		old=httpReq.getUrlParameter("ROOMMASK");
 		A.setStat("ROOMMASK",(old==null)?"":old);
@@ -187,6 +222,37 @@ public class GrinderAbilities
 		A.setStat("MSGNOTFOUND",(old==null)?"":old);
 		old=httpReq.getUrlParameter("MSGCOMPLETE");
 		A.setStat("MSGCOMPLETE",(old==null)?"":old);
+		if((A instanceof Trap) && (A.isGeneric()))
+		{
+			old=httpReq.getUrlParameter("LEVEL");
+			A.setStat("LEVEL",(old==null)?"":old);
+			old=httpReq.getUrlParameter("BASELEVEL");
+			A.setStat("BASELEVEL",(old==null)?"":old);
+			old=httpReq.getUrlParameter("DMGT");
+			A.setStat("DMGT",(old==null)?"":old);
+			old=httpReq.getUrlParameter("DMGM");
+			A.setStat("DMGM",(old==null)?"":old);
+			old=httpReq.getUrlParameter("ISBOMB");
+			A.setStat("ISBOMB",(old==null)?"":""+old.equalsIgnoreCase("on"));
+			old=httpReq.getUrlParameter("ABLEID");
+			A.setStat("ABILITY",(old==null)?"":old);
+			for(final String p : A.getStatCodes())
+			{
+				if(httpReq.isUrlParameter("MOD_"+p))
+				{
+					old=httpReq.getUrlParameter("MOD_"+p);
+					if(old != null)
+						A.setStat(p,old);
+				}
+			}
+			httpReq.addFakeUrlParameter("COMPONENT", A.ID());
+			httpReq.addFakeUrlParameter("_DO_NOT_SAVE_", "true");
+			new GrinderComponent().runMacro(httpReq, "");
+			@SuppressWarnings("unchecked")
+			final List<AbilityComponent> c=(List<AbilityComponent>)httpReq.getRequestObjects().get("COMP4_"+A.ID().toUpperCase().trim());
+			if(c!=null)
+				A.setStat("ACOMP", CMLib.ableComponents().getAbilityComponentCodedString(c));
+		}
 
 		{
 			final int minDur = CMath.s_int(httpReq.getUrlParameter("MINDUR"));
@@ -198,6 +264,25 @@ public class GrinderAbilities
 				A.setStat("BASEDUR", ""+baseDur);
 				A.setStat("FINDTICK", ""+findTick);
 			}
+		}
+
+		if((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_POISON)
+		{
+			old=httpReq.getUrlParameter("AFFECTTARG");
+			A.setStat("AFFECTTARG",(old==null)?"":""+old.equalsIgnoreCase("on"));
+			old=httpReq.getUrlParameter("MAKEPEACE");
+			A.setStat("MAKEPEACE",(old==null)?"":""+old.equalsIgnoreCase("on"));
+			final String[] poisonParms = new String[] {
+				"TICKS", "STARTMSG", "TARGTELLMSG", "AFFECTMSG", "MOOD",
+				"DAMAGE", "DONEMSG", "ADDCHANCE", "FAILMSG", "ADJUSTMENTS"
+			};
+			for(final String poisonParm : poisonParms)
+			{
+				old=httpReq.getUrlParameter(poisonParm);
+				A.setStat(poisonParm,(old==null)?"":old.trim());
+			}
+			old=AbilityData.codedEffectsWebValue(httpReq, parms, A.getStat("EFFECTS"), "EFFECTS");
+			A.setStat("EFFECTS",old);
 		}
 
 		if(httpReq.isUrlParameter("ITEMXML_1")
@@ -212,7 +297,7 @@ public class GrinderAbilities
 			{
 				if((!oldValue.equalsIgnoreCase("DELETE"))&&(oldValue.length()>0))
 				{
-					final Item oldItem=(oldValue.length()>0)?RoomData.getItemFromAnywhere(itemList,oldValue):null;
+					final Item oldItem=(oldValue.length()>0)?CMLib.webMacroFilter().findItemInAnything(itemList,oldValue):null;
 					if(oldItem != null)
 						str.append(CMLib.coffeeMaker().getItemXML(oldItem));
 				}
@@ -246,7 +331,10 @@ public class GrinderAbilities
 		A.setStat("POSTCASTABILITY",CMParms.toSemicolonListString(V));
 		if(A instanceof Language)
 		{
-			((Language)A).translationLists(A.ID()).clear();
+			old=httpReq.getUrlParameter("NATURALLANG");
+			A.setStat("NATURALLANG",(old==null)?"false":Boolean.toString(old.equalsIgnoreCase("on")));
+			if(((Language)A).translationLists(A.ID())!=null)
+				((Language)A).translationLists(A.ID()).clear();
 			if(httpReq.isUrlParameter("WORDLIST1"))
 			{
 				int x=1;
@@ -275,6 +363,34 @@ public class GrinderAbilities
 					x++;
 				}
 			}
+			((Language)A).languagesSupported().clear();
+			((Language)A).languagesSupported().add(((Language)A).ID());
+			if(httpReq.isUrlParameter("INTERPRET1"))
+			{
+				int x=1;
+				while(httpReq.isUrlParameter("INTERPRET"+x))
+				{
+					final String word=httpReq.getUrlParameter("INTERPRET"+x).trim();
+					if((word != null)
+					&&(!((Language)A).ID().equals(word))
+					&&(CMClass.getAbility(word) instanceof Language))
+						((Language)A).languagesSupported().add(CMClass.getAbility(word).ID());
+					x++;
+				}
+			}
+		}
+		if((newid!=null)
+		&&(newid.length()>0)
+		&&(!newid.equalsIgnoreCase(A.ID()))
+		&&(CMClass.getAbility(newid)==null)
+		&&(A!=null))
+		{
+			CMLib.database().DBDeleteAbility(A.ID());
+			if((CMClass.getAbility(A.ID())!=null)
+			&&(CMClass.getAbility(A.ID()).isGeneric()))
+				CMClass.delClass(CMObjectType.ABILITY, A);
+			A.setStat("CLASS9", newid);
+			CMClass.addClass(CMObjectType.ABILITY, A);
 		}
 		return "";
 	}

@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -19,7 +20,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -143,6 +144,7 @@ public class Charlatan extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Fighter_Rescue",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Skill_StrikeTheSet",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Skill_LightPlacebo",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Skill_Songcraft",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Spell_ReadMagic",false);
@@ -151,8 +153,9 @@ public class Charlatan extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Skill_CastBlocking",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Thief_Distract",false);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Skill_WandUse",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Skill_RelicUse",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Skill_DecipherScript",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Thief_MaskFaith",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Skill_Warrants",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Skill_BreakALeg",false);
@@ -178,6 +181,7 @@ public class Charlatan extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Skill_Chantcraft",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Song_Protection",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),15,"Skill_Placebo",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Skill_Shuffle",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Skill_ExitStageLeft",false);
@@ -271,6 +275,7 @@ public class Charlatan extends StdCharClass
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}
@@ -331,7 +336,10 @@ public class Charlatan extends StdCharClass
 				&&((((Ability)msg.tool()).classificationCode()&Ability.ALL_DOMAINS)==Ability.DOMAIN_DIVINATION)
 				&&(CMLib.dice().roll(1,100,0)<(myChar.charStats().getClassLevel(this)*4)))
 				{
-					myChar.location().show(msg.source(),myChar,CMMsg.MSG_OK_ACTION,L("<T-NAME> fool(s) <S-NAMESELF>, causing <S-HIM-HER> to fizzle @x1.",msg.tool().name()));
+					if(msg.source().name().equalsIgnoreCase("someone") && msg.source().isMonster() && (!msg.source().isPlayer()))
+						myChar.location().show(msg.source(),myChar,CMMsg.MSG_OK_ACTION,L("<T-NAME> fool(s) <T-NAMESELF>, causing @x1 to fizzle.",msg.tool().name()));
+					else
+						myChar.location().show(msg.source(),myChar,CMMsg.MSG_OK_ACTION,L("<T-NAME> fool(s) <S-NAMESELF>, causing <S-HIM-HER> to fizzle @x1.",msg.tool().name()));
 					return false;
 				}
 			}
@@ -365,7 +373,7 @@ public class Charlatan extends StdCharClass
 				if((CMLib.ableMapper().qualifyingLevel(mob,A)<=0)
 				&&(lql<25)
 				&&(lql>0)
-				&&(!CMLib.ableMapper().getSecretSkill(A.ID()))
+				&&(CMLib.ableMapper().getSecretSkill(A.ID())==SecretFlag.PUBLIC)
 				&&(CMLib.ableMapper().qualifiesByAnyCharClass(A.ID()))
 				&&(CMLib.ableMapper().availableToTheme(A.ID(),Area.THEME_FANTASY,true))
 				&&(!CMLib.ableMapper().qualifiesOnlyByClan(mob, A))
@@ -415,7 +423,11 @@ public class Charlatan extends StdCharClass
 				if((A!=null)
 				&&(!CMLib.ableMapper().getAllQualified(ID(),true,A.ID()))
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
-					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+				{
+					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),
+								   CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),
+								   isBorrowedClass);
+				}
 			}
 		}
 	}

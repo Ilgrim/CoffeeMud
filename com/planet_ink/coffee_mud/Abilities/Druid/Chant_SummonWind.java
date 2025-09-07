@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -111,6 +111,7 @@ public class Chant_SummonWind extends Chant
 					C.setNextWeatherType(Climate.WEATHER_WINDY);
 					break;
 				case Climate.WEATHER_CLOUDY:
+				case Climate.WEATHER_FOG:
 					C.setNextWeatherType(Climate.WEATHER_WINDY);
 					break;
 				case Climate.WEATHER_DROUGHT:

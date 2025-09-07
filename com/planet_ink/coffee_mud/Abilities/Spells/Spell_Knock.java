@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -101,13 +101,25 @@ public class Spell_Knock extends Spell
 
 		final String whatToOpen=CMParms.combine(commands,0);
 		Physical openThis=givenTarget;
-		final int dirCode=CMLib.directions().getGoodDirectionCode(whatToOpen);
-		if(dirCode>=0)
-			openThis=R.getExitInDir(dirCode);
-		if(openThis==null)
-			openThis=getTarget(mob,R,givenTarget,commands,Wearable.FILTER_ANY);
-		if(openThis==null)
-			return false;
+		final int dirCode;
+		if(givenTarget != null)
+		{
+			openThis=givenTarget;
+			if(openThis instanceof Exit)
+				dirCode=CMLib.map().getExitDir(R, (Exit)openThis);
+			else
+				dirCode=-1;
+		}
+		else
+		{
+			dirCode=CMLib.directions().getGoodDirectionCode(whatToOpen);
+			if(dirCode>=0)
+				openThis=R.getExitInDir(dirCode);
+			if(openThis==null)
+				openThis=getTarget(mob,R,givenTarget,commands,Wearable.FILTER_ANY);
+			if(openThis==null)
+				return false;
+		}
 
 		if(openThis instanceof Exit)
 		{
@@ -143,7 +155,7 @@ public class Spell_Knock extends Spell
 			beneficialVisualFizzle(mob,openThis,auto?L("Nothing happens to @x1.",openThis.name()):L("<S-NAME> point(s) at @x1 and shout(s) incoherently, but nothing happens.",openThis.name()));
 		else
 		{
-			CMMsg msg=CMClass.getMsg(mob,openThis,this,somanticCastCode(mob,openThis,auto),(auto?L("@x1 begin(s) to glow!",openThis.name()):L("^S<S-NAME> point(s) at <T-NAMESELF>.^?"))+CMLib.protocol().msp("knock.wav",10));
+			CMMsg msg=CMClass.getMsg(mob,openThis,this,somaticCastCode(mob,openThis,auto),(auto?L("@x1 begin(s) to glow!",openThis.name()):L("^S<S-NAME> point(s) at <T-NAMESELF>.^?"))+CMLib.protocol().msp("knock.wav",10));
 			if(R.okMessage(mob,msg))
 			{
 				R.send(mob,msg);

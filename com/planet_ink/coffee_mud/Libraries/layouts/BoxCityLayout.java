@@ -11,7 +11,7 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.Layo
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -105,7 +105,7 @@ public class BoxCityLayout extends AbstractLayout
 	@Override
 	public List<LayoutNode> generate(final int num, int dir)
 	{
-		final Vector<LayoutNode> set = new Vector<LayoutNode>();
+		final List<LayoutNode> set = new Vector<LayoutNode>(); // return value
 		final int diameter = (int)Math.round(Math.sqrt(num));
 		final int plusX = (diff(diameter,diameter,num) > diff(diameter+1,diameter,num)) ? 1 : 0;
 		final LayoutSet lSet = new LayoutSet(set,num);
@@ -189,7 +189,7 @@ public class BoxCityLayout extends AbstractLayout
 		if(n!=null)
 		{
 			set.remove(n);
-			set.insertElementAt(n,0);
+			set.add(0,n);
 		}
 		else
 			Log.errOut("BoxCityLayout","Not able to find start room for direction: "+dir);

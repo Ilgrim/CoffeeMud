@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -127,7 +127,7 @@ public class Spell_Lighthouse extends Spell
 				else
 				if(fromDir >= 0)
 				{
-					if(R.getArea() instanceof BoardableShip)
+					if(R.getArea() instanceof Boardable)
 						dirName=CMLib.directions().getFromShipDirectionName(fromDir);
 					else
 						dirName=CMLib.directions().getFromCompassDirectionName(fromDir);
@@ -167,7 +167,7 @@ public class Spell_Lighthouse extends Spell
 					else
 					if(fromDir >= 0)
 					{
-						if(R.getArea() instanceof BoardableShip)
+						if(R.getArea() instanceof Boardable)
 							dirName=CMLib.directions().getFromShipDirectionName(fromDir);
 						else
 							dirName=CMLib.directions().getFromCompassDirectionName(fromDir);
@@ -250,9 +250,9 @@ public class Spell_Lighthouse extends Spell
 			return false;
 		}
 		if(((currentRoom.domainType()&Room.INDOORS)==0)
-		&&(currentRoom.getArea() instanceof BoardableShip))
+		&&(currentRoom.getArea() instanceof Boardable))
 		{
-			final Item shipItem = ((BoardableShip)currentRoom.getArea()).getShipItem();
+			final Item shipItem = ((Boardable)currentRoom.getArea()).getBoardableItem();
 			final Room shipRoom = CMLib.map().roomLocation(shipItem);
 			if((shipRoom == null)||(!shipRoom.isHere(shipItem)))
 			{
@@ -348,7 +348,7 @@ public class Spell_Lighthouse extends Spell
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> already <S-HAS-HAVE> a lighthouse."));
+			failureTell(mob,target,auto,L("<S-NAME> already <S-HAS-HAVE> a lighthouse."));
 			return false;
 		}
 

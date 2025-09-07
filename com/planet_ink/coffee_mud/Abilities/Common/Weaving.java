@@ -5,6 +5,7 @@ import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftParms;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftingActivity;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftorType;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
@@ -22,7 +23,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -61,6 +62,12 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 	}
 
 	@Override
+	public CraftorType getCraftorType()
+	{
+		return CraftorType.General;
+	}
+
+	@Override
 	public String supportedResourceString()
 	{
 		return "WHEAT|VINE|SEAWEED|HEMP|FLOWERS|BAMBOO|FEATHERS|HERBS";
@@ -68,7 +75,7 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 	}
 
 	@Override
-	public String parametersFormat()
+	public String getRecipeFormat()
 	{
 		return
 		"ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\tMATERIALS_REQUIRED\tITEM_BASE_VALUE\t"
@@ -79,7 +86,7 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 
 	//protected static final int RCP_FINALNAME=0;
 	//protected static final int RCP_LEVEL=1;
-	//protected static final int RCP_TICKS=2;
+	protected static final int	RCP_TICKS		= 2;
 	protected static final int	RCP_WOOD		= 3;
 	protected static final int	RCP_VALUE		= 4;
 	protected static final int	RCP_CLASSTYPE	= 5;
@@ -89,7 +96,7 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 	protected static final int	RCP_CONTAINMASK	= 9;
 	protected static final int	RCP_SPELL		= 10;
 
-	protected Item key=null;
+	protected DoorKey key=null;
 
 	final static int[] pm=
 	{
@@ -115,7 +122,7 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			if(buildingI==null)
 				unInvoke();
@@ -124,7 +131,7 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 	}
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return "weaving.txt";
 	}
@@ -132,7 +139,7 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 	@Override
 	protected List<List<String>> loadRecipes()
 	{
-		return super.loadRecipes(parametersFile());
+		return super.loadRecipes(getRecipeFilename());
 	}
 
 	@Override
@@ -153,20 +160,24 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 						if(activity == CraftingActivity.LEARNING)
 						{
 							commonEmote(mob,L("<S-NAME> fail(s) to learn how to make @x1.",buildingI.name()));
+							dropALoser(mob,buildingI);
 							buildingI.destroy();
 						}
 						else
 						if(activity == CraftingActivity.REFITTING)
 							commonEmote(mob,L("<S-NAME> mess(es) up refitting @x1.",buildingI.name()));
 						else
+						{
 							commonEmote(mob,L("<S-NAME> mess(es) up weaving @x1.",buildingI.name()));
+							dropALoser(mob,buildingI);
+						}
 					}
 					else
 					{
 						if(activity == CraftingActivity.MENDING)
 						{
 							buildingI.setUsesRemaining(100);
-							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.MENDER, 1, this);
+							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.MENDER, 1, this, buildingI);
 						}
 						else
 						if(activity==CraftingActivity.LEARNING)
@@ -183,7 +194,7 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 						else
 						{
 							dropAWinner(mob,buildingI);
-							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this);
+							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this, buildingI);
 							if(key!=null)
 							{
 								dropAWinner(mob,key);
@@ -230,13 +241,14 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 		if(I instanceof Rideable)
 		{
 			final Rideable R=(Rideable)I;
-			final int rideType=R.rideBasis();
+			final Rideable.Basis rideType=R.rideBasis();
 			switch(rideType)
 			{
-			case Rideable.RIDEABLE_LADDER:
-			case Rideable.RIDEABLE_SLEEP:
-			case Rideable.RIDEABLE_SIT:
-			case Rideable.RIDEABLE_TABLE:
+			case LADDER:
+			case FURNITURE_SLEEP:
+			case FURNITURE_SIT:
+			case FURNITURE_TABLE:
+			case FURNITURE_HOOK:
 				return true;
 			default:
 				return false;
@@ -278,7 +290,7 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 		||(!mayICraft((Item)E)))
 		{
 			if(!quiet)
-				commonTell(mob,L("That's not a weaved item."));
+				commonTelL(mob,"That's not a weaved item.");
 			return false;
 		}
 		return true;
@@ -293,12 +305,12 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new Vector<Item>(0));
+		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new ArrayList<CraftedItem>(0));
 	}
 
 	@Override
 	protected boolean autoGenInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto,
-								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<Item> crafted)
+								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<CraftedItem> crafted)
 	{
 		if(super.checkStop(mob, commands))
 			return true;
@@ -311,8 +323,8 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 		randomRecipeFix(mob,addRecipes(mob,loadRecipes()),commands,autoGenerate);
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Weave what? Enter \"weave list\" for a list, \"weave info <item>\", \"weave refit <item>\" to resize,"
-						+ " \"weave learn <item>\", \"weave scan\", \"weave mend <item>\", or \"weave stop\" to cancel."));
+			commonTelL(mob,"Weave what? Enter \"weave list\" for a list, \"weave info <item>\", \"weave refit <item>\" to resize,"
+						+ " \"weave learn <item>\", \"weave scan\", \"weave mend <item>\", or \"weave stop\" to cancel.");
 			return false;
 		}
 		if((!auto)
@@ -329,7 +341,7 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 		bundling=false;
 		String startStr=null;
 		int duration=4;
-		if(str.equalsIgnoreCase("list"))
+		if(str.equalsIgnoreCase("list") && (autoGenerate <= 0))
 		{
 			String mask=CMParms.combine(commands,1);
 			boolean allFlag=false;
@@ -347,9 +359,9 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 				CMLib.lister().fixColWidth(10,mob.session())
 			};
 			for(int r=0;r<toggleTop;r++)
-				buf.append((r>0?" ":"")+CMStrings.padRight(L("Item"),cols[0])+" "+CMStrings.padRight(L("Lvl"),cols[1])+" "+CMStrings.padRight(L("Material"),cols[2]));
-			buf.append("\n\r");
-			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipeNames(recipes, mask, true);
+				buf.append("^H"+(r>0?" ":"")+CMStrings.padRight(L("Item"),cols[0])+" "+CMStrings.padRight(L("Lvl"),cols[1])+" "+CMStrings.padRight(L("Material"),cols[2]));
+			buf.append("^N\n\r");
+			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipes(recipes, mask, true);
 			for(int r=0;r<listRecipes.size();r++)
 			{
 				final List<String> V=listRecipes.get(r);
@@ -358,15 +370,15 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 					final String item=replacePercent(V.get(RCP_FINALNAME),"");
 					final int level=CMath.s_int(V.get(RCP_LEVEL));
 					final String wood=getComponentDescription(mob,V,RCP_WOOD);
-					if(wood.length()>5)
-					{
-						if(toggler>1)
-							buf.append("\n\r");
-						toggler=toggleTop;
-					}
 					if((level<=xlevel(mob))||allFlag)
 					{
-						buf.append(CMStrings.padRight(item,cols[0])+" "+CMStrings.padRight(""+level,cols[1])+" "+CMStrings.padRightPreserve(""+wood,cols[2])+((toggler!=toggleTop)?" ":"\n\r"));
+						if(wood.length()>5)
+						{
+							if(toggler>1)
+								buf.append("\n\r");
+							toggler=toggleTop;
+						}
+						buf.append("^w"+CMStrings.padRight(item,cols[0])+" ^N"+CMStrings.padRight(""+level,cols[1])+" "+CMStrings.padRightPreserve(""+wood,cols[2])+((toggler!=toggleTop)?" ":"\n\r"));
 						if(++toggler>toggleTop)
 							toggler=1;
 					}
@@ -417,17 +429,17 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 				return false;
 			if((!CMParms.contains(pm, buildingI.material())))
 			{
-				commonTell(mob,L("That's not made of any sort of weavable material.  It can't be refitted."));
+				commonTelL(mob,"That's not made of any sort of weavable material.  It can't be refitted.");
 				return false;
 			}
 			if(!(buildingI instanceof Armor))
 			{
-				commonTell(mob,L("You don't know how to refit that sort of thing."));
+				commonTelL(mob,"You don't know how to refit that sort of thing.");
 				return false;
 			}
 			if(buildingI.phyStats().height()==0)
 			{
-				commonTell(mob,L("@x1 is already the right size.",buildingI.name(mob)));
+				commonTelL(mob,"@x1 is already the right size.",buildingI.name(mob));
 				return false;
 			}
 			activity = CraftingActivity.REFITTING;
@@ -446,7 +458,7 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 				label=commands.remove(0);
 				if((label.length()>7) || (label.indexOf(' ')>=0))
 				{
-					commonTell(mob,L("That's too much label."));
+					commonTelL(mob,"That's too much label.");
 					return false;
 				}
 			}
@@ -463,7 +475,9 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 			}
 			final String recipeName=CMParms.combine(commands,0);
 			List<String> foundRecipe=null;
-			final List<List<String>> matches=matchingRecipeNames(recipes,recipeName,true);
+			final List<List<String>> matches=matchingRecipes(recipes,recipeName,false);
+			if(matches.size()==0)
+				matches.addAll(matchingRecipes(recipes,recipeName,true));
 			for(int r=0;r<matches.size();r++)
 			{
 				final List<String> V=matches.get(r);
@@ -480,7 +494,7 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 			}
 			if(foundRecipe==null)
 			{
-				commonTell(mob,L("You don't know how to weave a '@x1'.  Try \"weave list\" for a list.",recipeName));
+				commonTelL(mob,"You don't know how to weave a '@x1'.  Try \"weave list\" for a list.",recipeName);
 				return false;
 			}
 
@@ -512,19 +526,19 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 				return false;
 			final MaterialLibrary.DeadResourceRecord deadMats;
 			if((componentsFoundList.size() > 0)||(autoGenerate>0))
-				deadMats = new MaterialLibrary.DeadResourceRecord();
+				deadMats = deadRecord;
 			else
 			{
 				deadMats = CMLib.materials().destroyResources(mob.location(),woodRequired,
 						data[0][FOUND_CODE],data[0][FOUND_SUB],data[1][FOUND_CODE],data[1][FOUND_SUB]);
 			}
 			final MaterialLibrary.DeadResourceRecord deadComps = CMLib.ableComponents().destroyAbilityComponents(componentsFoundList);
-			final int lostValue=autoGenerate>0?0:(deadMats.lostValue + deadComps.lostValue);
+			final int lostValue=autoGenerate>0?0:(deadMats.getLostValue() + deadComps.getLostValue());
 			buildingI=CMClass.getItem(foundRecipe.get(RCP_CLASSTYPE));
 			final Item buildingI=this.buildingI;
 			if(buildingI==null)
 			{
-				commonTell(mob,L("There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE)));
+				commonTelL(mob,"There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE));
 				return false;
 			}
 			duration=getDuration(CMath.s_int(foundRecipe.get(RCP_TICKS)),mob,CMath.s_int(foundRecipe.get(RCP_LEVEL)),4);
@@ -536,7 +550,7 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 			else
 				itemName=determineFinalName(foundRecipe.get(RCP_FINALNAME),buildingI.material(),deadMats,deadComps);
 			if(bundling)
-				itemName="a "+woodRequired+"# "+itemName;
+				itemName=CMLib.english().startWithAorAn(woodRequired+"# "+itemName);
 			else
 			if(itemName.endsWith("s"))
 				itemName="some "+itemName;
@@ -560,7 +574,7 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 				buildingI.setBaseValue(lostValue);
 				buildingI.basePhyStats().setWeight(woodRequired);
 			}
-			addSpells(buildingI,spell,deadMats.lostProps,deadComps.lostProps);
+			addSpellsOrBehaviors(buildingI,spell,deadMats.getLostProps(),deadComps.getLostProps());
 			if(buildingI instanceof Weapon)
 			{
 				((Weapon)buildingI).setWeaponClassification(Weapon.CLASS_FLAILED);
@@ -589,20 +603,21 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 			else
 			if(buildingI instanceof Container)
 			{
+				final String[] allTypes=CMParms.parseAny(misctype, "|", true).toArray(new String[0]);
 				if(capacity>0)
 				{
 					((Container)buildingI).setCapacity(capacity+woodRequired);
 					((Container)buildingI).setContainTypes(canContain);
 				}
-				if(misctype.equalsIgnoreCase("LID"))
+				if(CMParms.contains(allTypes, "LID"))
 					((Container)buildingI).setDoorsNLocks(true,false,true,false,false,false);
 				else
-				if(misctype.equalsIgnoreCase("LOCK"))
+				if(CMParms.contains(allTypes, "LOCK"))
 				{
 					((Container)buildingI).setDoorsNLocks(true,false,true,true,false,true);
 					((Container)buildingI).setKeyName(Double.toString(Math.random()));
-					key=CMClass.getItem("GenKey");
-					((DoorKey)key).setKey(((Container)buildingI).keyName());
+					key=(DoorKey)CMClass.getItem("GenKey");
+					key.setKey(((Container)buildingI).keyName());
 					key.setName(L("a key"));
 					key.setDisplayText(L("a small key sits here"));
 					key.setDescription(L("looks like a key to @x1",buildingI.name()));
@@ -633,9 +648,7 @@ public class Weaving extends EnhancedCraftingSkill implements ItemCraftor, Mendi
 
 		if(autoGenerate>0)
 		{
-			if(key!=null)
-				crafted.add(key);
-			crafted.add(buildingI);
+			crafted.add(new CraftedItem(buildingI,key,duration));
 			return true;
 		}
 

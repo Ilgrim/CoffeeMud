@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class Prop_HaveZapper extends Property implements TriggeredAffect
+public class Prop_HaveZapper extends Property implements TriggeredAffect, Deity.DeityWorshipper
 {
 	@Override
 	public String ID()
@@ -53,12 +53,52 @@ public class Prop_HaveZapper extends Property implements TriggeredAffect
 		return Ability.CAN_ITEMS;
 	}
 
-	protected boolean	actual	= false;
-	protected boolean	contents= false;
-	protected int		percent	= 100;
-	protected String	msgStr	= "";
+	protected final static String[] lawAmbi=new String[] {"#LAW"};
+	protected final static String[] chaosAmbi=new String[] {"#CHAOS"};
+
+	protected boolean	actual		= false;
+	protected boolean	contents	= false;
+	protected int		percent		= 100;
+	protected String	msgStr		= "";
+	protected String	deityName	= "";
+	protected int		bonus		= 0;
+	protected String[]	bonusAmbi	= null;
+	protected String[]	event		= new String[0];
 
 	protected MaskingLibrary.CompiledZMask mask=null;
+	protected String maskStr = "";
+
+	@Override
+	public String getWorshipCharID()
+	{
+		if(mask==null)
+			return "";
+		return deityName;
+	}
+
+	@Override
+	public void setWorshipCharID(final String newVal)
+	{
+	}
+
+	@Override
+	public void setDeityName(final String newDeityName)
+	{
+	}
+
+	@Override
+	public String deityName()
+	{
+		return getWorshipCharID();
+	}
+
+	@Override
+	public Deity getMyDeity()
+	{
+		if (getWorshipCharID().length() == 0)
+			return null;
+		return CMLib.map().getDeity(getWorshipCharID());
+	}
 
 	protected String defaultMessage()
 	{
@@ -118,14 +158,125 @@ public class Prop_HaveZapper extends Property implements TriggeredAffect
 			}
 			percent=tot;
 		}
+		deityName="";
 		msgStr=CMParms.getParmStr(text,"MESSAGE",defaultMessage());
-		mask=CMLib.masking().getPreCompiledMask(text);
+		event=new String[0];
+		final String eventStr=CMParms.getParmStr(text,"EVENT","");
+		if(eventStr.trim().length()>0)
+		{
+			event = CMParms.parseCommas(eventStr, true).toArray(event);
+			if(event.length>0)
+				event[0] = event[0].toUpperCase().trim();
+		}
+		mask=null;
+		bonus=0;
+		bonusAmbi=null;
+		maskStr = "";
+		if(msgStr.trim().length()>0)
+		{
+			maskStr = CMLib.masking().separateZapperMask(text);
+			mask=CMLib.masking().getPreCompiledMask(maskStr);
+		}
+		if(mask != null)
+		{
+			MaskingLibrary.ZapperKey key=MaskingLibrary.ZapperKey._DEITY;
+			for(final CompiledZMaskEntry[] entries : mask.entries())
+			{
+				for(final CompiledZMaskEntry entry : entries)
+				{
+					switch(entry.maskType())
+					{
+					case _OR:
+						key=(key==MaskingLibrary.ZapperKey._DEITY)?MaskingLibrary.ZapperKey.DEITY:MaskingLibrary.ZapperKey._DEITY;
+						break;
+					case _DEITY:
+					case DEITY:
+						if(entry.maskType()==key)
+						{
+							for(final Object o : entry.parms())
+							{
+								if((o instanceof String)
+								&&(!"ANY".equalsIgnoreCase((String)o)))
+									deityName=(String)o;
+							}
+						}
+						break;
+					case FACTION:
+					case _FACTION:
+						if((entry.maskType()==MaskingLibrary.ZapperKey._FACTION)
+						||((entry.maskType()==MaskingLibrary.ZapperKey.FACTION)
+							&&(key==MaskingLibrary.ZapperKey.DEITY)))
+						{
+							if(CMParms.contains(entry.parms(),"EVIL"))
+								bonus=PhyStats.IS_EVIL;
+							else
+							if(CMParms.contains(entry.parms(),"GOOD"))
+								bonus=PhyStats.IS_GOOD;
+							if(CMParms.contains(entry.parms(),"LAW"))
+								bonusAmbi=lawAmbi;
+							else
+							if(CMParms.contains(entry.parms(),"CHAOS"))
+								bonusAmbi=chaosAmbi;
+						}
+						else
+						if((entry.maskType()==MaskingLibrary.ZapperKey.FACTION)
+						||((entry.maskType()==MaskingLibrary.ZapperKey._FACTION)
+							&&(key==MaskingLibrary.ZapperKey.DEITY)))
+						{
+							if(CMParms.contains(entry.parms(),"EVIL"))
+								bonus=PhyStats.IS_GOOD;
+							else
+							if(CMParms.contains(entry.parms(),"GOOD"))
+								bonus=PhyStats.IS_EVIL;
+							if(CMParms.contains(entry.parms(),"LAW"))
+								bonusAmbi=chaosAmbi;
+							else
+							if(CMParms.contains(entry.parms(),"CHAOS"))
+								bonusAmbi=lawAmbi;
+						}
+						break;
+					default:
+						break;
+					}
+				}
+			}
+		}
 	}
 
 	@Override
 	public String accountForYourself()
 	{
-		return "Ownership restricted as follows: "+CMLib.masking().maskDesc(text());
+		return "Ownership restricted as follows: "+CMLib.masking().maskDesc(maskStr);
+	}
+
+	@Override
+	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
+	{
+		super.affectPhyStats(affected,affectableStats);
+		if(bonus != 0)
+			affectableStats.setDisposition(affectableStats.disposition()|bonus);
+		if(bonusAmbi != null)
+		{
+			for(final String str : bonusAmbi)
+				affectableStats.addAmbiance(str);
+		}
+	}
+
+	protected boolean executeEvent(final CMMsg msg)
+	{
+		if((this.event==null)||(this.event.length==0)||("ZAP".startsWith(event[0])))
+			return false; // normal zap (cancel message)
+		if("ACCUSE".startsWith(event[0]))
+		{
+			final LegalBehavior B =CMLib.law().getLegalBehavior(msg.source().location());
+			final Area A = CMLib.law().getLegalObject(msg.source().location());
+			if((A!=null)&&(B!=null))
+			{
+				B.accuse(A, msg.source(), null, Arrays.copyOfRange(event, 1, event.length));
+				return true;
+			}
+		}
+		return false; // normal zap (cancel message)
 	}
 
 	@Override
@@ -138,7 +289,8 @@ public class Prop_HaveZapper extends Property implements TriggeredAffect
 		if(mob.location()==null)
 			return true;
 
-		if(msg.amITarget(affected))
+		if(msg.amITarget(affected)
+		||((msg.tool()==affected)&&(msg.target() instanceof Container)))
 		{
 			switch(msg.targetMinor())
 			{
@@ -151,11 +303,11 @@ public class Prop_HaveZapper extends Property implements TriggeredAffect
 			case CMMsg.TYP_GET:
 				if((!CMLib.masking().maskCheck(mask,mob,actual))
 				&&(CMLib.dice().rollPercentage()<=percent)
-				&&((!(affected instanceof Container)||(!(msg.tool() instanceof Item))))
+				&&((!(affected instanceof Container))||(!(msg.tool() instanceof Item)))
 				)
 				{
 					mob.location().show(mob,null,affected,CMMsg.MSG_OK_ACTION,msgStr);
-					return false;
+					return executeEvent(msg);
 				}
 				break;
 			case CMMsg.TYP_EAT:
@@ -164,7 +316,7 @@ public class Prop_HaveZapper extends Property implements TriggeredAffect
 				&&(CMLib.dice().rollPercentage()<=percent))
 				{
 					mob.location().show(mob,null,affected,CMMsg.MSG_OK_ACTION,msgStr);
-					return false;
+					return executeEvent(msg);
 				}
 				break;
 			default:
@@ -187,58 +339,67 @@ public class Prop_HaveZapper extends Property implements TriggeredAffect
 			&&(mask.entries()!=null)
 			&&(mask.entries().length>0))
 			{
-				for(final CompiledZMaskEntry entry : this.mask.entries())
+				for(final CompiledZMaskEntry[] entries : this.mask.entries())
 				{
-					switch(entry.maskType())
+					for(final CompiledZMaskEntry entry : entries)
 					{
-					case _PLAYER:
-					case _NPC:
-						level -=5;
-						break;
-					case _ALIGNMENT:
-						level -= (9-entry.parms().length);
-						break;
-					case ALIGNMENT:
-						level -= entry.parms().length;
-						break;
-					case _RACECAT:
-					case _RACE:
-						level -=9;
-						break;
-					case RACECAT:
-					case RACE:
-						level -= entry.parms().length;
-						break;
-					case _BASECLASS:
-						level -= (9-entry.parms().length);
-						break;
-					case BASECLASS:
-						level -= entry.parms().length;
-						break;
-					case _ANYCLASS:
-					case _ANYCLASSLEVEL:
-					case _CLASS:
-						level -= 9;
-						break;
-					case ANYCLASS:
-					case ANYCLASSLEVEL:
-					case CLASS:
-						level -= entry.parms().length;
-						break;
-					case _GENDER:
-						level -= (9-(entry.parms().length*3));
-						break;
-					case GENDER:
-						level -= (entry.parms().length*3);
-						break;
-					case TATTOO:
-					case _TATTOO:
-					case _FACTION:
-					case FACTION:
-						level -= 9;
-						break;
-					default:
-						break;
+						int lvlAdj = 0;
+						switch(entry.maskType())
+						{
+						case _PLAYER:
+						case _NPC:
+							lvlAdj -=5;
+							break;
+						case _ALIGNMENT:
+							lvlAdj -= (9-entry.parms().length);
+							break;
+						case ALIGNMENT:
+							lvlAdj -= entry.parms().length;
+							break;
+						case _RACECAT:
+						case _RACE:
+							lvlAdj -=9;
+							break;
+						case RACECAT:
+						case RACE:
+							lvlAdj -= entry.parms().length;
+							break;
+						case _BASECLASS:
+							lvlAdj -= (9-entry.parms().length);
+							break;
+						case BASECLASS:
+							lvlAdj -= entry.parms().length;
+							break;
+						case _ANYCLASS:
+						case _ANYCLASSLEVEL:
+						case _CLASS:
+						case _CLANLEVEL:
+							lvlAdj -= 9;
+							break;
+						case ANYCLASS:
+						case ANYCLASSLEVEL:
+						case CLANLEVEL:
+						case CLASS:
+							lvlAdj -= entry.parms().length;
+							break;
+						case _GENDER:
+							lvlAdj -= (9-(entry.parms().length*3));
+							break;
+						case GENDER:
+							lvlAdj -= (entry.parms().length*3);
+							break;
+						case TATTOO:
+						case _TATTOO:
+						case _FACTION:
+						case FACTION:
+							lvlAdj -= 9;
+							break;
+						default:
+							break;
+						}
+						if(lvlAdj<-9)
+							lvlAdj=-9;
+						level += lvlAdj;
 					}
 				}
 			}
@@ -270,6 +431,33 @@ public class Prop_HaveZapper extends Property implements TriggeredAffect
 			if((code.equalsIgnoreCase("TONEDOWN-ARMOR"))
 			||(code.equalsIgnoreCase("TONEDOWN-WEAPON"))
 			||(code.equalsIgnoreCase("TONEDOWN-MISC")))
+			{
+				/*
+				final double pct=CMath.s_pct(val);
+				final String s=text();
+				int plusminus=s.indexOf('+');
+				int minus=s.indexOf('-');
+				if((minus>=0)&&((plusminus<0)||(minus<plusminus)))
+					plusminus=minus;
+				while(plusminus>=0)
+				{
+					minus=s.indexOf('-',plusminus+1);
+					plusminus=s.indexOf('+',plusminus+1);
+					if((minus>=0)&&((plusminus<0)||(minus<plusminus)))
+						plusminus=minus;
+				}
+				setMiscText(s);
+				*/
+			}
+			else
+			if(code.equalsIgnoreCase("TONEUP"))
+			{
+				setStat("TONEUP-MISC",val);
+			}
+			else
+			if((code.equalsIgnoreCase("TONEUP-ARMOR"))
+			||(code.equalsIgnoreCase("TONEUP-WEAPON"))
+			||(code.equalsIgnoreCase("TONEUP-MISC")))
 			{
 				/*
 				final double pct=CMath.s_pct(val);

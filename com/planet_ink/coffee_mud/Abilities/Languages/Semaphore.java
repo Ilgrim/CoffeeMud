@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -49,6 +49,12 @@ public class Semaphore extends StdLanguage
 	}
 
 	@Override
+	public String getTranslationVerb()
+	{
+		return "motion(s)";
+	}
+
+	@Override
 	public String translate(final String language, final String word)
 	{
 		return fixCase(word,"flag");
@@ -70,10 +76,20 @@ public class Semaphore extends StdLanguage
 				return false;
 			if((msg.tool()==this)&&(R!=null))
 			{
-				if((R.getArea() instanceof BoardableShip)
+				final int mask=(Integer.MAX_VALUE-CMMsg.MASK_SOUND)-CMMsg.MASK_MOUTH;
+				msg.modify(msg.source(),
+						   msg.target(),
+						   msg.tool(),
+						   msg.sourceCode() & mask,
+						   msg.sourceMessage(),
+						   msg.targetCode() & mask,
+						   msg.targetMessage(),
+						   msg.othersCode() & mask,
+						   msg.othersMessage());
+				if((R.getArea() instanceof Boardable)
 				&&((R.domainType()&Room.INDOORS)==0))
 				{
-					final Room room=CMLib.map().roomLocation(((BoardableShip)R.getArea()).getShipItem());
+					final Room room=CMLib.map().roomLocation(((Boardable)R.getArea()).getBoardableItem());
 					if(room != null)
 					{
 						final CMMsg outerMsg=(CMMsg)msg.copyOf();
@@ -242,7 +258,8 @@ public class Semaphore extends StdLanguage
 				otherMes=otherMes.replace('.', ' ')+'\''+sourceWords+'\'';
 			if(msg.target()!=null)
 				otherMes=CMLib.coffeeFilter().fullOutFilter(null,(MOB)affected,msg.source(),msg.target(),msg.tool(),otherMes,false);
-			msg.addTrailerMsg(CMClass.getMsg(msg.source(),affected,null,CMMsg.NO_EFFECT,null,msg.othersCode(),L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(otherMes,sourceWords),name()),CMMsg.NO_EFFECT,null));
+			msg.addTrailerMsg(CMClass.getMsg(msg.source(),affected,null,CMMsg.NO_EFFECT,null,msg.othersCode(),
+					L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(otherMes,sourceWords),name()),CMMsg.NO_EFFECT,null));
 			return true;
 		}
 		return false;
@@ -269,11 +286,16 @@ public class Semaphore extends StdLanguage
 	{
 		if(CMath.bset(msg.sourceMajor(),CMMsg.MASK_CHANNEL)&&(msg.othersMessage()!=null))
 		{
-			String otherMes=msg.othersMessage();
-			if((otherMes.lastIndexOf('\'')==otherMes.indexOf('\'')))
-				otherMes=otherMes.replace('.', ' ')+'\''+sourceWords+'\'';
-			msg.addTrailerMsg(CMClass.getMsg(msg.source(),null,null,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,msg.othersCode(),L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(otherMes,sourceWords),name())));
-			return true;
+			final ChannelsLibrary.CMChannel C = CMLib.channels().getChannelFromMsg(msg);
+			if((C==null)||(!C.flags().contains(ChannelsLibrary.ChannelFlag.NOLANGUAGE)))
+			{
+				String otherMes=msg.othersMessage();
+				if((otherMes.lastIndexOf('\'')==otherMes.indexOf('\'')))
+					otherMes=otherMes.replace('.', ' ')+'\''+sourceWords+'\'';
+				msg.addTrailerMsg(CMClass.getMsg(msg.source(),null,null,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,msg.othersCode(),
+						L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(otherMes,sourceWords),name())));
+				return true;
+			}
 		}
 		return false;
 	}
@@ -287,8 +309,8 @@ public class Semaphore extends StdLanguage
 			final MOB mob=(MOB)affected;
 			final Room R=mob.location();
 			if((R!=null)
-			&&(R.getArea() instanceof BoardableShip)
-			||((mob.riding()!=null)&&(mob.riding().rideBasis()==Rideable.RIDEABLE_WATER)))
+			&&(R.getArea() instanceof Boardable)
+			||((mob.riding()!=null)&&(mob.riding().rideBasis()==Rideable.Basis.WATER_BASED)))
 			{
 				// fine.
 			}
@@ -312,7 +334,7 @@ public class Semaphore extends StdLanguage
 			for(final Enumeration<Ability> a=mob.effects();a.hasMoreElements();)
 			{
 				final Ability A=a.nextElement();
-				if((A!=null)&&(A instanceof Language))
+				if((A instanceof Language))
 				{
 					if(A.ID().equals(ID()))
 						isCurrentlySpeaking = ((Language)A).beingSpoken(ID());
@@ -322,8 +344,8 @@ public class Semaphore extends StdLanguage
 			{
 				final Room R=mob.location();
 				if((R!=null)
-				&&(R.getArea() instanceof BoardableShip)
-				||((mob.riding()!=null)&&(mob.riding().rideBasis()==Rideable.RIDEABLE_WATER)))
+				&&(R.getArea() instanceof Boardable)
+				||((mob.riding()!=null)&&(mob.riding().rideBasis()==Rideable.Basis.WATER_BASED)))
 				{
 					// fine.
 				}

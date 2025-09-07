@@ -2,7 +2,8 @@ package com.planet_ink.coffee_mud.Abilities.Druid;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
-import com.planet_ink.coffee_mud.Abilities.PlanarAbility;
+import com.planet_ink.coffee_mud.Abilities.StdPlanarAbility;
+import com.planet_ink.coffee_mud.Abilities.interfaces.PlanarAbility.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -21,7 +22,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -35,7 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class Chant_PlaneWalking extends PlanarAbility
+public class Chant_PlaneWalking extends StdPlanarAbility
 {
 	@Override
 	public String ID()
@@ -60,13 +61,13 @@ public class Chant_PlaneWalking extends PlanarAbility
 	@Override
 	public int classificationCode()
 	{
-		return Ability.ACODE_CHANT | Ability.DOMAIN_CONJURATION;
+		return Ability.ACODE_CHANT | Ability.DOMAIN_COSMOLOGY;
 	}
 
 	@Override
 	public long flags()
 	{
-		return 0;
+		return FLAG_TRANSPORTING;
 	}
 
 	@Override

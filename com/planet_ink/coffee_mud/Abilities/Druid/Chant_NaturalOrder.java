@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -111,8 +111,11 @@ public class Chant_NaturalOrder extends Chant
 
 		if((msg.amISource(mob))
 		&&(msg.tool()!=this)
+		&&(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_ALWAYS)) // prevents endless loops
 		&&(!CMath.bset(msg.sourceMajor(),CMMsg.MASK_CHANNEL))
-		&&((CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOVE))||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_HANDS))||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOUTH))))
+		&&((CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOVE))
+			||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_HANDS))
+			||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOUTH)&&CMath.bset(msg.sourceMajor(),CMMsg.MASK_SOUND))))
 			unInvoke();
 		return;
 	}
@@ -157,9 +160,9 @@ public class Chant_NaturalOrder extends Chant
 			if(CMLib.factions().getInclinationPurity(myInclination,Faction.Align.MODERATE)<99)
 			{
 				if(CMLib.factions().getInclinationPurity(myInclination,Faction.Align.CHAOTIC)<CMLib.factions().getInclinationPurity(myInclination,Faction.Align.LAWFUL))
-					CMLib.factions().postFactionChange(mob,this, CMLib.factions().getInclinationID(), oneHalfPct);
+					CMLib.factions().postSkillFactionChange(mob,this, CMLib.factions().getInclinationID(), oneHalfPct);
 				else
-					CMLib.factions().postFactionChange(mob,this, CMLib.factions().getInclinationID(), -oneHalfPct);
+					CMLib.factions().postSkillFactionChange(mob,this, CMLib.factions().getInclinationID(), -oneHalfPct);
 				switch(CMLib.dice().roll(1,10,0))
 				{
 				case 0:
@@ -216,8 +219,7 @@ public class Chant_NaturalOrder extends Chant
 			mob.tell(L("You must be outdoors for this chant to work."));
 			return false;
 		}
-		if((mob.location().domainType()==Room.DOMAIN_OUTDOORS_CITY)
-		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT))
+		if(CMLib.flags().isACityRoom(mob.location()))
 		{
 			mob.tell(L("This magic will not work here."));
 			return false;
@@ -228,7 +230,7 @@ public class Chant_NaturalOrder extends Chant
 		if(success)
 		{
 			invoker=mob;
-			final CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),L("^S<S-NAME> begin(s) to commune with the natural order...^?"));
+			final CMMsg msg=CMClass.getMsg(mob,null,this,somaticCastCode(mob,null,auto),L("^S<S-NAME> begin(s) to commune with the natural order...^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

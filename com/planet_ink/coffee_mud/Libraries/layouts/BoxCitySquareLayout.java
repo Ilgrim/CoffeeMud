@@ -1,15 +1,13 @@
 package com.planet_ink.coffee_mud.Libraries.layouts;
 
-import java.util.Enumeration;
-import java.util.Iterator;
-import java.util.Vector;
+import java.util.*;
 
 import com.planet_ink.coffee_mud.core.Directions;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.LayoutNode;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.LayoutTypes;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +41,7 @@ public class BoxCitySquareLayout extends BoxCityLayout
 			center = new DefaultLayoutNode(x,y);
 			lSet.use(center,LayoutTypes.square);
 		}
-		final Vector<long[]> square = new Vector<long[]>();
+		final List<long[]> square = new ArrayList<long[]>();
 		square.add(new long[]{x-1,y-1});
 		square.add(new long[]{x,y-1});
 		square.add(new long[]{x+1,y-1});

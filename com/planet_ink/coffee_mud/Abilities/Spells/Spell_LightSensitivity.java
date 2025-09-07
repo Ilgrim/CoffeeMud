@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,6 +59,8 @@ public class Spell_LightSensitivity extends Spell
 			return localizedStaticDisplay;
 		return "";
 	}
+
+	protected final static String cancelID="Spell_DarkSensitivity";
 
 	@Override
 	public int abstractQuality()
@@ -114,7 +116,9 @@ public class Spell_LightSensitivity extends Spell
 			switch(msg.sourceMinor())
 			{
 			case CMMsg.TYP_EXAMINE:
-				if(isLightBlind(msg.source()) && (!(msg.target() instanceof Room)))
+				if(isLightBlind(msg.source())
+				&& (!(msg.target() instanceof Room))
+				&&(msg.source().fetchEffect(cancelID)==null))
 				{
 					msg.source().tell(L("You can't seem to make it out that well in this bright light."));
 					return false;
@@ -132,7 +136,8 @@ public class Spell_LightSensitivity extends Spell
 				if((msg.target()!=null)
 				&&(msg.target()!=msg.source())
 				&&(!(msg.target() instanceof Room))
-				&&(isLightBlind(msg.source())))
+				&&(isLightBlind(msg.source()))
+				&&(msg.source().fetchEffect(cancelID)==null))
 				{
 					if(CMLib.dice().rollPercentage()>50)
 					{
@@ -212,6 +217,13 @@ public class Spell_LightSensitivity extends Spell
 						mob.location().show(target,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> become(s) extremely sensitive to light."));
 					else
 						mob.location().show(target,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> become(s) sensitive to the light."));
+					final Ability cancelA=target.fetchEffect(cancelID);
+					if(cancelA!=null)
+					{
+						cancelA.unInvoke();
+						if(target.fetchEffect(cancelA.ID())==null)
+							return true;
+					}
 					if(castingQuality(mob,target)==Ability.QUALITY_MALICIOUS)
 						success=maliciousAffect(mob,target,asLevel,0,-1)!=null;
 					else

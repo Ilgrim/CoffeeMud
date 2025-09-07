@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@ public class Spell_TeleportObject extends Spell
 		}
 		if(target.amWearingAt(Wearable.IN_INVENTORY))
 		{
-			mob.tell(L("You seem to be wearing or holding the item '@x1'.",objectName));
+			mob.tell(L("You don't seem to be wearing or holding the item '@x1'.",objectName));
 			return false;
 		}
 		String searchWhat=null;
@@ -128,7 +128,7 @@ public class Spell_TeleportObject extends Spell
 		if(searchWhat==null)
 			searchWhat="ERIPM";
 		final String destinationString=CMParms.combine(commands,1).trim().toUpperCase();
-		final List<Room> candidates=CMLib.map().findWorldRoomsLiberally(mob,destinationString,searchWhat,10,600000);
+		final List<Room> candidates=CMLib.hunt().findWorldRoomsLiberally(mob,destinationString,searchWhat,10,600000);
 		if(candidates.size()==0)
 		{
 			mob.tell(L("You don't know of a place called '@x1'.",destinationString.toLowerCase()));
@@ -171,7 +171,7 @@ public class Spell_TeleportObject extends Spell
 
 		boolean success=proficiencyCheck(mob,0,auto);
 
-		final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),L("^S<S-NAME> invoke(s) a teleportation spell upon <T-NAME>.^?"));
+		final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),L("^S<S-NAME> invoke(s) a teleportation spell upon <T-NAME>.^?"));
 		if(oldRoom.okMessage(mob,msg))
 		{
 			oldRoom.send(mob,msg);

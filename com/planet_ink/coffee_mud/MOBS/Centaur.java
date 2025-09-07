@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class Centaur extends StdMOB
 		super();
 		final Random randomizer = new Random(System.currentTimeMillis());
 
-		username="a centaur";
+		_name="a centaur";
 		setDescription("A creature whose upper body is that of a man, and lower body that of a horse.");
 		setDisplayText("A centaur gallops around...");
 		CMLib.factions().setAlignment(this,Faction.Align.GOOD);
@@ -59,7 +59,7 @@ public class Centaur extends StdMOB
 
 		basePhyStats().setDamage(7);
 		basePhyStats().setSpeed(2.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(4);
 		basePhyStats().setArmor(80);
 

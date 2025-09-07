@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -94,23 +94,23 @@ public class Goto extends At
 				room=CMLib.map().findArea(cmd.toString()).getRandomProperRoom();
 			else
 			if(cmd.toString().toUpperCase().startsWith("AREA "))
-				room=CMLib.map().findAreaRoomLiberally(mob,curRoom.getArea(),CMParms.combine(commands,1),"RIPM",100);
+				room=CMLib.hunt().findAreaRoomLiberally(mob,curRoom.getArea(),CMParms.combine(commands,1),"RIPM",100);
 			else
-				room=CMLib.map().findWorldRoomLiberally(mob,cmd.toString(),"RIPMA",100,120000);
+				room=CMLib.hunt().findWorldRoomLiberally(mob,cmd.toString(),"RIPMA",100,120000);
 		}
 		if(room==null)
 		{
-			SpaceObject o = CMLib.map().findSpaceObject(cmd.toString(), true);
+			SpaceObject o = CMLib.space().findSpaceObject(cmd.toString(), true);
 			if(o == null)
-				o = CMLib.map().findSpaceObject(cmd.toString(), false);
+				o = CMLib.space().findSpaceObject(cmd.toString(), false);
 			if(o instanceof Area)
 			{
 				room=((Area)o).getRandomProperRoom();
 			}
 			else
-			if(o instanceof BoardableShip)
+			if(o instanceof Boardable)
 			{
-				final Area A=((BoardableShip)o).getShipArea();
+				final Area A=((Boardable)o).getArea();
 				room=A.getRandomProperRoom();
 			}
 		}

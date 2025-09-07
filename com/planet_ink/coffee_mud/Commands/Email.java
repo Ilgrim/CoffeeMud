@@ -9,6 +9,7 @@ import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.PlayerAccount.AccountFlag;
+import com.planet_ink.coffee_mud.Common.interfaces.Session.SessionPing;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.DatabaseEngine;
@@ -21,7 +22,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -304,6 +305,8 @@ public class Email extends StdCommand
 		}
 		pstats.setEmail(newEmail);
 		CMLib.database().DBUpdateEmail(mob);
+		if (pstats.getAccount() != null)
+			CMLib.database().DBUpdateAccount(pstats.getAccount());
 		if((commands!=null)
 		&&(CMProps.getVar(CMProps.Str.EMAILREQ).toUpperCase().startsWith("PASS"))
 		&&(CMProps.getVar(CMProps.Str.MAILBOX).length()>0))
@@ -315,12 +318,12 @@ public class Email extends StdCommand
 					  mob.Name(),
 					  mob.Name(),
 					  "Password for "+mob.Name(),
-					  "Your new password for "+mob.Name()+" is: "+password+"\n\rYou can login by pointing your mud client at "+CMProps.getVar(CMProps.Str.MUDDOMAIN)+" port(s):"+CMProps.getVar(CMProps.Str.MUDPORTS)+".\n\rYou may use the PASSWORD command to change it once you are online.");
+					  "Your new password for "+mob.Name()+" is: "+password+"\n\rYou can login by pointing your mud client at "+CMProps.getVar(CMProps.Str.MUDDOMAIN)+" port(s):"+CMProps.getVar(CMProps.Str.ALLMUDPORTS)+".\n\rYou may use the PASSWORD command to change it once you are online.");
 			mob.tell(L("You will receive an email with your new password shortly.  Goodbye."));
 			if(mob.session()!=null)
 			{
 				CMLib.s_sleep(1000);
-				mob.session().stopSession(false,false,false);
+				mob.session().stopSession(true,false,false, false);
 			}
 		}
 		return true;

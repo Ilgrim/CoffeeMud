@@ -3,25 +3,36 @@ import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.core.exceptions.CMException;
+import com.planet_ink.coffee_mud.core.exceptions.MQLException;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.PlanarAbility.PlanarVar;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.Session.InputCallback;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper;
+import com.planet_ink.coffee_mud.Libraries.interfaces.DatabaseEngine;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.Achievement;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AreaGenerationLibrary.UpdateSet;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AutoAwardsLibrary.AutoProperties;
+import com.planet_ink.coffee_mud.Libraries.interfaces.HelpLibrary.HelpSection;
+import com.planet_ink.coffee_mud.Libraries.interfaces.JournalsLibrary.MsgMkrCallback;
+import com.planet_ink.coffee_mud.Libraries.interfaces.JournalsLibrary.MsgMkrResolution;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -79,7 +90,9 @@ public class Modify extends StdCommand
 				final MOB M=srchRoom.fetchInhabitant(rest);
 				if(M==null)
 				{
-					final Item I = srchRoom.findItem(null, rest);
+					Item I = srchRoom.findItem(null, rest);
+					if(I == null)
+						I=mob.fetchItem(null, Wearable.FILTER_ANY, rest);
 					if(I instanceof Container)
 						srchContainer=I;
 					else
@@ -103,28 +116,34 @@ public class Modify extends StdCommand
 		if(commands.size()>4)
 			restStr=CMParms.combine(commands,4);
 
-		Item modItem=null;
+		Environmental modE=null;
 		if((srchMob!=null)&&(srchRoom!=null))
-			modItem=(Item)srchRoom.fetchFromMOBRoomFavorsItems(srchMob,srchContainer,itemID,Wearable.FILTER_ANY);
+		{
+			final Environmental E=srchRoom.fetchFromMOBRoomFavorsItems(srchMob,srchContainer,itemID,Wearable.FILTER_ANY);
+			if(E instanceof Item)
+				modE=E;
+			else
+				modE=srchRoom.findItem(srchContainer,itemID);
+		}
 		else
 		if(srchMob!=null)
-			modItem=srchMob.findItem(itemID);
+			modE=srchMob.findItem(itemID);
 		else
 		if(srchRoom!=null)
 		{
-			modItem=srchRoom.findItem(srchContainer, itemID);
-			if(modItem==null)
-				modItem=srchRoom.findItem(itemID);
+			modE=srchRoom.findItem(srchContainer, itemID);
+			if(modE==null)
+				modE=srchRoom.findItem(itemID);
 		}
-		if(modItem==null)
+		if(modE==null)
 		{
-			Environmental E=CMLib.map().findSpaceObject(itemID,true);
+			Environmental E=CMLib.space().findSpaceObject(itemID,true);
 			if(!(E instanceof Item))
-				E=CMLib.map().findSpaceObject(itemID,false);
+				E=CMLib.space().findSpaceObject(itemID,false);
 			if(E instanceof Item)
-				modItem=(Item)E;
+				modE=E;
 		}
-		if(modItem == null)
+		if(modE == null)
 		{
 			ShopKeeper SK=CMLib.coffeeShops().getShopKeeper(srchMob);
 			if(SK!=null)
@@ -132,9 +151,9 @@ public class Modify extends StdCommand
 				final CoffeeShop shop=(SK instanceof Librarian)?((Librarian)SK).getBaseLibrary():SK.getShop();
 				final Environmental E=shop.getStock(itemID,mob);
 				if(E instanceof Item)
-					modItem=(Item)E;
+					modE=E;
 			}
-			if(modItem == null)
+			if(modE == null)
 			{
 				SK=CMLib.coffeeShops().getShopKeeper(srchRoom);
 				if(SK!=null)
@@ -142,16 +161,17 @@ public class Modify extends StdCommand
 					final CoffeeShop shop=(SK instanceof Librarian)?((Librarian)SK).getBaseLibrary():SK.getShop();
 					final Environmental E=shop.getStock(itemID,mob);
 					if(E instanceof Item)
-						modItem=(Item)E;
+						modE=E;
 				}
 			}
 		}
-		if(modItem==null)
+		if((modE==null)||(!(modE instanceof Item)))
 		{
 			mob.tell(L("I don't see '@x1 here.\n\r",itemID));
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
 			return;
 		}
+		final Item modItem=(Item)modE;
 		mob.location().showOthers(mob,modItem,CMMsg.MSG_OK_ACTION,L("<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAMESELF>."));
 
 		final Item copyItem=(Item)modItem.copyOf();
@@ -210,6 +230,13 @@ public class Modify extends StdCommand
 			}
 		}
 		else
+		if(command.equals("SAVEABLE")
+		&&(CMath.isBool(restStr)))
+		{
+			CMLib.flags().setSavable(modItem, CMath.s_bool(restStr));
+			mob.location().show(mob,null,CMMsg.MSG_OK_ACTION,L("@x1 shake(s) under the transforming power.",modItem.name()));
+		}
+		else
 		if(command.equals("MISC"))
 		{
 			if(modItem.isGeneric())
@@ -222,6 +249,7 @@ public class Modify extends StdCommand
 		if(CMLib.coffeeMaker().isAnyGenStat(modItem, command))
 		{
 			CMLib.coffeeMaker().setAnyGenStat(modItem,command, restStr);
+			modItem.recoverPhyStats();
 			mob.location().show(mob,null,CMMsg.MSG_OK_ACTION,L("@x1 shake(s) under the transforming power.",modItem.name()));
 		}
 		else
@@ -246,6 +274,13 @@ public class Modify extends StdCommand
 				CMLib.database().DBUpdateItem("SPACE", modItem);
 			}
 		}
+		if((copyItem instanceof SpaceShip)
+		&&(((SpaceShip)copyItem).getArea().Name().equals(((SpaceShip)modItem).getArea().Name())))
+		{
+			copyItem.setName("DO NOT DE_REGISTER!!");
+			((SpaceShip)copyItem).getArea().setName("DO NOT DE_REGISTER!!");
+			((SpaceShip)copyItem).getArea().delBlurbFlag("REGISTRY");
+		}
 		copyItem.destroy();
 	}
 
@@ -263,10 +298,130 @@ public class Modify extends StdCommand
 		mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a powerful spell."));
 	}
 
+	protected void fixDeities(final Room R)
+	{
+		if(R==null)
+			return;
+		//OK! Keep this weirdness here!  It's necessary because oldRoom will have blown
+		//away any real deities with copy deities in the CMMap, and this will restore
+		//the real ones.
+		for(final Enumeration<MOB> m=R.inhabitants();m.hasMoreElements();)
+		{
+			final MOB M=m.nextElement();
+			if((M instanceof Deity)
+			&&(M.isMonster())
+			&&(M.isSavable())
+			&&(M.getStartRoom()==R))
+				CMLib.map().registerWorldObjectLoaded(R.getArea(), R, M);
+		}
+	}
+
+	public void autoawards(final MOB mob, final List<String> commands)
+	{
+		if(commands.size()<3)
+		{
+			mob.tell(L("You have failed to specify the proper fields.\n\rFormat: MODIFY AWARD [NUMBER].\n\r"));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return;
+		}
+		final String numStr=CMParms.combine(commands,2);
+		final int numTarget=CMath.s_int(numStr);
+		if(numTarget<=0)
+		{
+			mob.tell(L("@x1 is not a number.",numStr));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return;
+		}
+		int i=1;
+		AutoProperties autoProp = null;
+		for(final Enumeration<AutoProperties> e=CMLib.awards().getAutoProperties();e.hasMoreElements();)
+		{
+			final AutoProperties a = e.nextElement();
+			if(i==numTarget)
+			{
+				autoProp = a;
+				break;
+			}
+			i++;
+		}
+		if(autoProp==null)
+		{
+			mob.tell(L("@x1 is not a value number. Try LIST AWARD.",numStr));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return;
+		}
+		try
+		{
+			autoProp = CMLib.awards().modifyAutoProperty(mob, autoProp, -1);
+			if(autoProp == null)
+			{
+				mob.location().show(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+				return;
+			}
+			final StringBuilder line = new StringBuilder("");
+			line.append(autoProp.getPlayerMask()).append(" :: ");
+			line.append(autoProp.getDateMask()).append(" :: ");
+			for(final Pair<String,String> p : autoProp.getProps())
+			{
+				line.append(p.first.trim())
+				.append("(")
+				.append(CMStrings.replaceAll(p.second,")","\\)"))
+				.append(") ");
+			}
+			CMLib.awards().modifyAutoProperty(numTarget, line.toString());
+			mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The power of time just went sideways!"));
+		}
+		catch(final IOException ioe)
+		{
+		}
+	}
+
+	public void expertises(final MOB mob, final List<String> commands)
+	{
+		if((commands.size()<3)||(CMParms.combine(commands,1).indexOf('=')<0))
+		{
+			mob.tell(L("You have failed to specify the proper fields.\n\rFormat: MODIFY EXPERTISE [EXPERTISE ID]=[PARAMETERS] as follows: \n\r"));
+			final String inst=CMLib.expertises().getExpertiseInstructions();
+			if(mob.session()!=null)
+				mob.session().wraplessPrintln(inst.toString());
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return;
+		}
+		final String parms=CMParms.combineQuoted(commands,2);
+		final String skillID=parms.substring(0,parms.indexOf('='));
+		if(skillID.indexOf(' ')>=0)
+		{
+			mob.tell(L("Spaces are not allowed in expertise codes."));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return;
+		}
+		String WKID=CMStrings.replaceAll(skillID.toUpperCase(),"@X1","");
+		WKID=CMStrings.replaceAll(WKID,"@X2","").trim();
+		if(CMLib.expertises().numStages(WKID)<=0)
+		{
+			mob.tell(L("'@x1' does not exist, try LIST EXPERTISES.",WKID));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return;
+		}
+		final String error=CMLib.expertises().confirmExpertiseLine(parms,null,false);
+		if(error!=null)
+		{
+			mob.tell(error);
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return;
+		}
+		if(!CMLib.expertises().addModifyDefinition(parms, true))
+		{
+			mob.location().show(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return;
+		}
+		mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The power of skill usage just went sideways!"));
+	}
+
 	public void rooms(final MOB mob, final List<String> commands)
 		throws IOException
 	{
-		if(mob.location().roomID().equals(""))
+		if(mob.location().getGridParent() != null)
 		{
 			mob.tell(L("This command is invalid from within a GridLocaleChild room."));
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a powerful spell."));
@@ -285,6 +440,7 @@ public class Modify extends StdCommand
 			}
 			oldRoom.destroy();
 			newRoom.getArea().fillInAreaRoom(newRoom);
+			fixDeities(newRoom);
 			return;
 		}
 		if (commands.size() < 3)
@@ -335,7 +491,7 @@ public class Modify extends StdCommand
 							if(CMClass.getAreaType(areaType)==null)
 							{
 								mob.session().println(L("Invalid area type! Valid ones are:"));
-								mob.session().println(CMLib.lister().reallyList(mob,CMClass.areaTypes()).toString());
+								mob.session().println(CMLib.lister().build3ColTable(mob,CMClass.areaTypes()).toString());
 								areaType="";
 							}
 						}
@@ -372,7 +528,7 @@ public class Modify extends StdCommand
 			{
 				Room R=mob.location();
 				final String oldID=R.roomID();
-				synchronized(("SYNC"+R.roomID()).intern())
+				synchronized(CMClass.getSync("SYNC"+R.roomID()))
 				{
 					R=CMLib.map().getRoom(R);
 					final Room reference=CMLib.map().findConnectingRoom(R);
@@ -388,6 +544,57 @@ public class Modify extends StdCommand
 					}
 				}
 			}
+		}
+		else
+		if(command.equalsIgnoreCase("ID"))
+		{
+			if (commands.size() < 4)
+			{
+				flunkRoomCmd(mob);
+				return;
+			}
+			Room R=mob.location();
+			final Area A = R.getArea();
+			final String oldID=R.roomID();
+			String newID=restStr.trim();
+			if(CMath.isInteger(newID))
+				newID=A.Name()+"#"+newID;
+			else
+			if(newID.startsWith("#") && CMath.isInteger(newID.substring(1)))
+				newID=A.Name()+newID;
+			else
+			if(newID.toLowerCase().startsWith(A.Name().toLowerCase()+"#")
+			&&(CMath.isInteger(newID.substring(A.Name().length()+1))))
+				newID=A.Name()+"#"+newID.substring(A.Name().length()+1);
+			else
+			{
+				mob.tell(L("'@x1' must start with its area name.",newID));
+				mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a powerful spell."));
+				return;
+			}
+			if(CMLib.map().getRoom(newID)==R)
+			{
+				mob.tell(L("Uh, well done?"));
+				return;
+			}
+			if(CMLib.map().getRoom(newID)!=null)
+			{
+				mob.tell(L("'@x1' is already being used by another room.",newID));
+				mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a powerful spell."));
+				return;
+			}
+			synchronized(CMClass.getSync("SYNC"+R.roomID()))
+			{
+				R=CMLib.map().getRoom(R);
+				if(CMLib.map().getRoom(newID)==R)
+				{
+					mob.tell(L("Uh, well done?"));
+					return;
+				}
+				mob.location().setRoomID(newID);
+				CMLib.database().DBReCreate(R,oldID);
+			}
+			mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("There is something different about this place...\n\r"));
 		}
 		else
 		if(command.equalsIgnoreCase("NAME"))
@@ -475,7 +682,30 @@ public class Modify extends StdCommand
 		else
 		if(CMLib.coffeeMaker().isAnyGenStat(mob.location(), command))
 		{
+			final String roomID = mob.location().roomID();
+			final boolean roomIDChange=command.equalsIgnoreCase("roomID");
+			if(roomIDChange)
+			{
+				if(restStr.length()==0)
+				{
+					mob.tell(L("'@x1' is not a valid room id.",restStr));
+					return;
+				}
+				else
+				if((CMLib.map().getRoom(restStr) != null) && (CMLib.map().getRoom(restStr) != mob.location()))
+				{
+					mob.tell(L("'@x1' is not a valid room id: Already Exists.",restStr));
+					return;
+				}
+			}
 			CMLib.coffeeMaker().setAnyGenStat(mob.location(),command, restStr);
+			if(roomIDChange && (!roomID.equals(mob.location().roomID())))
+			{
+				if(mob.location().roomID().length()==0)
+					mob.location().setRoomID(roomID);
+				else
+					CMLib.database().DBReCreate(mob.location(),roomID);
+			}
 			mob.location().recoverPhyStats();
 			CMLib.database().DBUpdateRoom(mob.location());
 			mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The very nature of reality changes.\n\r"));
@@ -504,6 +734,7 @@ public class Modify extends StdCommand
 				}
 				oldRoom.destroy();
 				newRoom.getArea().fillInAreaRoom(newRoom);
+				fixDeities(newRoom);
 			}
 			return;
 		}
@@ -565,6 +796,121 @@ public class Modify extends StdCommand
 		CMLib.database().DBUpdateAccount(theAccount);
 	}
 
+	public void doMql(final MOB mob, final boolean areaFlag, final List<String> commands)
+		throws IOException
+	{
+		if(commands.size()<2)
+			mob.tell(L("This is not valid MQL."));
+		else
+		{
+			final StringBuilder lines = new StringBuilder("");
+			final String mql=CMParms.combineQuoted(commands,0);
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> wave(s) <S-HIS-HER> hands around."));
+			try
+			{
+				final List<UpdateSet> res=CMLib.percolator().doMQLUpdateObjects(areaFlag?(mob.location().getArea()):null, mql);
+				if(res.size()==0)
+					lines.append("(nothing to do)");
+				else
+				{
+					lines.append("Update preview:\n\r");
+					for(final UpdateSet o : res)
+					{
+						if(o.first instanceof Environmental)
+							lines.append(o.first.name()+" ("+o.first.ID()+") @"+CMLib.map().getApproximateExtendedRoomID(CMLib.map().roomLocation((Environmental)o.first))+":\n\r");
+						else
+							lines.append(o.first.name()+" ("+o.first.ID()+"):\n\r");
+						lines.append("  OLD: "+o.second+"="+o.first.getStat(o.second)).append("\n\r");
+						lines.append("  NEW: "+o.second+"="+o.third).append("\n\r");
+					}
+					final Runnable doUpdate = new Runnable()
+					{
+						final List<UpdateSet> todo=res;
+						@Override
+						public void run()
+						{
+							for(final UpdateSet o : todo)
+							{
+								o.first.setStat(o.second, o.third);
+								if(o.first instanceof Environmental)
+								{
+									Environmental E=(Environmental)o.first;
+									final Room R=CMLib.map().roomLocation(E);
+									if((R!=null) && R.isSavable() && (R.roomID().length()>0))
+									{
+										Log.infoOut(mob.name()+" modified "+E.name()+" at "+R.roomID());
+										if(E instanceof Ability)
+											E=((Ability)E).affecting();
+										if(E instanceof Room)
+											CMLib.database().DBUpdateRoom(R);
+										else
+										if(E instanceof Item)
+										{
+											final Item I=(Item)E;
+											if((I.owner() instanceof Room)
+											&&(I.databaseID().length()>0))
+												CMLib.database().DBUpdateItem(R.roomID(), I);
+											else
+											if((I.owner() instanceof MOB)
+											&&(((MOB)I.owner()).databaseID().length()>0)
+											&&(((MOB)I.owner()).getStartRoom()!=null)
+											&&(((MOB)I.owner()).getStartRoom().roomID().length()>0))
+												CMLib.database().DBUpdateMOB(((MOB)I.owner()).getStartRoom().roomID(), (MOB)I.owner());
+										}
+										else
+										if((E instanceof MOB)
+										&&(((MOB)E).databaseID().length()>0))
+											CMLib.database().DBUpdateMOB(R.roomID(), (MOB)E);
+									}
+								}
+							}
+						}
+					};
+					final Session session = mob.session();
+					if(session!=null)
+					{
+						final InputCallback callBack = new InputCallback(InputCallback.Type.CONFIRM,"N",0)
+						{
+							@Override
+							public void showPrompt()
+							{
+								session.promptPrint(L("\n\rSave the above changes (y/N)? "));
+							}
+
+							@Override
+							public void timedOut()
+							{
+							}
+
+							@Override
+							public void callBack()
+							{
+								if(this.input.equals("Y"))
+								{
+									doUpdate.run();
+								}
+							}
+						};
+						session.wraplessPrintln(lines.toString());
+						lines.setLength(0);
+						session.prompt(callBack);
+					}
+				}
+			}
+			catch(final MQLException e)
+			{
+				final ByteArrayOutputStream bout=new ByteArrayOutputStream();
+				final PrintStream pw=new PrintStream(bout);
+				e.printStackTrace(pw);
+				pw.flush();
+				lines.append(e.getMessage()+"\n\r"+bout.toString());
+				if(mob.session()!=null)
+					mob.session().wraplessPrintln(lines.toString());
+				lines.setLength(0);
+			}
+		}
+	}
+
 	public void areas(final MOB mob, final List<String> commands)
 		throws IOException
 	{
@@ -575,13 +921,16 @@ public class Modify extends StdCommand
 		Area myArea=mob.location().getArea();
 
 		String oldName=myArea.Name();
-		final Vector<Room> allMyDamnRooms=new Vector<Room>();
+		final List<Room> allMyDamnRooms=new Vector<Room>();
 		for(final Enumeration<Room> e=myArea.getCompleteMap();e.hasMoreElements();)
 			allMyDamnRooms.add(e.nextElement());
 
 		mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> wave(s) <S-HIS-HER> hands around wildly."));
 		Resources.removeResource("HELP_"+myArea.Name().toUpperCase());
 		final Set<Area> alsoUpdateAreas=new HashSet<Area>();
+		final Area copyA = (Area)myArea.copyOf();
+		final TimeClock copyClock = (TimeClock)myArea.getTimeObj().copyOf();
+		final TimeClock oldClock = myArea.getTimeObj();
 		if(commands.size()==2)
 			CMLib.genEd().modifyArea(mob,myArea,alsoUpdateAreas, -1);
 		else
@@ -626,6 +975,7 @@ public class Modify extends StdCommand
 					return;
 				}
 				myArea.setName(restStr);
+				CMLib.map().renamedArea(myArea);
 			}
 			else
 			if(command.equalsIgnoreCase("PASSIVE"))
@@ -779,7 +1129,7 @@ public class Modify extends StdCommand
 				for(final Enumeration<Room> r=myArea.getCompleteMap();r.hasMoreElements();)
 				{
 					Room R=r.nextElement();
-					synchronized(("SYNC"+R.roomID()).intern())
+					synchronized(CMClass.getSync("SYNC"+R.roomID()))
 					{
 						R=CMLib.map().getRoom(R);
 						if((R.roomID().startsWith(oldName+"#"))
@@ -796,13 +1146,20 @@ public class Modify extends StdCommand
 				}
 			}
 			else
+			{
 				myArea.setName(oldName);
+				CMLib.map().renamedArea(myArea);
+			}
 		}
 		else
+		{
 			myArea.setName(oldName);
+			CMLib.map().renamedArea(myArea);
+		}
 		myArea.recoverPhyStats();
 		mob.location().recoverRoomStats();
-		mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("There is something different about this place...\n\r"));
+		if(!copyA.sameAs(myArea))
+			mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("There is something different about this place...\n\r"));
 		if(myArea.name().equals(oldName))
 			CMLib.database().DBUpdateArea(myArea.Name(),myArea);
 		else
@@ -812,10 +1169,121 @@ public class Modify extends StdCommand
 		}
 		for(final Area A : alsoUpdateAreas)
 		{
-			if((A!=myArea)&&(!A.Name().equals(myArea.Name())))
+			if((A!=myArea)
+			&&(!A.Name().equals(myArea.Name())))
 				CMLib.database().DBUpdateArea(A.Name(),A);
 		}
-		Log.sysOut("Rooms",mob.Name()+" modified area "+myArea.Name()+".");
+		copyClock.setHourOfDay(myArea.getTimeObj().getHourOfDay());
+		if((!copyA.sameAs(myArea))
+		||(oldClock != myArea.getTimeObj())
+		||(oldClock.getDaysInMonth() != copyClock.getDaysInMonth())
+		||(oldClock.getMonthsInYear() != copyClock.getMonthsInYear())
+		||(oldClock.getHoursInDay() != copyClock.getHoursInDay())
+		||(!Arrays.equals(oldClock.getDawnToDusk(), copyClock.getDawnToDusk())))
+			Log.sysOut("Rooms",mob.Name()+" modified area "+myArea.Name()+".");
+		copyA.destroy();
+	}
+
+	public void cron(final MOB mob, final List<String> commands) throws IOException
+	{
+		if(commands.size()<4)
+		{
+			mob.tell(L("You have failed to specify the proper fields.\n\r"
+					+ "The format is MODIFY CRON [NAME/#] [SUBJECT, INTERVAL, SCRIPT] [VALUE]\n\r"));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return;
+		}
+
+		final String cronID=commands.get(2);
+		final String field=commands.get(3).toUpperCase().trim();
+		final String value=CMParms.combine(commands, 4);
+		final List<JournalEntry> jobs = CMLib.database().DBReadJournalMsgsByCreateDate("SYSTEM_CRON", true);
+		JournalEntry modJob=null;
+		if(CMath.isInteger(cronID)
+		&&(CMath.s_int(cronID)>0)
+		&&(CMath.s_int(cronID)<=jobs.size()))
+			modJob=jobs.get(CMath.s_int(cronID)-1);
+		else
+		{
+			for(final JournalEntry E : jobs)
+			{
+				if(E.subj().equalsIgnoreCase(cronID))
+					modJob=E;
+			}
+			if(modJob == null)
+			{
+				for(final JournalEntry E : jobs)
+				{
+					if(E.subj().toUpperCase().indexOf(cronID.toUpperCase())>=0)
+					{
+						modJob=E;
+						break;
+					}
+				}
+			}
+			if(modJob == null)
+			{
+				mob.tell(L("@x1 is not a valid [NAME/#].  Try LIST CRON.\n\r",cronID));
+				mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+				return;
+			}
+		}
+		if(field.equals("SUBJECT"))
+		{
+			if(value.trim().length()==0)
+			{
+				mob.tell(L("'@x1' is not a valid subject.\n\r",value));
+				mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+				return;
+			}
+			modJob.subj(field);
+			CMLib.database().DBUpdateJournal("SYSTEM_CRON", modJob);
+			Log.sysOut(mob.Name()+" modified cron job "+modJob.subj()+".");
+		}
+		else
+		if(field.equals("INTERVAL"))
+		{
+			long tm;
+			try
+			{
+				if(value.trim().length()==0)
+					throw new CMException("Bad value: "+value);
+				tm = CMLib.time().parseTickExpression(CMLib.time().homeClock(mob), value);
+				if(tm < 0)
+					throw new CMException("Bad value: "+tm);
+			}
+			catch(final CMException e)
+			{
+				mob.tell(L("@x1 is not a valid interval.  Try like 10 minutes (@x2)!",value,e.getMessage()));
+				mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+				return;
+			}
+			tm = tm * CMProps.getTickMillis();
+			modJob.data("INTERVAL=\""+value+"\"");
+			modJob.update(System.currentTimeMillis()+tm);
+			CMLib.database().DBUpdateJournal("SYSTEM_CRON", modJob);
+			Log.sysOut(mob.Name()+" modified cron job "+modJob.subj()+".");
+			CMLib.journals().activate();
+		}
+		else
+		if(field.equals("SCRIPT"))
+		{
+			final JournalEntry E=modJob;
+			final List<String> msgV=Resources.getFileLineVector(new StringBuffer(modJob.msg()));
+			CMLib.journals().makeMessageASync(mob, modJob.subj(),msgV, false, new MsgMkrCallback() {
+				final JournalEntry E2 = E;
+				@Override
+				public void callBack(final MOB mob, final Session sess, final MsgMkrResolution res)
+				{
+					if(res == MsgMkrResolution.SAVEFILE)
+					{
+						E2.msg(CMParms.combineWith(msgV, "\n\r"));
+						CMLib.database().DBUpdateJournal("SYSTEM_CRON", E2);
+						Log.sysOut(mob.Name()+" modified cron job "+E2.subj()+".");
+					}
+				}
+			});
+		}
 	}
 
 	public void quests(final MOB mob, final List<String> commands)
@@ -861,14 +1329,14 @@ public class Modify extends StdCommand
 					int showNumber=0;
 					int doCmd=cmdDex;
 					String newScript=null;
-					if((doCmd<0)&&(CMLib.genEd().promptToggle(mob,++showNumber,showFlag,"Started: "+Q.running())))
+					if((doCmd<0)&&(CMLib.genEd().promptToggle(mob,++showNumber,showFlag,L("Started: @x1",""+Q.running()))))
 						doCmd=Q.running()?1:0;
-					if((doCmd<0)&&(CMLib.genEd().promptToggle(mob,++showNumber,showFlag,"Enabled: "+(!Q.suspended()))))
+					if((doCmd<0)&&(CMLib.genEd().promptToggle(mob,++showNumber,showFlag,L("Enabled: @x1",""+(!Q.suspended())))))
 						doCmd=Q.suspended()?2:3;
 					if(doCmd<0)
 					{
 						final String oldScript=Q.script();
-						newScript=CMLib.genEd().prompt(mob,oldScript,++showNumber,showFlag,L("Script"),false,false,CMLib.help().getHelpText("QUESTS",mob,true).toString(),null,null);
+						newScript=CMLib.genEd().prompt(mob,oldScript,++showNumber,showFlag,L("Script"),false,true,CMLib.help().getHelpText("QUESTS",mob,true).toString(),null,null);
 						if(!newScript.equals(oldScript))
 						{
 							Q.setScript(newScript,true);
@@ -909,7 +1377,9 @@ public class Modify extends StdCommand
 						else
 						{
 							Q.startQuest();
-							if((!Q.running())&&(Q.getSpawn()!=Quest.SPAWN_ANY))
+							if((!Q.running())
+							&&(Q.getSpawn() != Quest.Spawn.ANY.ordinal())
+							&&(Q.getSpawn() != Quest.Spawn.ALL.ordinal()))
 								mob.tell(L("Quest '@x1' NOT started -- check your mud.log for errors.",Q.name()));
 							else
 								mob.tell(L("Quest '@x1' started.",Q.name()));
@@ -990,7 +1460,7 @@ public class Modify extends StdCommand
 			for(final Enumeration<Room> r=CMLib.map().rooms();r.hasMoreElements();)
 			{
 				Room room=r.nextElement();
-				synchronized(("SYNC"+room.roomID()).intern())
+				synchronized(CMClass.getSync("SYNC"+room.roomID()))
 				{
 					room=CMLib.map().getRoom(room);
 					if(room != null)
@@ -1022,7 +1492,7 @@ public class Modify extends StdCommand
 	public void exits(final MOB mob, final List<String> commands)
 		throws IOException
 	{
-		if(mob.location().roomID().equals(""))
+		if(mob.location().getGridParent() != null)
 		{
 			mob.tell(L("This command is invalid from within a GridLocaleChild room."));
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a powerful spell."));
@@ -1050,8 +1520,8 @@ public class Modify extends StdCommand
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
 			return;
 		}
-		final boolean useShipDirs=(mob.location() instanceof BoardableShip)||(mob.location().getArea() instanceof BoardableShip);
-		final String inDirName=useShipDirs?CMLib.directions().getShipInDirectionName(direction):CMLib.directions().getInDirectionName(direction);
+		final Directions.DirType dirType=CMLib.flags().getInDirType(mob);
+		final String inDirName=CMLib.directions().getInDirectionName(direction, dirType);
 		mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> wave(s) <S-HIS-HER> hands around to the @x1.",inDirName));
 		final Exit copyExit=(Exit)thisExit.copyOf();
 		if(thisExit.isGeneric() && (commands.size()<5))
@@ -1128,6 +1598,39 @@ public class Modify extends StdCommand
 		return true;
 	}
 
+	public boolean commands(final MOB mob, final List<String> commands)
+			throws IOException
+	{
+		if(commands.size()<3)
+		{
+			mob.tell(L("You have failed to specify the proper fields.\n\rThe format is MODIFY COMMAND [COMMAND ID]\n\r"));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+
+		final String cmdID=CMParms.combine(commands,2);
+		final Command C=CMClass.getCommand(cmdID);
+		if(C==null)
+		{
+			mob.tell(L("'@x1' is an invalid command id.",cmdID));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		if(!(C.isGeneric()))
+		{
+			mob.tell(L("'@x1' is not generic, and may not be modified as it is.  Use CREATE COMMAND @x2 to convert it to a generic command.",C.ID(),C.ID()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> wave(s) <S-HIS-HER> hands around all @x1s.",C.name()));
+		CMLib.genEd().modifyGenCommand(mob,(Modifiable)C,-1);
+		final DatabaseEngine.AckRecord rec = CMLib.database().DBDeleteCommand(C.ID());
+		if(C instanceof Modifiable)
+			CMLib.database().DBCreateCommand(C.ID(),rec.typeClass(),((Modifiable)C).getStat("ALLXML"));
+		mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("@x1's everywhere shake under the transforming power!",C.name()));
+		return true;
+	}
+
 	public void allQualify(final MOB mob, final List<String> commands)
 	throws IOException
 	{
@@ -1200,12 +1703,59 @@ public class Modify extends StdCommand
 		return true;
 	}
 
+	protected boolean wrongGenAbilityMessage(final MOB mob, final Ability A)
+	{
+		if(A.getStat("JAVACLASS").toLowerCase().indexOf("tweak")>=0)
+		{
+			mob.tell(L("'@x1' is a tweakable.  Try MODIFY TWEAK.",A.ID()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return true;
+		}
+		if(A instanceof Language)
+		{
+			mob.tell(L("'@x1' is a language.  Try MODIFY LANGUAGE.",A.ID()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return true;
+		}
+		if(A instanceof ItemCraftor)
+		{
+			mob.tell(L("'@x1' is a crafting skill.  Try MODIFY CRAFTSKILL.",A.ID()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return true;
+		}
+		if(((ItemCraftor)A).getCraftorType()==ItemCraftor.CraftorType.LargeConstructions)
+		{
+			mob.tell(L("'@x1' is a building/wrighting skill.  Try MODIFY WRIGHTSKILL.",A.ID()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		if(A instanceof ItemCollection)
+		{
+			mob.tell(L("'@x1' is a gathering skill.  Try MODIFY GATHERSKILL.",A.ID()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		if(A instanceof Trap)
+		{
+			mob.tell(L("'@x1' is a trap.  Try MODIFY TRAP.",A.ID()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return true;
+		}
+		if((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_POISON)
+		{
+			mob.tell(L("'@x1' is a poison.  Try MODIFY POISON.",A.ID()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return true;
+		}
+		return false;
+	}
+
 	public boolean abilities(final MOB mob, final List<String> commands)
 	throws IOException
 	{
 		if(commands.size()<3)
 		{
-			mob.tell(L("You have failed to specify the proper fields.\n\rThe format is MODIFY ABILITY [SKILL ID]\n\r"));
+			mob.tell(L("You have failed to specify the proper fields.\n\rThe format is MODIFY ABILITY [ABILITY ID]\n\r"));
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
 			return false;
 		}
@@ -1222,24 +1772,140 @@ public class Modify extends StdCommand
 		{
 			mob.tell(L("'@x1' is not generic, and may not be modified.",A.ID()));
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
-			return false;
+			return true;
 		}
-		if(A instanceof Language)
-		{
-			mob.tell(L("'@x1' is a language.  Try MODIFY LANGUAGE.",A.ID()));
-			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+		if(wrongGenAbilityMessage(mob,A))
 			return false;
-		}
-		if(A instanceof ItemCraftor)
-		{
-			mob.tell(L("'@x1' is a crafting skill.  Try MODIFY CRAFTSKILL.",A.ID()));
-			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
-			return false;
-		}
 		mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> wave(s) <S-HIS-HER> hands around all @x1s.",A.name()));
 		CMLib.genEd().modifyGenAbility(mob,A,-1);
 		CMLib.database().DBDeleteAbility(A.ID());
 		CMLib.database().DBCreateAbility(A.ID(),"GenAbility",A.getStat("ALLXML"));
+		mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("@x1's everywhere shake under the transforming power!",A.name()));
+		return true;
+	}
+
+	public boolean traps(final MOB mob, final List<String> commands)
+	throws IOException
+	{
+		if(commands.size()<3)
+		{
+			mob.tell(L("You have failed to specify the proper fields.\n\rThe format is MODIFY TRAP [ABILITY ID]\n\r"));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+
+		final String classID=CMParms.combine(commands,2);
+		final Ability A=CMClass.getAbility(classID);
+		if(A==null)
+		{
+			mob.tell(L("'@x1' is an invalid ability id.",classID));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		if(!(A.isGeneric()))
+		{
+			mob.tell(L("'@x1' is not generic, and may not be modified.",A.ID()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return true;
+		}
+		if(!(A instanceof Trap))
+		{
+			if(wrongGenAbilityMessage(mob,A))
+				return false;
+			mob.tell(L("'@x1' is not a trap.  Try MODIFY ABILITY.",A.ID()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> wave(s) <S-HIS-HER> hands around all @x1s.",A.name()));
+		CMLib.genEd().modifyGenTrap(mob,(Trap)A,-1);
+		CMLib.database().DBDeleteAbility(A.ID());
+		CMLib.database().DBCreateAbility(A.ID(),"GenTrap",A.getStat("ALLXML"));
+		mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("@x1's everywhere shake under the transforming power!",A.name()));
+		return true;
+	}
+
+	public boolean poisons(final MOB mob, final List<String> commands)
+	throws IOException
+	{
+		if(commands.size()<3)
+		{
+			mob.tell(L("You have failed to specify the proper fields.\n\rThe format is MODIFY POISON [ABILITY ID]\n\r"));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+
+		final String classID=CMParms.combine(commands,2);
+		final Ability A=CMClass.getAbility(classID);
+		if(A==null)
+		{
+			mob.tell(L("'@x1' is an invalid ability id.",classID));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		if(!(A.isGeneric()))
+		{
+			mob.tell(L("'@x1' is not generic, and may not be modified.",A.ID()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return true;
+		}
+		if((A.classificationCode()&Ability.ALL_ACODES)!=Ability.ACODE_POISON)
+		{
+			if(wrongGenAbilityMessage(mob,A))
+				return false;
+			mob.tell(L("'@x1' is not a poison.  Try MODIFY ABILITY.",A.ID()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		if(A.ID().equals("UniPoison"))
+		{
+			mob.tell(L("'@x1' is not a type that can be edited here.",A.ID()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> wave(s) <S-HIS-HER> hands around all @x1s.",A.name()));
+		CMLib.genEd().modifyGenPoison(mob,A,-1);
+		CMLib.database().DBDeleteAbility(A.ID());
+		CMLib.database().DBCreateAbility(A.ID(),"GenPoison",A.getStat("ALLXML"));
+		mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("@x1's everywhere shake under the transforming power!",A.name()));
+		return true;
+	}
+
+	public boolean tweaks(final MOB mob, final List<String> commands)
+	throws IOException
+	{
+		if(commands.size()<3)
+		{
+			mob.tell(L("You have failed to specify the proper fields.\n\rThe format is MODIFY TWEAK [ABILITY ID]\n\r"));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+
+		final String classID=CMParms.combine(commands,2);
+		final Ability A=CMClass.getAbility(classID);
+		if(A==null)
+		{
+			mob.tell(L("'@x1' is an invalid ability id.",classID));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		if(!(A.isGeneric()))
+		{
+			mob.tell(L("'@x1' is not generic, and may not be modified.",A.ID()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return true;
+		}
+		if(A.getStat("JAVACLASS").toLowerCase().indexOf("tweak")<0)
+		{
+			if(wrongGenAbilityMessage(mob,A))
+				return false;
+			mob.tell(L("'@x1' is not a tweak.  Try MODIFY ABILITY.",A.ID()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> wave(s) <S-HIS-HER> hands around all @x1s.",A.name()));
+		CMLib.genEd().modifyGenTweakAbility(mob,A,-1);
+		CMLib.database().DBDeleteAbility(A.ID());
+		CMLib.database().DBCreateAbility(A.ID(),"GenTweakAbility",A.getStat("ALLXML"));
 		mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("@x1's everywhere shake under the transforming power!",A.name()));
 		return true;
 	}
@@ -1266,22 +1932,12 @@ public class Modify extends StdCommand
 		{
 			mob.tell(L("'@x1' is not generic, and may not be modified.",A.ID()));
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
-			return false;
-		}
-		if(A instanceof ItemCraftor)
-		{
-			mob.tell(L("'@x1' is a crafting skill.  Try MODIFY CRAFTSKILL.",A.ID()));
-			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
-			return false;
-		}
-		if(A instanceof ItemCollection)
-		{
-			mob.tell(L("'@x1' is a gathering skill.  Try MODIFY GATHERSKILL.",A.ID()));
-			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
-			return false;
+			return true;
 		}
 		if(!(A instanceof Language))
 		{
+			if(wrongGenAbilityMessage(mob,A))
+				return false;
 			mob.tell(L("'@x1' is not a language.  Try MODIFY ABILITY.",A.ID()));
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
 			return false;
@@ -1318,18 +1974,11 @@ public class Modify extends StdCommand
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
 			return false;
 		}
-		if(A instanceof Language)
-		{
-			mob.tell(L("'@x1' is a crafting skill.  Try MODIFY LANGUAGE.",A.ID()));
-			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
-			return false;
-		}
 		if(!(A instanceof ItemCraftor))
 		{
-			if(A instanceof ItemCollection)
-				mob.tell(L("'@x1' is a gathering skill.  Try MODIFY GATHERSKILL.",A.ID()));
-			else
-				mob.tell(L("'@x1' is not a crafting skill.  Try MODIFY ABILITY.",A.ID()));
+			if(wrongGenAbilityMessage(mob,A))
+				return false;
+			mob.tell(L("'@x1' is not a crafting skill.  Try MODIFY ABILITY.",A.ID()));
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
 			return false;
 		}
@@ -1365,20 +2014,10 @@ public class Modify extends StdCommand
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
 			return false;
 		}
-		if(A instanceof Language)
-		{
-			mob.tell(L("'@x1' is a crafting skill.  Try MODIFY LANGUAGE.",A.ID()));
-			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
-			return false;
-		}
-		if(A instanceof ItemCraftor)
-		{
-			mob.tell(L("'@x1' is a crafting skill.  Try MODIFY CRAFTSKILL.",A.ID()));
-			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
-			return false;
-		}
 		if(!(A instanceof ItemCollection))
 		{
+			if(wrongGenAbilityMessage(mob,A))
+				return false;
 			mob.tell(L("'@x1' is not a gathering skill.  Try MODIFY ABILITY.",A.ID()));
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
 			return false;
@@ -1391,13 +2030,85 @@ public class Modify extends StdCommand
 		return true;
 	}
 
+	public boolean wrightSkills(final MOB mob, final List<String> commands)
+	throws IOException
+	{
+		if(commands.size()<3)
+		{
+			mob.tell(L("You have failed to specify the proper fields.\n\rThe format is MODIFY WRIGHTSKILL [SKILL ID]\n\r"));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+
+		final String classID=CMParms.combine(commands,2);
+		final Ability A=CMClass.getAbility(classID);
+		if(A==null)
+		{
+			mob.tell(L("'@x1' is an invalid ability id.",classID));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		if((!(A instanceof ItemCraftor))
+		||(((ItemCraftor)A).getCraftorType()!=ItemCraftor.CraftorType.LargeConstructions))
+		{
+			if(wrongGenAbilityMessage(mob,A))
+				return false;
+			mob.tell(L("'@x1' is not a crafting skill.  Try MODIFY ABILITY.",A.ID()));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> wave(s) <S-HIS-HER> hands around all @x1s.",A.name()));
+		CMLib.genEd().modifyGenWrightSkill(mob,A,-1);
+		CMLib.database().DBDeleteAbility(A.ID());
+		CMLib.database().DBCreateAbility(A.ID(),"GenWrightSkill",A.getStat("ALLXML"));
+		mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("@x1's everywhere shake under the transforming power!",A.name()));
+		return true;
+	}
+
 	public void components(final MOB mob, final List<String> commands)
 	throws IOException
 	{
 		if(commands.size()<3)
 		{
-			mob.tell(L("You have failed to specify the proper fields.\n\rFormat: MODIFY COMPONENT [SKILL ID]\n\r"));
+			mob.tell(L("You have failed to specify the proper fields.\n\r"
+					+ "Format: MODIFY COMPONENT [SKILL ID]\n\r"
+					+ "Format: MODIFY COMPONENT SOCIAL [SOCIAL ID]\n\r"));
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return;
+		}
+		if(commands.get(2).equalsIgnoreCase("SOCIAL"))
+		{
+			final String socialID=CMParms.combine(commands,3);
+			final Vector<String> socialsParse=CMParms.parse(socialID);
+			if(socialsParse.size()==0)
+			{
+				mob.tell(L("Which social? That doesn't exist.  Try LIST COMPONENTS"));
+				mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a powerful spell."));
+				return;
+			}
+			final String name=socialsParse.firstElement().toUpperCase().trim();
+			final String rest=socialsParse.size()>1?CMParms.combine(socialsParse,1):"";
+			final List<Social> socials=CMLib.ableComponents().getSocialsSet(name);
+			if((socials==null)||(socials.size()==0))
+			{
+				mob.tell(L("'@x1' does not exist, try LIST COMPONENTS.",socialID));
+				mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+				return;
+			}
+			final List<Social> copy = new XArrayList<Social>(socials);
+			final List<String> socEncV = new ArrayList<String>(socials.size());
+			for(final Social S : copy)
+				socEncV.add(S.getEncodedLine());
+			CMLib.socials().modifySocialInterface(mob, socials, name, rest);
+			for(final Social copyS : copy)
+				if(!socials.contains(copyS))
+					CMLib.ableComponents().alterAbilityComponentFile(CMStrings.trimCRLF(copyS.getEncodedLine()), true);
+			for(final Social newS : socials)
+			{
+				if((!socials.contains(newS))||(!socEncV.contains(newS.getEncodedLine())))
+					CMLib.ableComponents().alterAbilityComponentFile(CMStrings.trimCRLF(newS.getEncodedLine()), false);
+			}
+			mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The complication of skill usage just increased!"));
 			return;
 		}
 		String skillID=CMParms.combine(commands,2);
@@ -1426,6 +2137,42 @@ public class Modify extends StdCommand
 		}
 		CMLib.ableComponents().alterAbilityComponentFile(skillID,false);
 		mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The complication of skill usage just increased!"));
+	}
+
+	public void plane(final MOB mob, final List<String> commands)
+	throws IOException
+	{
+		if(commands.size()<3)
+		{
+			mob.tell(L("You have failed to specify the proper fields.\n\rFormat: MODIFY PLANE [SKILL ID]\n\r"));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return;
+		}
+		String planeName=CMParms.combine(commands,2);
+		final PlanarAbility planeSet = (PlanarAbility)CMClass.getAbility("StdPlanarAbility");
+		final Map<String,String> planeVars = planeSet.getPlanarVars(planeName);
+		if(planeVars == null)
+		{
+			mob.tell(L("'@x1' already exists, you'll need to destroy it first.",planeName));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return;
+		}
+		planeName = planeVars.get(PlanarVar.ID.name());
+		final Map<String,String> alterParms = new XHashtable<String,String>(planeVars);
+		final String modifiedRule = CMLib.genEd().modifyPlane(mob,planeName,alterParms,-1);
+		final String err = planeSet.addOrEditPlane(planeName, modifiedRule);
+		if(err.startsWith("ERROR"))
+		{
+			mob.tell(err);
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return;
+		}
+		else
+		if(err.length()>0)
+		{
+			Log.infoOut(mob.Name()+" modified plane: "+planeName+": \n\r"+err);
+			mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The planar universe just changed!"));
+		}
 	}
 
 	public void socials(final MOB mob, final List<String> commands)
@@ -1464,8 +2211,37 @@ public class Modify extends StdCommand
 			allSocials=new ArrayList<Social>();
 		for(int a = 0; a<allSocials.size();a++)
 			oldSocials.add((Social)allSocials.get(a).copyOf());
-		mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> wave(s) <S-HIS-HER> hands around the idea of  @x1s.",S.name()));
-		CMLib.socials().modifySocialInterface(mob,(name+" "+oldStuff).trim());
+		{
+			final Vector<String> socialsParse=CMParms.parse((name+" "+oldStuff).trim());
+			if(socialsParse.size()==0)
+			{
+				mob.tell(L("Which social?"));
+				mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a powerful spell."));
+				return;
+			}
+			final String sname=socialsParse.firstElement().toUpperCase().trim();
+			final String rest=socialsParse.size()>1?CMParms.combine(socialsParse,1):"";
+			final List<Social> socials=CMLib.socials().getSocialsSet(socialsParse.firstElement());
+			if((socials==null)||(socials.size()==0))
+			{
+				mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("The social '@x1' does not exist. Try LIST SOCIALS ",sname));
+				return;
+			}
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> wave(s) <S-HIS-HER> hands around the idea of  @x1s.",S.name()));
+			final List<Social> copy=new XArrayList<Social>(socials);
+			CMLib.socials().modifySocialInterface(mob,socials, sname, rest);
+			{
+				for(final Social copyS : copy)
+					if(!socials.contains(copyS))
+						CMLib.socials().delSocial(copyS.name());
+				for(final Social newS : socials)
+				{
+					if(!socials.contains(newS))
+						CMLib.socials().addSocial(newS);
+				}
+			}
+			CMLib.socials().save(mob);
+		}
 		allSocials = CMLib.socials().getSocialsSet(name);
 		if(allSocials==null)
 			allSocials=new ArrayList<Social>();
@@ -1507,7 +2283,7 @@ public class Modify extends StdCommand
 		}
 
 		final String mobID=commands.get(2);
-		final MOB M=CMLib.players().getLoadPlayer(mobID);
+		final MOB M=CMLib.players().getLoadPlayerAllHosts(mobID);
 		if(M!=null)
 		{
 			if(M.playerStats()!=null)
@@ -1642,6 +2418,55 @@ public class Modify extends StdCommand
 		return true;
 	}
 
+	public boolean helps(final MOB mob, final List<String> commands)
+	{
+		if(commands.size()<3)
+		{
+			mob.tell(L("You have failed to specify the proper fields.\n\rThe format is MODIFY HELP [KEY]\n\r"));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		final boolean preferAHelp = commands.get(1).toUpperCase().startsWith("A");
+		final String helpStr=CMParms.combine(commands,2).toUpperCase().trim().replace(' ','_');
+		final List<Properties> ps;
+		if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.AHELP))
+			ps = new XVector<Properties>(CMLib.help().getHelpFile());
+		else
+		if(preferAHelp)
+			ps = new XVector<Properties>(CMLib.help().getArcHelpFile(), CMLib.help().getHelpFile());
+		else
+			ps = new XVector<Properties>(CMLib.help().getHelpFile(), CMLib.help().getArcHelpFile());
+		Pair<String, String> match=null;
+		for(final Properties p : ps)
+		{
+			match = CMLib.help().getHelpMatch(helpStr,p,mob, 0);
+			if((match!=null)&&(match.second!=null))
+				break;
+		}
+		if((match==null)||(match.second==null))
+		{
+			mob.tell(L("An help entry with key '@x1' does not exist!",helpStr));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		final HelpSection section = preferAHelp?HelpSection.ArchonFirst:HelpSection.NormalFirst;
+		final String fileName = CMLib.help().findHelpFile(match.first, section, true);
+		if(fileName == null)
+		{
+			mob.tell(L("A help file with key '@x1' does not exist!",match.first));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		if(!CMLib.help().addModifyHelpEntry(mob, fileName, match.first, false))
+		{
+			mob.tell(L("A help file with key '@x1' could not be edited!",match.first));
+			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+			return false;
+		}
+		//mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The vanity of the world just changed!"));
+		return true;
+	}
+
 	public void manufacturer(final MOB mob, final List<String> commands) throws IOException
 	{
 		if(commands.size()<3)
@@ -1697,6 +2522,7 @@ public class Modify extends StdCommand
 			mob.tell(L("@x1 is a player! Try MODIFY USER!",modMOB.Name()));
 			return;
 		}
+		final int oldLevel = modMOB.basePhyStats().level();
 		final MOB copyMOB=(MOB)modMOB.copyOf();
 		mob.location().showOthers(mob,modMOB,CMMsg.MSG_OK_ACTION,L("<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAMESELF>."));
 		if(command.equals("LEVEL"))
@@ -1759,6 +2585,17 @@ public class Modify extends StdCommand
 			mob.tell(L("...but failed to specify an aspect.  Try one of: @x1",CMParms.toListString(set)));
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
 		}
+		if((!mob.isGeneric())
+		&&(modMOB.basePhyStats().level() != oldLevel))
+		{
+			final int oldRejuv = modMOB.basePhyStats().rejuv();
+			CMLib.leveler().fillOutMOB(modMOB, modMOB.basePhyStats().level());
+			modMOB.basePhyStats().setRejuv(oldRejuv);
+			modMOB.recoverCharStats();
+			modMOB.recoverPhyStats();
+			modMOB.recoverMaxState();
+			modMOB.resetToMaxState();
+		}
 		if(!modMOB.sameAs(copyMOB))
 			Log.sysOut("Mobs",mob.Name()+" modified mob "+modMOB.Name()+".");
 		copyMOB.destroy();
@@ -1772,9 +2609,11 @@ public class Modify extends StdCommand
 
 	protected String listOfThings()
 	{
-		return "ITEM, RACE, CLASS, ABILITY, LANGUAGE, CRAFTSKILL, GATHERSKILL, "
-			+ "ALLQUALIFY, AREA, EXIT, COMPONENT, RECIPE, EXPERTISE, TITLE, QUEST, MOB, USER, HOLIDAY, ACHIEVEMENT, MANUFACTURER, "
-			+ "GOVERNMENT, JSCRIPT, FACTION, SOCIAL, CLAN, POLL, NEWS, DAY, MONTH, YEAR, TIME, HOUR, or ROOM";
+		return L("ITEM, RACE, CLASS, ABILITY, LANGUAGE, CRAFTSKILL, GATHERSKILL, WRIGHTSKILL, "
+			+ "ALLQUALIFY, AREA, EXIT, COMPONENT, RECIPE, EXPERTISE, QUEST, COMMAND, "
+			+ "MOB, USER, HOLIDAY, ACHIEVEMENT, MANUFACTURER, HELP/AHELP, TRAP, CRON, "
+			+ "GOVERNMENT, JSCRIPT, FACTION, SOCIAL, CLAN, POLL, NEWS, DAY, MONTH, YEAR, "
+			+ "TIME, HOUR, POISON, TWEAK, UPDATE:, or ROOM");
 	}
 
 	@Override
@@ -1786,7 +2625,7 @@ public class Modify extends StdCommand
 			commandType=commands.get(1).toUpperCase();
 		if(commands.size()==1)
 		{
-			mob.tell(L("\n\rModify what? Try an "+listOfThings()+"."));
+			mob.tell(L("\n\rModify what? Try an @x1.",listOfThings()));
 		}
 		if(commandType.equals("ITEM"))
 		{
@@ -1800,6 +2639,13 @@ public class Modify extends StdCommand
 			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDITEMS))
 				return errorOut(mob);
 			manufacturer(mob,commands);
+		}
+		else
+		if(commandType.equals("CRON"))
+		{
+			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDCRON))
+				return errorOut(mob);
+			cron(mob,commands);
 		}
 		else
 		if(commandType.equals("RECIPE"))
@@ -1819,21 +2665,21 @@ public class Modify extends StdCommand
 				mob.tell(L("'@x1' is not a valid skill id.",name));
 				return false;
 			}
-			if(!(A instanceof CraftorAbility))
+			if(!(A instanceof RecipeDriven))
 			{
-				mob.tell(L("'@x1' is not a common crafting/building skill.",A.ID()));
+				mob.tell(L("'@x1' is not a valid recipe skill.",A.ID()));
 				return false;
 			}
-			final CraftorAbility iA = (CraftorAbility)A;
-			if((iA.parametersFormat()==null)
-			||(iA.parametersFormat().length()==0)
-			||(iA.parametersFile()==null)
-			||(iA.parametersFile().length()==0))
+			final RecipeDriven iA = (RecipeDriven)A;
+			if((iA.getRecipeFormat()==null)
+			||(iA.getRecipeFormat().length()==0)
+			||(iA.getRecipeFilename()==null)
+			||(iA.getRecipeFilename().length()==0))
 			{
 				mob.tell(L("'@x1' does not have modifiable recipes.",A.ID()));
 				return false;
 			}
-			CMLib.ableParms().modifyRecipesList(mob,iA.parametersFile(),iA.parametersFormat());
+			CMLib.ableParms().modifyRecipesList(mob,iA.getRecipeFilename(),iA.getRecipeFormat());
 		}
 		else
 		if(commandType.equals("ROOM"))
@@ -1871,6 +2717,34 @@ public class Modify extends StdCommand
 			abilities(mob,commands);
 		}
 		else
+		if(commandType.equals("TRAP"))
+		{
+			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDABILITIES))
+				return errorOut(mob);
+			traps(mob,commands);
+		}
+		else
+		if(commandType.equals("POISON"))
+		{
+			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDABILITIES))
+				return errorOut(mob);
+			poisons(mob,commands);
+		}
+		else
+		if(commandType.equals("TWEAK"))
+		{
+			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDABILITIES))
+				return errorOut(mob);
+			tweaks(mob,commands);
+		}
+		else
+		if(commandType.equals("COMMAND"))
+		{
+			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDCOMMANDS))
+				return errorOut(mob);
+			commands(mob,commands);
+		}
+		else
 		if(commandType.equals("LANGUAGE"))
 		{
 			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDABILITIES))
@@ -1883,6 +2757,13 @@ public class Modify extends StdCommand
 			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDABILITIES))
 				return errorOut(mob);
 			craftSkills(mob,commands);
+		}
+		else
+		if(commandType.equals("WRIGHTSKILL"))
+		{
+			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDABILITIES))
+				return errorOut(mob);
+			wrightSkills(mob,commands);
 		}
 		else
 		if(commandType.equals("GATHERSKILL"))
@@ -1903,7 +2784,16 @@ public class Modify extends StdCommand
 		{
 			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDAREAS))
 				return errorOut(mob);
-			areas(mob,commands);
+			if((commands.size()>2)
+			&&(commands.get(2).equalsIgnoreCase("UPDATE:"))
+			&&(CMSecurity.isAllowedEverywhere(mob, CMSecurity.SecFlag.CMDAREAS)))
+			{
+				commands.remove(1);
+				commands.remove(0);
+				doMql(mob, true, commands);
+			}
+			else
+				areas(mob,commands);
 		}
 		else
 		if(commandType.equals("EXIT"))
@@ -1921,6 +2811,14 @@ public class Modify extends StdCommand
 			return false;
 		}
 		else
+		if(commandType.equals("PLANE"))
+		{
+			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.PLANES))
+				return errorOut(mob);
+			plane(mob,commands);
+			return false;
+		}
+		else
 		if(commandType.equals("EXPERTISE"))
 		{
 			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.EXPERTISES))
@@ -1929,11 +2827,27 @@ public class Modify extends StdCommand
 			return false;
 		}
 		else
+		if(commandType.equals("HELP")||commandType.equals("AHELP"))
+		{
+			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDHELP))
+				return errorOut(mob);
+			helps(mob, commands);
+			return false;
+		}
+		else
 		if(commandType.equals("TITLE"))
 		{
 			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.TITLES))
 				return errorOut(mob);
 			mob.tell(L("You can't modify titles, you can only LIST, CREATE, and DESTROY them."));
+			return false;
+		}
+		else
+		if(commandType.equals("AWARD"))
+		{
+			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.AUTOAWARDS))
+				return errorOut(mob);
+			autoawards(mob, commands);
 			return false;
 		}
 		else
@@ -2036,7 +2950,8 @@ public class Modify extends StdCommand
 			Object O=null;
 			final Map<Long,String> j=CMSecurity.getApprovedJScriptTable();
 			boolean somethingFound=false;
-			for(final Long L : j.keySet())
+			final List<Long> todoKeys = new XArrayList<Long>(j.keySet());
+			for(final Long L : todoKeys)
 			{
 				O=j.get(L);
 				if(!CMLib.players().playerExists(O.toString()))
@@ -2059,6 +2974,14 @@ public class Modify extends StdCommand
 			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDPLAYERS))
 				return errorOut(mob);
 			players(mob,commands);
+		}
+		else
+		if(commandType.equals("EXPERTISE"))
+		{
+			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.EXPERTISES))
+				return errorOut(mob);
+			mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("^S<S-NAME> wave(s) <S-HIS-HER> arms...^?"));
+			expertises(mob,commands);
 		}
 		else
 		if(commandType.equals("POLL"))
@@ -2117,7 +3040,7 @@ public class Modify extends StdCommand
 			I.setName(L("SYSTEM_NEWS"));
 			I.setDescription(L("Enter `LIST NEWS [NUMBER]` to read an entry.%0D%0AEnter CREATE NEWS to add new entries. "));
 			final CMMsg newMsg=CMClass.getMsg(mob,I,null,
-											CMMsg.MSG_WRITE|CMMsg.MASK_ALWAYS,null,
+											CMMsg.MSG_WRITE|CMMsg.MASK_ALWAYS,L("<S-NAME> modif(ys) the news."),
 											CMMsg.MSG_WRITE|CMMsg.MASK_ALWAYS,CMParms.combine(commands,2),
 											CMMsg.MSG_WRITE|CMMsg.MASK_ALWAYS,null);
 			if(mob.location().okMessage(mob,newMsg)&&I.okMessage(mob, newMsg))
@@ -2249,6 +3172,14 @@ public class Modify extends StdCommand
 			}
 		}
 		else
+		if(commandType.equals("UPDATE:"))
+		{
+			if((!CMSecurity.isASysOp(mob))&&(!CMSecurity.isAllowedEverywhere(mob, CMSecurity.SecFlag.CMDAREAS)))
+				return errorOut(mob);
+			commands.remove(0);
+			doMql(mob, false, commands);
+		}
+		else
 		if(commandType.equals("CLAN"))
 		{
 			if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.CMDCLANS))
@@ -2292,7 +3223,9 @@ public class Modify extends StdCommand
 						final MOB M=srchRoom.fetchInhabitant(rest);
 						if(M==null)
 						{
-							final Item I = srchRoom.findItem(null, rest);
+							Item I = srchRoom.findItem(null, rest);
+							if(I == null)
+								I=mob.fetchItem(null, Wearable.FILTER_ANY, rest);
 							if(I instanceof Container)
 								srchContainer=I;
 							else
@@ -2344,10 +3277,15 @@ public class Modify extends StdCommand
 				if((!thang.isGeneric())&&(((MOB)thang).isMonster()))
 				{
 					final MOB copyMOB=(MOB)thang.copyOf();
+					if(thang instanceof Deity)
+						CMLib.map().registerWorldObjectLoaded(((Deity) thang).location().getArea(), ((Deity) thang).location(), thang);
 					mob.location().showOthers(mob,thang,CMMsg.MSG_OK_ACTION,L("<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAMESELF>."));
 					CMLib.genEd().modifyStdMob(mob,(MOB)thang,-1);
 					if(!copyMOB.sameAs(thang))
 						Log.sysOut("CreateEdit",mob.Name()+" modified mob "+thang.Name()+" ("+thang.ID()+") in "+CMLib.map().getDescriptiveExtendedRoomID(((MOB)thang).location())+".");
+					copyMOB.destroy();
+					if(thang instanceof Deity)
+						CMLib.map().registerWorldObjectLoaded(((Deity) thang).location().getArea(), ((Deity) thang).location(), thang);
 				}
 				else
 				if(!((MOB)thang).isMonster())
@@ -2359,11 +3297,15 @@ public class Modify extends StdCommand
 				else
 				{
 					final MOB copyMOB=(MOB)thang.copyOf();
+					if(thang instanceof Deity)
+						CMLib.map().registerWorldObjectLoaded(((Deity) thang).location().getArea(), ((Deity) thang).location(), thang);
 					mob.location().showOthers(mob,thang,CMMsg.MSG_OK_ACTION,L("<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAMESELF>."));
 					CMLib.genEd().genMiscSet(mob,thang,-1);
 					if(!copyMOB.sameAs(thang))
 						Log.sysOut("CreateEdit",mob.Name()+" modified mob "+thang.Name()+" ("+thang.ID()+") in "+CMLib.map().getDescriptiveExtendedRoomID(((MOB)thang).location())+".");
 					copyMOB.destroy();
+					if(thang instanceof Deity)
+						CMLib.map().registerWorldObjectLoaded(((Deity) thang).location().getArea(), ((Deity) thang).location(), thang);
 				}
 				((MOB)thang).recoverPhyStats();
 				mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("@x1 shake(s) under the transforming power.",thang.name()));
@@ -2399,7 +3341,7 @@ public class Modify extends StdCommand
 				execute(mob,commands,metaFlags);
 			}
 			else
-			if((thang=CMLib.map().findSpaceObject(allWord,true))!=null)
+			if((thang=CMLib.space().findSpaceObject(allWord,true))!=null)
 			{
 				commands=new Vector<String>();
 				commands.add("MODIFY");
@@ -2421,7 +3363,7 @@ public class Modify extends StdCommand
 				execute(mob,commands,metaFlags);
 			}
 			else
-			if((thang=CMLib.map().findSpaceObject(allWord,false))!=null)
+			if((thang=CMLib.space().findSpaceObject(allWord,false))!=null)
 			{
 				if(thang instanceof Area)
 					commands.add(1,"AREA");
@@ -2431,7 +3373,19 @@ public class Modify extends StdCommand
 				execute(mob,commands,metaFlags);
 			}
 			else
-				mob.tell(L("\n\rYou cannot modify a '@x1'. However, you might try an "+listOfThings()+".",allWord));
+			if((thang=CMLib.players().getLoadPlayer(allWord))!=null)
+			{
+				commands.add(1,"USER");
+				execute(mob,commands,metaFlags);
+			}
+			else
+			if(allWord.indexOf('@')>=0)
+			{
+				commands.add(1,"ITEM");
+				execute(mob,commands,metaFlags);
+			}
+			else
+				mob.tell(L("\n\rYou cannot modify a '@x1'. However, you might try an @x2.",allWord,listOfThings()));
 		}
 		return false;
 	}

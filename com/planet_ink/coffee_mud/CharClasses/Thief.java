@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -145,7 +145,7 @@ public class Thief extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Thief_SneakAttack",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Thief_Countertracking",false);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Skill_WandUse",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),3,"Thief_CaseJoint",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Thief_Sneak",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Thief_Autosneak",false,CMParms.parseSemicolons("*_Sneak",true));
@@ -169,9 +169,11 @@ public class Thief extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Thief_BackStab",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Skill_Haggle",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Thief_Smuggle",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Thief_Steal",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Skill_Trip",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Skill_WandUse",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Thief_Listen",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Skill_TwoWeaponFighting",false);
@@ -203,6 +205,8 @@ public class Thief extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Thief_Distract",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Thief_Snatch",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Spell_Ventriloquate",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Thief_SilentWield",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Thief_SilentHold",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Thief_Lore",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Thief_Alertness",false);
@@ -214,9 +218,11 @@ public class Thief extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Thief_Flank",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Thief_ImprovedDistraction",false,CMParms.parseSemicolons("Thief_Distract",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"BlackMarketeering",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Thief_Trap",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Skill_Warrants",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Thief_SilentWear",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Thief_Bribe",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Thief_EscapeBonds",false);
@@ -263,6 +269,7 @@ public class Thief extends StdCharClass
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}
@@ -283,7 +290,12 @@ public class Thief extends StdCharClass
 				if((A!=null)
 				&&(!CMLib.ableMapper().getAllQualified(ID(),true,A.ID()))
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
-					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+				{
+					giveMobAbility(mob,A,
+								   CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),
+								   CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),
+								   isBorrowedClass);
+				}
 			}
 		}
 	}
@@ -301,18 +313,12 @@ public class Thief extends StdCharClass
 			&&(msg.targetMessage()==null)
 			&&(msg.tool() instanceof Ability)
 			&&(myChar.charStats().getCurrentClass()==this)
-			&&(msg.tool().ID().equals("Thief_Steal")
-				||msg.tool().ID().equals("Thief_Robbery")
-				||msg.tool().ID().equals("Thief_Embezzle")
-				||msg.tool().ID().equals("Thief_Mug")
-				||msg.tool().ID().equals("Thief_Plunder")
-				||(msg.tool().ID().equals("Thief_Pick")&&(msg.value()==1))
+			&&((msg.tool().ID().equals("Thief_Pick")&&(msg.value()==1))
 				||(msg.tool().ID().equals("Thief_RemoveTraps")&&(msg.value()==1))
-				||msg.tool().ID().equals("Thief_Racketeer")
-				||msg.tool().ID().equals("Thief_Swipe")))
+				||(CMath.bset(((Ability)msg.tool()).flags(),Ability.FLAG_STEALING))))
 			{
 				final int xp=CMLib.flags().isAliveAwakeMobileUnbound((MOB)msg.target(), true)?10:5;
-				CMLib.leveler().postExperience(myChar,(MOB)msg.target()," for a successful "+msg.tool().name(),xp,false);
+				CMLib.leveler().postExperience(myChar,"CLASS:"+ID(),(MOB)msg.target()," for a successful "+msg.tool().name(),xp, false);
 			}
 		}
 		super.executeMsg(myHost,msg);

@@ -11,7 +11,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
-import com.planet_ink.coffee_mud.Items.interfaces.TechComponent.ShipDir;
+import com.planet_ink.coffee_mud.Items.interfaces.ShipDirectional.ShipDir;
 import com.planet_ink.coffee_mud.Items.interfaces.Technical.TechType;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ public class StdShipFuellessThruster extends StdElecCompItem implements ShipEngi
 	protected boolean		constantThrust	= true;
 	protected final long[]	lastThrustMs	= new long[] { 0 };
 
-	protected TechComponent.ShipDir[] ports = TechComponent.ShipDir.values();
+	protected ShipDirectional.ShipDir[] ports = ShipDirectional.ShipDir.values();
 
 	public StdShipFuellessThruster()
 	{
@@ -148,24 +148,24 @@ public class StdShipFuellessThruster extends StdElecCompItem implements ShipEngi
 	}
 
 	@Override
-	public boolean isConstantThruster()
+	public boolean isReactionEngine()
 	{
 		return constantThrust;
 	}
 
 	@Override
-	public void setConstantThruster(final boolean isConstant)
+	public void setReactionEngine(final boolean isConstant)
 	{
 		constantThrust = isConstant;
 	}
 
 	/**
 	 * Gets set of available thrust ports on this engine.
-	 * @see ShipEngine#setAvailPorts(TechComponent.ShipDir[])
+	 * @see ShipEngine#setAvailPorts(ShipDirectional.ShipDir[])
 	 * @return the set of available thrust ports.
 	 */
 	@Override
-	public TechComponent.ShipDir[] getAvailPorts()
+	public ShipDirectional.ShipDir[] getAvailPorts()
 	{
 		return ports;
 	}
@@ -176,7 +176,7 @@ public class StdShipFuellessThruster extends StdElecCompItem implements ShipEngi
 	 * @param ports the set of available thrust ports.
 	 */
 	@Override
-	public void setAvailPorts(final TechComponent.ShipDir[] ports)
+	public void setAvailPorts(final ShipDirectional.ShipDir[] ports)
 	{
 		this.ports = ports;
 	}

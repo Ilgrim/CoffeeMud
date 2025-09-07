@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -133,14 +133,14 @@ public class Ranger_FindWater extends StdAbility
 			if(nextDirection==-1)
 			{
 				if(waterHere(mob,mob.location(),null).length()==0)
-					mob.tell(L("The water trail dries up here."));
+					commonTelL(mob,"The water trail dries up here.");
 				nextDirection=-999;
 				unInvoke();
 			}
 			else
 			if(nextDirection>=0)
 			{
-				mob.tell(L("The water trail seems to continue @x1.",CMLib.directions().getDirectionName(nextDirection)));
+				commonTelL(mob,"The water trail seems to continue @x1.",CMLib.directions().getDirectionName(nextDirection));
 				if(mob.isMonster())
 				{
 					final Room nextRoom=mob.location().getRoomInDir(nextDirection);
@@ -206,15 +206,15 @@ public class Ranger_FindWater extends StdAbility
 		if(I.container()==container)
 		{
 			if(((I instanceof Drink))
-			&&(((Drink)I).containsDrink())
+			&&(((Drink)I).containsLiquid())
 			&&(CMLib.flags().canBeSeenBy(I,mob)))
-				msg.append(L("@x1 contains some sort of liquid.\n\r",I.name()));
+				commonTelL(mob,"@x1 contains some sort of liquid.\n\r",I.name());
 		}
 		else
 		if((I.container()!=null)&&(I.container().container()==container))
 		{
 			if(msg.toString().indexOf(I.container().name()+" contains some sort of liquid.")<0)
-				msg.append(L("@x1 contains some sort of liquid.\n\r",I.container().name()));
+				commonTelL(mob,"@x1 contains some sort of liquid.\n\r",I.container().name());
 		}
 		return msg.toString();
 	}
@@ -305,7 +305,7 @@ public class Ranger_FindWater extends StdAbility
 		for(final Ability A : V) A.unInvoke();
 		if(V.size()>0)
 		{
-			mob.tell(L("You stop tracking."));
+			commonTelL(mob,"You stop tracking.");
 			if(commands.size()==0)
 				return true;
 		}
@@ -325,17 +325,22 @@ public class Ranger_FindWater extends StdAbility
 		final ArrayList<Room> rooms=new ArrayList<Room>();
 		TrackingLibrary.TrackingFlags flags;
 		flags = CMLib.tracking().newFlags()
+				.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 				.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
 				.plus(TrackingLibrary.TrackingFlag.NOAIR);
 		final int range=60 + (2*super.getXLEVELLevel(mob))+(10*super.getXMAXRANGELevel(mob));
-		final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,range);
-		for (final Room room : checkSet)
-		{
-			final Room R=CMLib.map().getRoom(room);
-			if(waterHere(mob,R,null).length()>0)
-				rooms.add(R);
-		}
-
+		final List<Room> trashRooms = new ArrayList<Room>();
+		if(CMLib.tracking().getRadiantRoomsToTarget(mob.location(), trashRooms, flags, new TrackingLibrary.RFilter() {
+			@Override
+			public boolean isFilteredOut(final Room hostR, Room R, final Exit E, final int dir)
+			{
+				R=CMLib.map().getRoom(R);
+				if(waterHere(mob,R,null).length()>0)
+					return false;
+				return true;
+			}
+		}, range))
+			rooms.add(trashRooms.get(trashRooms.size()-1));
 		if(rooms.size()>0)
 			theTrail=CMLib.tracking().findTrailToAnyRoom(mob.location(),rooms,flags,range);
 

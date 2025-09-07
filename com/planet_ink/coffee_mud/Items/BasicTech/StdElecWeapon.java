@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -221,7 +221,6 @@ public class StdElecWeapon extends StdElecItem implements Weapon, Electronics
 		{
 			switch(msg.targetMinor())
 			{
-			case CMMsg.TYP_LOOK:
 			case CMMsg.TYP_EXAMINE:
 				if(CMLib.flags().canBeSeenBy(this, msg.source()))
 				{
@@ -510,16 +509,16 @@ public class StdElecWeapon extends StdElecItem implements Weapon, Electronics
 	@Override
 	public int minRange()
 	{
-		if(CMath.bset(phyStats().sensesMask(),PhyStats.SENSE_ITEMNOMINRANGE))
-			return 0;
+		if(CMath.bset(phyStats().armor(),Weapon.MASK_MINRANGEFLAG))
+			return (phyStats().armor()&Weapon.MASK_MINRANGEBITS)>>Weapon.MASK_MINRANGESHFT;
 		return minRange;
 	}
 
 	@Override
 	public int maxRange()
 	{
-		if(CMath.bset(phyStats().sensesMask(),PhyStats.SENSE_ITEMNOMAXRANGE))
-			return 100;
+		if(CMath.bset(phyStats().armor(),Weapon.MASK_MAXRANGEFLAG))
+			return (phyStats().armor()&Weapon.MASK_MAXRANGEBITS)>>Weapon.MASK_MAXRANGESHFT;
 		return maxRange;
 	}
 

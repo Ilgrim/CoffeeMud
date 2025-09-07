@@ -19,12 +19,13 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.Award;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.Event;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
+import com.planet_ink.coffee_mud.MOBS.interfaces.MOB.Attrib;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.util.*;
 
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,7 +61,7 @@ public class Achievements extends StdCommand
 
 	private enum ValidParms
 	{
-		ANNOUNCE, ALL, WON, NOW, PLAYER, ACCOUNT, CHARACTER, CLAN
+		ANNOUNCE, ALL, WON, NOW, PLAYER, ACCOUNT, CHARACTER, CLAN, AWARDS
 	}
 
 	private Tattooable getTattooable(final Agent agent, final MOB mob)
@@ -166,6 +167,15 @@ public class Achievements extends StdCommand
 			{
 				whoM=CMLib.players().getLoadPlayer(lastParm);
 				parms.remove(parms.size()-1);
+				if((whoM.isAttributeSet(Attrib.PRIVACY))
+				&&(whoM!=mob)
+				&&(!whoM.getGroupMembers(new HashSet<MOB>()).contains(mob))
+				&&(!CMSecurity.isAllowed(mob, mob.location(), CMSecurity.SecFlag.CMDPLAYERS))
+				&&(!CMSecurity.isAllowed(mob, mob.location(), CMSecurity.SecFlag.ACHIEVEMENTS)))
+				{
+					mob.tell(L("You may not do that."));
+					return false;
+				}
 			}
 			else
 			{
@@ -187,41 +197,49 @@ public class Achievements extends StdCommand
 			case RETIRE:
 			case REMORT:
 			{
+				final Set<Achievement> alreadyGot = new HashSet<Achievement>();
+				for(final Agent agent : new Agent[] {Agent.PLAYER, Agent.ACCOUNT})
+				{
+					final Tattooable T = getTattooable(agent, whoM);
+					for(final Enumeration<Achievement> a=CMLib.achievements().achievements(agent);a.hasMoreElements();)
+					{
+						final Achievement A=a.nextElement();
+						if(T.findTattoo(A.getTattoo())!=null)
+							alreadyGot.add(A);
+					}
+				}
 				final Event E=(noAgent == NonAgentList.REMORT) ? Event.REMORT : Event.RETIRE;
 				final List<Achievement> awards = CMLib.achievements().fakeBumpAchievement(whoM, E, 1);
 				int numAwards=0;
 				for(final Achievement A : awards)
 					numAwards+=A.getRewards().length;
-				if(numAwards==0)
+				final String agentName;
+				switch(noAgent)
 				{
-					mob.tell(whoM,null,null,L("<S-YOUPOSS> next "+noAgent.toString().toLowerCase()+" would grant <S-NAME> no new awards."));
+				case REMORT: agentName=L("remort"); break;
+				case RETIRE: agentName=L("retire"); break;
+				default: agentName = L("broken achievements report"); break;
 				}
+				if(numAwards==0)
+					mob.tell(whoM,null,null,L("<S-YOUPOSS> next @x1 would grant <S-NAME> no new awards.", agentName));
 				else
 				{
-					final StringBuilder str=new StringBuilder(L("^H<S-YOUPOSS> next "+noAgent.toString().toLowerCase()+" will get the following awards:^?"));
+					final StringBuilder str=new StringBuilder(L("^H<S-YOUPOSS> next @x1 will get the following awards:^?", agentName));
 					int i=1;
 					for(final Achievement A : awards)
 					{
+						if(alreadyGot.contains(A))
+							continue;
 						if(A.getRewards().length>0)
-							str.append(L("\n\rFrom the achievement '@x1':",A.getDisplayStr()));
+							str.append(L("\n\r^HFrom the achievement ^w'@x1'^N:",A.getDisplayStr()));
 						for(final Award award : A.getRewards())
-							str.append("\n\r"+(i++)+") "+CMLib.achievements().fixAwardDescription(A, award, whoM, whoM));
+							str.append("\n\r  "+(i++)+") "+CMLib.achievements().fixAwardDescription(A, award, whoM, whoM));
 					}
 					str.append("\n\r");
 					mob.tell(mob,whoM,null,str.toString());
 				}
-				if(CMProps.getIntVar(CMProps.Int.COMMONACCOUNTSYSTEM)<=1)
-				{
-					return false;
-				}
-				final List<Achievement> futureAwards = getAccountAwards(whoM);
-				if(futureAwards.size()==0)
-				{
-					return false;
-				}
-				mob.tell(whoM,null,null,L("^HFrom <S-YOUPOSS> previous achievements. ^?"));
+				return false;
 			}
-			//$FALL-THROUGH$
 			case FUTURE:
 			{
 				if(CMProps.getIntVar(CMProps.Int.COMMONACCOUNTSYSTEM)<=1)
@@ -243,9 +261,9 @@ public class Achievements extends StdCommand
 				for(final Achievement A : awards)
 				{
 					if(A.getRewards().length>0)
-						str.append(L("\n\rFrom the achievement '@x1':",A.getDisplayStr()));
+						str.append(L("\n\r^HFrom the achievement ^w'@x1'^N:",A.getDisplayStr()));
 					for(final Award award : A.getRewards())
-						str.append("\n\r"+(i++)+") "+CMLib.achievements().fixAwardDescription(A, award, whoM, whoM));
+						str.append("\n\r  "+(i++)+") "+CMLib.achievements().fixAwardDescription(A, award, whoM, whoM));
 				}
 				str.append("\n\r");
 				mob.tell(whoM,null,null,str.toString());
@@ -255,17 +273,27 @@ public class Achievements extends StdCommand
 			{
 				final StringBuilder str=new StringBuilder("");
 				int i=1;
+				final List<Achievement> achs = new ArrayList<Achievement>();
 				for(final Enumeration<Tattoo> t = whoM.tattoos();t.hasMoreElements();)
 				{
 					final Achievement A=CMLib.achievements().getAchievement(t.nextElement().getTattooName());
 					if(A != null)
+						achs.add(A);
+				}
+				achs.sort(new Comparator<Achievement>() {
+					@Override
+					public int compare(final Achievement o1, final Achievement o2)
 					{
-						if(A.getRewards().length>0)
-							str.append(L("\n\rFrom the achievement '@x1':",A.getDisplayStr()));
-						for(final Award award : A.getRewards())
-						{
-							str.append("\n\r"+(i++)+") "+CMLib.achievements().fixAwardDescription(A, award, whoM, whoM));
-						}
+						return o1.getDisplayStr().compareToIgnoreCase(o2.getDisplayStr());
+					}
+				});
+				for(final Achievement A : achs)
+				{
+					if(A.getRewards().length>0)
+						str.append(L("\n\r^HFrom the achievement ^w'@x1'^N:",A.getDisplayStr()));
+					for(final Award award : A.getRewards())
+					{
+						str.append("\n\r  "+(i++)+") "+CMLib.achievements().fixAwardDescription(A, award, whoM, whoM));
 					}
 				}
 				if(str.length()==0)
@@ -285,6 +313,7 @@ public class Achievements extends StdCommand
 		final List<AccountStats.Agent> agents = new LinkedList<AccountStats.Agent>();
 		boolean announce=false;
 		ValidLists list = ValidLists.WON;
+		boolean addAwards = false;
 		for(int p=parms.size()-1;p>=0;p--)
 		{
 			final ValidParms V = (ValidParms)CMath.s_valueOf(ValidParms.class,parms.get(p).toUpperCase().trim());
@@ -292,6 +321,9 @@ public class Achievements extends StdCommand
 			{
 				switch(V)
 				{
+				case AWARDS:
+					addAwards = true;
+					break;
 				case ANNOUNCE:
 					announce=true;
 					break;
@@ -326,10 +358,10 @@ public class Achievements extends StdCommand
 		String prefix = "";
 		if(whoM != mob)
 		{
-			prefix=whoM.Name()+L("'s ");
+			prefix=CMLib.english().makePlural(whoM.Name());
 		}
 
-		final Set<String> WonList = new HashSet<String>();
+		final Set<String> wonList = new HashSet<String>();
 		for(final Agent agent : agents)
 		{
 			final Tattooable T = getTattooable(agent, whoM);
@@ -339,7 +371,7 @@ public class Achievements extends StdCommand
 				{
 					final Achievement A=a.nextElement();
 					if(T.findTattoo(A.getTattoo())!=null)
-						WonList.add(A.getTattoo());
+						wonList.add(A.getTattoo());
 				}
 			}
 		}
@@ -351,7 +383,7 @@ public class Achievements extends StdCommand
 			{
 				final Tattooable T = pair.first;
 				if(T.findTattoo(A.getTattoo())!=null)
-					WonList.add(A.getTattoo());
+					wonList.add(A.getTattoo());
 			}
 		}
 
@@ -403,12 +435,12 @@ public class Achievements extends StdCommand
 				{
 				case ALL:
 				{
-					final List<Achievement> useList = getLowestNumberedTattoos(agent,WonList);
+					final List<Achievement> useList = getLowestNumberedTattoos(agent,wonList);
 					int padding=done.length()+1;
 					for(final Iterator<Achievement> a=useList.iterator();a.hasNext();)
 					{
 						final Achievement A=a.next();
-						if(!WonList.contains(A.getTattoo()))
+						if(!wonList.contains(A.getTattoo()))
 						{
 							final AchievementLibrary.Tracker T=(stat != null) ? stat.getAchievementTracker(A, tracked, mob) : null;
 							final int score = (T==null) ? 0 : T.getCount(tracked);
@@ -428,7 +460,7 @@ public class Achievements extends StdCommand
 						final Achievement A=a.next();
 						if(!A.canBeSeenBy(whoM))
 							continue;
-						if(WonList.contains(A.getTattoo()))
+						if(wonList.contains(A.getTattoo()))
 							achievedList.add(CMStrings.padRight("^H"+done+"^?", padding)+": "+A.getDisplayStr());
 						else
 						{
@@ -438,9 +470,15 @@ public class Achievements extends StdCommand
 							if(A.getEvent()==Event.STATVALUE)
 								targetScore=A.isTargetFloor()?targetScore+1:targetScore-1;
 							if(targetScore == Integer.MIN_VALUE)
-								achievedList.add(CMStrings.padRight("^w", padding)+"^?: "+A.getDisplayStr());
+								achievedList.add(CMStrings.padRight("^w", padding)+"^N: "+A.getDisplayStr());
 							else
-								achievedList.add(CMStrings.padRight("^w"+score+"/"+targetScore, padding)+"^?: "+A.getDisplayStr());
+								achievedList.add(CMStrings.padRight("^w"+score+"/"+targetScore, padding)+"^N: "+A.getDisplayStr());
+							if(addAwards)
+							{
+								for(final Award award : A.getRewards())
+									achievedList.add(" ^k"+CMStrings.padLeft(L("awards"), padding-1)+": "+
+											CMLib.achievements().fixAwardDescription(A, award, whoM, whoM));
+							}
 						}
 					}
 					break;
@@ -448,11 +486,11 @@ public class Achievements extends StdCommand
 				case NOW:
 				{
 					int padding=done.length()+1;
-					final List<Achievement> useList = getLowestNumberedTattoos(agent,WonList);
+					final List<Achievement> useList = getLowestNumberedTattoos(agent,wonList);
 					for(final Iterator<Achievement> a=useList.iterator();a.hasNext();)
 					{
 						final Achievement A=a.next();
-						if(!WonList.contains(A.getTattoo()))
+						if(!wonList.contains(A.getTattoo()))
 						{
 							final AchievementLibrary.Tracker T=(stat != null) ? stat.getAchievementTracker(A, tracked, mob) : null;
 							final int score = (T==null) ? 0 : T.getCount(tracked);
@@ -475,7 +513,7 @@ public class Achievements extends StdCommand
 						final Achievement A=a.next();
 						if(!A.canBeSeenBy(whoM))
 							continue;
-						if(WonList.contains(A.getTattoo()))
+						if(wonList.contains(A.getTattoo()))
 							achievedList.add(CMStrings.padRight("^H"+done+"^?", padding)+": "+A.getDisplayStr());
 						else
 						{
@@ -487,9 +525,15 @@ public class Achievements extends StdCommand
 								if(A.getEvent()==Event.STATVALUE)
 									targetScore=A.isTargetFloor()?targetScore+1:targetScore-1;
 								if(targetScore != Integer.MIN_VALUE)
-									achievedList.add(CMStrings.padRight("^w"+score+"/"+targetScore, padding)+"^?: "+A.getDisplayStr());
+									achievedList.add(CMStrings.padRight("^w"+score+"/"+targetScore, padding)+"^N: "+A.getDisplayStr());
 								else
-									achievedList.add(CMStrings.padRight("^w", padding)+"^?: "+A.getDisplayStr());
+									achievedList.add(CMStrings.padRight("^w", padding)+"^N: "+A.getDisplayStr());
+								if(addAwards)
+								{
+									for(final Award award : A.getRewards())
+										achievedList.add(" ^k"+CMStrings.padLeft(L("awards"), padding-1)+": "+
+												CMLib.achievements().fixAwardDescription(A, award, whoM, whoM));
+								}
 							}
 						}
 					}
@@ -500,10 +544,16 @@ public class Achievements extends StdCommand
 					for(final Enumeration<Achievement> a=CMLib.achievements().achievements(agent);a.hasMoreElements();)
 					{
 						final Achievement A=a.nextElement();
-						if((WonList.contains(A.getTattoo()))
+						if((wonList.contains(A.getTattoo()))
 						&&(A.canBeSeenBy(whoM)))
 						{
-							achievedList.add(A.getDisplayStr());
+							achievedList.add("^w"+A.getDisplayStr());
+							if(addAwards)
+							{
+								for(final Award award : A.getRewards())
+									achievedList.add("  ^kawards: ^N"+
+											CMLib.achievements().fixAwardDescription(A, award, whoM, whoM));
+							}
 						}
 					}
 					break;
@@ -512,12 +562,13 @@ public class Achievements extends StdCommand
 				String subName = "";
 				if(tracked instanceof Clan)
 					subName = " (" + ((Clan)tracked).clanID()+")";
+				final String agentName = agent.description();
 				if(achievedList.size()==0)
-					finalResponse .append("^H"+prefix+L(CMStrings.capitalizeAndLower(agent.name())+" Achievements"+subName+": ^NNone!")+"^w\n\r\n\r");
+					finalResponse .append("^H"+prefix+L("@x1 Achievements@x2: ^NNone!",agentName,subName)+"^w\n\r\n\r");
 				else
 				{
-					finalResponse.append("^H"+prefix+L(CMStrings.capitalizeAndLower(agent.name())+" Achievements"+subName+":")+"^w\n\r");
-					finalResponse.append(CMLib.lister().makeColumns(mob, achievedList, null, 2).toString()+"^w\n\r\n\r");
+					finalResponse.append("^H"+prefix+L("@x1 Achievements@x2:",agentName,subName)+"^w\n\r");
+					finalResponse.append(CMLib.lister().buildNColTable(mob, achievedList, null, 1).toString()+"^w\n\r\n\r");
 				}
 			}
 		}

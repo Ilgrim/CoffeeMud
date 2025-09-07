@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -150,7 +150,7 @@ public class Spell_Phantasm extends Spell
 			}
 			else
 			if(msg.amITarget(mob)&&(msg.targetMinor()==CMMsg.TYP_DAMAGE))
-				msg.addTrailerMsg(CMClass.getMsg(mob,null,CMMsg.MSG_QUIT,L("@x1's attack somehow went THROUGH <T-NAMESELF>.",msg.source().name())));
+				msg.addTrailerMsg(CMClass.getMsg(mob,null,CMMsg.MSG_QUIT,L("@x1's attack somehow went THROUGH <S-NAMESELF>.",msg.source().name())));
 		}
 	}
 
@@ -230,7 +230,7 @@ public class Spell_Phantasm extends Spell
 			}
 		}
 		else
-			return beneficialWordsFizzle(mob,null,L("<S-NAME> incant(s) to summon a @x1, but fails.",type));
+			return beneficialWordsFizzle(mob,null,L("<S-NAME> incant(s) to summon a @x1, but fail(s).",type));
 
 		// return whether it worked
 		return success;
@@ -239,7 +239,7 @@ public class Spell_Phantasm extends Spell
 	public MOB determineMonster(final MOB caster, final Race R, final int level)
 	{
 		final MOB newMOB=CMClass.getMOB("GenMob");
-		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase());
+		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase());//normal
 		final CharClass C=CMClass.getCharClass("Fighter");
 		newMOB.baseCharStats().setCurrentClass(C);
 		newMOB.basePhyStats().setLevel(level);
@@ -258,7 +258,9 @@ public class Spell_Phantasm extends Spell
 		newMOB.basePhyStats().setDamage(CMLib.leveler().getLevelMOBDamage(newMOB));
 		newMOB.basePhyStats().setSpeed(CMLib.leveler().getLevelMOBSpeed(newMOB));
 		newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'M');
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		newMOB.setName(L("a ferocious @x1",R.name().toLowerCase()));
 		newMOB.setDisplayText(L("a ferocious @x1 is stalking around here",R.name().toLowerCase()));
 		newMOB.setDescription("");

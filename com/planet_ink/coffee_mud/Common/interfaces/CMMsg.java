@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -125,6 +125,17 @@ public interface CMMsg extends CMCommon
 	 * @return true if high order bitmask for the target code is set
 	 */
 	public boolean targetMajor(final int bitMask);
+
+	/**
+	 * Returns whether high order bitmask for the target code is set with
+	 * any of the given bits
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.CMMsg#targetCode()
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.CMMsg#targetMinor()
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.CMMsg#MASK_MAGIC
+	 * @param bitMask the bitmask to check for
+	 * @return true if high order bitmask for the target code is set
+	 */
+	public boolean targetMajorAny(final int bitMask);
 
 	/**
 	 * Returns low order action type integer for the target code
@@ -268,6 +279,17 @@ public interface CMMsg extends CMCommon
 	public boolean sourceMajor(final int bitMask);
 
 	/**
+	 * Returns whether high order bitmask for the source code is set
+	 * with ANY of the given bits.
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.CMMsg#sourceCode()
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.CMMsg#sourceMinor()
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.CMMsg#MASK_MAGIC
+	 * @param bitMask the bitmask to check for
+	 * @return true if high order bitmask for the source code is set
+	 */
+	public boolean sourceMajorAny(final int bitMask);
+
+	/**
 	 * Returns low order action type integer for the target code
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.CMMsg#targetCode()
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.CMMsg#targetMajor(int)
@@ -409,6 +431,17 @@ public interface CMMsg extends CMCommon
 	 * @return true if high order bitmask for the others code is set
 	 */
 	public boolean othersMajor(final int bitMask);
+
+	/**
+	 * Returns whether high order bitmask for the others code is set
+	 * with any of the given bits.
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.CMMsg#othersCode()
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.CMMsg#othersMinor()
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.CMMsg#MASK_MAGIC
+	 * @param bitMask the bitmask to check for
+	 * @return true if high order bitmask for the others code is set
+	 */
+	public boolean othersMajorAny(final int bitMask);
 
 	/**
 	 * Returns low order action type integer for the others code
@@ -833,6 +866,14 @@ public interface CMMsg extends CMCommon
 	public CMMsg addTrailerMsg(final CMMsg msg);
 
 	/**
+	 * Suspend or resume processing of trailer messages and runnables whenever
+	 * a room finishes processing a message.
+	 * @param newValue null to return the existing value only, or a new value
+	 * @return the new existing value
+	 */
+	public boolean suspendResumeTrailers(final Boolean newValue);
+
+	/**
 	 * Returns a List of other Runnables which are slated to be
 	 * and executed AFTER this current message is handled.  This is implemented
 	 * by the Room object
@@ -925,6 +966,8 @@ public interface CMMsg extends CMCommon
 	public static final int MASK_CNTRLMSG=4194304; // to denote an internal only control message
 	/** MAJOR_MASK bit denoting an event that is for system processing, and not observable */
 	public static final int MASK_INTERMSG=8388608; // to denote an intermediate (not final goal) message
+	/** MAJOR_MASK bit denoting an event that might be too spammy for some players */
+	public static final int MASK_SPAMMY=16777216; // to denote a spammy message
 
 	// minor messages
 	/** MINOR_MASK minor action code type, denoting a general area event */
@@ -1143,7 +1186,7 @@ public interface CMMsg extends CMCommon
 	public static final int TYP_POWERCURRENT=107;
 	/** MINOR_MASK minor action code type, denoting power current flowing */
 	public static final int TYP_CONTEMPLATE=108;
-	/** MINOR_MASK minor action code type, denoting power current flowing */
+	/** MINOR_MASK minor action code type, denoting contemplation */
 	public static final int TYP_POUR=109;
 	/** MINOR_MASK minor action code type, denoting a specific glance at the exits */
 	public static final int TYP_LOOK_EXITS=110;
@@ -1205,6 +1248,24 @@ public interface CMMsg extends CMCommon
 	public static final int TYP_ENDQUEST=138;
 	/** MINOR_MASK minor action code type, denoting causing winning a quest */
 	public static final int TYP_WINQUEST=139;
+	/** MINOR_MASK minor action code type, denoting an act between a player and a deity */
+	public static final int TYP_HOLYEVENT=140;
+	/** MINOR_MASK minor action code type, denoting an act between a player and a deity */
+	public static final int TYP_EMISSION=141;
+	/** MINOR_MASK minor action code type, denoting an act of dropping a corpse */
+	public static final int TYP_BODYDROP=142;
+	/** MINOR_MASK minor action code type, denoting a quick glance at something */
+	public static final int TYP_GLANCE=143;
+	/** MINOR_MASK minor action code type, denoting a ritual step */
+	public static final int TYP_RITUAL=144;
+	/** MINOR_MASK minor action code type, denoting a puff on a smokeable */
+	public static final int TYP_PUFF=145;
+	/** MINOR_MASK minor action code type, denoting a train action */
+	public static final int TYP_TRAIN=146;
+	/** MINOR_MASK minor action code type, denoting a broker request action*/
+	public static final int TYP_BROKERADD=147;
+	/** MINOR_MASK minor action code type, denoting a broker request action*/
+	public static final int TYP_NEEDRELOAD=148;
 
 	/** MINOR_MASK minor action code type, denoting a channel action -- 2000-2047 are channels*/
 	public static final int TYP_CHANNEL=2000; //(2000-2047 are channels)
@@ -1235,7 +1296,8 @@ public interface CMMsg extends CMCommon
 		"COMMANDFAIL","METACOMMAND", "ITEMGENERATED", "ATTACKMISS", "WEATHER","ITEMSGENERATED",
 		"WROTE", "REWRITE", "WASREAD", "PREMOVE", "THINK", "STARTUP", "RPXPCHANGE",
 		"COMMANDREJECT","RECIPELEARNED", "GRAVITY", "LEGALSTATE", "NEWROOM","CAUSESINK",
-		"ENDQUEST","WINQUEST"
+		"ENDQUEST","WINQUEST","HOLYEVENT","EMISSION", "BODYDROP", "GLANCE", "RITUAL",
+		"PUFF", "TRAIN", "BROKERADD", "NEEDRELOAD"
 	};
 
 	/** Index string descriptions of all the MAJOR_MASK code MAKS_s */
@@ -1309,15 +1371,15 @@ public interface CMMsg extends CMCommon
 	public static final int MSK_CAST_VERBAL=MASK_SOUND|MASK_MOUTH|MASK_MAGIC;
 	/** Useful MAJOR_MASK shortcut combining other MASK_ constants related to casting verbal malicious magic */
 	public static final int MSK_CAST_MALICIOUS_VERBAL=MASK_SOUND|MASK_MOUTH|MASK_MAGIC|MASK_MALICIOUS;
-	/** Useful MAJOR_MASK shortcut combining other MASK_ constants related to casting somantic magic */
+	/** Useful MAJOR_MASK shortcut combining other MASK_ constants related to casting somatic magic */
 	public static final int MSK_CAST_SOMANTIC=MASK_HANDS|MASK_MAGIC;
-	/** Useful MAJOR_MASK shortcut combining other MASK_ constants related to casting somantic malicious magic */
+	/** Useful MAJOR_MASK shortcut combining other MASK_ constants related to casting somatic malicious magic */
 	public static final int MSK_CAST_MALICIOUS_SOMANTIC=MASK_HANDS|MASK_MAGIC|MASK_MALICIOUS;
 	/** Useful MAJOR_MASK shortcut combining other MASK_ constants related to haggling over price */
 	public static final int MSK_HAGGLE=MASK_HANDS|MASK_SOUND|MASK_MOUTH;
-	/** Useful MAJOR_MASK shortcut combining other MASK_ constants related to casting both verbal and somantic */
+	/** Useful MAJOR_MASK shortcut combining other MASK_ constants related to casting both verbal and somatic */
 	public static final int MSK_CAST=MSK_CAST_VERBAL|MSK_CAST_SOMANTIC;
-	/** Useful MAJOR_MASK shortcut combining other MASK_ constants related to casting both verbal and somantic maliciously */
+	/** Useful MAJOR_MASK shortcut combining other MASK_ constants related to casting both verbal and somatic maliciously */
 	public static final int MSK_CAST_MALICIOUS=MSK_CAST_MALICIOUS_VERBAL|MSK_CAST_MALICIOUS_SOMANTIC;
 	/** Useful MAJOR_MASK shortcut combining other MASK_ constants related to malicious noisy movements */
 	public static final int MSK_MALICIOUS_MOVE=MASK_MALICIOUS|MASK_MOVE|MASK_SOUND;
@@ -1328,9 +1390,9 @@ public interface CMMsg extends CMCommon
 	/** combined MAJOR and MINOR codes for useful event message type for general area effects */
 	public static final int MSG_AREAAFFECT=MASK_ALWAYS|TYP_AREAAFFECT;
 	/** combined MAJOR and MINOR codes for useful event message type for a push event */
-	public static final int MSG_PUSH=MASK_HANDS|TYP_PUSH;
+	public static final int MSG_PUSH=MASK_HANDS|MASK_MOVE|TYP_PUSH;
 	/** combined MAJOR and MINOR codes for useful event message type for a pull event*/
-	public static final int MSG_PULL=MASK_HANDS|TYP_PULL;
+	public static final int MSG_PULL=MASK_HANDS|MASK_MOVE|TYP_PULL;
 	/** combined MAJOR and MINOR codes for useful event message type for a recall event*/
 	public static final int MSG_RECALL=MASK_SOUND|TYP_RECALL; // speak precludes animals
 	/** combined MAJOR and MINOR codes for useful event message type for a open event*/
@@ -1409,9 +1471,9 @@ public interface CMMsg extends CMCommon
 	public static final int MSG_FLEE=MASK_MOVE|MASK_SOUND|TYP_FLEE;
 	/** combined MAJOR and MINOR codes for useful event message type for a flee event */
 	public static final int MSG_CRAWLFLEE=MASK_HANDS|MASK_SOUND|TYP_FLEE;
-	/** combined MAJOR and MINOR codes for useful event message type for a somantic spellcasting event */
+	/** combined MAJOR and MINOR codes for useful event message type for a somatic spellcasting event */
 	public static final int MSG_CAST_SOMANTIC_SPELL=MSK_CAST_SOMANTIC|TYP_CAST_SPELL;
-	/** combined MAJOR and MINOR codes for useful event message type for a malicious somantic spellcasting event */
+	/** combined MAJOR and MINOR codes for useful event message type for a malicious somatic spellcasting event */
 	public static final int MSG_CAST_ATTACK_SOMANTIC_SPELL=MSK_CAST_MALICIOUS_SOMANTIC|TYP_CAST_SPELL;
 	/** combined MAJOR and MINOR codes for useful event message type for a spellcasting event */
 	public static final int MSG_CAST=MSK_CAST|TYP_CAST_SPELL;
@@ -1573,6 +1635,24 @@ public interface CMMsg extends CMCommon
 	public static final int MSG_NEWROOM=MASK_CNTRLMSG|TYP_NEWROOM;
 	/** combined MAJOR and MINOR codes for useful event message type for a sinking ship */
 	public static final int MSG_CAUSESINK=MASK_SOUND|MASK_ALWAYS|TYP_CAUSESINK;
+	/** combined MAJOR and MINOR codes for useful event message type for a sinking ship */
+	public static final int MSG_HOLYEVENT=MASK_ALWAYS|TYP_HOLYEVENT;
+	/** combined MAJOR and MINOR codes for useful event message type for emissions/radiation */
+	public static final int MSG_EMISSION=TYP_EMISSION;
+	/** combined MAJOR and MINOR codes for useful event message type for corpse drop */
+	public static final int MSG_BODYDROP=TYP_BODYDROP;
+	/** combined MAJOR and MINOR codes for useful event message type for a quick glance */
+	public static final int MSG_GLANCE=MASK_EYES|TYP_GLANCE;
+	/** combined MAJOR and MINOR codes for useful event message type for a quick glance */
+	public static final int MSG_RITUAL=MASK_ALWAYS|TYP_RITUAL;
+	/** combined MAJOR and MINOR codes for useful event message type for a smokeing event */
+	public static final int MSG_PUFF=MASK_MOUTH|TYP_PUFF;
+	/** combined MAJOR and MINOR codes for useful event message type for a train event */
+	public static final int MSG_TRAIN=MASK_HANDS|MASK_SOUND|MASK_MOVE|TYP_NOISYMOVEMENT;
+	/** combined MAJOR and MINOR codes for useful event message type for a auction bid event */
+	public static final int MSG_BROKERADD=MASK_SOUND|MASK_MOUTH|TYP_BROKERADD;
+	/** combined MAJOR and MINOR codes for useful event message type for a need to reload event */
+	public static final int MSG_NEEDRELOAD=TYP_NEEDRELOAD;
 
 	/**
 	 * An enum to use for an external message check from inside

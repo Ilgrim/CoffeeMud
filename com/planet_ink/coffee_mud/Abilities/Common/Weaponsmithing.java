@@ -5,6 +5,7 @@ import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftParms;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftingActivity;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftorType;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
@@ -22,7 +23,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -66,23 +67,29 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 		return "METAL|MITHRIL";
 	}
 
+	@Override
+	public CraftorType getCraftorType()
+	{
+		return CraftorType.Weapons;
+	}
+
 	protected int displayColumns()
 	{
 		return 2;
 	}
 
 	@Override
-	public String parametersFormat()
+	public String getRecipeFormat()
 	{
 		return
 		"ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\tMATERIALS_REQUIRED\tITEM_BASE_VALUE\t"
 		+"ITEM_CLASS_ID\tWEAPON_CLASS\tWEAPON_TYPE\tBASE_DAMAGE\tATTACK_MODIFICATION\t"
-		+"WEAPON_HANDS_REQUIRED||MAX_WAND_USES\tMAXIMUM_RANGE\tOPTIONAL_RESOURCE_OR_MATERIAL\tCODED_SPELL_LIST";
+		+"WEAPON_HANDS_REQUIRED\tMIN_MAX_RANGE\tOPTIONAL_RESOURCE_OR_MATERIAL\tCODED_SPELL_LIST";
 	}
 
 	//protected static final int RCP_FINALNAME=0;
 	//protected static final int RCP_LEVEL=1;
-	//protected static final int RCP_TICKS=2;
+	protected static final int	RCP_TICKS		= 2;
 	protected static final int	RCP_WOOD		= 3;
 	protected static final int	RCP_VALUE		= 4;
 	protected static final int	RCP_CLASSTYPE	= 5;
@@ -98,11 +105,12 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			final MOB mob=(MOB)affected;
 			if((buildingI==null)
-			||(getRequiredFire(mob,0)==null))
+			||((getRequiredFire(mob,0)==null)
+				&&(mob.location()==activityRoom)))
 			{
 				messedUp=true;
 				unInvoke();
@@ -119,7 +127,7 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 	}
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return "weaponsmith.txt";
 	}
@@ -127,7 +135,7 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 	@Override
 	protected List<List<String>> loadRecipes()
 	{
-		return super.loadRecipes(parametersFile());
+		return super.loadRecipes(getRecipeFilename());
 	}
 
 	@Override
@@ -148,10 +156,14 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 						if(activity == CraftingActivity.LEARNING)
 						{
 							commonEmote(mob,L("<S-NAME> fail(s) to learn how to make @x1.",buildingI.name()));
+							dropALoser(mob,buildingI);
 							buildingI.destroy();
 						}
 						else
+						{
+							dropALoser(mob,buildingI);
 							commonEmote(mob,L("<S-NAME> mess(es) up smithing @x1.",buildingI.name()));
+						}
 					}
 					else
 					if(activity==CraftingActivity.LEARNING)
@@ -164,12 +176,12 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 						if(activity == CraftingActivity.MENDING)
 						{
 							buildingI.setUsesRemaining(100);
-							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.MENDER, 1, this);
+							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.MENDER, 1, this, buildingI);
 						}
 						else
 						{
 							dropAWinner(mob,buildingI);
-							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this);
+							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this, buildingI);
 						}
 					}
 				}
@@ -297,7 +309,7 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 		||(!mayICraft((Item)E)))
 		{
 			if(!quiet)
-				commonTell(mob,L("That's not @x1 item.",CMLib.english().startWithAorAn(Name().toLowerCase())));
+				commonTelL(mob,"That's not @x1 item.",CMLib.english().startWithAorAn(Name().toLowerCase()));
 			return false;
 		}
 		return true;
@@ -312,12 +324,12 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new Vector<Item>(0));
+		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new ArrayList<CraftedItem>(0));
 	}
 
 	@Override
 	protected boolean autoGenInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto,
-									final int asLevel, final int autoGenerate, final boolean forceLevels, final List<Item> crafted)
+									final int asLevel, final int autoGenerate, final boolean forceLevels, final List<CraftedItem> crafted)
 	{
 		if(super.checkStop(mob, commands))
 			return true;
@@ -331,8 +343,8 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 		randomRecipeFix(mob,addRecipes(mob,loadRecipes()),commands,autoGenerate);
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Make what? Enter \"weaponsmith list\" for a list, \"weaponsmith info <item>\", \"weaponsmith scan\","
-						+ " \"weaponsmith learn <item>\", \"weaponsmith mend <item>\", or \"weaponsmith stop\" to cancel."));
+			commonTelL(mob,"Make what? Enter \"weaponsmith list\" for a list, \"weaponsmith info <item>\", \"weaponsmith scan\","
+						+ " \"weaponsmith learn <item>\", \"weaponsmith mend <item>\", or \"weaponsmith stop\" to cancel.");
 			return false;
 		}
 		if((!auto)
@@ -349,7 +361,7 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 		bundling=false;
 		String startStr=null;
 		int duration=4;
-		if(str.equalsIgnoreCase("list"))
+		if(str.equalsIgnoreCase("list") && (autoGenerate <= 0))
 		{
 			String mask=CMParms.combine(commands,1);
 			boolean allFlag=false;
@@ -361,11 +373,12 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 			final StringBuffer buf=new StringBuffer(L("Weapons <S-NAME> <S-IS-ARE> skilled at making:\n\r"));
 			int toggler=1;
 			final int toggleTop=displayColumns();
-			final int itemWidth=CMLib.lister().fixColWidth((78/toggleTop)-9,mob.session());
+			final int itemWidth=CMLib.lister().fixColWidth((78/toggleTop)-10,mob.session());
 			for(int r=0;r<toggleTop;r++)
-				buf.append(L("@x1 Lvl @x2@x3",CMStrings.padRight(L("Item"),itemWidth),CMStrings.padRight(L("Amt"),3),((r<(toggleTop-1)?" ":""))));
-			buf.append("\n\r");
-			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipeNames(recipes, mask, true);
+				buf.append("^H"+L("@x1 Lvl @x2@x3",CMStrings.padRight(L("Item"),itemWidth),CMStrings.padRight(L("Amt"),3),((r<(toggleTop-1)?" ":""))));
+			buf.append("^N\n\r");
+			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes :
+																	matchingRecipes(recipes, mask, true);
 			for(int r=0;r<listRecipes.size();r++)
 			{
 				final List<String> V=listRecipes.get(r);
@@ -374,17 +387,17 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 					final String item=replacePercent(V.get(RCP_FINALNAME),"");
 					final int level=CMath.s_int(V.get(RCP_LEVEL));
 					final String wood=getComponentDescription(mob,V,RCP_WOOD);
-					if(wood.length()>5)
-					{
-						if(toggler>1)
-							buf.append("\n\r");
-						toggler=toggleTop;
-					}
 					if((autoGenerate>0)
 						||(level<=xlevel(mob))
 						||(allFlag))
 					{
-						buf.append(CMStrings.padRight(item,itemWidth)+" "+CMStrings.padRight(""+level,3)+" "+CMStrings.padRightPreserve(""+wood,3)+((toggler!=toggleTop)?" ":"\n\r"));
+						if(wood.length()>5)
+						{
+							if(toggler>1)
+								buf.append("\n\r");
+							toggler=toggleTop;
+						}
+						buf.append("^w"+CMStrings.padRight(item,itemWidth)+"^N "+CMStrings.padRight(""+level,3)+" "+CMStrings.padRightPreserve(""+wood,3)+((toggler!=toggleTop)?" ":"\n\r"));
 						if(++toggler>toggleTop)
 							toggler=1;
 					}
@@ -439,9 +452,14 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 				amount=CMath.s_int(commands.get(commands.size()-1));
 				commands.remove(commands.size()-1);
 			}
+			final int[] pm=checkMaterialFrom(mob,commands,new int[]{RawMaterial.MATERIAL_METAL,RawMaterial.MATERIAL_MITHRIL});
+			if(pm==null)
+				return false;
 			final String recipeName=CMParms.combine(commands,0);
 			List<String> foundRecipe=null;
-			final List<List<String>> matches=matchingRecipeNames(recipes,recipeName,true);
+			final List<List<String>> matches=matchingRecipes(recipes,recipeName,false);
+			if(matches.size()==0)
+				matches.addAll(matchingRecipes(recipes,recipeName,true));
 			for(int r=0;r<matches.size();r++)
 			{
 				final List<String> V=matches.get(r);
@@ -459,7 +477,7 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 			}
 			if(foundRecipe==null)
 			{
-				commonTell(mob,L("You don't know how to make a '@x1'.  Try 'list' instead.",recipeName));
+				commonTelL(mob,"You don't know how to make a '@x1'.  Try 'list' instead.",recipeName);
 				return false;
 			}
 
@@ -475,7 +493,6 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 			if(amount>woodRequired)
 				woodRequired=amount;
 			final String otherRequired=foundRecipe.get(RCP_EXTRAREQ);
-			final int[] pm={RawMaterial.MATERIAL_METAL,RawMaterial.MATERIAL_MITHRIL};
 			final String spell=(foundRecipe.size()>RCP_SPELL)?foundRecipe.get(RCP_SPELL).trim():"";
 			bundling=spell.equalsIgnoreCase("BUNDLE");
 			final int[][] data=fetchFoundResourceData(mob,
@@ -493,19 +510,19 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 				return false;
 			final MaterialLibrary.DeadResourceRecord deadMats;
 			if((componentsFoundList.size() > 0)||(autoGenerate>0))
-				deadMats = new MaterialLibrary.DeadResourceRecord();
+				deadMats = deadRecord;
 			else
 			{
 				deadMats = CMLib.materials().destroyResources(mob.location(),woodRequired,
 						data[0][FOUND_CODE],data[0][FOUND_SUB],data[1][FOUND_CODE],data[1][FOUND_SUB]);
 			}
 			final MaterialLibrary.DeadResourceRecord deadComps = CMLib.ableComponents().destroyAbilityComponents(componentsFoundList);
-			final int lostValue=autoGenerate>0?0:(deadMats.lostValue + deadComps.lostValue);
+			final int lostValue=autoGenerate>0?0:(deadMats.getLostValue() + deadComps.getLostValue());
 			buildingI=CMClass.getItem(foundRecipe.get(RCP_CLASSTYPE));
 			final Item buildingI=this.buildingI;
 			if(buildingI==null)
 			{
-				commonTell(mob,L("There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE)));
+				commonTelL(mob,"There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE));
 				return false;
 			}
 			duration=getDuration(CMath.s_int(foundRecipe.get(RCP_TICKS)),mob,CMath.s_int(foundRecipe.get(RCP_LEVEL)),4);
@@ -528,7 +545,7 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 			setBrand(mob, buildingI);
 			if(bundling)
 				buildingI.setBaseValue(lostValue);
-			addSpells(buildingI,spell,deadMats.lostProps,deadComps.lostProps);
+			addSpellsOrBehaviors(buildingI,spell,deadMats.getLostProps(),deadComps.getLostProps());
 			if(buildingI instanceof Weapon)
 			{
 				final Weapon w=(Weapon)buildingI;
@@ -536,14 +553,13 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 				w.setWeaponDamageType(specType(foundRecipe.get(RCP_WEAPONTYPE)));
 				w.setRanges(w.minRange(),CMath.s_int(foundRecipe.get(RCP_MAXRANGE)));
 			}
-			if(buildingI instanceof Wand)
+			if(foundRecipe.size()>RCP_HANDS)
 			{
-				if(foundRecipe.get(RCP_HANDS).trim().length()>0)
-					((Wand)buildingI).setMaxUses(CMath.s_int(foundRecipe.get(RCP_HANDS).trim()));
+				if(buildingI instanceof Wand)
+					((Wand)buildingI).setMaxCharges(0);
+				if(CMath.s_int(foundRecipe.get(RCP_HANDS))==2)
+					buildingI.setRawLogicalAnd(true);
 			}
-			else
-			if(CMath.s_int(foundRecipe.get(RCP_HANDS))==2)
-				buildingI.setRawLogicalAnd(true);
 			buildingI.basePhyStats().setAttackAdjustment(CMath.s_int(foundRecipe.get(RCP_ATTACK))+(hardness*5)+(baseYield()+abilityCode()-1));
 			buildingI.basePhyStats().setDamage(CMath.s_int(foundRecipe.get(RCP_ARMORDMG))+hardness);
 
@@ -565,7 +581,7 @@ public class Weaponsmithing extends EnhancedCraftingSkill implements ItemCraftor
 
 		if(autoGenerate>0)
 		{
-			crafted.add(buildingI);
+			crafted.add(new CraftedItem(buildingI,null,duration));
 			return true;
 		}
 

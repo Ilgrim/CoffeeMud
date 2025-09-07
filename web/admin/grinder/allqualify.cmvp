@@ -4,7 +4,9 @@
 <META HTTP-EQUIV="Pragma" CONTENT="no-cache">
 <html>
 <head>
+	<META CHARSET="utf-8"/>
     <link rel="grinder icon" href="/images/grinder.ico" >
+    <link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
     <title>@RequestParameter?ALLQUALID@ All Qualify Information</title>
     <script language=JavaScript>
     <!--
@@ -92,6 +94,14 @@
         <TD WIDTH=25%><FONT COLOR=YELLOW>Auto-Gained: </FONT></TD>
         <TD WIDTH=75%>
         <INPUT TYPE=CHECKBOX NAME="AUTOGAIN" @AllQualifyData?AUTOGAIN@>
+        </TD>
+    </TR>
+    <TR>
+        <TD WIDTH=25%><FONT COLOR=YELLOW>Visibility: </FONT></TD>
+        <TD WIDTH=75%>
+            <SELECT NAME=SECRET>
+                @AllQualifyData?SECRET@
+            </SELECT>
         </TD>
     </TR>
     <TR>

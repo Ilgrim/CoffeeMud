@@ -25,7 +25,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2007-2020 Bo Zimmerman
+   Copyright 2007-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ public class AuctionCoffeeShop implements CoffeeShop
 	{
 		try
 		{
-			return getClass().newInstance();
+			return getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -230,16 +230,15 @@ public class AuctionCoffeeShop implements CoffeeShop
 	@Override
 	public Environmental getStock(final String name, final MOB mob)
 	{
-		final List<AuctionData> auctions=CMLib.coffeeShops().getAuctions(null,auctionShop);
-		final Vector<Environmental> auctionItems=new Vector<Environmental>();
-		for(int a=0;a<auctions.size();a++)
+		final List<Environmental> auctionItems=new ArrayList<Environmental>();
+		for(final Enumeration<AuctionData> a=CMLib.coffeeShops().getAuctions(null,auctionShop);a.hasMoreElements();)
 		{
-			final Item I=auctions.get(a).getAuctionedItem();
-			auctionItems.addElement(I);
+			final Item I=a.nextElement().getAuctionedItem();
+			auctionItems.add(I);
 		}
 		for(int a=0;a<auctionItems.size();a++)
 		{
-			final Item I=(Item)auctionItems.elementAt(a);
+			final Item I=(Item)auctionItems.get(a);
 			I.setExpirationDate(CMLib.english().getContextNumber(auctionItems,I));
 		}
 		Environmental item=CMLib.english().fetchEnvironmental(auctionItems,name,true);

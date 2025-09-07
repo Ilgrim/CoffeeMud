@@ -8,6 +8,7 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.PlayerStats.TellMsg;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -39,6 +40,12 @@ public class Tell extends StdCommand
 	}
 
 	private final String[]	access	= I(new String[] { "TELL", "T" });
+
+	private final static Class<?>[][] internalParameters=new Class<?>[][]
+	{
+		{String.class,String.class},
+		{String.class,String.class,Long.class}
+	};
 
 	@Override
 	public String[] getAccessWords()
@@ -65,26 +72,38 @@ public class Tell extends StdCommand
 		commands.remove(0);
 
 		if(commands.get(0).equalsIgnoreCase("last")
-		   &&(CMath.isNumber(CMParms.combine(commands,1)))
-		   &&(mob.playerStats()!=null))
+		&&(CMath.isNumber(CMParms.combine(commands,1)))
+		&&(mob.playerStats()!=null))
 		{
-			final java.util.List<String> V=mob.playerStats().getTellStack();
-			if((V.size()==0)
+			final java.util.List<PlayerStats.TellMsg> tellStack=mob.playerStats().getTellStack();
+			final long now=System.currentTimeMillis();
+			if((tellStack.size()==0)
 			||(CMath.bset(metaFlags,MUDCmdProcessor.METAFLAG_AS))
 			||(CMath.bset(metaFlags,MUDCmdProcessor.METAFLAG_POSSESSED)))
 				CMLib.commands().postCommandFail(mob,origCmds,L("No telling."));
 			else
 			{
 				int num=CMath.s_int(CMParms.combine(commands,1));
-				if(num>V.size())
-					num=V.size();
+				if(num>tellStack.size())
+					num=tellStack.size();
 				final Session S=mob.session();
 				try
 				{
 					if(S!=null)
 						S.snoopSuspension(1);
-					for(int i=V.size()-num;i<V.size();i++)
-						mob.tell("^t"+V.get(i)+"^N^.");
+					for(int i=tellStack.size()-num;i<tellStack.size();i++)
+					{
+						final TellMsg T=tellStack.get(i);
+						long elapsedTime=now-T.time();
+						elapsedTime=Math.round(elapsedTime/1000L)*1000L;
+						if(elapsedTime<0)
+						{
+							Log.errOut("Channel","Weird elapsed time: now="+now+", then="+T.time());
+							elapsedTime=0;
+						}
+						final String timeAgo = "^.^N ("+CMLib.time().date2SmartEllapsedTime(elapsedTime,false)+" ago)";
+						mob.tell("^t"+T.message()+timeAgo);
+					}
 				}
 				finally
 				{
@@ -92,7 +111,7 @@ public class Tell extends StdCommand
 						S.snoopSuspension(-1);
 				}
 			}
-			return false;
+			return true;
 		}
 
 		MOB targetM=null;
@@ -101,9 +120,9 @@ public class Tell extends StdCommand
 		if(targetM==null)
 			targetM=CMLib.players().findPlayerOnline(targetName,false);
 		if(targetM==null)
-			targetM=CMLib.sessions().findPlayerOnline(targetName,true);
+			targetM=CMLib.sessions().findCharacterOnline(targetName,true);
 		if(targetM==null)
-			targetM=CMLib.sessions().findPlayerOnline(targetName,false);
+			targetM=CMLib.sessions().findCharacterOnline(targetName,false);
 		if((targetM==null)&&(CMProps.isUsingAccountSystem()))
 		{
 			final PlayerAccount P=CMLib.players().getAccount(targetName);
@@ -112,7 +131,7 @@ public class Tell extends StdCommand
 				for(final Enumeration<String> p = P.getPlayers(); p.hasMoreElements(); )
 				{
 					final String playerName=p.nextElement();
-					targetM=CMLib.sessions().findPlayerOnline(playerName,true);
+					targetM=CMLib.sessions().findCharacterOnline(playerName,true);
 					if(targetM!=null)
 					{
 						targetName=playerName;
@@ -144,8 +163,8 @@ public class Tell extends StdCommand
 			{
 				final String mudName=targetName.substring(targetName.indexOf('@')+1);
 				targetName=targetName.substring(0,targetName.indexOf('@'));
-				if(CMLib.intermud().i3online()||CMLib.intermud().imc2online())
-					CMLib.intermud().i3tell(mob,targetName,mudName,combinedCommands);
+				if(CMLib.intermud().isAnyNonCM1Online())
+					CMLib.intermud().imudTell(mob,targetName,mudName,combinedCommands);
 				else
 					CMLib.commands().postCommandFail(mob,origCmds,L("Intermud is unavailable."));
 				return false;
@@ -163,27 +182,67 @@ public class Tell extends StdCommand
 			return false;
 		}
 
-		final Session ts=targetM.session();
+		final Session targetSession=targetM.session();
 		try
 		{
-			if(ts!=null)
-				ts.snoopSuspension(1);
+			if(targetSession!=null)
+				targetSession.snoopSuspension(1);
 			CMLib.commands().postSay(mob,targetM,combinedCommands,true,true);
 		}
 		finally
 		{
-			if(ts!=null)
-				ts.snoopSuspension(-1);
+			if(targetSession!=null)
+				targetSession.snoopSuspension(-1);
 		}
 
-		if((targetM.session()!=null)&&(targetM.session().isAfk()))
+		if((targetSession!=null)
+		&&(targetSession.isAfk()))
 		{
-			mob.tell(targetM.session().getAfkMessage());
 			if(CMLib.flags().isCloaked(targetM))
 				CMLib.commands().postCommandFail(mob,origCmds,L("That person doesn't appear to be online."));
+			else
+			{
+				mob.tell(targetSession.getAfkMessage());
+				return true;
+			}
 		}
 		return false;
 	}
+
+	@Override
+	public Object executeInternal(final MOB mob, final int metaFlags, final Object... args) throws java.io.IOException
+	{
+		if(!super.checkArguments(internalParameters, args))
+			return Boolean.FALSE;
+		final int index = getArgumentSetIndex(internalParameters, args);
+		if(index == 0)
+		{
+			final String targetName=(String)args[0];
+			final String message=(String)args[1];
+			return Boolean.valueOf(execute(mob, new XVector<String>(this.access[0],targetName,message), metaFlags));
+		}
+		else
+		if(index == 1)
+		{
+			final String fromName=(String)args[0];
+			final String toName=(String)args[1];
+			final Long since=(Long)args[2];
+			int ct = 0;
+			if(mob.playerStats() != null)
+			{
+				for(final PlayerStats.TellMsg M : mob.playerStats().getTellStack())
+				{
+					if(((since == null)||(M.time()>=since.longValue()))
+					&&((fromName==null)||(M.from().equalsIgnoreCase(fromName)))
+					&&((toName==null)||(M.to().equalsIgnoreCase(toName))))
+						ct++;
+				}
+			}
+			return Integer.valueOf(ct);
+		}
+		return Boolean.FALSE;
+	}
+
 
 	// the reason this is not 0ed is because of combat -- we want the players to
 	// use SAY, and pay for it when coordinating.

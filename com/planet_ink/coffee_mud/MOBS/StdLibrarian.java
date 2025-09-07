@@ -22,7 +22,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
- Copyright 2017-2020 Bo Zimmerman
+ Copyright 2017-2025 Bo Zimmerman
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ public class StdLibrarian extends StdShopKeeper implements Librarian
 	public StdLibrarian()
 	{
 		super();
-		username = "a librarian";
+		_name = "a librarian";
 		setDescription("She\\`s just waiting for you to say something so she can shush you!");
 		setDisplayText("The librarian is ready to help.");
 		CMLib.factions().setAlignment(this, Faction.Align.GOOD);
@@ -175,7 +175,7 @@ public class StdLibrarian extends StdShopKeeper implements Librarian
 			{
 				totalDue += recs.get(i).charges;
 			}
-			catch (final java.lang.IndexOutOfBoundsException e)
+			catch (final IndexOutOfBoundsException e)
 			{
 			}
 		}
@@ -349,6 +349,12 @@ public class StdLibrarian extends StdShopKeeper implements Librarian
 	}
 
 	@Override
+	public CoffeeShop getShop(final MOB mob)
+	{
+		return getShop();
+	}
+
+	@Override
 	public CoffeeShop getShop()
 	{
 		if (shopApply)
@@ -373,7 +379,7 @@ public class StdLibrarian extends StdShopKeeper implements Librarian
 						if (rec.itemName.length() > 0)
 							curShop.lowerStock("$" + rec.itemName + "$");
 					}
-					catch (final java.lang.IndexOutOfBoundsException e)
+					catch (final IndexOutOfBoundsException e)
 					{
 					}
 				}
@@ -401,7 +407,7 @@ public class StdLibrarian extends StdShopKeeper implements Librarian
 	{
 		if (!super.tick(ticking, tickID))
 			return false;
-		if (!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if (!CMProps.isState(CMProps.HostState.RUNNING))
 			return true;
 
 		if ((tickID == Tickable.TICKID_MOB) && (getStartRoom() != null))
@@ -471,7 +477,7 @@ public class StdLibrarian extends StdShopKeeper implements Librarian
 			if (System.currentTimeMillis() > rec.mudDueDateMs)
 			{
 				stockItem = shop.getStock("$" + rec.itemName + "$", null);
-				final ShopKeeper.ShopPrice P = CMLib.coffeeShops().pawningPrice(this, null, stockItem, this, shop);
+				final ShopKeeper.ShopPrice P = CMLib.coffeeShops().pawningPrice(this, null, stockItem, this);
 				final double value = (P!=null)? P.absoluteGoldPrice : 0;
 				double newCharges = this.getOverdueCharge();
 				if (value > 0)
@@ -497,7 +503,7 @@ public class StdLibrarian extends StdShopKeeper implements Librarian
 			{
 				if(stockItem == null)
 					stockItem = shop.getStock("$" + rec.itemName+"$", null);
-				final ShopKeeper.ShopPrice P = CMLib.coffeeShops().pawningPrice(this, null, stockItem, this, shop);
+				final ShopKeeper.ShopPrice P = CMLib.coffeeShops().pawningPrice(this, null, stockItem, this);
 				final double value = (P!=null)? P.absoluteGoldPrice : 0;
 				if(rec.charges < value)
 					rec.charges = value;
@@ -787,7 +793,7 @@ public class StdLibrarian extends StdShopKeeper implements Librarian
 			case CMMsg.TYP_GIVE:
 			case CMMsg.TYP_DEPOSIT:
 				{
-					if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), finalIgnoreMask(), this))
+					if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), getFinalIgnoreMask(), this))
 						return false;
 					if (msg.tool() == null)
 						return false;
@@ -827,7 +833,7 @@ public class StdLibrarian extends StdShopKeeper implements Librarian
 			case CMMsg.TYP_WITHDRAW:
 			case CMMsg.TYP_BORROW:
 				{
-					if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), finalIgnoreMask(), this))
+					if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), getFinalIgnoreMask(), this))
 						return false;
 					if ((msg.tool() == null) || (!(msg.tool() instanceof Item)) || (msg.tool() instanceof Coins))
 					{
@@ -881,9 +887,9 @@ public class StdLibrarian extends StdShopKeeper implements Librarian
 				return false;
 			case CMMsg.TYP_LIST:
 			{
-				if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), finalIgnoreMask(), this))
+				if (!CMLib.coffeeShops().ignoreIfNecessary(msg.source(), getFinalIgnoreMask(), this))
 					return false;
-				return true;
+				return super.stdMOBokMessage(myHost, msg);
 			}
 			default:
 				break;

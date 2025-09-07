@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -82,7 +82,8 @@ public class Prayer_Discipline extends Prayer
 			msg2=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto)|CMMsg.MASK_MALICIOUS,L("<T-NAME> do(es) not seem to like <S-NAME> messing with <T-HIS-HER> head."));
 		if(success&&(CMLib.factions().getFaction(CMLib.factions().getInclinationID())!=null))
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L(auto?"<T-NAME> feel(s) more lawful.":"^S<S-NAME> "+prayWord(mob)+" to discipline <T-YOUPOSS> mind!^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					L(auto?"<T-NAME> feel(s) more lawful.":"^S<S-NAME> @x1 to discipline <T-YOUPOSS> mind!^?",prayWord(mob)));
 			if((mob.location().okMessage(mob,msg))
 			&&((msg2==null)||(mob.location().okMessage(mob,msg2))))
 			{
@@ -91,7 +92,7 @@ public class Prayer_Discipline extends Prayer
 				{
 					target.tell(L("Orderly, lawful thoughts fill your head."));
 					final int lawfulness=CMLib.dice().roll(10,adjustedLevel(mob,asLevel),10*super.getXLEVELLevel(mob));
-					CMLib.factions().postFactionChange(target,this, CMLib.factions().getInclinationID(), lawfulness);
+					CMLib.factions().postSkillFactionChange(target,this, CMLib.factions().getInclinationID(), lawfulness);
 				}
 				if(msg2!=null)
 					mob.location().send(mob,msg2);

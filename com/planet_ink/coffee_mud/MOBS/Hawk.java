@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class Hawk extends StdMOB
 		super();
 		final Random randomizer = new Random(System.currentTimeMillis());
 
-		username="a hawk";
+		_name="a hawk";
 		setDescription("a hunting bird with a narrow face, shark beak, and nasty talons.");
 		setDisplayText("An hawk soars overhead.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -60,7 +60,7 @@ public class Hawk extends StdMOB
 
 		basePhyStats().setDamage(1);
 		basePhyStats().setSpeed(3.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(2);
 		basePhyStats().setArmor(90);
 		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_FLYING);

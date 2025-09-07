@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -175,7 +175,7 @@ public class Chant_Farsight extends Chant
 							commands.remove(0);
 							thatRoom=room;
 							limit--;
-							mob.tell(L("\n\r"));
+							mob.tell(("\n\r"));
 							final CMMsg msg2=CMClass.getMsg(mob,thatRoom,CMMsg.MSG_LOOK,null);
 							thatRoom.executeMsg(mob,msg2);
 						}

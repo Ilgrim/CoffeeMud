@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ public class Spell_SpottersOrders extends Spell
 	@Override
 	public String displayText()
 	{
-		return L("(Spotting weaknesses of "+text()+")");
+		return L("(Spotting weaknesses of @x1)",text());
 	}
 
 	@Override
@@ -65,6 +65,12 @@ public class Spell_SpottersOrders extends Spell
 	protected int canAffectCode()
 	{
 		return CAN_MOBS;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -136,7 +142,7 @@ public class Spell_SpottersOrders extends Spell
 			}
 			if(groupMembers==null)
 			{
-				final Set<MOB> grp=mob.getGroupMembers(new TreeSet<MOB>());
+				final Set<MOB> grp=mob.getGroupMembers(new XTreeSet<MOB>());
 				groupMembers=new LinkedList<Triad<MOB,Ability,long[]>>();
 				for(final MOB M : grp)
 				{
@@ -221,13 +227,13 @@ public class Spell_SpottersOrders extends Spell
 			target=(MOB)givenTarget;
 		if(!target.isInCombat())
 		{
-			mob.tell(target,null,null,L("<T-NAME> <T-IS-ARE> not in combat."));
+			failureTell(mob,target,auto,L("<T-NAME> <T-IS-ARE> not in combat."));
 			return false;
 		}
 
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already knowledgable about <S-HIS-HER> target."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already knowledgable about <S-HIS-HER> target."));
 			return false;
 		}
 
@@ -239,7 +245,7 @@ public class Spell_SpottersOrders extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> point(s) at <S-HIS-HER> group members and knowingly cast(s) a spell concerning <T-NAMESELF>.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> point(s) at <S-HIS-HER> group members and knowingly cast(s) a spell concerning <T-NAMESELF>.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

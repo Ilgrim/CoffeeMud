@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -81,6 +81,28 @@ public class Examine extends StdCommand
 			if(ID.equalsIgnoreCase("SELF")||ID.equalsIgnoreCase("ME"))
 				thisThang=mob;
 
+			/* NO -- examine requires more interaction
+			if(thisThang==null)
+			{
+				if((thisThang==null)
+				&&(commands.size()>3)
+				&&((CMParms.indexOfIgnoreCase(commands, "in")>1)
+					||(CMParms.indexOfIgnoreCase(commands, "on")>1))
+				&&((CMParms.indexOfIgnoreCase(commands, "in")<commands.size()-1)
+					||CMParms.indexOfIgnoreCase(commands, "on")<commands.size()-1))
+				{
+					final List<String> tempCmds=new XVector<String>(commands);
+					final Item containerC=CMLib.english().parsePossibleContainer(mob,tempCmds,true,Wearable.FILTER_ANY);
+					if(containerC!=null)
+					{
+						final String tempID=CMParms.combine(tempCmds,1);
+						thisThang=R.fetchFromMOBRoomFavorsItems(mob,containerC,tempID,Wearable.FILTER_ANY);
+					}
+				}
+				else
+					thisThang=R.fetchFromMOBRoomFavorsItems(mob,null,ID,Wearable.FILTER_ANY);
+			}
+			*/
 			if(thisThang==null)
 				thisThang=R.fetchFromMOBRoomFavorsItems(mob,null,ID,Wearable.FILTER_ANY);
 			if(thisThang == null)
@@ -123,12 +145,13 @@ public class Examine extends StdCommand
 						name="around";
 					else
 					if(dirCode>=0)
-						name=((R instanceof BoardableShip)||(R.getArea() instanceof BoardableShip))?
-							CMLib.directions().getShipDirectionName(dirCode):CMLib.directions().getDirectionName(dirCode);
+						name=CMLib.directions().getDirectionName(dirCode, CMLib.flags().getDirType(R));
 				}
 				final CMMsg msg=CMClass.getMsg(mob,thisThang,null,CMMsg.MSG_EXAMINE,L("@x1@x2 closely.",textMsg,name));
 				if(R.okMessage(mob,msg))
 					R.send(mob,msg);
+				else
+					CMLib.commands().postCommandRejection(msg.source(),msg.target(), msg.tool(),origCmds);
 				if((mob.isAttributeSet(MOB.Attrib.AUTOEXITS))&&(thisThang instanceof Room))
 					msg.addTrailerMsg(CMClass.getMsg(mob,thisThang,null,CMMsg.MSG_LOOK_EXITS,null));
 			}
@@ -142,6 +165,8 @@ public class Examine extends StdCommand
 				msg.addTrailerMsg(CMClass.getMsg(mob,R,null,CMMsg.MSG_LOOK_EXITS,null));
 			if(R.okMessage(mob,msg))
 				R.send(mob,msg);
+			else
+				CMLib.commands().postCommandRejection(msg.source(),msg.target(), msg.tool(),origCmds);
 		}
 		return false;
 	}

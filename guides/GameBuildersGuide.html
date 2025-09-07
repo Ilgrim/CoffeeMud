@@ -1,13 +1,13 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head>
-<meta content="HTML Tidy, see www.w3.org" name="generator"><title></title></head>
+<meta name="generator" content="HTML Tidy, see www.w3.org"><title></title></head>
 <body>
 <center>
 <table border="1" bordercolor="gray" cellpadding="10" cellspacing="0" width="90%">
 <tbody>
 <tr>
 <td colspan="2" align="left" bgcolor="#dfdfdf" width="100%">
-<h1>CoffeeMud 5.9 Game
+<h1>CoffeeMud 5.10 Game
 Builders Guide</h1>
 </td>
 </tr>
@@ -20,18 +20,26 @@ Builders Guide</h1>
 <li><a href="#lang">Languages</a></li>
 <li><a href="#craftskills">Crafting Skills</a></li>
 <li><a href="#gatherskills">Gathering Skills</a></li>
+<li><a href="#wrightskill">Wrighting Skills</a></li>
+<li><a href="#traps">Traps</a></li>
+<li><a href="#poisons">Poisons</a></li>
 <li><a href="#comps">Components</a></li>
 <li><a href="#allqualifys">All-Qualifys</a></li>
 <li><a href="#recipes">Recipes</a></li>
 <li><a href="#classes">Classes</a></li>
 <li><a href="#factions">Factions</a></li>
+<li><a href="#planes">Planes</a></li>
 <li><a href="#quests">Quests</a></li>
 <li><a href="#holidays">Holidays</a></li>
 <li><a href="#socials">Socials</a></li>
 <li><a href="#polls">Polls</a></li>
 <li><a href="#clans">Clans</a></li>
 <li><a href="#governments">Governments</a></li>
+<li><a href="#awards">Awards</a></li>
+<li><a href="#titles">Titles</a><br>
+</li>
 <li><a href="#achievements">Achievements</a></li>
+<li><a href="#commands">Commands</a></li>
 <li style="list-style-type: none; list-style-image: none; list-style-position: outside;"><span style="text-decoration: underline;"><br>
 </span></li>
 </ul>
@@ -431,7 +439,10 @@ defined in your coffeemud.ini file. A value of 0 means its free. A
 value from 0-99999 means to always use that amount. A value of
 2147483647 means to always use all of the mobs mana/move points. A
 value of 2147483647-100 to 2147483647 means to use that percentage of
-the mobs mana/move points.</td>
+the mobs mana/move points. You can
+insert variables into the arguments, such as: @x1=caster level,
+@x2=target level, @x3=level expertise,
+@x4-@x8=x1-x5 expertise, @x9=adjusted caster level.</td>
 </tr>
 <tr>
 <td><em>Cost
@@ -442,11 +453,27 @@ used to invoke the skills, whether it be move, mana, hit points, or
 some combination. Enter ? for a list.</td>
 </tr>
 <tr>
+<td><span style="font-style: italic;">Num.
+Arguments</span></td>
+<td>Number of arguments to expect. &nbsp;When a
+target is selected according to <span style="font-style: italic;">Can
+Target</span>,
+the first argument will be assumed to be the target.
+&nbsp;Arguments
+are also made available to MOBPROG scripts as $0, $1, etc, and as @x1,
+@x2 arguments for internal castings. If the user enters more arguments
+than this value, and this value &gt; 1, then the surplus arguments
+are combined.</td>
+</tr>
+<tr>
 <td><em>Can
 Affect</em></td>
 <td>the types of
 objects which, when invoked, this skill
-will remain on as an affect. The list is comma-delimited. Make sure
+will <span style="font-weight: bold;">remain</span>
+on as an affect for a period of time. Leave empty and unused if this
+skill has only a one-time affect on the target.&nbsp; The list is
+comma-delimited. Make sure
 this is a subset of the Can Target list! Enter ? for a list.</td>
 </tr>
 <tr>
@@ -484,7 +511,10 @@ affect their targets (see
 Can Affect), this is the list of affects and their values. It is
 modelled on the same syntax and format of the property
 Prop_HereAdjuster, so enter HELP Prop_HereAdjuster for information on
-the syntax for this field. Entering ? will show you that help.</td>
+the syntax for this field. Entering ? will show you that help. You can
+insert variables into the arguments, such as: @x1=caster level,
+@x2=target level, @x3=level expertise,
+@x4-@x8=x1-x5 expertise, @x9=adjusted caster level.</td>
 </tr>
 <tr>
 <td><em>Caster
@@ -507,7 +537,11 @@ invocation of this ability, a special trigger event will occur that can
 be handled by an IMASK_PROG p &lt;ability id&gt;. Such a script
 trigger
 would, for example, be the appropriate place to put damage commands for
-skills that do damage. Periodic actions can be placed in RAND_PROG
+skills that do damage. During un-invocation, a special trigger event
+will occur that can be handled by IMASK_PROG p UNINVOKE-&lt;ability
+id&gt; or MASK_PROG p UNINVOKE-&lt;ability
+id&gt; (Might be safest to include both). &nbsp;Periodic
+actions can be placed in RAND_PROG
 triggers.</td>
 </tr>
 <tr>
@@ -518,6 +552,12 @@ determine if the target is allowed, under the
 circumstances, to be targeted by this skill. Enter ? or help on
 ZAPPERMASKS for more information on the syntax for CoffeeMud "Zapper"
 masks.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Target
+Fail Message</span></td>
+<td>very optional message to show players when the
+Target Mask above is failed.</td>
 </tr>
 <tr>
 <td><em>Fizzle
@@ -621,7 +661,8 @@ formula describing either a range of damage
 or a range of healing which will be inflicted upon the target of this
 skill at invocation time. &nbsp;The syntax of this field is a
 formula.
-Use +-*/()?. @x1=caster level, @x2=target level.&nbsp; Formula
+Use +-*/()?. @x1=caster level, @x2=target level, @x3=level expertise,
+@x4-@x8=x1-x5 expertise, @x9=adjusted caster level.&nbsp; Formula
 evaluates &gt;0 for damage, &lt;0 for healing. Requires Can
 Target
 above! &nbsp;See help on MATH_FORMULA for more information on how
@@ -700,6 +741,18 @@ here is where you would put them. &nbsp;For example, to have the
 word
 "CAT" always translated to "DIABLO" in your new language, you would
 define that fact here</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Translation
+Language IDs</span></td>
+<td>A
+list of other language IDs, including the ID of this language.
+&nbsp;It
+gives a guideline for which other languages will be able to
+incidentally understand this language. &nbsp;For example, if a
+shopkeeper speaks Common, and Common is a Translation Language ID for a
+language called "Common Slang", then the shopkeeper will also
+understand "Common Slang".</td>
 </tr>
 <tr>
 <td><i>Help
@@ -831,21 +884,25 @@ see when they enter HELP ABILITYNAME.</td>
 Skills</font></a></strong>
 <p>Gathering Skills are
 skills that players use to generate items, usually&nbsp;raw
-resources. &nbsp;These are skills like Foraging, Mining, Drilling, etc.&nbsp;</p>
+resources. &nbsp;These are skills like Foraging, Mining, Drilling,
+etc.&nbsp;</p>
 <p>Although CoffeeMud
 includes a wide variety&nbsp;gathering
 skills, it is not beyond the realm of possibility that you may want to
 add onto them. &nbsp;Therefore,
-CoffeeMud also allows you to define&nbsp;gathering skills outside of the
+CoffeeMud also allows you to define&nbsp;gathering skills outside
+of the
 java-realm. This can be done from the command line using the CREATE
-command. If you want to create a new&nbsp;gathering skill called Worm Gathering, for
+command. If you want to create a new&nbsp;gathering skill called
+Worm Gathering, for
 instance,
 you might enter:</p>
 <p><strong>CREATE GATHERSKILL Common_WormGathering</strong></p>
 <p>And it would be done. The
 "Common_<strong>WormGathering</strong>" is the abilities
 Ability ID. The fact that it starts with "Common_" is merely for
-descriptive purposes, and is not required. &nbsp; Most existing&nbsp;gathering skills do not, for some unknown reason.</p>
+descriptive purposes, and is not required. &nbsp; Most
+existing&nbsp;gathering skills do not, for some unknown reason.</p>
 <p>Whenever creating or
 modifying a new skill, the Archon is
 presented with a menu of selections and options available to customize
@@ -875,12 +932,16 @@ words.</td>
 <td><em>Skill
 Verb</em></td>
 <td>a descriptive verb
-shown when the player is doing this skill, such as getting, picking, etc...</td>
+shown when the player is doing this skill, such as getting, picking,
+etc...</td>
 </tr>
-
-<tr><td><i>Can
-Bundle</i></td><td>does this skill
-support bundling the raw materials you make things from with this skill?</td></tr><tr>
+<tr>
+<td><i>Can
+Bundle</i></td>
+<td>does this skill
+support bundling the raw materials you make things from with this skill?</td>
+</tr>
+<tr>
 <td><i>Raw
 Materials</i></td>
 <td>if this skill
@@ -893,34 +954,78 @@ skill
 can
 only be used to generate items.</td>
 </tr>
-<tr><td><i>Can
-Sit</i></td><td>can this skill be
-performed while sitting down?</td></tr>
 <tr>
-<td><span style="font-style: italic;">Room Mask</span></td>
-<td>a zapper mask to designate in which rooms the use of this skill
+<td><i>Can
+Sit</i></td>
+<td>can this skill be
+performed while sitting down?</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Room
+Mask</span></td>
+<td>a zapper mask to designate in which rooms the use
+of this skill
 would be successful. See AHELP ZAPPERMASK for more information, but
 since this is masking rooms, the -LOCATION flag will probably be used
 most often.</td>
 </tr>
 <tr>
-<td><span style="font-style: italic;">Player Mask</span></td>
-<td>a zapper mask to designate whether the player is even allowed to start using this skill at the moment. </td>
+<td><span style="font-style: italic;">Player
+Mask</span></td>
+<td>a zapper mask to designate whether the player is
+even allowed to start using this skill at the moment. </td>
 </tr>
 <tr>
-<td><span style="font-style: italic;">Yield Formula</span></td>
-<td>a formula for how many of the items to generate. &nbsp;See AHELP
+<td><span style="font-style: italic;">Yield
+Formula</span></td>
+<td>a formula for how many of the items to generate.
+&nbsp;See AHELP
 MATHFORMULA for more information how how to generate random amounts.</td>
 </tr>
-<tr><td><span style="font-style: italic;">Start Message</span></td><td>The message seen when the player first starts attempting this gathering.</td></tr><tr><td><span style="font-style: italic;">Found Message</span></td><td>The
+<tr>
+<td><span style="font-style: italic;">Start
+Message</span></td>
+<td>The message seen when the player first starts
+attempting this gathering.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Found
+Message</span></td>
+<td>The
 message seen when the player discovers that this room contains 1 or
-more of the items. &nbsp;The variable @x1 contains the name of the item.</td></tr><tr><td><span style="font-style: italic;">Not Found Message</span></td><td>The
+more of the items. &nbsp;The variable @x1 contains the name of the
+item.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Not
+Found Message</span></td>
+<td>The
 message seen when the player does not discover any of the items here,
 either because it is the wrong room (see Room Mask), or because a
-proficiency check failed.</td></tr><tr><td><span style="font-style: italic;">Complete Message</span></td><td>The
-message seen when the gathering is successful. &nbsp;The variable @x1
+proficiency check failed.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Complete
+Message</span></td>
+<td>The
+message seen when the gathering is successful. &nbsp;The variable
+@x1
 contains the number of items found, and @x2 is the name of the items
-(plural)</td></tr><tr><td><span style="font-style: italic;">Droppable Items</span></td><td>These are the choices of items that the skill can generate. &nbsp;</td></tr><tr><td><span style="font-style: italic;">Cosmetic Only</span></td><td>whether the droppable item is displayed as being generated, but is not actually generated.</td></tr><tr>
+(plural)</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Droppable
+Items</span></td>
+<td>These are the choices of items that the skill can
+generate. &nbsp;</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Cosmetic
+Only</span></td>
+<td>whether the droppable item is displayed as being
+generated, but is not actually generated.</td>
+</tr>
+<tr>
 <td><i>MSP
 file</i></td>
 <td>the name of the
@@ -938,19 +1043,468 @@ see when they enter HELP ABILITYNAME.</td>
 </table>
 <br>
 <br>
+<strong><a name="wrightskill"><font color="blue" size="5">Wrighting
+Skills</font></a></strong>
+<p>Wrighting Skills are
+a type of Crafting Skills that players use to principally craft large
+transports, such as sailing ships and caravans. &nbsp;These are
+skills like Shipwright, etc.&nbsp;</p>
+<p>Although CoffeeMud
+includes a wide variety of configurable wrighting
+skills, it is not beyond the realm of possibility that you may want to
+add onto them. &nbsp;Therefore,
+CoffeeMud also allows you to define wrighting skills outside of the
+java-realm. This can be done from the command line using the CREATE
+command. If you want to create a new wright skill called Mixologist,
+for
+instance,
+you might enter:</p>
+<p><strong>CREATE WRIGHTSKILL Common_Bigwright</strong></p>
+<p>And it would be done. The
+"Common_Bigwright" is the abilities
+Ability ID. The fact that it starts with "Common_" is merely for
+descriptive purposes, and is not required. &nbsp; Most existing
+crafting skills do not, for some unknown reason.</p>
+<p>Whenever creating or
+modifying a new skill, the Archon is
+presented with a menu of selections and options available to customize
+the class. Here is a description of those options:</p>
+<strong></strong>
+<table style="width: 100%;" bgcolor="yellow" border="1" cellpadding="1" cellspacing="1" width="100%">
+<tbody>
+<tr>
+<td width="25%"><strong>Property</strong></td>
+<td width="75%"><strong>Description</strong></td>
+</tr>
+<tr>
+<td><em>Name</em></td>
+<td>the name of the
+skill. Make this anything you like,
+but uniqueness is important for making help file entries.</td>
+</tr>
+<tr>
+<td><em>Command
+Words</em></td>
+<td>the command
+invocation word. This need not
+be unique to your skill! Use commas to separate different invocation
+words.</td>
+</tr>
+<tr>
+<td><em>Skill
+Verb</em></td>
+<td>a descriptive verb
+shown when the player is doing this skill, such as mixing, crafting,
+carving, hitting...</td>
+</tr>
+<tr>
+<td><i>Recipe
+Filename</i></td>
+<td>the name of the
+recipe file, which will be found in /resources/skills/</td>
+</tr>
+<tr>
+<td><i>Raw
+Materials</i></td>
+<td>if this skill
+supports making items out of a raw
+material (as opposed to making items out of other items), then here is
+where you would specify which raw material or resource types are used
+to make them. &nbsp;If nothing is specified here, then the skill
+can
+only be used to make items from other items.</td>
+</tr>
+<tr>
+<td><i>Can
+Mend</i></td>
+<td>does this skill
+support mending the things it makes?</td>
+</tr>
+<tr>
+<td><i>Can Make Doors</i></td>
+<td>does this skill
+support adding doors inside big transports?</td>
+</tr>
+<tr>
+<td><i>Can Re-Title</i></td>
+<td>does this skill
+support re-titling rooms inside big transports?</td>
+</tr>
+<tr>
+<td><i>Can Re-Desc</i></td>
+<td>does this skill support re-describing rooms
+inside big transports?</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Clan
+only</span></td>
+<td>is this a clan-only skill that produces big
+transports owned by clans?</td>
+</tr>
+<tr>
+<td><i>MSP
+file</i></td>
+<td>the name of the
+sound file from /web/pub/sounds that should be played when the player
+does this skill.</td>
+</tr>
+<tr>
+<td><i>Help
+Text</i></td>
+<td>always starting
+with the string &lt;ABILITY&gt;, this is the entry players will
+see when they enter HELP ABILITYNAME.</td>
+</tr>
+</tbody>
+</table>
+<br>
+<br>
+<strong><a name="traps"><font color="blue" size="5">Generic Traps</font></a></strong>
+<p>Traps are abilities applied by Thieves to items, exits,
+chests, etc&nbsp; that trigger terrible effects when disturbed.
+&nbsp;They are applied by the Lay Traps and Make Bombs skills.</p>
+<p>Although CoffeeMud
+includes a wide variety of &nbsp;traps, it is not beyond the realm
+of possibility that you may want to
+add onto them. &nbsp;Therefore,
+CoffeeMud also allows you to define traps outside of the
+java-realm. This can be done from the command line using the CREATE
+command. If you want to create a new trap called Boom Trap, for
+instance,
+you might enter:</p>
+<p><strong>CREATE TRAP Trap_Boom</strong></p>
+<p>And it would be done. The
+"Trap_Boom" is the abilities
+Ability ID. The fact that it starts with "Trap_" is merely for
+descriptive purposes, to keep your traps organized together..</p>
+<p>Whenever creating or
+modifying a new ability, the Archon is
+presented with a menu of selections and options available to customize
+the class. Here is a description of those options:</p>
+<strong></strong>
+<table style="width: 100%;" bgcolor="yellow" border="1" cellpadding="1" cellspacing="1" width="100%">
+<tbody>
+<tr>
+<td width="25%"><strong>Property</strong></td>
+<td width="75%"><strong>Description</strong></td>
+</tr>
+<tr>
+<td><em>Name</em></td>
+<td>the name of the trap. Make this anything you
+like,
+but uniqueness is important for making help file entries.</td>
+</tr>
+<tr>
+<td><em>Level</em></td>
+<td>the base level of a trap is used by the legacy
+Lay Traps skill, as well as a guideline when picking them. The level
+you choose should reflect the lethality the trap represents.</td>
+</tr>
+<tr>
+<td><em>Is Bomb</em></td>
+<td>true if this trap actually represents a Bomb
+ability.</td>
+</tr>
+<tr>
+<td><i>Can Affect</i></td>
+<td>what sorts of things the trap can reasonably be
+used on by builders</td>
+</tr>
+<tr>
+<td><i>Can Target</i></td>
+<td>what sorts of things the trap can be laid upon by
+players.</td>
+</tr>
+<tr>
+<td><i>Components</i></td>
+<td>the components required to make this trap</td>
+</tr>
+<tr>
+<td><i>Avoid Msg</i></td>
+<td>a message shown to someone who avoids triggering
+a trap, usually because of a saving throw</td>
+</tr>
+<tr>
+<td><i>Spring Msg</i></td>
+<td>a message shown to someone who triggers a trap
+and will be affected by it</td>
+</tr>
+<tr>
+<td><i>Damage Msg</i></td>
+<td>if the trap does direct damage, this is the
+message shown after triggering&nbsp;</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Damage
+Formula</span></td>
+<td>if the trap does direct damage, this is the
+formula used to determine the damage amount. &nbsp;Leave this blank
+to disable direct damage. &nbsp;The formula can include vairables:
+&nbsp;@x1=trapLevel, @x2=abilityCode, @x3=invokerLevel,
+@x4=targetLevel</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Damage
+Type</span></td>
+<td>the type of damage done, which determines the
+type of damage words used</td>
+</tr>
+<tr>
+<td><i>Damage Msg Type</i></td>
+<td>the message type of the damage, which determines
+saving throws</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Ability
+ID</span></td>
+<td>if the trap invokes another ability on the
+target, this
+is the ID of the ability</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Ability
+Parms</span></td>
+<td>if the trap invokes another ability, this is the
+parameters for the ability, if needed</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Ability
+Tick Override</span></td>
+<td>if the trap invokes another ability, and this is
+&gt;
+0, it is the number of ticks that the ability persists on the target for</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Scriptable
+Parm</span></td>
+<td>if the trap runs a script when tripped, this is
+the
+Scriptable parms. See the Scriptable Guide for detailed
+information on how to use mobprog scripts. Enter ? for some short help
+on acceptable parameters here. *special note: during the tripping of
+this trap, a special trigger event will occur that can
+be handled by an IMASK_PROG p &lt;ability id&gt;. Such a script
+trigger
+would, for example, be the appropriate place to put damage commands or
+other things.</td>
+</tr>
+<tr>
+<td><i>Help
+Text</i></td>
+<td>always starting
+with the string &lt;ABILITY&gt;, this is the entry players will
+see when they enter HELP ABILITYNAME.</td>
+</tr>
+</tbody>
+</table>
+<br>
+<br>
+<strong><a name="poisons"><font color="blue" size="5">Generic Poisons</font></a></strong>
+<p>Poisons are affects drank, eaten or&nbsp;applied by
+Thieves to weapons, that harm the recipient, especially over time.
+&nbsp;</p>
+<p>Although CoffeeMud
+includes a wide variety of &nbsp;poisons, it is not beyond the
+realm
+of possibility that you may want to
+add onto them. &nbsp;Therefore,
+CoffeeMud also allows you to define&nbsp;poisons outside of the
+java-realm. This can be done from the command line using the CREATE
+command. If you want to create a new poison called Sickly Sweet, for
+instance,
+you might enter:</p>
+<p><strong>CREATE POISON Poison_SicklySweet</strong></p>
+
+<p>And it would be done. The
+"<strong>Poison_SicklySweet</strong>" is the abilities
+Ability ID. The fact that it starts with "Poison_" is merely for
+descriptive purposes, to keep your&nbsp;poisons organized together.. Whenever creating or
+modifying a new ability, the Archon is
+presented with a menu of selections and options available to customize
+the class.&nbsp;</p><p>Once
+a GenPoison is created, it is available, by its ID, just like every
+other core Poison. &nbsp;However, if you want to mix a one-off Poison,
+then it is a UniPoison you should use. &nbsp;A UniPoison is applied to
+recipes, items, or drinks just like a standard Poison by its ID.
+&nbsp;The UniPoison is customized through its property
+parameters/arguments. &nbsp;The format of these parameters is
+FIELDNAME="value" OTHERFIELD="value", etc. &nbsp;</p><p>Here is a description of the editor fieleds for GenPoison, and parameter fields for UniPoison.</p>
+<strong></strong>
+<table style="width: 100%;" bgcolor="yellow" border="1" cellpadding="1" cellspacing="1" width="100%">
+<tbody>
+<tr>
+<td width="25%"><strong>Property</strong></td>
+<td><span style="font-weight: bold;">UniField</span></td><td width="75%"><strong>Description</strong></td>
+</tr>
+<tr>
+<td><em>Name</em></td>
+<td>NAME</td><td>the name of the poison. Make this anything you
+like,
+but uniqueness is important for making help file entries.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Command
+Words</span></td>
+<td>TRIGSTR</td><td>comma
+delimited list of invoking words. &nbsp;These are almost never used
+for
+poisons, which are invoked by victims, but just in case you make a
+monster that can inflict it, make sure the words are unique.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Duration
+Formula</span></td>
+<td>TICKS</td><td>an
+override to the total amount of time (in ticks) that the poison will
+affect the victim. &nbsp;The default time is based on the level of
+the
+victim, which you can retain by keeping this value 0. &nbsp;If you
+use
+a formula, it is as seen if you do AHELP MATH FORMULA.
+&nbsp;Allowed
+variables in the formula include: @x1 is the invoker level, @x2 is
+invoker expertise, @x3 is affected level (if different), and @x4 is the
+'rank' if applicable.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Delay
+Formula</span></td>
+<td>DELAY</td><td>the
+amount of time between damaging/messaging ticks as described below.
+&nbsp;The 'formula' is usually just a number, like 2 or 3.
+&nbsp;Butif you use a formula, it is as seen if you do AHELP MATH
+FORMULA.
+&nbsp;Allowed variables in the formula include: @x1 is the invoker
+level,
+@x2 is invoker expertise, @x3 is affected level (if different), and @x4
+is the 'rank' if applicable. </td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Start
+Msg</span></td>
+<td>STARTMSG</td><td>the message everyone sees when a poison first
+affects a victim.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Target
+Tell</span></td>
+<td>TARGETTELLMSG</td><td>a private message seen only by the afflicted one,
+usually empty.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Affect
+Msg</span></td>
+<td>AFFECTMSG</td><td>the message seen by everyone during every Poison
+tick. &nbsp;See Delay Formula for this period.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Affect
+Target</span></td>
+<td>AFFECTTARG</td><td>almost always true, this is whether the poison
+persists in the target, or is just one-shot.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Force
+Peace</span></td>
+<td>MAKEPEACE</td><td>usually false, this is whether a poisoned victim
+'forgives' the one who poisoned them intentionally.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Damage
+Formula</span></td>
+<td>DAMAGE</td><td>the
+amount of damage taken during every Poison tick. &nbsp;See Delay
+Formula for more information on this tick period. &nbsp;This is
+usually
+a formula based on the level of the victim. &nbsp;If you use a
+formula, it is as seen if you do AHELP MATH FORMULA.
+&nbsp;Allowed variables in the formula include: @x1 is the invoker
+level,
+@x2 is invoker expertise, @x3 is affected level (if different), and @x4
+is the 'rank' if applicable.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Done
+Msg</span></td>
+<td>DONEMSG</td><td>when a poison runs its course, this is the
+private message sent to the sufferer.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Addiction
+Chance</span></td>
+<td>ADDCHANCE</td><td>usually
+0, this must be a number from 0-100, or a formula that resolves to such
+a number. &nbsp;Whenever a victim is afflicted by a poison, this is
+the
+percent chance they may gain an addiction to the poison. &nbsp;If
+you use a formula, it is as seen if you do AHELP MATH FORMULA.
+&nbsp;Allowed variables in the formula include: @x1 is the invoker
+level,
+@x2 is invoker expertise, @x3 is affected level (if different), and @x4
+is the 'rank' if applicable.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Cast
+Msg</span></td>
+<td>CASTMSG</td><td>the message seen when a poison is used like a
+skill instead of passively afflicted on a victim. &nbsp;Rarely used.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Cast
+Fail Msg</span></td>
+<td>FAILMSG</td><td>the message seen when the poison is attempted to
+be used as a skill, but fails due to proficiency checks. Rarely used.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Adjustments</span></td>
+<td>ADJUSTMENTS</td><td>this
+optional string allows a poison to temporarily affect all manner of
+stats on a victim. &nbsp;See AHELP Prop_HaveAdjuster for the valid
+values you can put here. &nbsp;The integer values in the adjuster can
+also make use of the variables above: &nbsp;@x1 is the invoker
+level,
+@x2 is invoker expertise, @x3 is affected level (if different), and @x4
+is the 'rank' if applicable.</td>
+</tr>
+<tr><td><span style="font-style: italic;">Mood</span></td><td>MOOD</td><td>an optional string that must match one of the MOOD command keywords. &nbsp;It causes the poison victim to be in this mood.</td></tr><tr><td><span style="font-style: italic;">Effects</span></td><td>EFFECTS</td><td>a
+list of effects that the poison victim is also under in addition to the
+poison. &nbsp; The encoding for UniPoison is identical to the format
+used in common skills, namely: <span style="font-family: monospace;">[ability id];[ability parms];[ability id];[ability parms]</span>, etc... Be sure to escape any backspashes or semicolons in the ability parms.</td></tr><tr>
+<td style="font-style: italic;">Help
+Text</td>
+<td>HELP</td><td>always starting
+with the string &lt;ABILITY&gt;, this is the entry players will
+see when they enter HELP ABILITYNAME.</td>
+</tr>
+</tbody>
+</table>
+<br><br>
 <strong><a name="comps"><font color="blue" size="5">Components
 (for Skills,
 Spells, etc..)</font></a></strong>
 <p>A Component in this
 context
-refers to an item or items that a player must have or have access to in
+refers to an item/items or process that a player must have or do in
 order to use a particular skill, cast a particular spell, prayer, song,
-etc. &nbsp;Components are required only at the time the skill or
+etc. &nbsp;</p>
+<p>Material components are required only at the time the
+skill or
 spell in invoked, and may be consumed or not by the invocation.
 &nbsp;An example of this would be cloth for the bandaging skills, a
 forge for the blacksmithing skill, or sand for the sleep spell.</p>
-<p>From the command line,
-skill components can be created using the CREATE command:</p>
+<p>Process/Ritual
+components are a series of tasks that must be performed in order to
+invoke a skill or spell. &nbsp;An example would be saying some
+magic
+words, then waving your hands, then pointing at a target.</p>
+<p>Material
+and Process components can be separate, or combined into a single and
+very complex set of spell casting requirements. &nbsp;Components
+can
+then have a ZapperMask to define which players/mobs&nbsp; the
+requirements apply to.</p>
+<p>From the command line, all&nbsp; kinds of skill
+components can be created using the CREATE command:</p>
 <p><b>CREATE
 COMPONENT Skill_Sleep</b></p>
 <p>You can also modify the
@@ -984,19 +1538,22 @@ entire
 component relates to the ones before it. &nbsp;If it is ALSO
 required in addition to the ones before it, set this to say AND.
 &nbsp;If it is an OPTION along with the ones before it, set it to
-say OR. &nbsp;On the command line, enter X to delete the entire
-component.</td>
+say OR. &nbsp;The <em>last</em> component may also be
+set to MESSAGE/", which is a readable description of the skill
+component.
+On the command line, enter X to delete the entire component.</td>
 </tr>
 <tr>
-<td><em>Component
-Position</em></td>
+<td><em>Location / Position</em></td>
 <td>this is where the
 item must be
-in order to be used as a component. &nbsp;This value can be
+in order to be used as a component, or if this component is actually a
+process/ritual/trigger. &nbsp;This value can be
 'inventory' for the players inventory, 'onground' to be on the ground
 in the same room as the player, 'held' to require it be in the players
 held position, 'worn' to require it be worn, or nearby for an item in a
-nearby container.</td>
+nearby container. &nbsp;Select Trigger to make this a ritual or
+process.</td>
 </tr>
 <tr>
 <td><em>Component
@@ -1032,11 +1589,24 @@ type
 of required material or resource item. </td>
 </tr>
 <tr>
-<td><em>Component
+<td><em>Component / Zapper
 Mask</em></td>
 <td>a zapper mask (see
 help on zapper masks) to filter in what kind of player this component
 applies to.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Trigger
+Ritual</span></td>
+<td>if
+Location/Position is set to trigger, this is where you would put the
+complete ritual definition. &nbsp;See help on 'rituals' or look up
+Deity Rituals in the Archon's Guide for more information on this syntax.</td>
+</tr>
+<tr>
+<td><em>Description</em></td>
+<td>if this is the final component, and the
+Conjuction is MESSAGE, then this a description of the skill component.</td>
 </tr>
 </tbody>
 </table>
@@ -1045,6 +1615,15 @@ skill to require a component, you can always just obliterate it with
 the DESTROY command:</p>
 <p><b>DESTROY
 COMPONENT Skill_Sleep</b></p>
+<p>Now,
+because Trigger rituals can incorporate Socials into them, and because
+it may be common for very specific spell-casting socials to be unique
+only to components, the Components system also allows you to define a
+series of Socials which are available ONLY if the player/mob has access
+to a Component which is a Trigger Ritual which uses one of those
+special socials. &nbsp;These are created, etc by using <b>CREATE
+COMPONENT SOCIAL Handwave, MODIFY COMPONENT SOCIAL Fingertwiddle,
+DESTROY COMPONENT SOCIAL Invoke, etc.</b></p>
 <p>Of course, all this can
 also be done from the MUDGrinder Components editor.</p>
 <p><br>
@@ -1404,9 +1983,9 @@ a raw resource, or the name of an herb type</td>
 item holds</td>
 </tr>
 <tr>
-<td>Maximum Range</td>
-<td><em></em>Max</td>
-<td>maximum range of
+<td>Min Max Range</td>
+<td><em></em>Rng</td>
+<td>min,max range of
 the weapon</td>
 </tr>
 <tr>
@@ -1985,7 +2564,7 @@ trigger occurs
 (the Direction),</li>
 <li>What percentage of the amount of change (after all
 other modifiers) is applied to the value (the Amount Factor),</li>
-<li>Several miscellanous flags to define the
+<li>Several miscellaneous flags to define the
 circumstances
 under which the
 trigger is applied (the Flags)</li>
@@ -2345,10 +2924,253 @@ reactions go to the winner. However, all properties and behaviors will
 work as expected. The 'Light' system uses less resources, and allows
 players with different faction values to get some functionality when in
 the same room with each other. However, some properties and behaviors
-may not work as expected. </td>
+may not work as expected.</td>
 </tr>
 </tbody>
 </table>
+<span style="font-weight: bold;"><br>
+</span>
+<p style="color: rgb(0, 153, 0);"><strong><a name="planes"><font size="5">Planes</font></a></strong></p>
+<span style="font-weight: bold;">Introduction:</span><br>
+<br>
+A plane of existence is a particular mirror universe to your own world.
+&nbsp;Each plane has a special character and flavor that alters the
+mirror of your existing area to reflect its special flaire.
+&nbsp;The area that is mirrored is the same as the one where the
+spell is cast to travel from the normal Prime Material plane to the new
+plane. &nbsp;Planes require powerful magic both to enter, and to
+leave. &nbsp;<br>
+Each plane definition describes the ways in which the normal area being
+teleported from is changed to reflect the new plane of existence.
+&nbsp;<br>
+<p>Now, lets discuss how to
+list existing planes:</p>
+<p><strong>LIST PLANES</strong></p>
+<p>The list that is shown
+with this command reflects the list of existing planes.</p>
+<p><strong>CREATE PLANE My New Plane</strong></p>
+<p>This command will create
+a new plane of existence, and allow you to edit its fields as per
+MODIFY PLANE below. &nbsp;Once chosen, the plane name can not be
+edited later, so choose carefully. &nbsp;If you made a mistake on
+the name of a new Plane, use DESTROY and then create it again.</p>
+<p style="font-weight: bold;">DESTROY PLANE My Old
+Plane</p>
+<p>This command will destroy an existing plane.</p>
+<p><strong>MODIFY PLANE My Old Plane</strong></p>
+<p>The modify command will
+take you into the editor for an
+existing plane. The Plane editor contains numerous other complex and
+interesting fields to change. &nbsp;All fields are optional, and
+any
+field left empty will not be applied to the area being transformed.
+&nbsp;For example, if no alignment is given, the existing
+alignments of
+the area mobs will be unchanged. &nbsp;Here are all the fields:</p>
+<table style="width: 100%;" bgcolor="yellow" border="1" cellpadding="1" cellspacing="1" width="100%">
+<tbody>
+<tr>
+<td width="25%"><strong>Property</strong></td>
+<td width="75%"><strong>Description</strong></td>
+</tr>
+<tr>
+<td><em>Plane Name</em></td>
+<td>the name of the plane of existence. &nbsp;Not
+changeable.</td>
+</tr>
+<tr>
+<td><em>Description</em></td>
+<td>a free form description of the plane, which is
+made available to the Planar Lore spell</td>
+</tr>
+<tr>
+<td><em>Is Like</em></td>
+<td>the name of another Plane of Existence from which
+any attributes not specified by this Plane will be drawn.<br>
+</td>
+</tr>
+<tr>
+<td><em>Categories</em></td>
+<td>a comma-delimited list of categories, used by
+some Spells/Skills to group planes together</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Transitional</td>
+<td>true if the plane is Transitional.
+&nbsp;Transitional planes would also do well to add Transistional
+as a category.</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Alignment</td>
+<td>a&nbsp;numeric value representing an
+alignment to assign to the planes mobs.</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Prefix(es)</td>
+<td>comma delimited list of strings to prefix mob
+names with</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Level Formula</td>
+<td>either a number, or a formula to adjust mob/item
+levels:&nbsp; @x1
+= base areas median level, @x2 = specific mob/item level&nbsp; @x2
+=
+the plane traveling players level. &nbsp;See also HELP MATHFORMULA</td>
+</tr>
+<tr>
+<td style="font-style: italic;">MOB Resistances</td>
+<td>planar mob resistance arguments, see
+Prop_Resistance</td>
+</tr>
+<tr>
+<td style="font-style: italic;">MOB Stat
+Trainer</td>
+<td>planar mob stat settings, see Prop_StatTrainer</td>
+</tr>
+<tr>
+<td style="font-style: italic;">MOB Stat
+Adjuster</td>
+<td>planar mob stat changes, see Prop_StatAdjuster</td>
+</tr>
+<tr>
+<td style="font-style: italic;">MOB Adjuster</td>
+<td>mob adjuster arguments, see Prop_Adjuster</td>
+</tr>
+<tr>
+<td style="font-style: italic;">MOB Size
+Multipliers</td>
+<td>mob size multipliers, use height=x and/or
+weight=y to multiply the existing heigh/weight of mobs</td>
+</tr>
+<tr>
+<td style="font-style: italic;">MOB Copys</td>
+<td>number of times to copy each mob in an area</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Max Weapon
+Range</td>
+<td>max range number that any weapon on the plane can
+work at</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Required
+Weapons</td>
+<td>types of weapons that do damage on the plane: wep
+type or class or word MAGICAL</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Atmosphere</td>
+<td>raw material type that makes up plane atmosphere</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Alt Hours per
+Day</td>
+<td>multiplier by which to change the # hours in
+planar day</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Recover Rate</td>
+<td>number of extra player stat recovers while in the
+plane</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Fatigue Rate</td>
+<td>multiplier to extra hunger/thirst</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Elite level</td>
+<td>elite level 1+, increases hit points, attack,
+damage, saves</td>
+</tr>
+<tr>
+<td style="font-style: italic;">MOB Race Mix</td>
+<td>RaceID of race to make every planar mob a mix of</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Spec Flags</td>
+<td>space delim flags: NOINFRAVISION (disallows
+infravision),
+BADMUNDANEARMOR (non-magical armor is worthless), ALLBREATHE (allows
+anything to be breathed)</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Bonus Damage
+Stat</td>
+<td>name of mob charstat (strength, etc) to add
+(STAT-10)*2 damage to</td>
+</tr>
+<tr>
+<td style="font-style: italic;">MOB Absorptions</td>
+<td>planar mob damage absorptions, see
+Prop_AbsorbDamage</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Room Title
+Colors</td>
+<td>A color code (^r) or "UP " followed by color, for
+room title</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Room
+Descriptions</td>
+<td>Comma delimited list of adjectives to sprinkle in
+room
+descriptions.&nbsp; List may be prefixed with a number for %
+chance.
+&nbsp;List may also begin with "UP " to make description uppercase.</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Area Effects</td>
+<td>space delimited AbilityID/BehaviorID(arg) list
+for planar area</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Room Effects</td>
+<td>space delimited AbilityID/BehaviorID(arg) list
+for rooms</td>
+</tr>
+<tr>
+<td style="font-style: italic;">MOB Behaviors</td>
+<td>space delimited list of behavior ids with
+optional args in () for mobs</td>
+</tr>
+<tr>
+<td style="font-style: italic;">MOB Behavior
+Replacements</td>
+<td>space delimited list of behavior id = replacement
+behavior id, denoting a weird alteration in existing mob behaviors.</td>
+</tr>
+<tr>
+<td style="font-style: italic;">MOB Abilities</td>
+<td>space delimited list of ability-granting code
+entries. &nbsp;Each
+entry is either AbilityID(arg) or AbilityDomain(arg),&nbsp; or
+AbilityFlag(arg) or AbilityType(arg) or number(x/y) where x is the
+number of skills per y levels of the mob</td>
+</tr>
+<tr>
+<td style="font-style: italic;">MOB Factions</td>
+<td>Space delimited list of FactionIDs(AMOUNT) to
+give mobs faction.
+Use a FactionID of "*" to activate coffeemud.ini reaction faction</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Area Blurbs</td>
+<td>space delimited key=\"blurb\" values to show
+planar lore users</td>
+</tr>
+<tr>
+<td style="font-style: italic;">Promotions</td>
+<td>Comma
+delimited List of promotion names with % chance in (). &nbsp;The
+first
+promotion name gets elite 1, the second 3, the third 5, etc..</td>
+</tr>
+</tbody>
+</table>
+<span style="font-weight: bold;"><br>
+</span>
 <p align="left"><strong><a name="quests"><font color="green" size="5">Quests</font></a></strong></p>
 <p>Quests are tasks which
 can be completed by players for prizes,
@@ -2466,7 +3288,16 @@ name of your quest. This is a required command!</p>
 <p><span style="color: rgb(51, 102, 102);">SET
 DISPLAY</span><span style="color: rgb(102, 51, 102);">
 [DISPLAY QUEST NAME]</span> - a
-friendly displayable name for your quest. &nbsp;Completely optional.</p>
+friendly displayable name for your quest. &nbsp;Recommended, but
+optional.</p>
+<p><span style="color: rgb(51, 102, 102);">SET
+CATEGORY</span><span style="color: rgb(102, 51, 102);">
+[CATEGORY WORD(S)]</span> - a space-delimited list of arbitrary
+category words. &nbsp;Completely optional.</p>
+<p><span style="color: rgb(51, 102, 102);">SET
+INSTRUCTIONS</span><span style="color: rgb(102, 51, 102);">
+[QUEST INSTRUCTIONS]</span> - player instructions for this quest.
+&nbsp;Recommended, but optional.</p>
 <p><span style="color: rgb(51, 102, 102);">SET
 DURATION</span> <span style="color: rgb(102, 51, 102);">[#TICKS/TIME]</span>
 - Either a number of ticks (4 second periods) the quest will last once
@@ -2508,14 +3339,21 @@ quest starts is WAIT + (random number between 1 and INTERVAL).
 for
 scheduled quests.</p>
 <span style="color: rgb(51, 102, 102);"></span>
-<p style="color: rgb(51, 0, 0);"><span style="color: rgb(51, 102, 102);">SET SPAWNABLE <span style="color: rgb(102, 51, 102);">[TRUE/ALL]</span></span>
+<p style="color: rgb(51, 0, 0);"><span style="color: rgb(51, 102, 102);">SET SPAWNABLE <span style="color: rgb(102, 51, 102);">[TRUE/ALL/ONCE/ALLONCE/ANY/ANYONCE]</span></span>
 - whether this quest will, when started, spawn a copy of itself and run
 the copy instead. This allows the same quest to run more than once at
 the same time, though it will share its name as well as its list of
 winners. If the ALL flag is given, the quest manager will attempt to
 spawn off every single STEP of the quest all at once. This can create
 chaos unless STEP BREAK is used instead of STEP. See information on the
-STEP and SET PRESERVE commands below.<br>
+STEP and SET PRESERVE commands below. The ONCE and ALLONCE arguments
+are the
+same as TRUE and ALL except that only one spawned instance is allowed
+at
+any given time. The ANY and ANYONCE arguments will spawn a random step.
+Spawned steps should immediately change their names for the ONCE limits
+to be
+properly applied. <br>
 <span style="color: rgb(51, 102, 102);"><br>
 SET PERSISTANCE <span style="color: rgb(102, 51, 102);">[TRUE/FALSE]</span></span>-&nbsp;a
 quest with a scheduled WAIT/INTERVAL time will attempt to start after
@@ -2567,6 +3405,12 @@ quest, to continue being used in subsequent steps without being
 restored by the quest manager to a natural state. An MPSTOPQUEST
 command, or an expired duration, will always cause the entire quest to
 cease executing and all objects to be cleaned up.</p>
+<p><span style="color: rgb(51, 153, 153);"><span style="color: rgb(51, 102, 102);">QUIET</span> </span><span style="color: rgb(102, 51, 102);">[ON/OFF]</span>
+- Turns on or off quiet mode, in which error messages are not logged.
+&nbsp;However, errors will still cancel the quest script running.</p>
+<p><span style="color: rgb(51, 102, 102);">OPTIONAL</span><span style="color: rgb(102, 51, 102);"> [ON/OFF]</span> -
+Turns on or off optional mode, in which errors no longer cancel quest
+script running.</p>
 <p><span style="color: rgb(51, 102, 102);">STEP</span>
 - The
 purpose of this command is to allow your quest to run in several
@@ -2803,6 +3647,19 @@ as the RESELECT flag was also used in the previous SET MOB or SET
 MOBTYPE command.&nbsp; &nbsp;Mobs designated this way are
 available in
 Scripts using the QUESTMOB function.</p>
+<p><span style="color: rgb(51, 102, 102);">SET
+PCMOBGROUP</span> <span style="color: rgb(102, 51, 102);">(RESELECT)
+([MOB NAME])</span>
+-&nbsp;serves the same purpose as the above command of the
+similar&nbsp;name, but
+the argument is an object specifier which is allowed to be applied to
+players. See Object Specifiers below this
+command listing. If the object resolves to a group of objects, a random
+one from the group will be chosen.&nbsp; &nbsp;Players
+designated this way are
+available in
+Scripts using the QUESTMOB function.</p>
+<span style="color: rgb(51, 102, 102);"></span>
 <p><span style="color: rgb(51, 102, 102);">SET</span>
 <span style="color: rgb(51, 102, 102);">MOBGROUP</span>
 <span style="color: rgb(102, 51, 102);">[OBJECT]</span>
@@ -2839,7 +3696,17 @@ MOB</span> <span style="color: rgb(102, 51, 102);">[OBJECT]</span>
 - serves the same purpose as the above command of the same name, but
 the argument is an object specifier. See Object Specifiers below this
 command listing. If the object resolves to a group of objects, a random
+one from the group will be chosen. &nbsp;This can not be applied to
+players.</p>
+<p><span style="color: rgb(51, 102, 102);">SET
+PCMOB</span> <span style="color: rgb(102, 51, 102);">[OBJECT]</span>
+- serves the same purpose as the above command of the
+similar&nbsp;name, but
+the argument is an object specifier which is allowed to be applied to
+players. See Object Specifiers below this
+command listing. If the object resolves to a group of objects, a random
 one from the group will be chosen.</p>
+<span style="color: rgb(51, 102, 102);"></span>
 <p><span style="color: rgb(51, 102, 102);">SET
 MOBTYPE</span> <span style="color: rgb(102, 51, 102);">(RESELECT)
 ([CLASS])</span>
@@ -2991,7 +3858,15 @@ STAT <span style="color: rgb(102, 51, 102);">[STAT ID]
 [VALUE]</span></span>-
 will give the currently designated object (designated using the SET
 ITEM/MOB/ROOM/AREA, or LOAD ITEM/MOB command) a new value for their
-internal stat designated by the STAT ID. An important stat to be aware
+internal stat designated by the STAT ID. &nbsp; STAT IDs can be
+seen in
+game by doing "LIST STAT [CLASSNAME]", for example "LIST STAT GenMob".
+&nbsp; Another way is HELP STATS. &nbsp;</p>
+<p>One
+special stat for areas is "SUPPRESSLAW", which can be set to the name
+of a crime, or the word "ALL", in case your quest
+is inhibited by law enforcement, until the Quest is no longer running.</p>
+<p>A more&nbsp;important stat to be aware
 of is the special "KEYPLAYER" stat. &nbsp;When given the value of
 true,
 it will make it so that the death of the mob or mobs it is assigned to
@@ -3041,6 +3916,22 @@ SET MOBTYPE commands). This mob will be made into a follower of the mob
 most recently designated using the SET MOB, SET MOBTYPE, or LOAD MOB
 command. This command does not change the current mob designation, nor
 does it change the location of either mob.</p>
+<p><span style="color: rgb(51, 102, 102);">GIVE
+SCRIPT</span>&nbsp;<span style="color: rgb(102, 51, 102);">(SAVABLE/GLOBAL/INDIVIDUAL/PLAYEROK)
+[SCRIPT]</span>
+- This command will give
+the currently designated mob, item, room, area, or mobgroup (designated
+using the set or load commands), itemgroup, or roomgroup the mobprog
+script. &nbsp;The
+script can be a semi-colon delimited script or a LOAD= command, as per
+the Scriptable command. &nbsp;The arguments before the script can
+be
+used to set the variable scope (GLOBAL/INDIVIDUAL), or whether the
+script persists when the object is saved (SAVABLE), or whether players
+should be treated normally (PLAYEROK). &nbsp;Without PLAYEROK, this
+command will attempt to call CAN_ACCEPT and DO_ACCEPT mobprog functions
+on the script instead.</p>
+<span style="color: rgb(51, 102, 102);"></span>
 <p><span style="color: rgb(51, 102, 102);">TAKE
 BEHAVIOR</span> <span style="color: rgb(102, 51, 102);">[BEHAVIOR
 ID]</span>-
@@ -3125,9 +4016,11 @@ Many of the SET ... commands, such as SET MOBGROUP, SET MOB, SET
 ITEMGROUP, SET ROOM, etc, have forms which allow you to designate their
 value using an [OBJECT] string. An [OBJECT] string is one of the
 following basic quest-script values: "LOADEDMOBS", "LOADEDITEMS",
-"LOADEDABILITIES", "AREA", "ROOM", "ABILITY", "MOBGROUP", "ITEMGROUP", "ROOMGROUP", 
-"ABILITYGROUP", "ITEM", "ENVOBJ", "STUFF", "MOB", or one of the following mystery quest-
-script values: "FACTION", "FACTIONGROUP", "AGENT", "AGENTGROUP", "ACTION",
+"LOADEDABILITIES", "AREA", "ROOM", "ABILITY", "MOBGROUP", "ITEMGROUP",
+"ROOMGROUP", "ABILITYGROUP", "ITEM", "ENVOBJ", "STUFF", "MOB", or one
+of the following mystery quest-
+script values: "FACTION", "FACTIONGROUP", "AGENT", "AGENTGROUP",
+"ACTION",
 "ACTIONGROUP", "TARGET", "TARGETGROUP", "MOTIVE", "MOTIVEGROUP",
 "WHEREHAPPENED", "WHEREHAPPENEDGROUP", "WHEREAT", "WHEREATGROUP",
 "WHENHAPPENED", "WHENHAPPENEDGROUP", "WHENAT", "WHENATGROUP", "TOOL",
@@ -3186,7 +4079,8 @@ AGENTGROUP</span> <span style="color: rgb(102, 51, 102);">[#NUMBER]</span>
 - Sets the AGENTGROUP variable to the currently set MOBGROUP, selecting
 at most NUMBER mobs randomly from that list. Will also set the MOBGROUP
 object to the same, as well as designate one random mob from the group
-as the AGENT and the MOB. See <a href="ArchonTome.html#questcrobjsp">Object
+as the AGENT and the MOB, which will become the first entry in this
+list. See <a href="ArchonTome.html#questcrobjsp">Object
 Specifiers</a> above this command
 listing.</p>
 <p><span style="color: rgb(51, 102, 102);">SET
@@ -3232,7 +4126,9 @@ command listing.</p>
 - Sets the WHEREATGROUP variable to the currently set ROOMGROUP,
 selecting at most NUMBER rooms randomly from that list. Will also set
 the ROOMGROUP object to the same, as well as designate one random room
-from the group as the WHEREAT and the ROOM. See <a href="ArchonTome.html#questcrobjsp">Object Specifiers</a>
+from the group as the WHEREAT and the ROOM, which will become the first
+entry in this list.. See <a href="ArchonTome.html#questcrobjsp">Object
+Specifiers</a>
 above this
 command listing.</p>
 <p><span style="color: rgb(51, 102, 102);">SET
@@ -3346,7 +4242,8 @@ TARGETGROUP</span> <span style="color: rgb(102, 51, 102);">[#NUMBER]</span>
 is currently set) or ITEMGROUP if not. It will select at most NUMBER
 objects randomly from that list. Will also re-set the MOBGROUP or
 ITEMGROUP object to the same, as well as designate one random mob or
-item from the group as the TARGET and either the MOB or ITEM. See <a href="ArchonTome.html#questcrobjsp">Object Specifiers</a>
+item from the group as the TARGET and either the MOB or ITEM, which
+will become the first entry in this list.. See <a href="ArchonTome.html#questcrobjsp">Object Specifiers</a>
 above this
 command listing.</p>
 <p><span style="color: rgb(51, 102, 102);">SET
@@ -3371,7 +4268,8 @@ TOOLGROUP</span> <span style="color: rgb(102, 51, 102);">[#NUMBER]</span>
 currently set) or ITEMGROUP if not. It will select at most NUMBER
 objects randomly from that list. Will also re-set the MOBGROUP or
 ITEMGROUP object to the same, as well as designate one random mob or
-item from the group as the TOOL and either the MOB or ITEM. See <a href="ArchonTome.html#questcrobjsp">Object Specifiers</a>
+item from the group as the TOOL and either the MOB or ITEM, which will
+become the first entry in this list.. See <a href="ArchonTome.html#questcrobjsp">Object Specifiers</a>
 above this
 command listing.</p>
 <p><span style="color: rgb(51, 102, 102);">SET
@@ -3460,6 +4358,138 @@ above this command listing. [#NUMBER] may be a math expression.</p>
 Will also designate one random string from the group as the ACTION. The
 strings are space delimited, and words grouped with double-quotes.
 [#NUMBER] may be a math expression.</p>
+<font style="background-color: aquamarine;" color="#4169e1" size="4"><strong>Quest scripts:</strong></font>
+<p>The MOBPROG scripts GIVEn to mobs or whatever by the
+above quest script should handle things like allowing a player to <span style="font-weight: bold;">accept</span> a quest,
+providing a way to track the players <span style="font-weight: bold;">progress</span>
+in a quest,
+and providing a way to <span style="font-weight: bold;">complete</span>
+a quest. &nbsp;There are several commands and conventions in
+MOBPROG language to assist with this.</p>
+<p>The
+most common way to accept a quest is to have an NPC that acts as a
+quest giver. &nbsp;He can announce the quest to players entering
+his
+room, and allow the quest to be accepted using a SPEECH_PROG, or some
+other way. &nbsp; If you wish your quest to be compatible with
+StdQuestBoard or other quest items, however, you also need to include
+both the SET INSTRUCTIONS command in your quest script, as well as
+include two special FUNCTION_PROGs:</p>
+<p><span style="font-family: monospace;">FUNCTION_PROG
+CAN_ACCEPT</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+if ISPC($n) and&nbsp;</span><span style="font-family: monospace;">!QUESTWINNER($n
+*) and</span><span style="font-family: monospace;">
+!QUESTSCRIPTED($n *)</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; RETURN</span><br style="font-family: monospace;">
+<span style="font-family: monospace;"></span><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+endif</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+RETURN CANCEL</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">~</span><br style="font-family: monospace;">
+<br style="font-family: monospace;">
+<span style="font-family: monospace;">FUNCTION_PROG
+DO_ACCEPT</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+mpqset * STATISTICS ACCEPTED</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+mpscript $n INDIVIDUAL SAVABLE STATIC=LOAD=my_quests_playertrack.script</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">~</span><br style="font-family: monospace;">
+<br style="font-family: monospace;">
+<span style="font-family: monospace;">SPEECH_PROG p
+i accept</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+if CALLFUNC(CAN_ACCEPT)</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; sayto "$n" You have accepted my quest!
+&nbsp;Now go do all the things!</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; MPCALLFUNC DO_ACCEPT</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+endif</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">~</span><br style="font-family: monospace;">
+</p>
+<p>The above shows examples of the two special functions
+for item or board-based quest accepting. &nbsp;The first function <span style="font-family: monospace;">CAN_ACCEPT</span>
+should return nothing if the player $n is permitted to do your quest,
+and should return a non-empty string (in this case, "CANCEL") if the
+player is not permitted. &nbsp;The <span style="font-family: monospace;">CAN_ACCEPT</span>
+function also demonstrates a check to see if the player has previously
+completed the quest (<span style="font-family: monospace;">QUESTWINNER</span>)
+and whether the player is currently running a script assigned by this
+quest (<span style="font-family: monospace;">QUESTSCRIPTED</span>).</p>
+<p>The <span style="font-family: monospace;">DO_ACCEPT</span>
+function should perform any actions required to allow the player $n to
+proceed with your quest. In this case, the quest statistics are updated
+to denote that a player has accepted the quest using <span style="font-family: monospace;">MPQSET</span>, and
+then the player is given their own tracking script using <span style="font-family: monospace;">MPSCRIPT</span>.</p>
+<p>The example SPEECH_PROG is just a simple example of
+using the spoken phrase 'i accept' to accept a quest.</p>
+<p>Tracking
+quest progress can be done using a personal script on each player doing
+the quest, as mentioned above. &nbsp; For compatibility with the
+player
+QUESTS&nbsp; command in-game, you should set the MOBPROG script
+Vars <span style="font-family: monospace;">&lt;playername&gt;
+PROGRESS</span> and/or <span style="font-family: monospace;">&lt;playername&gt;
+TIME_REMAINING</span> to update the players progress in the game.
+&nbsp;</p>
+<p>Completing
+quests can be accomplished by the MOBPROG script on the announcer mob,
+the quest target mob(s), or even a script on the player themselves.
+&nbsp;Here is an example of a script snippet on the announcer mob:</p>
+<p><span style="font-family: monospace;">ALL_GREET_PROG
+100</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+IF QUESTSCRIPTED($n *)</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; IF var($n NUM_KILLED &gt;= 5)</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; mpexp $n
+100</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; mpoload
+QuestPoint</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; give "a
+quest point" "$n"</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; mpoload 10</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; give 10
+"$n"</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+mpquestwin $n *</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; sayto $n
+Congratulations! You did it!</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;
+mpendquest $n</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; mpqset *
+STATISTICS SUCCESS</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ENDIF</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;
+ENDIF</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">~</span><br style="font-family: monospace;">
+</p>
+<p>In the above example, an&nbsp;<span style="font-family: monospace;">ALL_GREET_PROG</span>
+checks to see if the greeted player ($n) was&nbsp;<span style="font-family: monospace;">QUESTSCRIPTED</span>
+previously, as a way of determining whether they are actually on this
+quest. &nbsp;It then checks their <span style="font-family: monospace;">NUM_KILLED</span>
+variable to see if it is high enough to complete the quest.
+&nbsp;If
+both conditions are true, some goodies are given out: 100 xp, a quest
+point, and 10 gold. &nbsp;Then the special command <span style="font-family: monospace;">MPQUESTWIN</span> is
+used to signal that the player has won the quest. &nbsp;<span style="font-family: monospace;">MPENDQUEST</span>
+$n &nbsp;is then used to clear off any residual quest scripts or
+data
+from the player. &nbsp;Lastly, as in the accept example above, the
+quest statistics are updated using <span style="font-family: monospace;">MPQSET * STATISTICS SUCCESS</span>.</p>
 <p><font style="background-color: aquamarine;" color="#4169e1" size="4"><strong>JavaScripting
 in Quest scripts:</strong></font></p>
 <p>The CoffeeMud quest
@@ -3856,7 +4886,7 @@ perform the
 social TWIGGLE ALL.<br>
 <br>
 <strong>You wiggle your toes
-at everyone. How wierd.</strong><br>
+at everyone. How weird.</strong><br>
 </p>
 <p>Now select option 2:</p>
 <p> <em>2. Your action type=MAKING NOISE<br>
@@ -4333,6 +5363,15 @@ Tax rate</em></td>
 experience tax rate, normally set by players</td>
 </tr>
 <tr>
+<td style="vertical-align: top; font-style: italic;">Clan
+Dues/yr<br>
+</td>
+<td style="vertical-align: top;">the amount of
+base currency (based on bank currency type) due every mud year by every
+member<br>
+</td>
+</tr>
+<tr>
 <td><em>Morgue
 RoomID</em><br>
 </td>
@@ -4671,7 +5710,133 @@ functions that this role can always perform, without a vote<br>
 </tbody>
 </table>
 <br>
-<br>
+<p><strong><a name="awards"><font color="blue"><font size="5">Auto-Awards</font></font></a></strong>
+</p>
+<p>An Auto-Award skill is a behavior or property or spell
+effect
+that is automatically assigned based on player characteristics as
+filtered by a ZapperMask, AND can differ efficiencly based on the
+aspects of the date. For efficiency, Auto-Awards are not given to NPCs
+at birth, but they will acquire them during combat or if a skill
+requires them.<br>
+</p>
+<p>From the command line, auto-award entries can be created
+using
+the CREATE command:</p>
+<p><b>CREATE AWARD -RACE +ELF :: -MONTH +5 ::
+Prop_Adjuster(str+2)<br>
+</b></p>
+<p>The bit before the first <span style="font-weight: bold;">::</span>
+is the normal player zapper mask describing which players are elligible
+for the award.&nbsp; This section may include race, class, or even
+birthday checks, but should never include current mud date checks. The
+bit between the two <span style="font-weight: bold;">::</span>
+markers
+is the date-based zapper mask.&nbsp; This mask will be compared
+against
+the current date in the starting room area of the player in
+question.&nbsp; This second mask should only contain date/time
+based
+checks.&nbsp; The bit after the last <span style="font-weight: bold;">::</span>
+marker are the awards for players matching the mask: a list of behavior
+or ability ids, with parameters/arguments in parenthesis.&nbsp;
+Multiple behaviors/abilties are separated by spaces.<br>
+</p>
+<p>When editing from the MUDGrinder, the arguments are a
+bit
+easier :</p>
+<table style="width: 100%;" bgcolor="yellow" border="1" cellpadding="1" cellspacing="1" width="100%">
+<tbody>
+<tr>
+<td width="25%"><strong>Property</strong></td>
+<td width="75%"><strong>Description</strong></td>
+</tr>
+<tr>
+<td><em>Player Mask</em></td>
+<td>the normal player zappermask.&nbsp; See HELP
+ZAPPERMASK for more info.</td>
+</tr>
+<tr>
+<td><em>Date Mask<br>
+</em></td>
+<td>the date/time when the mask applies.&nbsp;
+See HELP
+ZAPPERMASK for more info.</td>
+</tr>
+<tr>
+<td><em>Properties</em></td>
+<td>the list of behaviors/affects that are applied
+when a
+player qualifies by both masks.<br>
+</td>
+</tr>
+</tbody>
+</table>
+<p>If you no longer want an award to exist, you can always
+list
+the existing awards with LIST AWARD, and then obliterate it with the
+DESTROY command:</p>
+<p><b>DESTROY </b><b>AWARD</b><b>
+4</b></p>
+<p>Of course, all this can
+also be done from the MUDGrinder Achievements/Awards editor.</p>
+<p><strong><a name="titles"><font color="blue"><font size="5">Auto-Titles</font></font></a></strong>
+</p>
+<p>An Auto-Title is the awarding of a new character Title
+option (see
+TITLE command) due to matching a particular zappermask during one of
+the periodic system checks.<br>
+</p>
+<p>From the command line, auto-award entries can be created
+using
+the CREATE command:</p>
+<p><b>CREATE TITLE *, the Elf=-RACE +ELF <br>
+</b><b>CREATE TITLE *, the Unique Elf=1:RACE +ELF </b><br>
+</p>
+<p>When creating titles, the * character is a substitute
+for the
+ordinary character name.&nbsp; The bit after the equal sign is the
+zapper mask to select which players can have this title.&nbsp;
+Optionally, a maximum number of players who can get this title can be
+specified before the mask, with a colon separating them.<br>
+</p>
+<p>When editing from the MUDGrinder, the arguments are a
+bit
+easier :</p>
+<table style="width: 100%;" bgcolor="yellow" border="1" cellpadding="1" cellspacing="1" width="100%">
+<tbody>
+<tr>
+<td width="25%"><strong>Property</strong></td>
+<td width="75%"><strong>Description</strong></td>
+</tr>
+<tr>
+<td><em>Title</em></td>
+<td>the title as it will appear in the characters
+TITLE list<br>
+</td>
+</tr>
+<tr>
+<td><em>Max<br>
+</em></td>
+<td>the maximum number of players who can have this
+title, with 0 meaning unlimited<br>
+</td>
+</tr>
+<tr>
+<td><em>Properties</em></td>
+<td>the normal player zappermask.&nbsp; See HELP
+ZAPPERMASK for more info</td>
+</tr>
+</tbody>
+</table>
+<p>If you no longer want an award to exist, you can always
+list
+the existing awards with LIST TITLES, and then obliterate it with the
+DESTROY command:</p>
+<p><b>DESTROY TITLE</b><b> *, the Elf<br>
+</b></p>
+<p>Of course, all this can
+also be done from the MUDGrinder Achievements/Awards editor.</p>
 <p class="MsoNormal"><a name="achievements"><strong><font color="#008000" size="5">Achievements</font></strong></a></p>
 <p>Achievements are things that players can do for the
 bragging
@@ -4708,6 +5873,11 @@ Zappermask<br>
 </td>
 </tr>
 <tr>
+<td><span style="font-style: italic;">GROUPKILLS</span></td>
+<td>the player kills a certain number of mobs grouped
+in particular sizes</td>
+</tr>
+<tr>
 <td><em>STATVALUE</em></td>
 <td>player stat/numeric value goes above (or below) a
 specific value<br>
@@ -4719,6 +5889,11 @@ specific value<br>
 below) a
 specific value<br>
 </td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">FACTIONS</span></td>
+<td>a list of player factions are above (or below) a
+specific value</td>
 </tr>
 <tr>
 <td><em>EXPLORE</em></td>
@@ -4739,119 +5914,184 @@ particular set of crafting skills<br>
 </td>
 </tr>
 <tr>
-<td>SKILLUSE</td>
+<td><span style="font-style: italic;">DECONSTRUCTING</span></td>
+<td>a number of items are deconstructed with a
+particular crafting skill</td>
+</tr>
+<tr>
+<td style="font-style: italic;">SKILLUSE</td>
 <td>a particular number of skills/spells of a
 particular
 name or type are used</td>
 </tr>
 <tr>
-<td>QUESTOR</td>
+<td><span style="font-style: italic;">SKILLPROF</span></td>
+<td>a number of particular skills that reach a
+particular proficiency</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">SOCIALUSE</span></td>
+<td>a social is used a particular number of items</td>
+</tr>
+<tr>
+<td style="font-style: italic;">QUESTOR</td>
 <td>a particular number of quests whose name match a
 mask
 are completed</td>
 </tr>
 <tr>
-<td>ACHIEVER</td>
+<td style="font-style: italic;">ACHIEVER</td>
 <td>a specific set of OTHER achievements are
 completed
 (these are checked periodically, please limit their number)</td>
 </tr>
 <tr>
-<td>ROOMENTER</td>
+<td style="font-style: italic;">ROOMENTER</td>
 <td>a specific room or set of rooms is entered by the
 player for the first time</td>
 </tr>
 <tr>
-<td>LEVELSGAINED</td>
-<td>a particular number of levels gained (or
-regained)
+<td style="font-style: italic;">LEVELSGAINED</td>
+<td>a particular number of levels gained, minus
+losses,
 &nbsp;to complete</td>
 </tr>
 <tr>
-<td>TIMEPLAYED</td>
+<td><span style="font-style: italic;">LEVELUP</span></td>
+<td>a particular number of levels gained, regardless
+of lost levels, to complete</td>
+</tr>
+<tr>
+<td style="font-style: italic;">CLASSLEVELSGAINED</td>
+<td>a particular number of levels gained in a
+particular class, minus losses,
+&nbsp;to complete</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">CLASSLEVELUP</span></td>
+<td>a particular number of levels gained in a
+particular class, regardless of lost levels, to complete</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">LEVELDOWN</span></td>
+<td>a particular number of levels lost, regardless of
+regained levels, to complete</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">CLASSLEVELDOWN</span></td>
+<td>a particular number of levels lost in a
+particular class, regardless of regained levels, to complete</td>
+</tr>
+<tr>
+<td style="font-style: italic;">TIMEPLAYED</td>
 <td>a particular number of seconds played</td>
 </tr>
 <tr>
-<td>JUSTBE</td>
+<td style="font-style: italic;">JUSTBE</td>
 <td>the player being in a particular state (these are
 checked periodically, please limit their number)</td>
 </tr>
 <tr>
-<td>DEATHS</td>
+<td style="font-style: italic;">DEATHS</td>
 <td>the player is killed a certain number of times by
 Zappermaked mobs</td>
 </tr>
 <tr>
-<td>RETIRE</td>
+<td style="font-style: italic;">RETIRE</td>
 <td>triggered whenever the player uses the RETIRE
 command</td>
 </tr>
 <tr>
-<td>REMORT</td>
+<td style="font-style: italic;">REMORT</td>
 <td>triggered whenever the player uses the REMORT
 command</td>
 </tr>
 <tr>
-<td>GOTITEM</td>
+<td style="font-style: italic;">GOTITEM</td>
 <td>triggered whenever the player gets a particular
 item</td>
 </tr>
 <tr>
-<td>BIRTHS</td>
+<td style="font-style: italic;">BIRTHS</td>
 <td>triggered when a player becomes a parent</td>
 </tr>
 <tr>
-<td>RACEBIRTH</td>
+<td style="font-style: italic;">RACEBIRTH</td>
 <td>triggered when a player becomes a parent of a
 newly
 generated mixed-race</td>
 </tr>
 <tr>
-<td>PLAYERBORNPARENT</td>
+<td style="font-style: italic;">PLAYERBORNPARENT</td>
 <td>triggered when a player becomes a parent of a mob
 that
 just became a new player</td>
 </tr>
 <tr>
-<td>PLAYERBORN</td>
+<td style="font-style: italic;">PLAYERBORN</td>
 <td>triggered when a player is born from the actions
 of
 another player</td>
 </tr>
 <tr>
-<td>CHARACTERS</td>
+<td style="font-style: italic;">CHARACTERS</td>
 <td>the number of characters in an account</td>
 </tr>
 <tr>
-<td>CLANMEMBERS</td>
+<td style="font-style: italic;">CLANMEMBERS</td>
 <td>the number of members of a clan</td>
 </tr>
 <tr>
-<td>CLANKILLS</td>
+<td style="font-style: italic;">CLANKILLS</td>
 <td>triggered when a clan member kills a rival clan
 member</td>
 </tr>
 <tr>
-<td>CLANLEVELSGAINED</td>
+<td style="font-style: italic;">CLANLEVELSGAINED</td>
 <td>a clan gaining a clan level</td>
 </tr>
 <tr>
-<td>CLANDECLARE</td>
+<td style="font-style: italic;">CLANDECLARE</td>
 <td>triggered when a clan declares a new relationship
 with another clan</td>
 </tr>
 <tr>
-<td>CLANPROPERTY</td>
+<td style="font-style: italic;">CLANPROPERTY</td>
 <td>the number of times the clan purchases private
 property</td>
 </tr>
 <tr>
-<td>CONQUEREDAREAS</td>
+<td style="font-style: italic;">CONQUEREDAREAS</td>
 <td>the number of areas the clan has conquered</td>
 </tr>
 <tr>
-<td>CONQUESTPOINTS</td>
+<td style="font-style: italic;">CONQUESTPOINTS</td>
 <td>the number of conquest points gained by the clan</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">AREAVISIT</span></td>
+<td>the number of times an area is visited</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">INSTANCEEXPIRE</span></td>
+<td>the number of times an area instance expires</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">SHIPSSUNK</span></td>
+<td>the number of ships sunk by the player</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">CHARITY</span></td>
+<td>the amount of money given to particular beggers</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">ENTITLED</span></td>
+<td>gaining an amount of titles that match a mask</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">SCRIPTED</span></td>
+<td>number of times it was bumped with MPACHIEVE
+script command</td>
 </tr>
 </tbody>
 </table>
@@ -5022,8 +6262,8 @@ a
 useful list of stats: LEVEL, ARMOR, DAMAGE, ATTACK, WEIGHT, HEIGHT,
 STRENGTH, INTELLIGENCE, DEXTERITY, CONSTITUTION, CHARISMA, WISDOM,
 MAXSTRENGTH, MAXINTELLIGENCE, MAXDEXTERITY, MAXCONSTITUTION,
-MAXCHARISMA, MAXWISDOM, AGE, HITS, MANA,
-&nbsp;MOVE, HUNGER, THIRST, FATIGUE, LEVEL, USES, SPEED, MONEY,
+MAXCHARISMA, MAXWISDOM, AGE, HITS, MANA, REJUVRATE, &nbsp;MOVE,
+HUNGER, THIRST, FATIGUE, LEVEL, USES, SPEED, MONEY,
 QUESTPOINTS, FOLLOWERS, TRAINS, PRACTICES<br>
 </td>
 </tr>
@@ -5056,8 +6296,14 @@ delimited. &nbsp;A value of * may be given to specify ALL skills.<br>
 <tr>
 <td>* ITEMMASK</td>
 <td>the
-gotitem achievment uses this required mask to identify which item will
-trigger completion of the achievement. &nbsp;See help on ZAPPERMASK
+gotitem achievement uses this required mask to identify which item will
+trigger completion of the achievement. &nbsp;<br>
+Multiple
+ITEMMASKs may be included by adding a number suffix. &nbsp; By
+default,
+a match on any itemmask will count, but ALL=T can be added as a
+separate argument to require all itemmasks to be matched.<br>
+See help on ZAPPERMASK
 for
 more information.</td>
 </tr>
@@ -5086,7 +6332,8 @@ all Quests.<br>
 </tr>
 <tr>
 <td><em>* ACHIEVEMENTLIST</em></td>
-<td>the Achiever event type achievment has a required
+<td>the Achiever event type achievement has a
+required
 comma-delimited list of other achievement tattoos to specify which
 other achievements must be completed before This achievement is
 completed.<br>
@@ -5117,6 +6364,101 @@ ALIGNMENT (for median alignment)</td>
 </tbody>
 </table>
 <strong><em></em></strong><br>
+<br>
+<strong><a name="commands"><font color="blue" size="5">Generic Commands</font></a></strong>
+<p>Commands are the main player input mechanism -- which is
+probably what you already suspected.</p>
+<p>Although CoffeeMud
+includes a wide variety of &nbsp;commands, it is not beyond the
+realm
+of possibility that you may want to
+add onto them. &nbsp;Therefore,
+CoffeeMud also allows you to define commands outside of the
+java-realm. This can be done from the command line using the CREATE
+command. If you want to create a new command called ARG, for
+instance,
+you might enter:</p>
+<p><strong>CREATE COMMAND Arg</strong></p>
+<p>And
+it would be done. &nbsp;When creating a command with the exact same
+ID
+as an existing command (case insensitive), then your new generic
+command will replace the old standard one. &nbsp;When deleting a
+generic command, the previous standard command will be restored.</p>
+<p>Whenever creating or
+modifying a new command, the Archon is
+presented with a menu of selections and options available to customize
+the command. Here is a description of those options:</p>
+<strong></strong>
+<table style="width: 100%;" bgcolor="yellow" border="1" cellpadding="1" cellspacing="1" width="100%">
+<tbody>
+<tr>
+<td width="25%"><strong>Property</strong></td>
+<td width="75%"><strong>Description</strong></td>
+</tr>
+<tr>
+<td><em>Command Words</em></td>
+<td>the list of words to invoke the command.
+&nbsp;These are comma-delimited and in uppercase by default.</td>
+</tr>
+<tr>
+<td><em>Can Be Ordered</em></td>
+<td>whether this is a command that an npc or group
+member can be ORDERed to do.</td>
+</tr>
+<tr>
+<td><em>Security Mask</em></td>
+<td>the zapper mask to check whether any given player
+or npc can invoke the command. &nbsp;See HELP ZAPPERMASK for more
+information.</td>
+</tr>
+<tr>
+<td><i>Action Cost</i></td>
+<td>the
+number of action points per tick required to invoke the command when
+not in combat. &nbsp;A value of -1 will use the defaults from the
+coffeemud.ini file.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Combat
+Cost</span></td>
+<td>the number of action points per tick required to
+invoke the command
+when&nbsp;in combat. &nbsp;A value of -1 will use the defaults
+from the
+coffeemud.ini file.</td>
+</tr>
+<tr>
+<td><i>Help</i></td>
+<td>the
+text to show when the user enters HELP on the Command Words of the
+command. &nbsp;This will not necessarily override anything in the
+help.ini files, so you might need to remove old entries from there if
+they conflict.</td>
+</tr>
+<tr>
+<td><span style="font-style: italic;">Script</span></td>
+<td>the Scriptable (MOBPROB) script to execute when
+the command is invoked. &nbsp;It MUST contain a FUNCTION_PROG
+EXECUTE.<br>
+<br>
+When
+running, the function prog will be able to access all command arguments
+(including the command word) via $g. &nbsp;The official number of
+arguments will be stored in $0. &nbsp;The arguments themselves are
+available in $g.0...9 or $1...$9. &nbsp;<br>
+<br>
+The $n source will be
+the invoking mob. &nbsp;The $t will either be empty, or the name of
+the
+npc the $n source is in combat with. &nbsp;The $o item will be the
+$n
+source's wielded item, while $p item will be the $n source's held item.</td>
+</tr>
+</tbody>
+</table>
+<br>
+<br>
 </td>
 </tr>
 </tbody>

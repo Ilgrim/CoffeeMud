@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary.CompiledZMask;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -47,8 +48,10 @@ public class NeutralAbilities extends ActiveTicker
 		return Behavior.CAN_MOBS;
 	}
 
-	private List<Ability>	mySkills		= null;
-	private int				numAllSkills	= -1;
+	protected CompiledZMask	mask			= null;
+	protected List<Ability>	mySkills		= null;
+	protected int			numAllSkills	= -1;
+	protected List<String>	setSkills		= null;
 
 	public NeutralAbilities()
 	{
@@ -61,6 +64,31 @@ public class NeutralAbilities extends ActiveTicker
 	public String accountForYourself()
 	{
 		return "random indifferent skill using";
+	}
+
+	@Override
+	public void setParms(final String newParms)
+	{
+		String parms = newParms;
+		String mask = "";
+		final int x=newParms.indexOf(';');
+		if(x>0)
+		{
+			parms = newParms.substring(0,x);
+			mask = newParms.substring(x+1);
+		}
+		setSkills = null;
+		final String skills = CMParms.getParmStr(parms, "SKILLS", null);
+		if((skills != null) && (skills.trim().length()>0))
+		{
+			setSkills = new Vector<String>();
+			setSkills.addAll(CMParms.parseCommas(skills, true));
+		}
+		super.setParms(parms);
+		super.parms = newParms;
+		this.mask = null;
+		if(mask.trim().length()>0)
+			this.mask = CMLib.masking().getPreCompiledMask(mask.trim());
 	}
 
 	@Override
@@ -80,19 +108,51 @@ public class NeutralAbilities extends ActiveTicker
 
 			if(thisRoom.numPCInhabitants()>0)
 			{
-				if((numAllSkills!=mob.numAllAbilities())||(mySkills==null))
+				MOB target=null;
+				if(mask == null)
+					target=mob;
+				else
+				{
+					final List<MOB> targets = new ArrayList<MOB>(1);
+					for(int i=0;i<thisRoom.numInhabitants();i++)
+					{
+						final MOB M=thisRoom.fetchInhabitant(i);
+						if((M!=null)
+						&&(M!=mob)
+						&&(CMLib.masking().maskCheck(mask, M, false)))
+							targets.add(M);
+					}
+					if(targets.size()==0)
+						return true;
+					target = targets.get(CMLib.dice().roll(1, targets.size(), -1));
+				}
+				if((target != null)
+				&&(((numAllSkills!=mob.numAllAbilities())&&(setSkills==null))
+					||(mySkills==null)))
 				{
 					numAllSkills=mob.numAbilities();
 					mySkills=new ArrayList<Ability>();
-					for(final Enumeration<Ability> e=mob.allAbilities(); e.hasMoreElements();)
+					if((setSkills!=null)&&(setSkills.size()>0))
 					{
-						final Ability tryThisOne=e.nextElement();
-						if((tryThisOne!=null)
-						&&(tryThisOne.abstractQuality()==Ability.QUALITY_INDIFFERENT)
-						&&(((tryThisOne.classificationCode()&Ability.ALL_ACODES)!=Ability.ACODE_PRAYER)
-							||tryThisOne.appropriateToMyFactions(mob)))
+						for(final String id : setSkills)
 						{
-							mySkills.add(tryThisOne);
+							final Ability A = mob.fetchAbility(id);
+							if(A != null)
+								mySkills.add(A);
+						}
+					}
+					else
+					{
+						for(final Enumeration<Ability> e=mob.allAbilities(); e.hasMoreElements();)
+						{
+							final Ability tryThisOne=e.nextElement();
+							if((tryThisOne!=null)
+							&&(tryThisOne.abstractQuality()==Ability.QUALITY_INDIFFERENT)
+							&&(((tryThisOne.classificationCode()&Ability.ALL_ACODES)!=Ability.ACODE_PRAYER)
+								||tryThisOne.appropriateToMyFactions(mob)))
+							{
+								mySkills.add(tryThisOne);
+							}
 						}
 					}
 				}
@@ -104,7 +164,13 @@ public class NeutralAbilities extends ActiveTicker
 					{
 						tryThisOne.setProficiency(CMLib.ableMapper().getMaxProficiency(mob,true,tryThisOne.ID()));
 						final Vector<String> V=new XVector<String>();
-						tryThisOne.invoke(mob,V,null,false,0);
+						if((target != mob)&&(target != null)&&(tryThisOne.canTarget(Ability.CAN_MOBS)))
+						{
+							V.add("$"+target.Name()+"$");
+							tryThisOne.invoke(mob,V,null,false,0);
+						}
+						else
+							tryThisOne.invoke(mob,V,target,false,0);
 					}
 				}
 			}

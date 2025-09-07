@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -78,19 +79,20 @@ public class SpecialistMage extends Mage
 				&&(level>0)
 				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SPELL))
 				{
-					final boolean secret=CMLib.ableMapper().getSecretSkill(ID(),true,A.ID());
+					final SecretFlag secret=CMLib.ableMapper().getSecretSkill(ID(),true,A.ID());
+					final String extraMask=CMLib.ableMapper().getExtraMask(ID(),true,A.ID());
 					if((A.classificationCode()&Ability.ALL_DOMAINS)==opposed())
 					{
 						if(CMLib.ableMapper().getDefaultGain(ID(),true,A.ID()))
-							CMLib.ableMapper().addCharAbilityMapping(ID(),level,A.ID(),0,"",false,secret);
+							CMLib.ableMapper().addCharAbilityMapping(ID(),level,A.ID(),0,"",false,secret,null,extraMask);
 						else
 							CMLib.ableMapper().delCharAbilityMapping(ID(),A.ID());
 					}
 					else
-					if((A.classificationCode()&Ability.ALL_DOMAINS)==domain()&&(!secret))
+					if((A.classificationCode()&Ability.ALL_DOMAINS)==domain()&&(secret==SecretFlag.PUBLIC)&&(extraMask.length()==0))
 						CMLib.ableMapper().addCharAbilityMapping(ID(),level,A.ID(),25,true);
 					else
-						CMLib.ableMapper().addCharAbilityMapping(ID(),level,A.ID(),0,"",false,secret);
+						CMLib.ableMapper().addCharAbilityMapping(ID(),level,A.ID(),0,"",false,secret,null,extraMask);
 				}
 			}
 		}
@@ -105,7 +107,7 @@ public class SpecialistMage extends Mage
 	@Override
 	public String getOtherBonusDesc()
 	{
-		final String chosen = CMStrings.capitalizeAndLower(Ability.DOMAIN_DESCS[domain() >> 5].replace('_', ' '));
+		final String chosen = CMStrings.capitalizeAndLower(Ability.DOMAIN.DESCS.get(domain() >> 5).replace('_', ' '));
 		return L("At 5th level, receives bonus damage from @x1 as levels advance.  "
 				+ "At 10th level, receives double duration on your @x1 magic, "
 				+ "and half duration from malicious @x1 magic.",chosen);
@@ -114,7 +116,7 @@ public class SpecialistMage extends Mage
 	@Override
 	public String getOtherLimitsDesc()
 	{
-		final String opposed = CMStrings.capitalizeAndLower(Ability.DOMAIN_DESCS[opposed() >> 5].replace('_', ' '));
+		final String opposed = CMStrings.capitalizeAndLower(Ability.DOMAIN.DESCS.get(opposed() >> 5).replace('_', ' '));
 		return L("Unable to cast @x1 spells.  Receives penalty damage from @x1 as levels advance.  "
 				+ "Receives double duration from malicious @x1 magic, half duration on other @x1"
 				+ " effects.",opposed);

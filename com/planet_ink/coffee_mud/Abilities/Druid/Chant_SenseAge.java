@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -67,6 +67,12 @@ public class Chant_SenseAge extends Chant
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags()| Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	protected int overrideMana()
 	{
 		return 5;
@@ -91,15 +97,11 @@ public class Chant_SenseAge extends Chant
 				mob.location().send(mob,msg);
 				final Ability A=target.fetchEffect("Age");
 				final StringBuilder info=new StringBuilder("");
-				int ageYears = -1;
+				final int ageYears = CMLib.flags().getAgeYears(target);
 				MOB M=null;
 				boolean destroyM = false;
 				if(target instanceof MOB)
-				{
 					M=(MOB)target;
-					if(M.charStats().getStat(CharStats.STAT_AGE)>0)
-						ageYears=M.charStats().getStat(CharStats.STAT_AGE);
-				}
 				else
 				if(target instanceof CagedAnimal)
 				{
@@ -115,8 +117,6 @@ public class Chant_SenseAge extends Chant
 					if(s.endsWith(")"))
 						s=s.substring(0,s.length()-1);
 					info.append(L("@x1 is @x2.  ",target.name(mob),s));
-					if(ageYears < 0)
-						ageYears = CMath.s_int(A.getStat("AGEYEARS"));
 				}
 				else
 				if(ageYears >= 0)
@@ -129,7 +129,7 @@ public class Chant_SenseAge extends Chant
 				if((super.getXLEVELLevel(mob)>0)
 				&&(ageYears>=0)
 				&&(M!=null))
-					info.append(L("This is "+M.charStats().hisher()+" @x1 stage.  ",M.charStats().ageName()));
+					info.append(L("This is @x2 @x1 stage.  ",M.charStats().hisher(),M.charStats().ageName()));
 
 				if((super.getXLEVELLevel(mob)>1)
 				&&(M!=null))
@@ -169,10 +169,10 @@ public class Chant_SenseAge extends Chant
 				&&(M!=null))
 				{
 					if(M.charStats().getMyRace().getAgingChart()[Race.AGE_ANCIENT] == Race.YEARS_AGE_LIVES_FOREVER)
-						info.append(L(M.charStats().HeShe()+" can expect to live forever.  "));
+						info.append(L("@x1 can expect to live forever.  ",M.charStats().HeShe()));
 					else
-						info.append(L(M.charStats().HeShe()+" can expect to live to around age @x1.  ",
-								""+M.charStats().getMyRace().getAgingChart()[Race.AGE_ANCIENT]));
+						info.append(L("@x2 can expect to live to around age @x1.  ",
+								""+M.charStats().getMyRace().getAgingChart()[Race.AGE_ANCIENT], M.charStats().HeShe()));
 				}
 
 				if((super.getXLEVELLevel(mob)>5)
@@ -180,7 +180,7 @@ public class Chant_SenseAge extends Chant
 				&&(M!=null))
 				{
 					if(M.charStats().ageCategory() == Race.AGE_ANCIENT)
-						info.append(L(M.charStats().HeShe()+" can look forward to death.  "));
+						info.append(L("@x1 can look forward to death.  ", M.charStats().HeShe()));
 					else
 					{
 						final int ageCat=M.charStats().ageCategory()+1;
@@ -188,11 +188,13 @@ public class Chant_SenseAge extends Chant
 						final String[] desc=Race.AGE_DESCS;
 						if(R.getAgingChart()[ageCat] == Race.YEARS_AGE_LIVES_FOREVER)
 						{
-							info.append(L(M.charStats().HeShe()+" will remain "+desc[ageCat-1].toLowerCase()+" forever.  "));
+							info.append(L("@x1 will remain @x2 forever.  ",M.charStats().HeShe(),desc[ageCat-1].toLowerCase()));
 						}
 						else
 						{
-							info.append(L(M.charStats().HeShe()+" can look forward to "+desc[ageCat].toLowerCase()+" around age @x1.  ",
+							info.append(L("@x1 can look forward to @x2 around age @x3.  ",
+									M.charStats().HeShe(),
+									desc[ageCat].toLowerCase(),
 									""+R.getAgingChart()[ageCat]));
 						}
 					}

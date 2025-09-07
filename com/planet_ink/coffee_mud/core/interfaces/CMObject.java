@@ -15,7 +15,7 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -76,4 +76,15 @@ public interface CMObject extends Cloneable, Comparable<CMObject>
 	 */
 	public void initializeClass();
 
+	/**
+	 * A helpful converter for extracting the ID from a CMOBject
+	 */
+	public final static Converter<? extends CMObject,String> idConverter = new Converter<CMObject,String>()
+	{
+		@Override
+		public String convert(final CMObject obj)
+		{
+			return obj.ID();
+		}
+	};
 }

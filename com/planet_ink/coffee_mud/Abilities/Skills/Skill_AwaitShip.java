@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -118,15 +118,17 @@ public class Skill_AwaitShip extends StdSkill
 		if(!super.invoke(mob, commands, givenTarget, auto, asLevel))
 			return false;
 
-		SailingShip targetShip=null;
+		NavigableItem targetShip=null;
 		boolean success=proficiencyCheck(mob,0,auto);
 		Room targetR = null;
 		List<Room> trail = null;
 		if(success)
 		{
-			final TrackingFlags flags=CMLib.tracking().newFlags().plus(TrackingFlag.NOAIR)
-															.plus(TrackingFlag.WATERSURFACEORSHOREONLY);
-			final SailingShip[] targetShipI=new SailingShip[1];
+			final TrackingFlags flags=CMLib.tracking().newFlags()
+											.plus(TrackingFlag.NOAIR)
+											.plus(TrackingFlag.PASSABLE)
+											.plus(TrackingFlag.WATERSURFACEORSHOREONLY);
+			final NavigableItem[] targetShipI=new NavigableItem[1];
 			final TrackingLibrary.RFilter destFilter = new TrackingLibrary.RFilter()
 			{
 				@Override
@@ -144,11 +146,12 @@ public class Skill_AwaitShip extends StdSkill
 						for(final Enumeration<Item> i=R.items();i.hasMoreElements();)
 						{
 							final Item I=i.nextElement();
-							if((I instanceof SailingShip)
+							if((I instanceof NavigableItem)
+							&&(((NavigableItem)I).navBasis()==Rideable.Basis.WATER_BASED)
 							&&(I instanceof PrivateProperty)
 							&&(CMLib.law().doesHavePrivilegesWith(mob, (PrivateProperty)I)))
 							{
-								targetShipI[0]=(SailingShip)I;
+								targetShipI[0]=(NavigableItem)I;
 								return false;
 							}
 						}

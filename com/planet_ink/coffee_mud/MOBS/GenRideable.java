@@ -19,7 +19,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ public class GenRideable extends StdRideable
 	public GenRideable()
 	{
 		super();
-		username="a generic horse";
+		_name="a generic horse";
 		setDescription("");
 		setDisplayText("A generic horse stands here.");
 		basePhyStats().setAbility(CMProps.getMobHPBase()); // his only off-default
@@ -65,9 +65,9 @@ public class GenRideable extends StdRideable
 	public String text()
 	{
 		if(CMProps.getBoolVar(CMProps.Bool.MOBCOMPRESS))
-			miscText=CMLib.encoder().compressString(CMLib.coffeeMaker().getPropertiesStr(this,false));
+			miscText=CMLib.encoder().compressString(CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false));
 		else
-			miscText=CMLib.coffeeMaker().getPropertiesStr(this,false);
+			miscText=CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 		return super.text();
 	}
 
@@ -119,8 +119,18 @@ public class GenRideable extends StdRideable
 		switch(getCodeNum(code))
 		{
 		case 0:
-			setRideBasis(CMath.s_parseListIntExpression(Rideable.RIDEABLE_DESCS, val));
+		{
+			final Rideable.Basis bas = (Rideable.Basis)CMath.s_valueOf(Rideable.Basis.class, val);
+			if(bas != null)
+				setRideBasis(bas);
+			else
+			{
+				final int x=CMath.s_parseListIntExpression(Rideable.Basis.getStrings(), val);
+				if((x>=0)&&(x<Rideable.Basis.values().length))
+					setRideBasis(Rideable.Basis.values()[x]);
+			}
 			break;
+		}
 		case 1:
 			setRiderCapacity(CMath.s_parseIntExpression(val));
 			break;

@@ -15,11 +15,10 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
-import java.util.List;
-import java.util.Vector;
+import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -133,18 +132,18 @@ public class Chant_Den extends Chant
 			mob.tell(L("This magic will not work here."));
 			return false;
 		}
-		final Vector<Integer> dirChoices=new Vector<Integer>();
+		final List<Integer> dirChoices=new ArrayList<Integer>();
 		for(final int dir : Directions.CODES())
 		{
 			if(mob.location().getRoomInDir(dir)==null)
-				dirChoices.addElement(Integer.valueOf(dir));
+				dirChoices.add(Integer.valueOf(dir));
 		}
 		if(dirChoices.size()==0)
 		{
 			mob.tell(L("This magic will not work here."));
 			return false;
 		}
-		final int d=dirChoices.elementAt(CMLib.dice().roll(1,dirChoices.size(),-1)).intValue();
+		final int d=dirChoices.get(CMLib.dice().roll(1,dirChoices.size(),-1)).intValue();
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ public class Chant_FindMate extends Chant
 		return localizedName;
 	}
 
-	protected String	displayText	= L("(Tracking a mate)");
+	protected static final String	displayText	= CMLib.lang().L("(Tracking a mate)");
 
 	@Override
 	public String displayText()
@@ -83,7 +83,7 @@ public class Chant_FindMate extends Chant
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_TRACKING;
+		return Ability.FLAG_TRACKING | Ability.FLAG_DIVINING;
 	}
 
 	protected List<Room>	theTrail		= null;
@@ -202,10 +202,10 @@ public class Chant_FindMate extends Chant
 			return false;
 		if((mate==null)||(forMe==null))
 			return false;
-		if(mate.charStats().getStat(CharStats.STAT_GENDER)==forMe.charStats().getStat(CharStats.STAT_GENDER))
+		if(mate.charStats().reproductiveCode()==forMe.charStats().reproductiveCode())
 			return false;
-		if((mate.charStats().getStat(CharStats.STAT_GENDER)!='M')
-		&&(mate.charStats().getStat(CharStats.STAT_GENDER)!='F'))
+		if((mate.charStats().reproductiveCode()!='M')
+		&&(mate.charStats().reproductiveCode()!='F'))
 			return false;
 		if(((mate.charStats().getMyRace().ID().equals("Human"))
 		   ||(mate.charStats().getMyRace().ID().equals("Human"))
@@ -222,8 +222,8 @@ public class Chant_FindMate extends Chant
 		final MOB target=getTarget(mob,commands,givenTarget);
 		if(target==null)
 			return false;
-		if((target.charStats().getStat(CharStats.STAT_GENDER)!='M')
-		&&(target.charStats().getStat(CharStats.STAT_GENDER)!='F'))
+		if((target.charStats().reproductiveCode()!='M')
+		&&(target.charStats().reproductiveCode()!='F'))
 		{
 			mob.tell(L("@x1 is incapable of mating!",target.name(mob)));
 			return false;
@@ -247,21 +247,22 @@ public class Chant_FindMate extends Chant
 				.plus(TrackingLibrary.TrackingFlag.OPENONLY);
 		final ArrayList<Room> rooms=new ArrayList<Room>();
 		final int radius = 50 + (10*super.getXMAXRANGELevel(mob)) + super.getXLEVELLevel(mob);
-		List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,radius);
-		for (final Room R : checkSet)
-		{
-			if(R!=null)
-			for(int i=0;i<R.numInhabitants();i++)
+		final List<Room> trashRooms = new ArrayList<Room>();
+		if(CMLib.tracking().getRadiantRoomsToTarget(mob.location(), trashRooms, flags, new TrackingLibrary.RFilter() {
+			@Override
+			public boolean isFilteredOut(final Room hostR, Room R, final Exit E, final int dir)
 			{
-				final MOB M=R.fetchInhabitant(i);
-				if(isSuitableMate(M,target))
+				R=CMLib.map().getRoom(R);
+				for(int i=0;i<R.numInhabitants();i++)
 				{
-					rooms.add(R);
-					break;
+					final MOB M=R.fetchInhabitant(i);
+					if(isSuitableMate(M,target))
+						return false;
 				}
+				return true;
 			}
-		}
-		checkSet=null;
+		}, radius))
+			rooms.add(trashRooms.get(trashRooms.size()-1));
 		//TrackingLibrary.TrackingFlags flags;
 		flags = CMLib.tracking().newFlags()
 				.plus(TrackingLibrary.TrackingFlag.OPENONLY)

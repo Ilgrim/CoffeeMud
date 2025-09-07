@@ -1,5 +1,7 @@
 package com.planet_ink.coffee_mud.WebMacros;
 
+import com.planet_ink.coffee_web.http.HTTPHeader;
+import com.planet_ink.coffee_web.http.MultiPartData;
 import com.planet_ink.coffee_web.interfaces.*;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
@@ -18,10 +20,12 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -46,7 +50,7 @@ public class JournalFunction extends StdWebMacro
 	@Override
 	public String runMacro(final HTTPRequest httpReq, final String parm, final HTTPResponse httpResp)
 	{
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return CMProps.getVar(CMProps.Str.MUDSTATUS);
 
 		final java.util.Map<String,String> parms=parseParms(parm);
@@ -143,18 +147,45 @@ public class JournalFunction extends StdWebMacro
 			final JournalEntry msg = (JournalEntry)CMClass.getCommon("DefaultJournalEntry");
 			msg.from(from);
 			msg.subj(clearWebMacros(subject));
-			msg.msg(clearWebMacros(text));
+			msg.msg(clearWebMacros(CMStrings.fixMudCRLF(text)));
 			if((date!=null) && (CMath.isLong(date)))
-				msg.date(CMath.s_long(date));
+				msg.dateStr(""+CMath.s_long(date));
 			else
-				msg.date(System.currentTimeMillis());
+				msg.dateStr(""+System.currentTimeMillis());
 			msg.update(System.currentTimeMillis());
 			msg.parent((parent==null)?"":parent);
 			msg.msgIcon((icon==null)?"":icon);
 			if(flags.contains("STUCKY"))
-				msg.attributes(msg.attributes()|JournalEntry.ATTRIBUTE_STUCKY);
+				msg.attributes(msg.attributes()|JournalEntry.JournalAttrib.STUCKY.bit);
 			if(flags.contains("PROTECTED"))
-				msg.attributes(msg.attributes()|JournalEntry.ATTRIBUTE_PROTECTED);
+				msg.attributes(msg.attributes()|JournalEntry.JournalAttrib.PROTECTED.bit);
+			final List<Pair<String,byte[]>> attachmentsV = new ArrayList<Pair<String,byte[]>>();
+			if((httpReq.getMultiParts().size()>0)
+			&&((forum==null)||(forum.authorizationCheck(M, ForumJournalFlags.ATTACH))))
+			{
+				String file="";
+				byte[] buf=null;
+				int maxFiles = 0;
+				for(final MultiPartData data : httpReq.getMultiParts())
+				{
+					if(data.getVariables().containsKey("filename"))
+					{
+						file=data.getVariables().get("filename");
+						if(file==null)
+							file="";
+						buf=data.getData();
+					}
+					if(file.length()==0)
+						continue;
+					if(buf == null)
+						return "File not uploaded -- no buffer!";
+					if((forum!=null)&&(forum.maxAttach()>0)&&(++maxFiles > forum.maxAttach()))
+						return "File not uploaded -- maximum "+forum.maxAttach()+" attachments!";
+					attachmentsV.add(new Pair<String,byte[]>(file,buf));
+				}
+				if(attachmentsV.size()>0)
+					msg.attributes(msg.attributes()|JournalEntry.JournalAttrib.ATTACHMENT.bit);
+			}
 			msg.data("");
 			msg.to(to);
 			// check for dups
@@ -168,11 +199,23 @@ public class JournalFunction extends StdWebMacro
 					return "";
 			}
 			CMLib.journals().notifyPosting(journalName, msg.from(), msg.to(), msg.subj());
-			CMLib.database().DBWriteJournal(journalName,msg);
+			final String newKey = CMLib.database().DBWriteJournal(journalName,msg);
+			if(newKey == null)
+				return "Post failed";
 			JournalInfo.clearJournalCache(httpReq, journalName);
 			if(parent!=null)
 				CMLib.database().DBTouchJournalMessage(parent);
 			CMLib.journals().clearJournalSummaryStats(forum);
+			if(attachmentsV.size()>0)
+			{
+				for(final Pair<String,byte[]> p : attachmentsV)
+				{
+					final String fileName = newKey+"/"+parent+"/"+p.first;
+					if(fileName.length()>252)
+						return "Post submitted.  Some attachments failed.";
+					CMLib.database().DBCreateVFSFile(fileName, CMFile.VFS_MASK_ATTACHMENT, from, System.currentTimeMillis(), p.second);
+				}
+			}
 			return "Post submitted.";
 		}
 		else
@@ -252,6 +295,7 @@ public class JournalFunction extends StdWebMacro
 					parms.put(replyemail,replyemail);
 				if(parms.size()==1)
 				{
+					// means there was no action found
 					JournalEntry entry = JournalInfo.getNextEntry(msgs, msgKey);
 					while((entry!=null) && (!CMLib.journals().canReadMessage(entry,srch,M,parms.containsKey("NOPRIV"))))
 						entry = JournalInfo.getNextEntry(msgs, entry.key());
@@ -267,8 +311,7 @@ public class JournalFunction extends StdWebMacro
 			else
 				keepProcessing=false;
 			JournalEntry entry = JournalInfo.getEntry(msgs, msgKey);
-			if((entry==null)
-			&&(parms.containsKey("DELETEREPLY")||parms.containsKey("DELETE")))
+			if(entry==null)
 				entry=CMLib.database().DBReadJournalEntry(journalName, msgKey);
 			if(entry == null)
 				return "Function not performed -- illegal journal message specified.<BR>";
@@ -309,16 +352,16 @@ public class JournalFunction extends StdWebMacro
 					else
 					{
 						final String toName=entry.from();
-						final MOB toM=CMLib.players().getLoadPlayer(toName);
-						if((toM==null)||(toM.playerStats()==null))
+						final PlayerLibrary.ThinPlayer toTP = CMLib.players().getThinPlayer(toName);
+						if(toTP==null)
 							messages.append("Player '"+toName+"' does not exist.<BR>");
 						else
 						{
-							if(toM.playerStats().getEmail().indexOf('@')<0)
+							if(toTP.email().indexOf('@')<0)
 								messages.append("Warning: Player '"+toName+"' has no email address..<BR>");
 							CMLib.smtp().emailOrJournal(M.Name(),
 														M.Name(),
-														toM.Name(),
+														toTP.name(),
 														"RE: "+entry.subj(),
 														clearWebMacros(replyMsg));
 							JournalInfo.clearJournalCache(httpReq, journalName);
@@ -401,14 +444,44 @@ public class JournalFunction extends StdWebMacro
 							long attributes=0;
 							if((forum!=null)&&(forum.authorizationCheck(M, ForumJournalFlags.ADMIN)))
 							{
+								attributes = entry.attributes() | JournalEntry.JournalAttrib.ATTACHMENT.bit;
 								String ISSTUCKY=httpReq.getUrlParameter("ISSTICKY"+fieldSuffix);
 								if(ISSTUCKY==null)
 									ISSTUCKY=httpReq.getUrlParameter("ISSTUCKY"+fieldSuffix);
 								if((ISSTUCKY!=null)&&(ISSTUCKY.equalsIgnoreCase("on")))
-									attributes|=JournalEntry.ATTRIBUTE_STUCKY;
+									attributes|=JournalEntry.JournalAttrib.STUCKY.bit;
 								final String ISPROTECTED=httpReq.getUrlParameter("ISPROTECTED"+fieldSuffix);
 								if((ISPROTECTED!=null)&&(ISPROTECTED.equalsIgnoreCase("on")))
-									attributes|=JournalEntry.ATTRIBUTE_PROTECTED;
+									attributes|=JournalEntry.JournalAttrib.PROTECTED.bit;
+							}
+							if((httpReq.getMultiParts().size()>0)
+							&&((forum==null)||(forum.authorizationCheck(M, ForumJournalFlags.ATTACH))))
+							{
+								String file="";
+								byte[] buf=null;
+								int maxFiles = entry.attachmentKeys().size();
+								for(final MultiPartData data : httpReq.getMultiParts())
+								{
+									if(data.getVariables().containsKey("filename"))
+									{
+										file=data.getVariables().get("filename");
+										if(file==null)
+											file="";
+										buf=data.getData();
+									}
+									if(file.length()>0)
+									{
+										if(buf == null)
+											return "File not uploaded -- no buffer!";
+										if((forum!=null)&&(forum.maxAttach()>0)&&(++maxFiles > forum.maxAttach()))
+											return "File not uploaded -- maximum "+forum.maxAttach()+" attachments!";
+										final String fileName = entry.key()+"/"+entry.parent()+"/"+file;
+										if(fileName.length()>252)
+											return "Reply not submitted.  Some attachments failed.";
+										CMLib.database().DBCreateVFSFile(fileName, CMFile.VFS_MASK_ATTACHMENT, from, System.currentTimeMillis(), buf);
+										attributes=attributes|JournalEntry.JournalAttrib.ATTACHMENT.bit;
+									}
+								}
 							}
 							CMLib.database().DBUpdateJournal(entry.key(), subj, clearWebMacros(text), attributes);
 							if(cardinalNumber==0)
@@ -432,10 +505,11 @@ public class JournalFunction extends StdWebMacro
 				else
 				if(CMSecurity.isAllowedAnywhere(M,CMSecurity.SecFlag.JOURNALS))
 				{
-					if(parms.containsKey("TRANSFER"))
+					if(parms.containsKey("TRANSFER")||parms.containsKey("COPY"))
 					{
 						if((forum!=null)&&(!forum.authorizationCheck(M, ForumJournalFlags.ADMIN)))
 							return "Email not submitted -- Unauthorized.";
+						final boolean transfer=parms.containsKey("TRANSFER");
 						String journal=httpReq.getUrlParameter("NEWJOURNAL"+fieldSuffix);
 						if((journal==null) || (journal.length()==0))
 							messages.append("Transfer #"+cardinalNumber+" not completed -- No journal!<BR>");
@@ -451,28 +525,45 @@ public class JournalFunction extends StdWebMacro
 							final boolean isPlayer=CMLib.players().playerExists(CMStrings.capitalizeAndLower(journal));
 							if(journal.equals("FROM")||users.contains(journal)||isPlayer)
 							{
+								final String toName;
+								MOB toM=null;
 								if(journal.equals("FROM"))
 								{
-									entry.to(entry.from());
-									final MOB toM=CMLib.players().getPlayerAllHosts(journal);
-									if(toM != null)
-										toM.tell(L("A message in @x1 was transferred to you.",journalName));
+									toName=entry.from();
+									toM=CMLib.players().getPlayerAllHosts(journal);
 								}
 								else
 								if(isPlayer)
 								{
-									entry.to(CMStrings.capitalizeAndLower(journal));
-									final MOB toM=CMLib.players().getPlayerAllHosts(journal);
-									if(toM != null)
-										toM.tell(L("A message in @x1 was transferred to you.",journalName));
+									toName=CMStrings.capitalizeAndLower(journal);
+									toM=CMLib.players().getPlayerAllHosts(journal);
 								}
 								else
-									entry.to(journal);
+									toName=journal;
+								if(toM != null)
+								{
+									toM.tell(L("A message in @x1 was "
+											+ ((transfer)?"transferred ":"copied ")
+											+ "to you.",journalName));
+								}
 								CMLib.journals().clearJournalSummaryStats(forum);
 								JournalInfo.clearJournalCache(httpReq, journalName);
-								CMLib.database().DBUpdateJournal(journalName, entry);
+								if(transfer)
+								{
+									entry.to(toName);
+									CMLib.database().DBUpdateJournal(journalName, entry);
+									messages.append("Message #"+cardinalNumber+" transferred<BR>");
+								}
+								else
+								{
+									CMLib.database().DBWriteJournal(journalName,
+																	entry.from(),
+																	toName,
+																	entry.subj(),
+																	entry.msg());
+									messages.append("Message #"+cardinalNumber+" copied<BR>");
+								}
 								journal=null;
-								messages.append("Message #"+cardinalNumber+" transferred<BR>");
 							}
 							else
 							if(journal.equals("MAILBOX"))
@@ -506,14 +597,21 @@ public class JournalFunction extends StdWebMacro
 							else
 							{
 								CMLib.journals().clearJournalSummaryStats(forum);
-								CMLib.database().DBDeleteJournal(journalName,entry.key());
+								if(transfer)
+									CMLib.database().DBDeleteJournal(journalName,entry.key());
 								if(journalName.toUpperCase().startsWith("SYSTEM_"))
 									entry.update(System.currentTimeMillis());
-								CMLib.database().DBWriteJournal(realName,entry);
+								if(transfer)
+									CMLib.database().DBWriteJournal(realName,entry);
+								else
+									CMLib.database().DBWriteJournal(realName, entry.from(), entry.to(), entry.subj(), entry.msg());
 								CMLib.journals().clearJournalSummaryStats(forum);
 								JournalInfo.clearJournalCache(httpReq, journalName);
 								httpReq.addFakeUrlParameter("JOURNALMESSAGE","");
-								messages.append("Message #"+cardinalNumber+" transferred<BR>");
+								if(transfer)
+									messages.append("Message #"+cardinalNumber+" transferred<BR>");
+								else
+									messages.append("Message #"+cardinalNumber+" copied<BR>");
 							}
 						}
 					}

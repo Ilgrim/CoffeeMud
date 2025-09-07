@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -46,7 +46,10 @@ public class Asteroid extends GenSpaceBody
 		setName("an asteroid");
 		setDisplayText("an asteroid is here");
 		setDescription("it`s a big rock");
-		coordinates=new long[]{Math.round(Long.MAX_VALUE*Math.random()),Math.round(Long.MAX_VALUE*Math.random()),Math.round(Long.MAX_VALUE*Math.random())};
+		coordinates=new Coord3D(new long[]{
+				Math.round(Long.MAX_VALUE*Math.random()),
+				Math.round(Long.MAX_VALUE*Math.random()),
+				Math.round(Long.MAX_VALUE*Math.random())});
 		final Random random=new Random(System.currentTimeMillis());
 		radius=(5*SpaceObject.Distance.Kilometer.dm) + (random.nextLong() % (4*SpaceObject.Distance.Kilometer.dm));
 		recoverPhyStats();

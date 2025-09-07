@@ -1,9 +1,10 @@
 package com.planet_ink.coffee_mud.core.collections;
 
 import java.util.*;
+import java.util.concurrent.locks.ReentrantLock;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -19,31 +20,33 @@ import java.util.*;
  */
 public class SHashtable<K, F> implements CMap<K, F>, java.io.Serializable
 {
-	private static final long	     serialVersionUID	= 6687178785122561993L;
-	private volatile Hashtable<K, F>	H;
+	private static final long				serialVersionUID	= 6687178785122561993L;
+	private volatile Map<K, F>				H;
+	private transient final ReentrantLock	lock				= new ReentrantLock();
+	private volatile boolean				dirty				= false;
 
 	public SHashtable()
 	{
 		super();
-		H = new Hashtable<K, F>();
+		H = new HashMap<K, F>();
 	}
 
 	public SHashtable(final int size)
 	{
 		super();
-		H = new Hashtable<K, F>(size);
+		this.H = new HashMap<K, F>(size);
 	}
 
 	public SHashtable(final Enumeration<Pair<K, F>> e)
 	{
 		super();
-		this.H = new Hashtable<K, F>();
+		this.H = new HashMap<K, F>();
 		if (H != null)
 		{
 			for (; e.hasMoreElements();)
 			{
 				final Pair<K, F> p = e.nextElement();
-				put(p.first, p.second);
+				this.H.put(p.first, p.second);
 			}
 		}
 	}
@@ -51,11 +54,16 @@ public class SHashtable<K, F> implements CMap<K, F>, java.io.Serializable
 	public SHashtable(final Map<K, F> H)
 	{
 		super();
-		this.H = new Hashtable<K, F>();
-		if (H != null)
+		if(H instanceof SHashtable)
+			this.H = new HashMap<K,F>(((SHashtable<K,F>)H).H);
+		else
 		{
-			for (final K o : H.keySet())
-				put(o, H.get(o));
+			this.H = new HashMap<K, F>();
+			if (H != null)
+			{
+				for (final K o : H.keySet())
+					this.H.put(o, H.get(o));
+			}
 		}
 	}
 
@@ -63,7 +71,7 @@ public class SHashtable<K, F> implements CMap<K, F>, java.io.Serializable
 	public SHashtable(final Object[][] H)
 	{
 		super();
-		this.H = new Hashtable<K, F>();
+		this.H = new HashMap<K, F>();
 		if (H != null)
 		{
 			for (final Object[] o : H)
@@ -75,7 +83,7 @@ public class SHashtable<K, F> implements CMap<K, F>, java.io.Serializable
 	public SHashtable(final SHashtable<K, F> H, final boolean reverse)
 	{
 		super();
-		this.H = new Hashtable<K, F>();
+		this.H = new HashMap<K, F>();
 		if (H != null)
 		{
 			if(reverse)
@@ -95,15 +103,19 @@ public class SHashtable<K, F> implements CMap<K, F>, java.io.Serializable
 		this(H,false);
 	}
 
-	@SuppressWarnings("unchecked")
-	public synchronized Hashtable<K, F> toHashtable()
+	public Map<K, F> toHashtable()
 	{
-		return (Hashtable<K, F>) H.clone();
+		return new HashMap<K,F>(H);
 	}
 
-	public synchronized Vector<String> toStringVector(final String divider)
+	public boolean isDirty()
 	{
-		final Vector<String> V = new Vector<String>(size());
+		return dirty;
+	}
+
+	public List<String> toStringVector(final String divider)
+	{
+		final List<String> V = Collections.synchronizedList(new ArrayList<String>(size()));
 		for (final Object S : keySet())
 		{
 			if (S != null)
@@ -118,47 +130,56 @@ public class SHashtable<K, F> implements CMap<K, F>, java.io.Serializable
 		return V;
 	}
 
-	@SuppressWarnings("unchecked")
+	@Override
+	public void clear()
+	{
+		final ReentrantLock lock = this.lock;
+		lock.lock();
+		try
+		{
+			if(H.size()==0)
+				return;
+			this.H = new HashMap<K, F>();
+		}
+		finally
+		{
+			lock.unlock();
+		}
+	}
+
+	public SHashtable<K, F> copyOf()
+	{
+		return new SHashtable<K, F>(H);
+	}
+
+	public boolean contains(final Object arg0)
+	{
+		return H.containsValue(arg0);
+	}
 
 	@Override
-	public synchronized void clear()
-	{
-		H = (Hashtable<K, F>) H.clone();
-		H.clear();
-	}
-
-	@SuppressWarnings("unchecked")
-	public synchronized SHashtable<K, F> copyOf()
-	{
-		final SHashtable<K, F> SH = new SHashtable<K, F>();
-		SH.H = (Hashtable<K, F>) H.clone();
-		return SH;
-	}
-
-	public synchronized boolean contains(final Object arg0)
-	{
-		return H.contains(arg0);
-	}
-
-	@Override
-	public synchronized boolean containsKey(final Object arg0)
+	public boolean containsKey(final Object arg0)
 	{
 		return H.containsKey(arg0);
 	}
 
 	@Override
-	public synchronized boolean containsValue(final Object arg0)
+	public boolean containsValue(final Object arg0)
 	{
 		return H.containsValue(arg0);
 	}
 
-	public synchronized Enumeration<F> elements()
+	@SuppressWarnings("unchecked")
+	@Override
+	public Enumeration<F> elements()
 	{
-		return H.elements();
+		if(size()==0)
+			return EmptyEnumeration.INSTANCE;
+		return new IteratorEnumeration<F>(H.values().iterator());
 	}
 
 	@Override
-	public synchronized Set<java.util.Map.Entry<K, F>> entrySet()
+	public Set<java.util.Map.Entry<K, F>> entrySet()
 	{
 		return H.entrySet();
 	}
@@ -170,7 +191,7 @@ public class SHashtable<K, F> implements CMap<K, F>, java.io.Serializable
 	}
 
 	@Override
-	public synchronized F get(final Object arg0)
+	public F get(final Object arg0)
 	{
 		return H.get(arg0);
 	}
@@ -182,42 +203,63 @@ public class SHashtable<K, F> implements CMap<K, F>, java.io.Serializable
 	}
 
 	@Override
-	public synchronized boolean isEmpty()
+	public boolean isEmpty()
 	{
 		return H.isEmpty();
 	}
 
-	public synchronized Enumeration<K> keys()
+	@Override
+	public Enumeration<K> keys()
 	{
-		return H.keys();
+		return new IteratorEnumeration<K>(H.keySet().iterator());
 	}
 
 	@Override
-	public synchronized Set<K> keySet()
+	public Set<K> keySet()
 	{
 		return H.keySet();
 	}
 
-	@SuppressWarnings("unchecked")
-
 	@Override
-	public synchronized F put(final K arg0, final F arg1)
+	public F put(final K arg0, final F arg1)
 	{
-		H = (Hashtable<K, F>) H.clone();
-		return H.put(arg0, arg1);
+		final ReentrantLock lock = this.lock;
+		lock.lock();
+		final HashMap<K, F> H2 = new HashMap<K, F>(H);
+		try
+		{
+			dirty=true;
+			return H2.put(arg0, arg1);
+		}
+		finally
+		{
+			this.H = H2;
+			lock.unlock();
+		}
 	}
 
-	@SuppressWarnings("unchecked")
-
 	@Override
-	public synchronized F remove(final Object arg0)
+	public F remove(final Object arg0)
 	{
-		H = (Hashtable<K, F>) H.clone();
-		return H.remove(arg0);
+		if(!H.containsKey(arg0))
+			return null;
+		final ReentrantLock lock = this.lock;
+		lock.lock();
+		final HashMap<K, F> H2 = new HashMap<K, F>(H);
+		try
+		{
+			dirty=true;
+			return H2.remove(arg0);
+		}
+		finally
+		{
+			this.H = H2;
+			lock.unlock();
+		}
 	}
 
 	@Override
-	public synchronized int size()
+	public int size()
 	{
 		return H.size();
 	}
@@ -229,18 +271,27 @@ public class SHashtable<K, F> implements CMap<K, F>, java.io.Serializable
 	}
 
 	@Override
-	public synchronized Collection<F> values()
+	public Collection<F> values()
 	{
 		return new ReadOnlyCollection<F>(H.values());
 	}
 
-	@SuppressWarnings("unchecked")
-
 	@Override
-	public synchronized void putAll(final Map<? extends K, ? extends F> arg0)
+	public void putAll(final Map<? extends K, ? extends F> arg0)
 	{
-		H = (Hashtable<K, F>) H.clone();
-		H.putAll(arg0);
+		final ReentrantLock lock = this.lock;
+		lock.lock();
+		final HashMap<K, F> H2 = new HashMap<K, F>(H);
+		try
+		{
+			dirty=true;
+			H2.putAll(arg0);
+		}
+		finally
+		{
+			this.H = H2;
+			lock.unlock();
+		}
 	}
 
 }

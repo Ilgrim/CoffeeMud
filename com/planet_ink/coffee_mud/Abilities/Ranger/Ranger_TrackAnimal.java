@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,8 +48,9 @@ public class Ranger_TrackAnimal extends StdAbility
 	{
 		return localizedName;
 	}
+	private static final String DEFAULT_DISPLAY_TEXT=CMLib.lang().L("(Tracking an Animal)");
 
-	protected String displayText=L("(tracking an animal)");
+	protected String displayText=DEFAULT_DISPLAY_TEXT;
 
 	@Override
 	public String displayText()
@@ -181,7 +182,7 @@ public class Ranger_TrackAnimal extends StdAbility
 		for(int i=0;i<room.numInhabitants();i++)
 		{
 			final MOB mob=room.fetchInhabitant(i);
-			if(CMLib.flags().isAnimalIntelligence(mob)
+			if(CMLib.flags().isAnAnimal(mob)
 			&&(CMLib.flags().isSeeable(mob)))
 				return mob;
 		}
@@ -239,14 +240,18 @@ public class Ranger_TrackAnimal extends StdAbility
 
 		final ArrayList<Room> rooms=new ArrayList<Room>();
 		final int range=50 + (2*super.getXLEVELLevel(mob))+(10*super.getXMAXRANGELevel(mob));
-		final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,range);
-		for (final Room room : checkSet)
-		{
-			final Room R=CMLib.map().getRoom(room);
-			if(animalHere(R)!=null)
-				rooms.add(R);
-		}
-
+		final List<Room> trashRooms = new ArrayList<Room>();
+		if(CMLib.tracking().getRadiantRoomsToTarget(mob.location(), trashRooms, flags, new TrackingLibrary.RFilter() {
+			@Override
+			public boolean isFilteredOut(final Room hostR, Room R, final Exit E, final int dir)
+			{
+				R=CMLib.map().getRoom(R);
+				if(animalHere(R)!=null)
+					return false;
+				return true;
+			}
+		}, range))
+			rooms.add(trashRooms.get(trashRooms.size()-1));
 		if(rooms.size()>0)
 			theTrail=CMLib.tracking().findTrailToAnyRoom(mob.location(),rooms,flags,range);
 

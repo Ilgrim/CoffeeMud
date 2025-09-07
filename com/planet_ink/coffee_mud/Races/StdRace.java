@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Races;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.AbilityMapping;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.CMSecurity.DisFlag;
@@ -22,7 +23,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -61,10 +62,9 @@ public class StdRace implements Race
 	protected String		dispChgDesc				= null;
 	protected String		abilitiesDesc			= null;
 	protected String		languagesDesc			= null;
-	protected Weapon		naturalWeapon			= null;
 	protected boolean		mappedCulturalAbilities	= false;
 	protected List<Item>	outfitChoices			= null;
-	protected List<Weapon>	naturalWeaponChoices	= null;
+	protected Weapon[]		naturalWeaponChoices	= new Weapon[0];
 	protected Set<String>	naturalAbilImmunities	= new HashSet<String>();
 	protected int			usageCount				= 0;
 
@@ -77,6 +77,11 @@ public class StdRace implements Race
 	public String name()
 	{
 		return localizedStaticName;
+	}
+
+	public StdRace()
+	{
+		super();
 	}
 
 	@Override
@@ -247,6 +252,11 @@ public class StdRace implements Race
 		return null;
 	}
 
+	protected String[] culturalAbilityParms()
+	{
+		return null;
+	}
+
 	@Override
 	public String[] abilityImmunities()
 	{
@@ -278,6 +288,9 @@ public class StdRace implements Race
 	@Override
 	public void initializeClass()
 	{
+		if((this.racialAbilityLevels()!=null)
+		&&(this.racialAbilityLevels().length>0))
+			this.racialAbilities(null);
 	}
 
 	public boolean fertile()
@@ -285,6 +298,7 @@ public class StdRace implements Race
 		return true;
 	}
 
+	@Override
 	public boolean infatigueable()
 	{
 		return false;
@@ -339,85 +353,32 @@ public class StdRace implements Race
 	}
 
 	@Override
+	public void unaffectCharStats(final MOB affected, final CharStats affectableStats)
+	{
+	}
+
+	@Override
 	public String makeMobName(final char gender, final int age)
 	{
+		final CharStats cs = (CharStats)CMClass.getCommon("DefaultCharStats");
+		cs.setStat(CharStats.STAT_GENDER, gender);
 		switch(age)
 		{
 			case Race.AGE_INFANT:
-			{
-				switch(gender)
-				{
-				case 'M':
-				case 'm':
-					return L("baby boy @x1", name().toLowerCase());
-				case 'F':
-				case 'f':
-					return L("baby girl @x1", name().toLowerCase());
-				default:
-					return L("baby @x1", name().toLowerCase());
-				}
-			}
+				return L("baby @x1",cs.boygirl()+" " + name().toLowerCase());
 			case Race.AGE_TODDLER:
-			{
-				switch(gender)
-				{
-				case 'M':
-				case 'm':
-					return L("baby boy @x1", name().toLowerCase());
-				case 'F':
-				case 'f':
-					return L("baby girl @x1", name().toLowerCase());
-				default:
-					return L("baby @x1", name().toLowerCase());
-				}
-			}
+				return L("baby @x1",cs.boygirl()+" " + name().toLowerCase());
 			case Race.AGE_CHILD:
-			{
-				switch(gender)
-				{
-				case 'M':
-				case 'm':
-					return L("little boy @x1", name().toLowerCase());
-				case 'F':
-				case 'f':
-					return L("little girl @x1", name().toLowerCase());
-				default:
-					return L("young @x1", name().toLowerCase());
-				}
-			}
+				return L("little @x1",cs.boygirl()+" " + name().toLowerCase());
 			case Race.AGE_YOUNGADULT:
 			case Race.AGE_MATURE:
 			case Race.AGE_MIDDLEAGED:
 			default:
-			{
-				switch(gender)
-				{
-				case 'M':
-				case 'm':
-					return L("male @x1", name().toLowerCase());
-				case 'F':
-				case 'f':
-					return L("female @x1", name().toLowerCase());
-				default:
-					return name().toLowerCase();
-				}
-			}
+				return cs.genderName()+" " + name().toLowerCase();
 			case Race.AGE_OLD:
 			case Race.AGE_VENERABLE:
 			case Race.AGE_ANCIENT:
-			{
-				switch(gender)
-				{
-				case 'M':
-				case 'm':
-					return L("old male @x1",name().toLowerCase());
-				case 'F':
-				case 'f':
-					return L("old female @x1",name().toLowerCase());
-				default:
-					return L("old @x1",name().toLowerCase());
-				}
-			}
+				return L("old @x1",cs.genderName()+" " + name().toLowerCase());
 		}
 	}
 
@@ -558,10 +519,15 @@ public class StdRace implements Race
 				&&(fertile())
 				&&(msg.source().fetchWornItems(Wearable.WORN_LEGS|Wearable.WORN_WAIST,(short)-2048,(short)0).size()==0))
 				{
-					if(msg.source().maxState().getFatigue()>Long.MIN_VALUE/2)
-						msg.source().curState().adjFatigue(CharState.FATIGUED_MILLIS,msg.source().maxState());
-					if(myChar.maxState().getFatigue()>Long.MIN_VALUE/2)
-						myChar.curState().adjFatigue(CharState.FATIGUED_MILLIS,myChar.maxState());
+					if(!CMSecurity.isDisabled(DisFlag.FATIGUE))
+					{
+						if(!msg.source().charStats().getMyRace().infatigueable()
+						&&(msg.source().maxState().getFatigue()>Long.MIN_VALUE/2))
+							msg.source().curState().adjFatigue(CharState.FATIGUED_MILLIS,msg.source().maxState());
+						if(!infatigueable()
+						&&(myChar.maxState().getFatigue()>Long.MIN_VALUE/2))
+							myChar.curState().adjFatigue(CharState.FATIGUED_MILLIS,myChar.maxState());
+					}
 					final Ability A=CMClass.getAbility("Spell_Blindness");
 					if(A!=null)
 						A.invoke(myChar,myChar,true,myChar.phyStats().level());
@@ -575,8 +541,8 @@ public class StdRace implements Race
 						||(msg.source().curState().getFatigue()>=CharState.FATIGUED_MILLIS));
 				final boolean meExhausted=((myChar.curState().getMovement()<(myChar.maxState().getMovement()/2))
 						||(myChar.curState().getFatigue()>=CharState.FATIGUED_MILLIS));
-				if((myChar.charStats().getStat(CharStats.STAT_GENDER)==('F'))
-				&&(msg.source().charStats().getStat(CharStats.STAT_GENDER)==('M'))
+				if((myChar.charStats().reproductiveCode()==('F'))
+				&&(msg.source().charStats().reproductiveCode()==('M'))
 				&&(myChar.fetchWornItems(Wearable.WORN_LEGS|Wearable.WORN_WAIST,(short)-2048,(short)0).size()==0)
 				&&(msg.source().fetchWornItems(Wearable.WORN_LEGS|Wearable.WORN_WAIST,(short)-2048,(short)0).size()==0)
 				&&(msg.source().charStats().getMyRace().canBreedWith(this,false))
@@ -592,16 +558,25 @@ public class StdRace implements Race
 						msg.source().tell(L("You are exhausted!"));
 					else
 					{
-						if(msg.source().maxState().getFatigue()>Long.MIN_VALUE/2)
-							msg.source().curState().adjFatigue(CharState.FATIGUED_MILLIS,msg.source().maxState());
+						if((!CMSecurity.isDisabled(DisFlag.FATIGUE))
+						&&(!msg.source().charStats().getMyRace().infatigueable()))
+						{
+							if(msg.source().maxState().getFatigue()>Long.MIN_VALUE/2)
+								msg.source().curState().adjFatigue(CharState.FATIGUED_MILLIS,msg.source().maxState());
+						}
 						msg.source().curState().adjMovement(-msg.source().maxState().getMovement()/2, msg.source().maxState());
 					}
 					if(meExhausted)
 						myChar.tell(L("You are exhausted!"));
 					else
+					if(msg.source().mayIFight(myChar))
 					{
-						if(myChar.maxState().getFatigue()>Long.MIN_VALUE/2)
-							myChar.curState().adjFatigue(CharState.FATIGUED_MILLIS,myChar.maxState());
+						if((!CMSecurity.isDisabled(DisFlag.FATIGUE))
+						&&(!infatigueable()))
+						{
+							if(myChar.maxState().getFatigue()>Long.MIN_VALUE/2)
+								myChar.curState().adjFatigue(CharState.FATIGUED_MILLIS,myChar.maxState());
+						}
 						myChar.curState().adjMovement(-myChar.maxState().getMovement()/2, myChar.maxState());
 					}
 					if(!srcExhausted && !meExhausted && (CMLib.dice().rollPercentage()<10))
@@ -649,22 +624,24 @@ public class StdRace implements Race
 	@Override
 	public boolean tick(final Tickable myChar, final int tickID)
 	{
-		if((infatigueable())&&(myChar instanceof MOB))
-			((MOB)myChar).curState().setFatigue(0);
 		return true;
 	}
 
 	public String L(final String str, final String ... xs)
 	{
-		return CMLib.lang().fullSessionTranslation(str, xs);
+		return CMLib.lang().fullSessionTranslation(getClass(), str, xs);
 	}
 
-	protected boolean giveMobAbility(final MOB mob, final Ability A, final int proficiency, final String defaultParm, final boolean isBorrowedRace)
+	protected boolean giveMobAbility(final MOB mob, final Ability A,
+									 final int proficiency, final String defaultParm,
+									 final boolean isBorrowedRace)
 	{
 		return giveMobAbility(mob,A,proficiency,defaultParm,isBorrowedRace,true);
 	}
 
-	protected boolean giveMobAbility(final MOB mob, Ability A, final int proficiency, final String defaultParm, final boolean isBorrowedRace, final boolean autoInvoke)
+	protected boolean giveMobAbility(final MOB mob, Ability A,
+									 final int proficiency, final String defaultParm,
+									 final boolean isBorrowedRace, final boolean autoInvoke)
 	{
 		if(mob.fetchAbility(A.ID())==null)
 		{
@@ -676,7 +653,7 @@ public class StdRace implements Race
 			if(autoInvoke)
 			{
 				A.autoInvocation(mob, false);
-				final boolean isChild=CMLib.flags().isChild(mob);
+				final boolean isChild=CMLib.flags().isAgedChild(mob);
 				final boolean isAnimal=CMLib.flags().isAnimalIntelligence(mob);
 				final boolean isMonster=mob.isMonster();
 				if(((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_LANGUAGE)
@@ -726,7 +703,8 @@ public class StdRace implements Race
 				if(CMParms.contains(alreadyAbilitied, mapping.abilityID()))
 				{
 					final Ability A=mob.fetchAbility(mapping.abilityID());
-					if((A!=null)&&(mob.fetchEffect(A.ID())==null))
+					if((A!=null)
+					&&(mob.fetchEffect(A.ID())==null))
 					{
 						A.setProficiency(mapping.defaultProficiency());
 						A.autoInvocation(mob, false);
@@ -747,7 +725,7 @@ public class StdRace implements Race
 						}
 					}
 					else
-					if(CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+					if(CMProps.isState(CMProps.HostState.RUNNING))
 					{
 						if((!CMSecurity.isDisabled(DisFlag.LANGUAGES))
 						||(!CMClass.isLanguage(mapping.abilityID())))
@@ -772,8 +750,11 @@ public class StdRace implements Race
 				int prof = 0;
 				if((culturalAbilityProficiencies() != null) && (culturalAbilityProficiencies().length>a))
 					prof = culturalAbilityProficiencies()[a];
+				String parms = "";
+				if((culturalAbilityParms() != null) && (culturalAbilityParms().length>a))
+					parms = culturalAbilityParms()[a];
 
-				CMLib.ableMapper().addCharAbilityMapping(ID(),lvl,culturalAbilityNames()[a],prof,"",gain);
+				CMLib.ableMapper().addCharAbilityMapping(ID(),lvl,culturalAbilityNames()[a],prof,parms,gain);
 			}
 			mappedCulturalAbilities=true;
 		}
@@ -806,7 +787,7 @@ public class StdRace implements Race
 				mob.setPractices(mob.getPractices()+practicesAtFirstLevel());
 				mob.setTrains(mob.getTrains()+trainsAtFirstLevel());
 			}
-			setHeightWeight(mob.basePhyStats(),(char)mob.baseCharStats().getStat(CharStats.STAT_GENDER));
+			setHeightWeight(mob.basePhyStats(),mob.baseCharStats().reproductiveCode());
 			grantAbilities(mob,false);
 		}
 		else
@@ -816,16 +797,38 @@ public class StdRace implements Race
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public Weapon getNaturalWeapon()
 	{
-		if(naturalWeapon==null)
-			naturalWeapon=CMClass.getWeapon("Natural");
-		return naturalWeapon;
+		if(getNaturalWeapons().length==1)
+			return getNaturalWeapons()[0];
+		return getNaturalWeapons()[CMLib.dice().roll(1, getNaturalWeapons().length, -1)];
+	}
+
+	@Override
+	public Weapon[] getNaturalWeapons()
+	{
+		if(naturalWeaponChoices.length==0)
+		{
+			final Weapon natI = CMClass.getWeapon("Natural");
+			naturalWeaponChoices = new Weapon[] { natI };
+		}
+		return naturalWeaponChoices;
+	}
+
+	protected void cleanOutfit(final List<Item> items)
+	{
+		if((items == null)||(items.size()==0))
+			return;
+		for(final Item I : items)
+		{
+			I.setBaseValue(0);
+		}
 	}
 
 	@Override
 	public List<Item> outfit(final MOB myChar)
 	{
+		cleanOutfit(outfitChoices);
 		return outfitChoices;
 	}
 
@@ -835,67 +838,63 @@ public class StdRace implements Race
 		return CMLib.combat().standardMobCondition(viewer,mob);
 	}
 
-	protected Weapon funHumanoidWeapon()
+	protected final Weapon[] getHumanoidWeapons()
 	{
-		if(naturalWeaponChoices==null)
+		final List<Weapon> weaps = new ArrayList<Weapon>();
+		for(int i=1;i<11;i++)
 		{
-			naturalWeaponChoices=new Vector<Weapon>();
-			for(int i=1;i<11;i++)
+			final Weapon naturalWeapon=CMClass.getWeapon("GenWeapon");
+			naturalWeapon.setMaterial(RawMaterial.RESOURCE_LEATHER);
+			switch (i)
 			{
-				naturalWeapon=CMClass.getWeapon("StdWeapon");
-				if(naturalWeapon==null)
-					continue;
-				naturalWeapon.setMaterial(RawMaterial.RESOURCE_LEATHER);
-				switch (i)
-				{
-				case 1:
-				case 2:
-				case 3:
-					naturalWeapon.setName(L("a quick punch"));
-					naturalWeapon.setWeaponDamageType(Weapon.TYPE_BASHING);
-					break;
-				case 4:
-					naturalWeapon.setName(L("fingernails and teeth"));
-					naturalWeapon.setWeaponDamageType(Weapon.TYPE_PIERCING);
-					break;
-				case 5:
-					naturalWeapon.setName(L("an elbow"));
-					naturalWeapon.setWeaponDamageType(Weapon.TYPE_BASHING);
-					break;
-				case 6:
-					naturalWeapon.setName(L("a backhand"));
-					naturalWeapon.setWeaponDamageType(Weapon.TYPE_BASHING);
-					break;
-				case 7:
-					naturalWeapon.setName(L("a strong jab"));
-					naturalWeapon.setWeaponDamageType(Weapon.TYPE_BASHING);
-					break;
-				case 8:
-					naturalWeapon.setName(L("a stinging punch"));
-					naturalWeapon.setWeaponDamageType(Weapon.TYPE_BASHING);
-					break;
-				case 9:
-					if(bodyMask()[Race.BODY_LEG]>0)
-						naturalWeapon.setName(L("a knee"));
-					else
-					if(bodyMask()[Race.BODY_GILL]>0)
-						naturalWeapon.setName(L("a fin"));
-					else
-						naturalWeapon.setName(L("a limb"));
-					naturalWeapon.setWeaponDamageType(Weapon.TYPE_BASHING);
-					break;
-				case 10:
+			case 1:
+			case 2:
+			case 3:
+				naturalWeapon.setName(L("a quick punch"));
+				naturalWeapon.setWeaponDamageType(Weapon.TYPE_BASHING);
+				break;
+			case 4:
+				naturalWeapon.setName(L("fingernails and teeth"));
+				naturalWeapon.setWeaponDamageType(Weapon.TYPE_PIERCING);
+				break;
+			case 5:
+				naturalWeapon.setName(L("an elbow"));
+				naturalWeapon.setWeaponDamageType(Weapon.TYPE_NATURAL);
+				break;
+			case 6:
+				naturalWeapon.setName(L("a backhand"));
+				naturalWeapon.setWeaponDamageType(Weapon.TYPE_BASHING);
+				break;
+			case 7:
+				naturalWeapon.setName(L("a strong jab"));
+				naturalWeapon.setWeaponDamageType(Weapon.TYPE_BASHING);
+				break;
+			case 8:
+				naturalWeapon.setName(L("a stinging punch"));
+				naturalWeapon.setWeaponDamageType(Weapon.TYPE_BASHING);
+				break;
+			case 9:
+				if(bodyMask()[Race.BODY_LEG]>0)
+					naturalWeapon.setName(L("a knee"));
+				else
+				if(bodyMask()[Race.BODY_GILL]>0)
+					naturalWeapon.setName(L("a fin"));
+				else
+					naturalWeapon.setName(L("a limb"));
+				naturalWeapon.setWeaponDamageType(Weapon.TYPE_BASHING);
+				break;
+			case 10:
+				if(CMLib.flags().isUndead(this))
+					naturalWeapon.setName(L("a bite"));
+				else
 					naturalWeapon.setName(L("a head butt"));
-					naturalWeapon.setWeaponDamageType(Weapon.TYPE_BASHING);
-					break;
-				}
-				naturalWeapon.setUsesRemaining(1000);
-				naturalWeaponChoices.add(naturalWeapon);
+				naturalWeapon.setWeaponDamageType(Weapon.TYPE_NATURAL);
+				break;
 			}
+			naturalWeapon.setUsesRemaining(1000);
+			weaps.add(naturalWeapon);
 		}
-		if(naturalWeaponChoices.size()>0)
-			return naturalWeaponChoices.get(CMLib.dice().roll(1,naturalWeaponChoices.size(),-1));
-		return CMClass.getWeapon("Natural");
+		return weaps.toArray(new Weapon[weaps.size()]);
 	}
 
 	@Override
@@ -942,7 +941,7 @@ public class StdRace implements Race
 	protected RawMaterial makeResource(final String name, final int type, final String subType)
 	{
 		final PhysicalAgent A = CMLib.materials().makeResource(type,ID(),true,name, "");
-		if(A instanceof RawMaterial)
+		if((A instanceof RawMaterial)&&(subType != null))
 		{
 			((RawMaterial) A).setSubType(subType.toUpperCase().trim());
 			return (RawMaterial)A;
@@ -960,13 +959,13 @@ public class StdRace implements Race
 		if(mob.isMonster())
 		{
 			final MOB following=mob.amFollowing();
-			final MOB ultFollow=mob.amUltimatelyFollowing();
+			final MOB ultFollow=mob.getGroupLeader();
 			if((following!=null)
 			&&((!following.isMonster())
-				||((ultFollow != null) && (!ultFollow.isMonster()))))
+				||(!ultFollow.isMonster())))
 			{
 				final MOB M=(MOB)mob.copyOf();
-				CMLib.threads().deleteAllTicks(M);
+				CMLib.threads().unTickAll(M);
 				M.setStartRoom(null);
 				bodyI.setSavedMOB(M, false);
 			}
@@ -979,7 +978,7 @@ public class StdRace implements Race
 		bodyI.setCharStats((CharStats)mob.baseCharStats().copyOf());
 		bodyI.basePhyStats().setLevel(mob.basePhyStats().level());
 		bodyI.basePhyStats().setWeight(mob.basePhyStats().weight());
-		bodyI.setIsPlayerCorpse(!mob.isMonster());
+		bodyI.setIsPlayerCorpse(mob.isPlayer());
 		bodyI.setTimeOfDeath(System.currentTimeMillis());
 		bodyI.setMobPKFlag(mob.isAttributeSet(MOB.Attrib.PLAYERKILL));
 		bodyI.setName(L("the body of @x1",mob.Name().replace('\'','`')));
@@ -1004,7 +1003,7 @@ public class StdRace implements Race
 		for(final Enumeration<Ability> a=mob.effects();a.hasMoreElements();)
 		{
 			final Ability A=a.nextElement();
-			if((A!=null)&&(A instanceof DiseaseAffect))
+			if((A instanceof DiseaseAffect))
 			{
 				if((CMath.bset(((DiseaseAffect)A).spreadBitmap(),DiseaseAffect.SPREAD_CONSUMPTION))
 				||(CMath.bset(((DiseaseAffect)A).spreadBitmap(),DiseaseAffect.SPREAD_CONTACT)))
@@ -1022,7 +1021,7 @@ public class StdRace implements Race
 			for(int i=0;i<mob.numItems();i++)
 			{
 				final Item thisItem=mob.getItem(i);
-				if(thisItem != null)
+				if((thisItem != null)&&(!CMLib.flags().isKeptOverDeath(thisItem)))
 					itemsToGo.add(thisItem);
 			}
 			for(Item thisItem : itemsToGo)
@@ -1035,7 +1034,8 @@ public class StdRace implements Race
 						Item newItem=CMLib.utensils().isRuinedLoot(mob,thisItem);
 						if(newItem==null)
 							continue;
-						if(newItem==thisItem) // why are mob items copied if they are restored anyway?
+						if((newItem==thisItem) // why are mob items copied if they are restored anyway?
+						&&(!(newItem instanceof ClanItem)))
 							newItem=(Item)thisItem.copyOf();
 						if(newItem != null)
 						{
@@ -1051,7 +1051,7 @@ public class StdRace implements Race
 						}
 					}
 					else
-						mob.delItem(thisItem);
+						mob.delItem(thisItem); // why don't mobs get their items deleted also?
 					thisItem.unWear();
 					if(thisItem.container()==null)
 						thisItem.setContainer(bodyI);
@@ -1097,7 +1097,7 @@ public class StdRace implements Race
 						room.addItem(I,ItemPossessor.Expire.Monster_EQ);
 				}
 				else
-				if(CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+				if(CMProps.isState(CMProps.HostState.RUNNING))
 					Log.errOut("Race "+ID()+" had NULL resource!");
 			}
 		}
@@ -1229,7 +1229,7 @@ public class StdRace implements Race
 						finalV.add(A);
 					}
 					else
-					if(CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+					if(CMProps.isState(CMProps.HostState.RUNNING))
 					{
 						if((!CMSecurity.isDisabled(DisFlag.LANGUAGES))
 						||(!CMClass.isLanguage(racialEffectNames()[v])))
@@ -1256,7 +1256,7 @@ public class StdRace implements Race
 					finalV.add(A1);
 				}
 			}
-			if((finalV != empty)&&(CMProps.getBoolVar(CMProps.Bool.MUDSTARTED)))
+			if((finalV != empty)&&(CMProps.isState(CMProps.HostState.RUNNING)))
 			{
 				((CMUniqSortSVec<Ability>)finalV).trimToSize();
 				racialEffectMap.put(level, (CMUniqSortSVec<Ability>)finalV);
@@ -1291,24 +1291,14 @@ public class StdRace implements Race
 		for(int i=0;i<Race.BODYPARTSTR.length;i++)
 			GR.bodyMask()[i]=bodyMask()[i];
 
-		Weapon W=myNaturalWeapon();
-		final Weapon NW=CMClass.getWeapon("Natural");
-		if((W!=null)&&(W!=NW))
+		final StringBuilder weaponXML = new StringBuilder("");
+		if(this.getNaturalWeapons().length>0)
 		{
-			if(!W.isGeneric())
-			{
-				final Weapon W2=CMClass.getWeapon("GenWeapon");
-				W2.setName(W.name());
-				W2.setWeaponClassification(W.weaponClassification());
-				W2.setWeaponDamageType(W.weaponDamageType());
-				W2.basePhyStats().setDamage(W.phyStats().damage());
-				W2.basePhyStats().setAttackAdjustment(W.phyStats().attackAdjustment());
-				W2.recoverPhyStats();
-				W2.text();
-				W=W2;
-			}
-			GR.setStat("WEAPONCLASS",W.ID());
-			GR.setStat("WEAPONXML",W.text());
+			weaponXML.append("<ITEMS>");
+			for(final Item I : this.getNaturalWeapons())
+				weaponXML.append(CMLib.coffeeMaker().getItemXML(I));
+			weaponXML.append("</ITEMS>");
+			GR.setStat("WEAPONXML",weaponXML.toString());
 		}
 		GR.setStat("WEAPONRACE",getClass().getName());
 
@@ -1322,8 +1312,9 @@ public class StdRace implements Race
 		RS.setRejuv(PhyStats.NO_REJUV);
 		GR.setStat("ESTATS",CMLib.coffeeMaker().getPhyStatsStr(RS));
 
+		final int ADJUSTMENT_MAX = 100;
 		final CharStats S1=(CharStats)CMClass.getCommon("DefaultCharStats");
-		S1.setAllValues(0);
+		S1.setAllValues(ADJUSTMENT_MAX); // because charStats.adjStat respects boundaries, but here we do not
 		S1.setStat(CharStats.STAT_GENDER, 'M');
 
 		final CharStats S2=(CharStats)CMClass.getCommon("DefaultCharStats");
@@ -1357,18 +1348,18 @@ public class StdRace implements Race
 				{
 					final int max = CharStats.CODES.toMAXBASE(i);
 					if((Math.abs(S2.getStat(i)-10) != Math.abs(S3.getStat(i)-14))
-					&&(S1.getStat(max)!=0))
+					&&(S1.getStat(max)!=ADJUSTMENT_MAX))
 					{
 						SETSTAT.setStat(i,S2.getStat(i));
-						S1.setStat(max,0);
+						S1.setStat(max,ADJUSTMENT_MAX); // because charStats.adjStat respects boundaries, but here we do not
 						S2.setStat(max,0);
 						S3.setStat(max,0);
 					}
 					else
-						ADJSTAT.setStat(i,S1.getStat(i));
+						ADJSTAT.setStat(i,S1.getStat(i)-ADJUSTMENT_MAX);
 				}
 				else
-					ADJSTAT.setStat(i,S1.getStat(i));
+					ADJSTAT.setStat(i,S1.getStat(i)-ADJUSTMENT_MAX);
 			}
 		}
 		GR.setStat("ASTATS",CMLib.coffeeMaker().getCharStatsStr(ADJSTAT));
@@ -1451,6 +1442,8 @@ public class StdRace implements Race
 				GR.setStat("GETCABLELVL"+i,""+lvl);
 				final boolean gain = (culturalAbilityAutoGains() != null) ? culturalAbilityAutoGains()[i] : true;
 				GR.setStat("GETCABLEGAIN"+i,""+gain);
+				final String parm = (culturalAbilityParms() != null) ? culturalAbilityParms()[i] : "";
+				GR.setStat("GETCABLEPARM"+i, parm);
 			}
 		}
 
@@ -1546,14 +1539,10 @@ public class StdRace implements Race
 		}
 
 		GR.setStat("WEAR",""+finalWear);
-		Weapon W=otherRace.myNaturalWeapon();
-		if(W==null)
-			W=nonHuman.myNaturalWeapon();
-		if(W!=null)
-		{
-			GR.setStat("WEAPONCLASS",W.ID());
-			GR.setStat("WEAPONXML",W.text());
-		}
+		Race wR=otherRace;
+		if(otherRace.getNaturalWeapons().length<nonHuman.getNaturalWeapons().length)
+			wR=nonHuman;
+		GR.setStat("WEAPONXML", wR.getStat("WEAPONXML"));
 
 		final int xpAdj1=CMath.s_int(GR.getStat("XPADJ"));
 		final int xpAdj2=CMath.s_int(otherRace.getStat("XPADJ"));
@@ -1637,22 +1626,34 @@ public class StdRace implements Race
 					SETSTAT.setStat(i,setStat1);
 			}
 			else
-			if(CharStats.CODES.isBASE(i))
+			if(CharStats.CODES.isBASE(i)||(CMParms.contains(CharStats.CODES.MAXCODES(),i)))
 			{
 				final int newStat=((ADJSTAT1.getStat(i)+ADJSTAT2.getStat(i))/2);
 				if(newStat>5)
-					ADJSTAT.setStat(i,5);
+					ADJSTAT.setStat(i,ADJSTAT.getStat(i)+5);
 				else
-					ADJSTAT.setStat(i,newStat);
+					ADJSTAT.setStat(i,ADJSTAT.getStat(i)+newStat);
 				int setStat1=SETSTAT1.getStat(i);
 				int setStat2=SETSTAT2.getStat(i);
+				if((setStat1>0)&&(setStat2>0))
+					SETSTAT.setStat(i,((setStat1 + setStat2)/2));
+				else
 				if((setStat1>0)||(setStat2>0))
 				{
-					if(setStat1 == 0)
-						setStat1 = 10;
-					if(setStat2 == 0)
-						setStat2 = 10;
-					SETSTAT.setStat(i,(setStat1 + setStat2)/2);
+					if(setStat1 != 0)
+						setStat1 = setStat1 - 10;
+					if(setStat2 != 0)
+						setStat2 = setStat2 - 10;
+					ADJSTAT.setStat(i,ADJSTAT.getStat(i)+((setStat1 + setStat2)/2));
+					if(CharStats.CODES.isBASE(i)
+					&&(ADJSTAT.getStat(CharStats.STAT_MAX_STRENGTH_ADJ+i)==0)
+					&&(SETSTAT1.getStat(CharStats.STAT_MAX_STRENGTH_ADJ+i)==0)
+					&&(SETSTAT2.getStat(CharStats.STAT_MAX_STRENGTH_ADJ+i)==0))
+					{
+						ADJSTAT.setStat(CharStats.STAT_MAX_STRENGTH_ADJ+i,
+								ADJSTAT.getStat(CharStats.STAT_MAX_STRENGTH_ADJ+i)
+								+((setStat1 + setStat2)/2));
+					}
 				}
 			}
 			else
@@ -1800,6 +1801,7 @@ public class StdRace implements Race
 			GR.setStat("GETCABLELVL"+i,""+cvataf.get(i).second.qualLevel());
 			GR.setStat("GETCABLEGAIN"+i,""+(cvataf.get(i).second.autoGain()));
 			GR.setStat("GETCABLEPROF"+i,""+cvataf.get(i).second.defaultProficiency());
+			GR.setStat("GETCABLEPARM"+i, cvataf.get(i).second.defaultParm());
 		}
 
 		final TriadVector<String,Integer,Integer> dataa=new TriadVector<String,Integer,Integer>();
@@ -1859,9 +1861,9 @@ public class StdRace implements Race
 	}
 
 	@Override
-	public QuadVector<String,Integer,Integer,Boolean> culturalAbilities()
+	public QuintVector<String,Integer,Integer,Boolean,String> culturalAbilities()
 	{
-		final QuadVector<String,Integer,Integer,Boolean> ables=new QuadVector<String,Integer,Integer,Boolean>();
+		final QuintVector<String,Integer,Integer,Boolean,String> ables=new QuintVector<String,Integer,Integer,Boolean,String>();
 		if((culturalAbilityNames()!=null)
 		&&(culturalAbilityProficiencies()!=null))
 		{
@@ -1870,7 +1872,8 @@ public class StdRace implements Race
 				final Integer level = Integer.valueOf((culturalAbilityLevels() != null) ? culturalAbilityLevels()[i] : 0);
 				final Integer prof = Integer.valueOf(culturalAbilityProficiencies()[i]);
 				final Boolean autoGain = Boolean.valueOf((culturalAbilityAutoGains() != null) ? culturalAbilityAutoGains()[i] : true);
-				ables.addElement(culturalAbilityNames()[i],prof,level,autoGain);
+				final String parms = String.valueOf((culturalAbilityParms() != null) ? culturalAbilityParms()[i] : "");
+				ables.addElement(culturalAbilityNames()[i],prof,level,autoGain,parms);
 			}
 		}
 		return ables;
@@ -1898,7 +1901,7 @@ public class StdRace implements Race
 														 racialAbilityProficiencies()[i],
 														 racialAbilityParms()[i],
 														 !racialAbilityQuals()[i],
-														 false,
+														 SecretFlag.PUBLIC,
 														 "");
 			}
 		}
@@ -1915,7 +1918,7 @@ public class StdRace implements Race
 			level=Integer.valueOf(Integer.MAX_VALUE);
 		if(racialAbilityMap.containsKey(level))
 			return racialAbilityMap.get(level);
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return emptyIDs;
 		final List<AbilityMapper.AbilityMapping> V=CMLib.ableMapper().getUpToLevelListings(ID(),level.intValue(),true,(mob!=null));
 		final CMUniqSortSVec<Ability> finalV=new CMUniqSortSVec<Ability>(V.size());
@@ -1932,7 +1935,7 @@ public class StdRace implements Race
 				finalV.add(A);
 			}
 			else
-			if((A==null)&&(CMProps.getBoolVar(CMProps.Bool.MUDSTARTED)))
+			if((A==null)&&(CMProps.isState(CMProps.HostState.RUNNING)))
 			{
 				if((!CMSecurity.isDisabled(DisFlag.LANGUAGES))
 				||(!CMClass.isLanguage(able.abilityID())))
@@ -2085,7 +2088,7 @@ public class StdRace implements Race
 			ables.addAll(racialAbilities(null));
 			ables.addAll(racialEffects(null));
 
-			final QuadVector<String,Integer,Integer,Boolean> cables=culturalAbilities();
+			final QuintVector<String,Integer,Integer,Boolean,String> cables=culturalAbilities();
 			Ability A=null;
 			if(cables!=null)
 			{
@@ -2095,6 +2098,8 @@ public class StdRace implements Race
 					if(A!=null)
 					{
 						A.setProficiency(cables.getSecond(c).intValue());
+						if(cables.getFifth(c).length()>0)
+							A.setMiscText(cables.getFifth(c));
 						ables.add(A);
 					}
 				}

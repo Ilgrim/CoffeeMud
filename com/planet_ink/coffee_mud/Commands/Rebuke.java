@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMProps.Str;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -56,8 +57,8 @@ public class Rebuke extends StdCommand
 		}
 		final String str=CMParms.combine(commands,1);
 		MOB target=mob.location().fetchInhabitant(str);
-		if((target==null)&&(mob.getWorshipCharID().length()>0)
-		&&(CMLib.english().containsString(mob.getWorshipCharID(),str)))
+		if((target==null)&&(mob.charStats().getWorshipCharID().length()>0)
+		&&(CMLib.english().containsString(mob.charStats().getWorshipCharID(),str)))
 			target=CMLib.map().getDeity(str);
 		if((target==null)&&(mob.getLiegeID().length()>0)
 		&&(CMLib.english().containsString(mob.getLiegeID(),str)))
@@ -69,6 +70,18 @@ public class Rebuke extends StdCommand
 		{
 			mob.tell(L("You don't see anybody called '@x1' or you aren't serving '@x2'.",CMParms.combine(commands,1),CMParms.combine(commands,1)));
 			return false;
+		}
+
+		final String requiredMask = CMParms.getParmStr(CMProps.getVar(Str.DEITYPOLICY), "REQUIREDMASK", "").trim();
+		if((requiredMask.length()==0)
+		||(CMLib.masking().maskCheck(requiredMask, mob, true)))
+		{
+			final boolean allowedForDeity=!CMParms.getParmBool(CMProps.getVar(Str.DEITYPOLICY), "NOREBUKE", false);
+			if((!allowedForDeity)&&(target instanceof Deity))
+			{
+				mob.tell(L("You are not permitted to rebuke a deity."));
+				return false;
+			}
 		}
 
 		CMMsg msg=null;

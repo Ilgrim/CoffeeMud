@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Doe extends Deer
 	public Doe()
 	{
 		super();
-		username="a doe";
+		_name="a doe";
 		setDescription("A nervous, but beautifully graceful creation.");
 		setDisplayText("A doe looks up as you happen along.");
 		baseCharStats().setStat(CharStats.STAT_GENDER,'F');

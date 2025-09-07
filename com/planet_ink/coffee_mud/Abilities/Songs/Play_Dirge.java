@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -148,7 +148,7 @@ public class Play_Dirge extends Play
 			{
 				final Room R=commonRoomSet.get(v);
 				final String msgStr=getCorrectMsgString(R,str,v);
-				final CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),msgStr);
+				final CMMsg msg=CMClass.getMsg(mob,null,this,somaticCastCode(mob,null,auto),msgStr);
 				if(R.okMessage(mob,msg))
 				{
 					final Set<MOB> h=super.sendMsgAndGetTargets(mob, R, msg, givenTarget, auto);
@@ -168,7 +168,7 @@ public class Play_Dirge extends Play
 
 						// malicious songs must not affect the invoker!
 						if(CMLib.flags().canBeHeardSpeakingBy(invoker,follower)&&(expGained>0))
-							CMLib.leveler().postExperience(follower,null,null,expGained,false);
+							CMLib.leveler().postExperience(follower,"ABILITY:"+ID(),null,null,expGained, false);
 					}
 					R.recoverRoomStats();
 					R.showHappens(CMMsg.MSG_OK_VISUAL,L("@x1 fades away.",target.name()));

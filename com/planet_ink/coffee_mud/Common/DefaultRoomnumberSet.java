@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,6 +50,8 @@ public class DefaultRoomnumberSet implements RoomnumberSet
 	}
 
 	public STreeMap<String,LongSet> root=new STreeMap<String,LongSet>();
+	private volatile long lastChangedTime = 0;
+	private boolean singleAreaFlag = false;
 
 	@Override
 	public int compareTo(final CMObject o)
@@ -62,7 +64,7 @@ public class DefaultRoomnumberSet implements RoomnumberSet
 	{
 		try
 		{
-			return getClass().newInstance();
+			return getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -80,6 +82,7 @@ public class DefaultRoomnumberSet implements RoomnumberSet
 	{
 		final DefaultRoomnumberSet R=new DefaultRoomnumberSet();
 		R.root=new STreeMap<String,LongSet>();
+		R.singleAreaFlag=this.singleAreaFlag;
 		LongSet CI=null;
 		for(final String area : root.keySet())
 		{
@@ -89,7 +92,22 @@ public class DefaultRoomnumberSet implements RoomnumberSet
 			else
 				R.root.put(area,CI.copyOf());
 		}
+		R.lastChangedTime = lastChangedTime;
 		return R;
+	}
+
+	@Override
+	public void clear()
+	{
+		this.root.clear();
+		this.lastChangedTime = System.currentTimeMillis();
+	}
+
+
+	@Override
+	public void setSingleAreaFlag(final boolean tf)
+	{
+		this.singleAreaFlag = tf;
 	}
 
 	@Override
@@ -107,11 +125,14 @@ public class DefaultRoomnumberSet implements RoomnumberSet
 			{
 				if(his!=null)
 					mine=his.copyOf();
+				if(singleAreaFlag)
+					root.clear();
 				root.put(arName.toUpperCase(),mine);
 			}
 			else
 				mine.add(his);
 		}
+		lastChangedTime=System.currentTimeMillis();
 	}
 
 	@Override
@@ -131,6 +152,7 @@ public class DefaultRoomnumberSet implements RoomnumberSet
 			if(CI!=null)
 			{
 				root.remove(areaName);
+				lastChangedTime=System.currentTimeMillis();
 				return;
 			}
 		}
@@ -143,7 +165,9 @@ public class DefaultRoomnumberSet implements RoomnumberSet
 			if(CI==null)
 				return;
 			x=theRest.indexOf("#(");
-			if((x>=0)&&(theRest.endsWith(")"))&&(CMath.isInteger(theRest.substring(0,x))))
+			if((x>=0)
+			&&(theRest.endsWith(")"))
+			&&(CMath.isInteger(theRest.substring(0,x))))
 			{
 				final int comma=theRest.indexOf(",",x);
 				if(comma>0)
@@ -164,6 +188,7 @@ public class DefaultRoomnumberSet implements RoomnumberSet
 		CI.remove(Long.valueOf(roomNum));
 		if(CI.size()==0)
 			root.remove(areaName.toUpperCase());
+		lastChangedTime=System.currentTimeMillis();
 	}
 
 	@Override
@@ -198,6 +223,8 @@ public class DefaultRoomnumberSet implements RoomnumberSet
 	@Override
 	public int roomCount(String areaName)
 	{
+		if(root.size()==0)
+			return 0;
 		final int x=areaName.indexOf('#');
 		if(x>0)
 			areaName=areaName.substring(0,x).toUpperCase();
@@ -301,42 +328,49 @@ public class DefaultRoomnumberSet implements RoomnumberSet
 	}
 
 	@Override
-	public boolean contains(String str)
+	public boolean contains(final String str)
 	{
-		if(str==null)
+		if((str==null)||(root.size()==0))
 			return false;
-		String theRest=null;
-		long roomNum=0;
 		final int origX=str.indexOf('#');
-		int x=origX;
-		if(x>0)
+		if(origX > 0)
 		{
-			theRest=str.substring(x+1).trim();
-			str=str.substring(0,x);
-			x=theRest.indexOf("#(");
-			if((x>=0)&&(theRest.endsWith(")"))&&(CMath.isInteger(theRest.substring(0,x))))
+			final String areaName = str.substring(0, origX);
+			final LongSet grouper = getGrouper(areaName);
+			if(grouper == null)
+				return false;
+			try
 			{
-				final int comma=theRest.indexOf(",",x);
-				if(comma>0)
+				final String numStr=str.substring(origX+1).trim();
+				long roomNum=0;
+				final int x=numStr.indexOf("#(");
+				if((x>=0)
+				&&(numStr.endsWith(")")))
 				{
-					roomNum=Long.parseLong(theRest.substring(0,x))<<30;
-					roomNum+=(Long.parseLong(theRest.substring(x+2,comma))<<15);
-					roomNum+=Long.parseLong(theRest.substring(comma+1,theRest.length()-1));
-					if(roomNum<LongSet.INT_BITS)
-						roomNum|=LongSet.OPTION_FLAG_LONG;
+					final int comma=numStr.indexOf(",",x);
+					if(comma>0)
+					{
+						roomNum=Long.parseLong(numStr.substring(0,x))<<30;
+						roomNum+=(Long.parseLong(numStr.substring(x+2,comma))<<15);
+						roomNum+=Long.parseLong(numStr.substring(comma+1,numStr.length()-1));
+						if(roomNum<LongSet.INT_BITS)
+							roomNum|=LongSet.OPTION_FLAG_LONG;
+					}
 				}
+				else
+					roomNum=Integer.parseInt(numStr.substring(x+1).trim());
+				return grouper.contains(roomNum);
 			}
-			else
-			if(CMath.isInteger(theRest))
-				roomNum=Integer.parseInt(theRest.substring(x+1).trim());
+			catch(final NumberFormatException x)
+			{
+				return false;
+			}
 		}
-
-		final LongSet myGrouper=getGrouper(str);
-		if((origX<0)&&(myGrouper==null)&&(isGrouper(str)))
+		else
+		if(isGrouper(str))
 			return true;
-		if(myGrouper==null)
+		else
 			return false;
-		return myGrouper.contains(roomNum);
 	}
 
 	@Override
@@ -372,13 +406,15 @@ public class DefaultRoomnumberSet implements RoomnumberSet
 				{
 					ID=ablk.getValFromPieces("ID").toUpperCase();
 					NUMS=ablk.getValFromPieces("NUMS");
-					if((NUMS!=null)&&(NUMS.length()>0))
+					if((NUMS!=null)
+					&&(NUMS.length()>0))
 						root.put(ID,new LongSet().parseString(NUMS));
 					else
 						root.put(ID,null);
 				}
 			}
 		}
+		lastChangedTime=System.currentTimeMillis();
 	}
 
 	@Override
@@ -396,7 +432,9 @@ public class DefaultRoomnumberSet implements RoomnumberSet
 			theRest=areaName.substring(x+1).trim();
 			areaName=areaName.substring(0,x);
 			x=theRest.indexOf("#(");
-			if((x>=0)&&(theRest.endsWith(")"))&&(CMath.isInteger(theRest.substring(0,x))))
+			if((x>=0)
+			&&(theRest.endsWith(")"))
+			&&(CMath.isInteger(theRest.substring(0,x))))
 			{
 				final int comma=theRest.indexOf(",",x);
 				if(comma>0)
@@ -421,6 +459,8 @@ public class DefaultRoomnumberSet implements RoomnumberSet
 		LongSet CI = root.get(areaName);
 		if(CI==null)
 		{
+			if(singleAreaFlag)
+				root.clear();
 			if(roomNum>=0)
 				CI=new LongSet();
 			root.put(areaName,CI);
@@ -429,6 +469,7 @@ public class DefaultRoomnumberSet implements RoomnumberSet
 		{
 			CI.add(Long.valueOf(roomNum));
 		}
+		lastChangedTime=System.currentTimeMillis();
 	}
 
 	@Override
@@ -494,5 +535,11 @@ public class DefaultRoomnumberSet implements RoomnumberSet
 			final long num=nums[n++];
 			nextID=convertRoomID(areaName,num);
 		}
+	}
+
+	@Override
+	public long getLastChangedMs()
+	{
+		return this.lastChangedTime;
 	}
 }

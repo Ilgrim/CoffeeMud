@@ -23,7 +23,7 @@ import java.util.*;
 import java.sql.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,8 +70,10 @@ public class DBConnections
 	protected boolean			transact			= false;
 	/** last time resetconnections called (or resetconnections) */
 	private long				lastReset			= 0;
-	/** check for whether these connections are fakedb */
-	private Boolean				isFakeDB			= null;
+	/** For isPostGres, the list of all identifiers that need quoting */
+	private final Set<String> 	allIdentifiers		= new HashSet<String>();
+	/** the db type */
+	private String				dbLType				= "";
 
 	/**
 	 * Initialize this class.  Must be called at first,
@@ -80,11 +82,12 @@ public class DBConnections
 	 * Usage: Initialize("ODBCSERVICE","USER","PASSWORD",10);
 	 * @param dbClass	the odbc service
 	 * @param dbService    the odbc service
-	 * @param dbUser    the odbc user login
-	 * @param dbPass    the odbc user password
+	 * @param dbUser	the odbc user login
+	 * @param dbPass	the odbc user password
 	 * @param dbParms	extra jdbc parameters
-	 * @param numConnections    Connections to maintain
+	 * @param numConnections	Connections to maintain
 	 * @param reuse    Whether to reuse connections
+	 * @param transact true to group statements into a transaction
 	 * @param doErrorQueueing    whether to save errors to a file
 	 */
 	public DBConnections(final String dbClass,
@@ -133,7 +136,7 @@ public class DBConnections
 				{
 					if(sqle instanceof java.io.EOFException)
 					{
-						Log.errOut("DBConnections",""+sqle);
+						Log.errOut(""+sqle);
 						DBDone(dbConnection);
 						return -1;
 					}
@@ -144,7 +147,7 @@ public class DBConnections
 				}
 				if(result<0)
 				{
-					Log.errOut("DBConnections",""+dbConnection.getLastError()+"/"+updateString);
+					Log.errOut(""+dbConnection.getLastError()+"/"+updateString);
 				}
 			}
 		}
@@ -152,7 +155,7 @@ public class DBConnections
 		{
 			enQueueError(updateString,""+e,""+0);
 			reportError();
-			Log.errOut("DBConnections",""+e);
+			Log.errOut(""+e);
 		}
 		finally
 		{
@@ -197,7 +200,7 @@ public class DBConnections
 				{
 					if(sqle instanceof java.io.EOFException)
 					{
-						Log.errOut("DBConnections",""+sqle);
+						Log.errOut(""+sqle);
 						DBDone(dbConnection);
 						return -1;
 					}
@@ -208,14 +211,14 @@ public class DBConnections
 				}
 				if(result<0)
 				{
-					Log.errOut("DBConnections",""+dbConnection.getLastError()+"/"+entry.sql);
+					Log.errOut(""+dbConnection.getLastError()+"/"+entry.sql);
 				}
 			}
 		}
 		catch(final Exception e)
 		{
 			reportError();
-			Log.errOut("DBConnections",""+e);
+			Log.errOut(""+e);
 		}
 		finally
 		{
@@ -308,7 +311,7 @@ public class DBConnections
 					}
 					catch (final SQLException e)
 					{
-						Log.errOut("DBConnections",e.getMessage());
+						Log.errOut(e.getMessage());
 					}
 				}
 			}
@@ -431,7 +434,7 @@ public class DBConnections
 			}
 			if((newConn!=null)&&(newConn.isProbablyDead()||newConn.isProbablyLockedUp()||(!newConn.ready())))
 			{
-				Log.errOut("DBConnections","Failed to connect to database.");
+				Log.errOut("Failed to connect to database.");
 				try
 				{
 					newConn.close();
@@ -464,21 +467,21 @@ public class DBConnections
 					}
 					if(consecutiveFailures==180)
 					{
-						Log.errOut("DBConnections","Serious failure obtaining DBConnection ("+inuse+"/"+connections.size()+" in use).");
+						Log.errOut("Serious failure obtaining DBConnection ("+inuse+"/"+connections.size()+" in use).");
 						for(final DBConnection conn : connections)
 						{
 							if(conn.inUse())
-								Log.errOut("DBConnections","Last SQL was: "+conn.lastSQL);
+								Log.errOut("Last SQL was: "+conn.lastSQL);
 						}
 						if(inuse==0)
 							resetConnections();
 					}
 					else
 					if(consecutiveFailures==90)
-						Log.errOut("DBConnections","Moderate failure obtaining DBConnection ("+inuse+"/"+connections.size()+" in use).");
+						Log.errOut("Moderate failure obtaining DBConnection ("+inuse+"/"+connections.size()+" in use).");
 					else
 					if(consecutiveFailures==30)
-						Log.errOut("DBConnections","Minor failure obtaining DBConnection("+inuse+"/"+connections.size()+" in use).");
+						Log.errOut("Minor failure obtaining DBConnection("+inuse+"/"+connections.size()+" in use).");
 					try
 					{
 						Thread.sleep(Math.round(Math.random()*500));
@@ -509,32 +512,65 @@ public class DBConnections
 		consecutiveFailures=0;
 		disconnected=false;
 		lockedUp=false;
-		if(isFakeDB==null)
+		if(newConn != null)
 		{
-			isFakeDB=Boolean.valueOf(newConn.isFakeDB());
+			if((dbLType==null)||(dbLType.length()==0))
+			{
+				synchronized(this)
+				{
+					if((dbLType==null)||(dbLType.length()==0))
+					{
+						final DatabaseMetaData data = newConn.getMetaData();
+						try
+						{
+							dbLType = (data != null) ? data.getDatabaseProductName().toLowerCase() : "";
+							if(dbLType.contains("postgres"))
+								setupPostGres(newConn);
+						}
+						catch(final Exception e)
+						{
+							Log.errOut(e);
+						}
+					}
+				}
+			}
 		}
 		return newConn;
 	}
 
-	public boolean isFakeDB()
+	private void setupPostGres(final DBConnection newConn)
 	{
-		if(isFakeDB==null)
+		this.allIdentifiers.clear();
+		try(BufferedReader br = new BufferedReader(new FileReader("guides"+File.separator+"database"+File.separator+"fakedb.schema")))
 		{
-			final DBConnection c = DBFetchAny("",DBConnection.FetchType.EMPTY);
-			if(c!=null)
+			String s = br.readLine();
+			while(s != null)
 			{
-				if(isFakeDB==null)
+				s=s.trim();
+				if(!s.startsWith("#"))
 				{
-					isFakeDB=Boolean.valueOf(c.isFakeDB());
+					final int x = s.indexOf(' ');
+					if(x>0)
+						s=s.substring(0,x);
+					allIdentifiers.add(s.toUpperCase());
 				}
-				c.doneUsing("");
+				s=br.readLine();
 			}
 		}
-		if(isFakeDB!=null)
+		catch(final IOException e)
 		{
-			return isFakeDB.booleanValue();
+			Log.errOut(e);
 		}
-		return false;
+	}
+
+	public boolean isFakeDB()
+	{
+		return dbLType.contains("fakedb");
+	}
+
+	public String getDBType()
+	{
+		return dbLType;
 	}
 
 	public DBConnection DBFetchPrepared(final String SQL)
@@ -586,11 +622,11 @@ public class DBConnections
 			if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
 			{
 
-				Log.errOut("DBConnections","getString: "+Field);
-				Log.errOut("DBConnections",sqle);
+				Log.errOut("getString: "+Field);
+				Log.errOut(sqle);
 			}
 			else
-				Log.errOut("DBConnections",""+sqle);
+				Log.errOut(""+sqle);
 			return "";
 		}
 	}
@@ -623,11 +659,11 @@ public class DBConnections
 			if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
 			{
 
-				Log.errOut("DBConnections","getLong: "+Field);
-				Log.errOut("DBConnections",sqle);
+				Log.errOut("getLong: "+Field);
+				Log.errOut(sqle);
 			}
 			else
-				Log.errOut("DBConnections",""+sqle);
+				Log.errOut(""+sqle);
 			return 0;
 		}
 		catch (final java.lang.NumberFormatException nfe)
@@ -660,11 +696,11 @@ public class DBConnections
 			if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
 			{
 
-				Log.errOut("DBConnections","getRes: "+One);
-				Log.errOut("DBConnections",sqle);
+				Log.errOut("getRes: "+One);
+				Log.errOut(sqle);
 			}
 			else
-				Log.errOut("DBConnections",""+sqle);
+				Log.errOut(""+sqle);
 			return "";
 		}
 	}
@@ -683,8 +719,8 @@ public class DBConnections
 			if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
 			{
 
-				Log.errOut("DBConnections","getStringQ: "+Field);
-				Log.errOut("DBConnections",sqle);
+				Log.errOut("getStringQ: "+Field);
+				Log.errOut(sqle);
 			}
 			return "";
 		}
@@ -761,11 +797,11 @@ public class DBConnections
 	{
 		if(!errorQueingEnabled)
 		{
-			Log.errOut("DBConnections","Error Queueing not enabled.");
+			Log.errOut("Error Queueing not enabled.");
 			return;
 		}
 
-		synchronized("SQLErrors.que")
+		synchronized(CMClass.getSync("SQLErrors.que"))
 		{
 			PrintWriter out=null;
 			try
@@ -774,8 +810,8 @@ public class DBConnections
 			}
 			catch(final FileNotFoundException fnfe)
 			{
-				Log.errOut("DBConnections","Could not open queue?!?!");
-				Log.errOut("DBConnections",SQLString+"\t"+SQLError);
+				Log.errOut("Could not open queue?!?!");
+				Log.errOut(SQLString+"\t"+SQLError);
 			}
 
 			if(out!=null)
@@ -798,17 +834,17 @@ public class DBConnections
 
 		if((lockedUp)||(disconnected))
 		{
-			Log.sysOut("DBConnections","Database is in trouble.  Retry skipped.");
+			Log.sysOut("Database is in trouble.  Retry skipped.");
 			return;
 		}
 
 		if(!errorQueingEnabled)
 		{
-			Log.errOut("DBConnections","Error Queueing not enabled.");
+			Log.errOut("Error Queueing not enabled.");
 			return;
 		}
 
-		synchronized("SQLErrors.que")
+		synchronized(CMClass.getSync("SQLErrors.que"))
 		{
 			final File myFile=new File("SQLErrors.que");
 			if(myFile.canRead())
@@ -856,7 +892,7 @@ public class DBConnections
 		// did we actually READ anything?
 		if(Queue.size()==0)
 		{
-			//Log.sysOut("DBConnections","DB Retry Queue is empty.  Good.");
+			//Log.sysOut("DB Retry Queue is empty.  Good.");
 		}
 		else
 		{
@@ -878,8 +914,8 @@ public class DBConnections
 					final int oldAttempts=CMath.s_int(queueLine.substring(secondTab+5));
 					if(oldAttempts>20)
 					{
-						Log.errOut("DBConnections","Giving up on :"+retrySQL);
-						Log.errOut("DBConnections","Giving up because: "+queueLine.substring(firstTab+5,secondTab));
+						Log.errOut("Giving up on :"+retrySQL);
+						Log.errOut("Giving up because: "+queueLine.substring(firstTab+5,secondTab));
 					}
 					else
 					{
@@ -891,13 +927,13 @@ public class DBConnections
 								dbConnection.update(retrySQL,oldAttempts);
 								successes++;
 								if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
-									Log.sysOut("DBConnections","Successful retry: "+queueLine);
+									Log.sysOut("Successful retry: "+queueLine);
 							}
 							catch(final SQLException sqle)
 							{
 								unsuccesses++;
 								if(CMSecurity.isDebugging(CMSecurity.DbgFlag.SQLERRORS))
-									Log.errOut("DBConnections","Unsuccessfull retry: "+queueLine);
+									Log.errOut("Unsuccessfull retry: "+queueLine);
 								//DO NOT DO THIS AGAIN -- the UPDATE WILL GENERATE the ENQUE!!!
 								//enQueueError(retrySQL,""+sqle,oldDate);
 							}
@@ -916,13 +952,13 @@ public class DBConnections
 					}
 				}
 				else
-					Log.errOut("DBConnections","Could not retry line: "+queueLine+"/"+firstTab+"/"+secondTab);
+					Log.errOut("Could not retry line: "+queueLine+"/"+firstTab+"/"+secondTab);
 			}
 			clearErrors();
 			if(unsuccesses>successes)
-				Log.errOut("DBConnections","Finished running retry Que. Successes: "+successes+"/Failures: "+unsuccesses);
+				Log.errOut("Finished running retry Que. Successes: "+successes+"/Failures: "+unsuccesses);
 			else
-				Log.sysOut("DBConnections","Finished running retry Que. Successes: "+successes+"/Failures: "+unsuccesses);
+				Log.sysOut("Finished running retry Que. Successes: "+successes+"/Failures: "+unsuccesses);
 		}
 	}
 
@@ -952,7 +988,7 @@ public class DBConnections
 			{
 				if(sqle instanceof java.io.EOFException)
 				{
-					Log.errOut("DBConnections",""+sqle);
+					Log.errOut(""+sqle);
 					DBDone(dbConnection);
 					return -1;
 				}
@@ -964,7 +1000,7 @@ public class DBConnections
 		}
 		catch(final Exception e)
 		{
-			Log.errOut("DBConnections",""+e);
+			Log.errOut(""+e);
 		}
 		if(dbConnection!=null)
 			DBDone(dbConnection);
@@ -975,8 +1011,9 @@ public class DBConnections
 	 *
 	 * Usage: listConnections(out);
 	 * @param out    place to send the list out to
+	 * @param stackDump also include stack traces on active connections
 	 */
-	public void listConnections(final PrintStream out)
+	public void listConnections(final PrintStream out, final boolean stackDump)
 	{
 		out.println("\nDatabase connections:");
 		if((lockedUp)||(disconnected))
@@ -987,18 +1024,24 @@ public class DBConnections
 		{
 			String OKString="OK";
 			if((conn.isProbablyDead())&&(conn.isProbablyLockedUp()))
-				OKString="Completely dead"+(conn.inSQLServerCommunication()?" (SERVER COMM)":"")+".";
+				OKString="Completely dead"+(conn.inSQLServerCommunication()?" (SERVER COMM)":"");
 			else
 			if(conn.isProbablyDead())
-				OKString="Dead"+(conn.inSQLServerCommunication()?" (SERVER COMM)":"")+".";
+				OKString="Dead"+(conn.inSQLServerCommunication()?" (SERVER COMM)":"");
 			else
 			if(conn.isProbablyLockedUp())
-				OKString="Locked up"+(conn.inSQLServerCommunication()?" (SERVER COMM)":"")+".";
+				OKString="Locked up"+(conn.inSQLServerCommunication()?" (SERVER COMM)":"");
 			out.println(Integer.toString(p)
 						+". Connected="+conn.ready()
 						+", In use="+conn.inUse()
-						+", Status="+OKString
+						+", Status="+OKString+"."
 						);
+			if(stackDump && conn.isThreadAlive())
+			{
+				final java.lang.StackTraceElement[] s=conn.getStackTrace();
+				for (final StackTraceElement element : s)
+					out.println("\n   "+element.getClassName()+": "+element.getMethodName()+"("+element.getFileName()+": "+element.getLineNumber()+")");
+			}
 			p++;
 		}
 		out.println("\n");
@@ -1040,5 +1083,76 @@ public class DBConnections
 				DBDone(conn);
 		}
 		return status;
+	}
+
+	/**
+	 * Wraps table and column names in double quotes for a given SQL statement,
+	 * using a map of table names to their column names for lookup and validation.
+	 * Skips quoting inside single-quoted string literals and handles escaped single quotes ('').
+	 * Assumes identifiers are case-sensitive as per the map and SQL.
+	 * Only quotes known tables/columns from the map; does not blindly replace all occurrences.
+	 *
+	 * @param sql The input SQL statement
+	 * @return The modified SQL with quoted identifiers
+	 */
+	public String fixIdentifiers(final String sql)
+	{
+		if(allIdentifiers.size()==0)
+			return sql;
+		final StringBuilder result = new StringBuilder();
+		final StringBuilder currentIdentifier = new StringBuilder();
+		boolean inString = false;
+		final char quoteChar = '"';
+		for (int i = 0; i < sql.length(); i++)
+		{
+			final char c = sql.charAt(i);
+			if (inString)
+			{
+				result.append(c);
+				if (c == '\'')
+				{
+					if (i + 1 < sql.length() && sql.charAt(i + 1) == '\'')
+					{
+						result.append('\'');
+						i++; // Skip the next '
+					}
+					else
+						inString = false;
+				}
+			}
+			else
+			{
+				if (c == '\'')
+				{
+					result.append(c);
+					inString = true;
+				}
+				else
+				if (Character.isLetterOrDigit(c) || c == '_')
+					currentIdentifier.append(c);
+				else
+				{
+					if (currentIdentifier.length() > 0)
+					{
+						final String id = currentIdentifier.toString();
+						if (allIdentifiers.contains(id.toUpperCase()))
+							result.append(quoteChar).append(id).append(quoteChar);
+						else
+							result.append(id);
+						currentIdentifier.setLength(0);
+					}
+					result.append(c);
+				}
+			}
+		}
+		if (currentIdentifier.length() > 0)
+		{
+			final String id = currentIdentifier.toString();
+			if (allIdentifiers.contains(id.toUpperCase()))
+				result.append(quoteChar).append(id).append(quoteChar);
+			else
+				result.append(id);
+		}
+		return result.toString();
 	}
 }

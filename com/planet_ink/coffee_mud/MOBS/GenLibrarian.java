@@ -1,5 +1,6 @@
 package com.planet_ink.coffee_mud.MOBS;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.ShopKeeper.ViewType;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -18,7 +19,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -47,7 +48,7 @@ public class GenLibrarian extends StdLibrarian
 	public GenLibrarian()
 	{
 		super();
-		username="a generic librarian";
+		_name="a generic librarian";
 		setDescription("She dares you to make a sound.");
 		setDisplayText("A generic librarian stands here.");
 	}
@@ -62,14 +63,14 @@ public class GenLibrarian extends StdLibrarian
 	public String text()
 	{
 		if(CMProps.getBoolVar(CMProps.Bool.MOBCOMPRESS))
-			miscText=CMLib.encoder().compressString(CMLib.coffeeMaker().getPropertiesStr(this,false));
+			miscText=CMLib.encoder().compressString(CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false));
 		else
-			miscText=CMLib.coffeeMaker().getPropertiesStr(this,false);
+			miscText=CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 		return super.text();
 	}
 
 	@Override
-	public String prejudiceFactors()
+	public String getRawPrejudiceFactors()
 	{
 		return prejudiceFactors;
 	}
@@ -81,7 +82,7 @@ public class GenLibrarian extends StdLibrarian
 	}
 
 	@Override
-	public String ignoreMask()
+	public String getRawIgnoreMask()
 	{
 		return ignoreMask;
 	}
@@ -116,7 +117,8 @@ public class GenLibrarian extends StdLibrarian
 									 "LIBRCHAIN","LIBROVERCHG","LIBRDAYCHG",
 									 "LIBROVERPCT","LIBDAYPCT","LIBMINDAYS",
 									 "LIBMAXDAYS","LIBMAXBORROW","LIBCMASK",
-									 "IGNOREMASK","PRICEMASKS","ITEMMASK"};
+									 "IGNOREMASK","PRICEMASKS","ITEMMASK",
+									 "SIVIEWTYPES"};
 
 	@Override
 	public String getStat(final String code)
@@ -128,7 +130,7 @@ public class GenLibrarian extends StdLibrarian
 		case 0:
 			return "" + getWhatIsSoldMask();
 		case 1:
-			return prejudiceFactors();
+			return getRawPrejudiceFactors();
 		case 2:
 			return libraryChain();
 		case 3:
@@ -148,11 +150,13 @@ public class GenLibrarian extends StdLibrarian
 		case 10:
 			return this.contributorMask();
 		case 11:
-			return ignoreMask();
+			return getRawIgnoreMask();
 		case 12:
-			return CMParms.toListString(itemPricingAdjustments());
+			return CMParms.toListString(getRawItemPricingAdjustments());
 		case 13:
 			return this.getWhatIsSoldZappermask();
+		case 14:
+			return CMParms.toListString(viewFlags());
 		default:
 			return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
 		}
@@ -207,6 +211,15 @@ public class GenLibrarian extends StdLibrarian
 			break;
 		case 13:
 			this.setWhatIsSoldZappermask(val.trim());
+			break;
+		case 14:
+			viewFlags().clear();
+			for(final String s : CMParms.parseCommas(val.toUpperCase().trim(), true))
+			{
+				final ViewType V=(ViewType)CMath.s_valueOf(ViewType.class, s);
+				if(V!=null)
+					viewFlags().add(V);
+			}
 			break;
 		default:
 			CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);

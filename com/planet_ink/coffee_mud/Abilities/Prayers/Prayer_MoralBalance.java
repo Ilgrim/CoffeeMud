@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ public class Prayer_MoralBalance extends Prayer
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_HOLY | Ability.FLAG_UNHOLY;
+		return Ability.FLAG_NEUTRAL;
 	}
 
 	@Override
@@ -83,7 +83,8 @@ public class Prayer_MoralBalance extends Prayer
 
 		if((success)&&(CMLib.factions().getFaction(CMLib.factions().getAlignmentID())!=null))
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L(auto?"<T-NAME> feel(s) completely different about the world.":"^S<S-NAME> "+prayWord(mob)+" to bring balance to <T-NAMESELF>!^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					L(auto?"<T-NAME> feel(s) completely different about the world.":"^S<S-NAME> @x1 to bring balance to <T-NAMESELF>!^?",prayWord(mob)));
 			if((mob.location().okMessage(mob,msg))
 			&&((msg2==null)||(mob.location().okMessage(mob,msg2))))
 			{
@@ -99,7 +100,7 @@ public class Prayer_MoralBalance extends Prayer
 						final int distance=midpoint-target.fetchFaction(F.factionID());
 						final int amt=target.fetchFaction(F.factionID())+(distance/8);
 						final int change=amt-target.fetchFaction(F.factionID());
-						CMLib.factions().postFactionChange(target,this, CMLib.factions().getAlignmentID(),change);
+						CMLib.factions().postSkillFactionChange(target,this, CMLib.factions().getAlignmentID(),change);
 					}
 				}
 				if(msg2!=null)

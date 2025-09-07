@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,6 +51,15 @@ public class Duel extends StdCommand
 		throws java.io.IOException
 	{
 		MOB target=null;
+		boolean unfair=false;
+		for(int i=commands.size()-1;i>=1;i--)
+		{
+			if(commands.get(i).equalsIgnoreCase("unfair"))
+			{
+				commands.remove(i);
+				unfair=true;
+			}
+		}
 		if(commands.size()<2)
 		{
 			mob.tell(L("Duel whom?"));
@@ -58,11 +67,50 @@ public class Duel extends StdCommand
 		}
 
 		final String whomToKill=CMParms.combine(commands,1);
-		target=mob.location().fetchInhabitant(whomToKill);
-		if((target==null)||(!CMLib.flags().canBeSeenBy(target,mob)))
+		target=getVisibleRoomTarget(mob,whomToKill);
+		if(target==null)
 		{
-			mob.tell(L("I don't see '@x1' here.",whomToKill));
-			return false;
+			if("accept".startsWith(whomToKill.toLowerCase()))
+			{
+				final Room R=mob.location();
+				if(R==null)
+					return false;
+				for(final Enumeration<MOB> m=R.inhabitants();m.hasMoreElements();)
+				{
+					final MOB M = m.nextElement();
+					if((M!=null)
+					&&(!M.isMonster())
+					&&(M != mob))
+					{
+						final Tattoo uiT=M.findTattoo("IDUEL");
+						final Tattoo iuT=mob.findTattoo("UDUEL");
+						if((uiT!=null)&&(iuT!=null))
+						{
+							target=M;
+							break;
+						}
+					}
+				}
+			}
+			if(target == null)
+			{
+				mob.tell(L("I don't see '@x1' here.",whomToKill));
+				return false;
+			}
+		}
+		if(!CMLib.flags().canBeSeenBy(target,mob))
+		{
+			final Tattoo uiT=target.findTattoo("IDUEL");
+			final Tattoo iuT=mob.findTattoo("UDUEL");
+			if((uiT!=null)&&(iuT!=null))
+			{
+				// can accept duel from the unseen
+			}
+			else
+			{
+				mob.tell(L("I don't see '@x1' here.",whomToKill));
+				return false;
+			}
 		}
 
 		if(mob==target)
@@ -111,7 +159,10 @@ public class Duel extends StdCommand
 				}
 				final Ability A=CMClass.getAbility("Dueler");
 				if(A!=null)
+				{
+					A.setMiscText("UNFAIR="+unfair);
 					A.invoke(target, mob, true, 0);
+				}
 			}
 			else
 			if(uiT!=null)

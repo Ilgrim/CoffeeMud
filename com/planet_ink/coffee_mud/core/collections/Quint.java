@@ -1,7 +1,7 @@
 package com.planet_ink.coffee_mud.core.collections;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package com.planet_ink.coffee_mud.core.collections;
  */
 public class Quint<T, K, L, M, N> extends Quad<T, K, L, M>
 {
+	private static final long serialVersionUID = 5385283468188214266L;
 	public N	fifth;
 
 	public Quint(final T frst, final K scnd, final L thrd, final M frth, final N fith)
@@ -79,8 +80,8 @@ public class Quint<T, K, L, M, N> extends Quad<T, K, L, M>
 		{
 			final Quint<?,?,?,?,?> p = (Quint<?,?,?,?,?>) o;
 			return ((p.first == first) || ((p.first != null) && (p.first.equals(first)))) && ((p.second == second) || ((p.second != null) && (p.second.equals(second))))
-			        && ((p.third == third) || ((p.third != null) && (p.third.equals(third)))) && ((p.fourth == fourth) || ((p.fourth != null) && (p.fourth.equals(fourth))))
-			        && ((p.fifth == fifth) || ((p.fifth != null) && (p.fifth.equals(fifth))));
+					&& ((p.third == third) || ((p.third != null) && (p.third.equals(third)))) && ((p.fourth == fourth) || ((p.fourth != null) && (p.fourth.equals(fourth))))
+					&& ((p.fifth == fifth) || ((p.fifth != null) && (p.fifth.equals(fifth))));
 		}
 		return super.equals(o);
 	}

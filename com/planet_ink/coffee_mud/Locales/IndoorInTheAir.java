@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,7 +44,8 @@ public class IndoorInTheAir extends StdRoom
 	{
 		super();
 		name="the space";
-		basePhyStats.setWeight(1);
+		setMovementCost(1);
+		setRoomSize(5);
 		recoverPhyStats();
 	}
 
@@ -52,12 +53,6 @@ public class IndoorInTheAir extends StdRoom
 	public int domainType()
 	{
 		return Room.DOMAIN_INDOORS_AIR;
-	}
-
-	@Override
-	public int maxRange()
-	{
-		return 5;
 	}
 
 	@Override

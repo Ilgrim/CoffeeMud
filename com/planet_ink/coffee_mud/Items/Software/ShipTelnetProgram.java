@@ -23,7 +23,7 @@ import java.io.*;
 import java.util.*;
 
 /*
- Copyright 2013-2020 Bo Zimmerman
+ Copyright 2013-2025 Bo Zimmerman
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ public class ShipTelnetProgram extends GenShipProgram implements ArchonOnly
 	@Override
 	public String ID()
 	{
-		return "StdShipTelnetProgram";
+		return "ShipTelnetProgram";
 	}
 
 	protected Socket				sock				= null;
@@ -63,18 +63,6 @@ public class ShipTelnetProgram extends GenShipProgram implements ArchonOnly
 	}
 
 	@Override
-	public String getParentMenu()
-	{
-		return "";
-	}
-
-	@Override
-	public String getInternalName()
-	{
-		return "TELNET";
-	}
-
-	@Override
 	public boolean isActivationString(final String word)
 	{
 		return isCommandString(word, false);
@@ -87,8 +75,9 @@ public class ShipTelnetProgram extends GenShipProgram implements ArchonOnly
 	}
 
 	@Override
-	public void onDeactivate(final MOB mob, final String message)
+	protected void onDeactivate(final MOB mob, final String message)
 	{
+		super.onDeactivate(mob, message);
 		shutdown();
 		super.addScreenMessage("Telnet connection closed.");
 	}
@@ -110,7 +99,7 @@ public class ShipTelnetProgram extends GenShipProgram implements ArchonOnly
 	@Override
 	public String getActivationMenu()
 	{
-		return "TELNET [HOST] [PORT]: Telnet Network Software";
+		return "^wTELNET [HOST] [PORT]^N: Telnet Network Software";
 	}
 
 	protected void shutdown()
@@ -153,12 +142,12 @@ public class ShipTelnetProgram extends GenShipProgram implements ArchonOnly
 	}
 
 	@Override
-	public boolean checkActivate(final MOB mob, final String message)
+	protected boolean checkActivate(final MOB mob, final String message)
 	{
 		final List<String> parsed = CMParms.parse(message);
 		if (parsed.size() != 3)
 		{
-			mob.tell(L("Incorrect usage, try: TELNET [HOST] [PORT]"));
+			addScreenMessage(L("Incorrect usage, try: TELNET [HOST] [PORT]"));
 			return false;
 		}
 		try
@@ -177,34 +166,34 @@ public class ShipTelnetProgram extends GenShipProgram implements ArchonOnly
 		}
 		catch (final Exception e)
 		{
-			mob.tell(L("Telnet software failure: @x1", e.getMessage()));
+			addScreenMessage(L("Telnet software failure: @x1", e.getMessage()));
 			return false;
 		}
 	}
 
 	@Override
-	public boolean checkDeactivate(final MOB mob, final String message)
+	protected boolean checkDeactivate(final MOB mob, final String message)
 	{
 		shutdown();
 		return true;
 	}
 
 	@Override
-	public boolean checkTyping(final MOB mob, final String message)
+	protected boolean checkTyping(final MOB mob, final String message)
 	{
 		synchronized (this)
 		{
 			if (sock != null)
 				return true;
 		}
-		mob.tell(L("Software failure."));
+		addScreenMessage(L("Software failure."));
 		super.forceUpMenu();
 		super.forceNewMenuRead();
 		return true;
 	}
 
 	@Override
-	public boolean checkPowerCurrent(final int value)
+	protected boolean checkPowerCurrent(final int value)
 	{
 		nextPowerCycleTmr = System.currentTimeMillis() + (8 * 1000);
 		return true;
@@ -248,7 +237,7 @@ public class ShipTelnetProgram extends GenShipProgram implements ArchonOnly
 	}
 
 	@Override
-	public void onTyping(final MOB mob, final String message)
+	protected void onTyping(final MOB mob, final String message)
 	{
 		synchronized (this)
 		{
@@ -272,8 +261,9 @@ public class ShipTelnetProgram extends GenShipProgram implements ArchonOnly
 	}
 
 	@Override
-	public void onPowerCurrent(final int value)
+	protected void onPowerCurrent(final int value)
 	{
+		super.onPowerCurrent(value);
 		if (value > 0)
 			fillWithData();
 		if ((container() instanceof Computer) && (((Computer) container()).getCurrentReaders().size() == 0))

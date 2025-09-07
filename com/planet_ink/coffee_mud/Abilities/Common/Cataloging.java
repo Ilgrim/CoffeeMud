@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ public class Cataloging extends CommonSkill
 			{
 				final MOB mob=(MOB)affected;
 				if(catalogI==null)
-					commonTell(mob,L("You mess up your cataloging."));
+					commonTelL(mob,"You mess up your cataloging.");
 				else
 				if(found instanceof Item)
 				{
@@ -112,7 +112,7 @@ public class Cataloging extends CommonSkill
 					{
 						buf.append(L("Container: @x1\n\r",item.ultimateContainer(null).name()));
 					}
-					buf.append(L("\n\r"));
+					buf.append(("\n\r"));
 					if(item.description().length()==0)
 						buf.append(L("You don't see anything special about @x1.  ",item.name()));
 					else
@@ -232,18 +232,18 @@ public class Cataloging extends CommonSkill
 		&&(I.material()!=RawMaterial.RESOURCE_HIDE))
 		{
 			if(!quiet)
-				commonTell(mob,L("You can't write in @x1.",I.name(mob)));
+				commonTelL(mob,"You can't write in @x1.",I.name(mob));
 			return false;
 		}
 		if(!CMLib.flags().isReadable(I))
 		{
 			if(!quiet)
-				commonTell(mob,L("@x1 is not even readable!",CMStrings.capitalizeFirstLetter(I.name(mob))));
+				commonTelL(mob,"@x1 is not even readable!",CMStrings.capitalizeFirstLetter(I.name(mob)));
 			return false;
 		}
-		if(I instanceof Recipe)
+		if(I instanceof Recipes)
 		{
-			commonTell(mob,L("@x1 isn't a catalog!",CMStrings.capitalizeAndLower(I.name(mob))));
+			commonTelL(mob,"@x1 isn't a catalog!",CMStrings.capitalizeAndLower(I.name(mob)));
 			return false;
 		}
 		/*
@@ -251,7 +251,7 @@ public class Cataloging extends CommonSkill
 		if((brand==null)||(brand.length()==0))
 		{
 			if(!quiet)
-				commonTell(mob,L("You aren't permitted to add catalog entries to @x1.",I.name(mob)));
+				commonTelL(mob,"You aren't permitted to add catalog entries to @x1.",I.name(mob));
 			return false;
 		}
 		*/
@@ -261,7 +261,7 @@ public class Cataloging extends CommonSkill
 			if(!Titling.getCatalogType(I).equals(Titling.getCatalogEntryType(fullyE)))
 			{
 				if(!quiet)
-					commonTell(mob,L("@x1 is not a proper catalog for @x2!",CMStrings.capitalizeFirstLetter(I.name(mob)),fullyE.name()));
+					commonTelL(mob,"@x1 is not a proper catalog for @x2!",CMStrings.capitalizeFirstLetter(I.name(mob)),fullyE.name());
 			}
 		}
 		return true;
@@ -307,8 +307,8 @@ public class Cataloging extends CommonSkill
 			return true;
 		if(commands.size()<1)
 		{
-			commonTell(mob,L("You must specify what you want to catalog, and, optionally, where to add the entry.  If you do "
-					+ "not specify the catalog, one prepared with the Titling skill will be automatically selected from your inventory."));
+			commonTelL(mob,"You must specify what you want to catalog, and, optionally, where to add the entry.  If you do "
+					+ "not specify the catalog, one prepared with the Titling skill will be automatically selected from your inventory.");
 			return false;
 		}
 		Physical physP=null;
@@ -324,7 +324,7 @@ public class Cataloging extends CommonSkill
 				catalogI=this.findCatalogBook(mob, physP);
 				if(catalogI==null)
 				{
-					commonTell(mob,L("You need to specify a proper catalog for '@x1'.",physP.name(mob)));
+					commonTelL(mob,"You need to specify a proper catalog for '@x1'.",physP.name(mob));
 					return false;
 				}
 			}
@@ -339,7 +339,7 @@ public class Cataloging extends CommonSkill
 				catalogI=this.findCatalogBook(mob, physP);
 				if(catalogI==null)
 				{
-					commonTell(mob,L("You need to specify a proper catalog for '@x1'.",physP.name(mob)));
+					commonTelL(mob,"You need to specify a proper catalog for '@x1'.",physP.name(mob));
 					return false;
 				}
 			}
@@ -367,24 +367,24 @@ public class Cataloging extends CommonSkill
 		}
 		if(physP==null)
 		{
-			commonTell(mob,L("You don't seem to have a '@x1'.",itemName));
+			commonTelL(mob,"You don't seem to have a '@x1'.",itemName);
 			return false;
 		}
 		if(!(physP instanceof Item))
 		{
-			commonTell(mob,L("You can't catalog @x1",physP.name()));
+			commonTelL(mob,"You can't catalog @x1",physP.name());
 			return false;
 		}
 		if(catalogI==null)
 		{
-			commonTell(mob,L("You don't seem to have a proper catalog."));
+			commonTelL(mob,"You don't seem to have a proper catalog.");
 			return false;
 		}
 
 		final Ability writeA=mob.fetchAbility("Skill_Write");
 		if(writeA==null)
 		{
-			commonTell(mob,L("You must know how to write to entitle."));
+			commonTelL(mob,"You must know how to write to entitle.");
 			return false;
 		}
 

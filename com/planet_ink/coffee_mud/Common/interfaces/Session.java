@@ -21,7 +21,7 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketException;
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -574,12 +574,13 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 
 	/**
 	 * Force the current player to logoff, end the session, and/or kill the thread.
+	 * @param disconnect true to notify external systems that player is going offline
 	 * @param removeMOB true to remove the mob from the game
 	 * @param dropSession true to force closed sockets, and removed session
 	 * @param killThread true to force a thread death, and false to be more lenient
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Session#isStopped()
 	 */
-	public void stopSession(boolean removeMOB, boolean dropSession, boolean killThread);
+	public void stopSession(boolean disconnect, boolean removeMOB, boolean dropSession, boolean killThread);
 
 	/**
 	 * Returns whether this session is done, or slated to be done.
@@ -651,11 +652,11 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 
 	/**
 	 * Returns a pre-parsed, pre-filtered list of strings
-	 * representing the last command entered by the user
+	 * representing the last commands entered by the user
 	 * through this session.
-	 * @return a list of strings
+	 * @return a list of strings list commands
 	 */
-	public List<String> getPreviousCMD();
+	public LinkedList<List<String>> getHistory();
 
 	/**
 	 * Returns the player MOB attached to this session object.
@@ -689,6 +690,18 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 	 * @param newcolor the color to change it to
 	 */
 	public void setCurrentColor(final ColorState newcolor);
+
+	/**
+	 * Returns the marked color code.
+	 * @return the marked color code.
+	 */
+	public ColorState popMarkedColor();
+
+	/**
+	 * Sets the marked color code.
+	 * @param newcolor the color to change it to
+	 */
+	public void pushMarkedColor(final ColorState newcolor);
 
 	/**
 	 * Returns the previous current color code.
@@ -732,6 +745,19 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 	 * @param newStatus the tick status
 	 */
 	public void setStatus(SessionStatus newStatus);
+
+	/**
+	 * Whether an MTTS packet was received from the client.
+	 * @return true if the client sent MTTS data
+	 */
+	public boolean isMTTS();
+
+	/**
+	 * Whether the given bit(s) in MTTS were set or cleared.
+	 * @param bitmap the bits to check
+	 * @return true if all the bits are set, false otherwise
+	 */
+	public boolean getMTTS(int bitmap);
 
 	/**
 	 * Returns whether this session is waiting for input
@@ -926,7 +952,7 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Session#changeTelnetMode(int, boolean)
 	 * @param mobbitmap the mobbitmap the bitmap of mob flags to use as a guide in negotiation
 	 */
-	public void initTelnetMode(int mobbitmap);
+	public void initTelnetMode(long mobbitmap);
 
 	/**
 	 * Returns true if the given max tag will be accepted by the client.
@@ -962,10 +988,43 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 	public boolean sendGMCPEvent(final String eventName, final String json);
 
 	/**
+	 * If the mud is connected to a proxy server, this will send the given
+	 * command and json doc to the proxy server.
+	 *
+	 * @param command the command
+	 * @param doc the json doc
+	 * @return true if MPCP was enabled, and the command was sent
+	 */
+	public boolean sendMPCPPacket(final String command, final MiniJSON.JSONObject doc);
+
+	/**
 	 * Send this session fake input as if the user had typed it in.
 	 * @param input text to send.
 	 */
 	public void setFakeInput(String input);
+
+	/**
+	 * Performs some special ping operation.
+	 * @see Session.SessionPing#ROOMLOOK
+	 * @param ping the ping to send
+	 * @param obj null, or whatever the ping might use
+	 */
+	public void doPing(SessionPing ping, Object obj);
+
+	/**
+	 * A type of special operation ping
+	 * for sessions.
+	 * @author Bo Zimmerman
+	 */
+	public static enum SessionPing
+	{
+		ROOMLOOK,
+		GMCP_PING_MED,
+		GMCP_PING_ALL,
+		GMCP_PING_EFFECTS,
+		PLAYERSAVE,
+		DISCONNECT
+	}
 
 	/** TELNET CODE: transmit binary */
 	public static final int TELNET_BINARY=0;
@@ -983,6 +1042,8 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 	public static final int TELNET_TOGGLE_FLOW_CONTROL=33;
 	/** TELNET CODE: Linemode*/
 	public static final int TELNET_LINEMODE=34;
+	/** TELNET CODE: New Environ*/
+	public static final int TELNET_NEWENVIRON=39;
 	/** TELNET CODE: MSDP protocol*/
 	public static final int TELNET_MSDP=69;
 	/** TELNET CODE: MSSP Server Status protocol*/
@@ -1007,6 +1068,8 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 	public static final int TELNET_ATCP=200;
 	/** TELNET CODE: GMCP protocol*/
 	public static final int TELNET_GMCP=201;
+	/** TELNET CODE: MPCP protocol*/
+	public static final int TELNET_MPCP=202;
 	/** TELNET CODE: Indicates that what follows is subnegotiation of the indicated option*/
 	public static final int TELNET_SB=250;
 	/** TELNET CODE: Indicates the desire to begin performing, or confirmation that you are now performing, the indicated option*/
@@ -1015,6 +1078,8 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 	public static final int TELNET_WONT=252;
 	/** TELNET CODE: 252 doubles as fake ansi 16 telnet code*/
 	public static final int TELNET_ANSI16=252;
+	/** TELNET CODE: 254 doubles as fake ansi 256 telnet code*/
+	public static final int TELNET_ANSI256=254;
 	/** TELNET CODE: Indicates the request that the other party perform, or confirmation that you are expecting the other party to perform, the indicated option*/
 	public static final int TELNET_DO=253;
 	/** TELNET CODE: 253 doubles as fake ansi telnet code*/
@@ -1033,7 +1098,7 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 		"BINARY","ECHO","2","SUPRESS GO AHEAD","4","5","6","7","8","9", //0-9
 		"10","11","12","13","14","15","16","17","LOGOUT","19", //10-19
 		"20","21","22","23","TERMTYPE","25","26","27","28","29", //20-29
-		"30","NAWS","32","FLOWCONTROL","LINEMODE","35","36","37","38","39", //30-39
+		"30","NAWS","32","FLOWCONTROL","LINEMODE","35","36","37","38","NEW-ENVIRON", //30-39
 		"40","41","42","43","44","45","46","47","48","49", //40-49
 		"50","51","52","53","54","55","56","57","58","59", //50-59
 		"60","61","62","63","64","65","66","67","68","MSDP", //60-69
@@ -1050,7 +1115,7 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 		"","","","","","","","","","", //170-179
 		"","","","","","","","","","", //180-189
 		"","","","","","","","","","", //190-199
-		"ATCP","GMCP","","","","","","","","", //200-209
+		"ATCP","GMCP","MPCP","","","","","","","", //200-209
 		"","","","","","","","","","", //210-219
 		"","","","","","","","","","", //220-229
 		"","","","","","","","","","", //230-239
@@ -1068,17 +1133,57 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 	/** Go ahead bytes */
 	public final static byte[] TELNETGABYTES		= {(byte)TELNET_IAC,(byte)TELNET_GA};
 
+	/** MTS Protocol constant for ANSI */
+	public final static int	MTTS_ANSI		= 1;
+	/** MTS Protocol constant for VT100 */
+	public final static int	MTTS_VT100		= 2;
+	/** MTS Protocol constant for UTF8 */
+	public final static int	MTTS_UTF8		= 4;
+	/** MTS Protocol constant for 256COLORS */
+	public final static int	MTTS_256COLORS	= 8;
+	/** MTS Protocol constant for MOUSE */
+	public final static int	MTTS_MOUSE		= 16;
+	/** MTS Protocol constant for OSCCOLOR */
+	public final static int	MTTS_OSCCOLOR	= 32;
+	/** MTS Protocol constant for SCREENREAD */
+	public final static int	MTTS_SCREENREAD	= 64;
+	/** MTS Protocol constant for PROXY */
+	public final static int	MTTS_PROXY		= 128;
+	/** MTS Protocol constant for TRUECOLOR */
+	public final static int	MTTS_TRUECOLOR	= 256;
+	/** MTS Protocol constant for MNES */
+	public final static int	MTTS_MNES		= 512;
+	/** MTS Protocol constant for MSLP */
+	public final static int	MTTS_MSLP		= 1024;
+	/** MTS Protocol constant for SSL */
+	public final static int	MTTS_SSL		= 2048;
+
+	/** NEW-ENVIRON CODE: IS*/
+	public static final int NEWENV_IS = 0;
+	/** NEW-ENVIRON CODE: SEND*/
+	public static final int NEWENV_SEND = 1;
+	/** NEW-ENVIRON CODE: INFO*/
+	public static final int NEWENV_INFO = 2;
+	/** NEW-ENVIRON CODE: VAR*/
+	public static final int NEWENV_VAR = 0;
+	/** NEW-ENVIRON CODE: VALUE*/
+	public static final int NEWENV_VALUE = 1;
+	/** NEW-ENVIRON CODE: ESC*/
+	public static final int NEWENV_ESC = 2;
+	/** NEW-ENVIRON CODE: USERVAR*/
+	public static final int NEWENV_USERVAR = 3;
+
 	/**
 	 * The internal class to managing asynchronous user input.
 	 * This class supports three types of input: open text (PROMPT),
 	 * one-letter options (CHOOSE), and Y/N (CONFIRM).
-	 * @author Bo Zimmerman
 	 *
+	 * @author Bo Zimmerman
 	 */
 	public static abstract class InputCallback
 	{
 		/**
-		 * The threa different types of user input processing
+		 * The three different types of user input processing
 		 * supported by the abstract InputCallback class
 		 * @author Bo Zimmerman
 		 *
@@ -1194,6 +1299,7 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 		 * then this will call ShowPrompt and go back to waiting. Otherwise,
 		 * waiting is set to false and it becomes very likely that callBack()
 		 * will be called.
+		 *
 		 * @param input the user input to force
 		 */
 		public void setInput(String input)
@@ -1235,7 +1341,9 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 					}
 					else
 					{
+						waiting=true;
 						showPrompt();
+						return;
 					}
 				}
 				break;
@@ -1246,6 +1354,7 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 		/**
 		 * Returns true if this class is currently waiting
 		 * for user input.
+		 *
 		 * @return true if waiting, false if waiting is over.
 		 */
 		public boolean waitForInput()
@@ -1257,6 +1366,7 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 		 * This method allows reuse of a given InputCallback.
 		 * It will re-start the timeout period, and flag
 		 * the callback for requiring more input.
+		 *
 		 * @return this
 		 */
 		public InputCallback reset()
@@ -1296,6 +1406,13 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 		public abstract void callBack();
 	}
 
+	/**
+	 * An input callback class type that uses its timeout value
+	 * as a tick period, and thus has no true timeout.
+	 *
+	 * @author Bo Zimmerman
+	 *
+	 */
 	public abstract class TickingCallback extends InputCallback
 	{
 		protected volatile int			counter			= 0;
@@ -1303,6 +1420,7 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 
 		/**
 		 * Only constructor is the one to tell out often to call back.
+		 *
 		 * @param tickerMs the time is ms between timeouts
 		 */
 		public TickingCallback(final long tickerMs)
@@ -1394,17 +1512,17 @@ public interface Session extends CMCommon, Modifiable, CMRunnable
 	public static final int TELNET_LINEMODE_SLC_EOR=6;
 
 	/** For MSDP protocol, denotes variable start*/
-	public static final char MSDP_VAR			= 1;
+	public static final byte MSDP_VAR			= 1;
 	/** For MSDP protocol, denotes value start*/
-	public static final char MSDP_VAL			= 2;
+	public static final byte MSDP_VAL			= 2;
 	/** For MSDP protocol, denotes table open*/
-	public static final char MSDP_TABLE_OPEN	= 3;
+	public static final byte MSDP_TABLE_OPEN	= 3;
 	/** For MSDP protocol, denotes table done*/
-	public static final char MSDP_TABLE_CLOSE	= 4;
+	public static final byte MSDP_TABLE_CLOSE	= 4;
 	/** For MSDP protocol, denotes array start*/
-	public static final char MSDP_ARRAY_OPEN	= 5;
+	public static final byte MSDP_ARRAY_OPEN	= 5;
 	/** For MSDP protocol, denotes array done*/
-	public static final char MSDP_ARRAY_CLOSE	= 6;
+	public static final byte MSDP_ARRAY_CLOSE	= 6;
 
 	/**
 	 * The status of the session, from opening handshake, to final goodbyes

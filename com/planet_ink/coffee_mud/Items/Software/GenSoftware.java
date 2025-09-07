@@ -1,5 +1,6 @@
 package com.planet_ink.coffee_mud.Items.Software;
 import com.planet_ink.coffee_mud.Items.Basic.StdItem;
+import com.planet_ink.coffee_mud.Items.BasicTech.GenElecContainer;
 import com.planet_ink.coffee_mud.Items.BasicTech.GenElecItem;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
@@ -25,7 +26,7 @@ import java.net.Socket;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -47,7 +48,10 @@ public class GenSoftware extends StdProgram
 		return "GenSoftware";
 	}
 
-	protected String readableText="";
+	protected String	readableText	= "";
+	protected String	settings		= "";
+	protected String	intName			= null;
+	protected String	parent			= "";
 
 	public GenSoftware()
 	{
@@ -66,7 +70,7 @@ public class GenSoftware extends StdProgram
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this,false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 	}
 
 	@Override
@@ -82,10 +86,22 @@ public class GenSoftware extends StdProgram
 	}
 
 	@Override
+	public String getSettings()
+	{
+		return settings;
+	}
+
+	@Override
+	public void setSettings(final String var)
+	{
+		settings=var;
+	}
+
+	@Override
 	public void setMiscText(final String newText)
 	{
 		miscText="";
-		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this,newText,false);
 		recoverPhyStats();
 	}
 
@@ -94,6 +110,20 @@ public class GenSoftware extends StdProgram
 	{
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			return CMLib.coffeeMaker().getGenItemStat(this,code);
+		else
+		switch(getInternalCodeNum(code))
+		{
+		case 0:
+			return getManufacturerName();
+		case 1:
+			return getSettings();
+		case 2:
+			return getParentMenu();
+		case 3:
+			return getInternalName();
+		default:
+			break;
+		}
 		return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
 	}
 
@@ -102,16 +132,83 @@ public class GenSoftware extends StdProgram
 	{
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			CMLib.coffeeMaker().setGenItemStat(this,code,val);
+		else
+		switch(getInternalCodeNum(code))
+		{
+		case 0:
+			setManufacturerName(val);
+			break;
+		case 1:
+			setSettings(val);
+			break;
+		case 2:
+			setParentMenu(val);
+			break;
+		case 3:
+			setInternalName(val);
+			break;
+		default:
+			break;
+		}
 		CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);
 	}
 
+	@Override
+	public String getParentMenu()
+	{
+		return parent;
+	}
+
+	@Override
+	public void setParentMenu(final String name)
+	{
+		if(name != null)
+			parent=name;
+	}
+
+	@Override
+	public String getInternalName()
+	{
+		if(intName==null)
+			return "";
+		return intName;
+	}
+
+	@Override
+	public void setInternalName(final String name)
+	{
+		if(name != null)
+			this.intName=name;
+	}
+
+
+	private final static String[] MYCODES={"MANUFACTURER", "SETTINGS", "PMENU", "MNAME"};
+
 	private static String[] codes=null;
+
+	private int getInternalCodeNum(final String code)
+	{
+		for(int i=0;i<MYCODES.length;i++)
+		{
+			if(code.equalsIgnoreCase(MYCODES[i]))
+				return i;
+		}
+		return -1;
+	}
 
 	@Override
 	public String[] getStatCodes()
 	{
-		if(codes==null)
-			codes=CMProps.getStatCodesList(CMParms.toStringArray(GenericBuilder.GenItemCode.values()),this);
+		if(codes!=null)
+			return codes;
+		final String[] MYCODES=CMProps.getStatCodesList(GenSoftware.MYCODES,this);
+		final String[] superCodes=CMParms.toStringArray(GenericBuilder.GenItemCode.values());
+		codes=new String[superCodes.length+MYCODES.length];
+		int i=0;
+		for(;i<superCodes.length;i++)
+			codes[i]=superCodes[i];
+		for(int x=0;x<MYCODES.length;i++,x++)
+			codes[i]=MYCODES[x];
 		return codes;
 	}
 

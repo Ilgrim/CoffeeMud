@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -120,10 +120,10 @@ public class ROMPatrolman extends StdBehavior
 				if((inhab!=null)
 				&&(inhab.isInCombat())
 				&&(inhab.getVictim().isInCombat())
-				&&((observer.phyStats().level()>(inhab.phyStats().level()+5))
+				&&((observer.phyStats().level()>(inhab.phyStats().level()+CMProps.getIntVar(CMProps.Int.EXPRATE)))
 				&&(!CMLib.flags().isEvil(observer))))
 				{
-					final String msg="<S-NAME> stop(s) <T-NAME> from fighting with "+inhab.getVictim().name();
+					final String msg=CMLib.lang().L("<S-NAME> stop(s) <T-NAME> from fighting with @x1.",inhab.getVictim().name());
 					final CMMsg msgs=CMClass.getMsg(observer,inhab,CMMsg.MSG_NOISYMOVEMENT,msg);
 					if(observer.location().okMessage(observer,msgs))
 					{

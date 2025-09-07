@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -82,12 +82,19 @@ public class Spell_StinkingCloud extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags()|Ability.FLAG_AIRBASED;
+	}
+
+	@Override
 	public int classificationCode()
 	{
 		return Ability.ACODE_SPELL | Ability.DOMAIN_EVOCATION;
 	}
 
 	Room	castingRoom	= null;
+	Ability	nauseaDiseaseA = null;
 
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
@@ -104,13 +111,22 @@ public class Spell_StinkingCloud extends Spell
 			&&(M.location()!=null)
 			&&(CMLib.flags().canSmell(M)))
 			{
-				final int damage= (M.phyStats().level()/10) + super.getXLEVELLevel(invoker);
+				if(nauseaDiseaseA == null)
+					nauseaDiseaseA = CMClass.getAbility("Disease_Nausea");
+				final int damage= (M.phyStats().level()/10) + super.getXLEVELLevel(invoker) + super.getX1Level(invoker);
 				if((M.curState().getHunger()<=0))
 					CMLib.combat().postDamage(invoker,M,this,damage,CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS|CMMsg.TYP_GAS,-1,L("<T-NAME> heave(s) in the stinking cloud."));
 				else
 				{
 					CMLib.combat().postDamage(invoker,M,this,damage,CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS|CMMsg.TYP_GAS,-1,L("<T-NAME> heave(s) all over the place!"));
 					M.curState().adjHunger(-500,M.maxState().maxHunger(M.baseWeight()));
+				}
+				if(nauseaDiseaseA != null)
+				{
+					nauseaDiseaseA.setAbilityCode(1);
+					nauseaDiseaseA.setInvoker(invoker);
+					nauseaDiseaseA.setAffectedOne(M);
+					nauseaDiseaseA.tick(M, Tickable.TICKID_MOB);
 				}
 				CMLib.combat().postRevengeAttack(M, invoker);
 			}
@@ -207,14 +223,14 @@ public class Spell_StinkingCloud extends Spell
 
 		if(success)
 		{
-			if(mob.location().show(mob,null,this,somanticCastCode(mob,null,auto),auto?"":
+			if(mob.location().show(mob,null,this,somaticCastCode(mob,null,auto),auto?"":
 				L("^S<S-NAME> incant(s) and wave(s) <S-HIS-HER> arms around.  A horrendous cloud of green and orange gas appears!^?")))
 			{
 				for (final Object element : h)
 				{
 					final MOB target=(MOB)element;
 
-					final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),null);
+					final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),null);
 					final CMMsg msg2=CMClass.getMsg(mob,target,this,CMMsg.MSK_CAST_MALICIOUS_SOMANTIC|CMMsg.TYP_GAS|(auto?CMMsg.MASK_ALWAYS:0),null);
 					if((mob.location().okMessage(mob,msg))
 					   &&(mob.location().okMessage(mob,msg2))

@@ -12,6 +12,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.JournalsLibrary.CommandJournal;
 import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary;
 import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary.CompiledZMask;
 import com.planet_ink.coffee_mud.Libraries.interfaces.PlayerLibrary;
@@ -24,7 +25,7 @@ import java.net.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -67,6 +68,9 @@ public class CMSecurity
 	public static final int JSCRIPT__NO_APPROVAL = 0;
 	public static final int JSCRIPT_REQ_APPROVAL = 1;
 	public static final int JSCRIPT_ALL_APPROVAL = 2;
+
+	public static final long CONN_LAST_DELAY_MS	 = (5*60*1000);
+	public static final long CONN_MAX_PER_ADDR	 = 6;
 
 	protected static final String[] emptyStrArray= new String[0];
 
@@ -193,7 +197,12 @@ public class CMSecurity
 	public static final void setSysOp(String zapCheck)
 	{
 		if((zapCheck==null)||(zapCheck.trim().length()==0))
-			zapCheck="-ANYCLASS +Archon";
+		{
+			if(CMClass.getCharClass("Archon")!=null)
+				zapCheck="-ANYCLASS +Archon";
+			else
+				zapCheck="-LEVEL +>30";
+		}
 		instance().compiledSysop=CMLib.masking().maskCompile(zapCheck);
 	}
 
@@ -213,6 +222,40 @@ public class CMSecurity
 	public static final void clearGroups()
 	{
 		instance().groups.clear();
+	}
+
+
+	/**
+	 * Clear this security class
+	 */
+	public final void unload()
+	{
+		disVars.clear();
+		cmdDisVars.clear();
+		racDisVars.clear();
+		clsDisVars.clear();
+		facDisVars.clear();
+		ablDisVars.clear();
+		expDisVars.clear();
+		dbgVars.clear();
+		saveFlags.clear();
+		journalFlags.clear();
+		racEnaVars.clear();
+		clsEnaVars.clear();
+		compiledSysop= null;
+		groups.clear();
+	}
+
+	/**
+	 * Unload all security classes
+	 */
+	public static final void unloadAll()
+	{
+		for(final CMSecurity sec : secs)
+		{
+			if(sec != null)
+				sec.unload();
+		}
 	}
 
 	/**
@@ -343,7 +386,19 @@ public class CMSecurity
 				newFlags.add((SecFlag)o);
 			else
 			if(o instanceof String)
+			{
 				newJFlags.add((String)o);
+				final CommandJournal J = CMLib.journals().getCommandJournal((String)o);
+				if(J!=null)
+				{
+					if(!J.JOURNAL_NAME().equals(o))
+						newJFlags.add(J.JOURNAL_NAME());
+					if(!J.NAME().equals(o))
+						newJFlags.add(J.NAME());
+					if(!(J.NAME()+"S").equalsIgnoreCase((String)o))
+						newJFlags.add(J.NAME()+"S");
+				}
+			}
 			else
 				Log.errOut("CMSecurity","Unparsed security flag: "+s+" in group "+name);
 		}
@@ -424,8 +479,8 @@ public class CMSecurity
 			}
 			else
 			{
-				instance().compiledSysop=maskLib.maskCompile("-ANYCLASS +Archon");
 				Log.errOut("Compiled Archon Mask was not set! Using core default.");
+				setSysOp(null);
 			}
 			return isASysOp(mob);
 		}
@@ -471,8 +526,8 @@ public class CMSecurity
 			}
 			else
 			{
-				instance().compiledSysop=CMLib.masking().maskCompile("-ANYCLASS +Archon");
 				Log.errOut("Compiled Archon Mask was not set! Using core default.");
+				setSysOp(null);
 			}
 			return isASysOp(mob);
 		}
@@ -480,6 +535,7 @@ public class CMSecurity
 				||((mob!=null)
 					&&(mob.soulMate()!=null)
 					&&(mob.soulMate().isAttributeSet(MOB.Attrib.SYSOPMSGS))
+					&&(mob.soulMate()!=mob)
 					&&(isASysOp(mob.soulMate())));
 	}
 
@@ -519,7 +575,7 @@ public class CMSecurity
 			else
 			{
 				Log.errOut("Compiled Archon Mask was not set! Setting default.");
-				instance().compiledSysop=CMLib.masking().maskCompile("-ANYCLASS +Archon");
+				setSysOp(null);
 			}
 			return isASysOp(mob);
 		}
@@ -963,7 +1019,7 @@ public class CMSecurity
 	{
 		if(CMProps.getIntVar(CMProps.Int.JSCRIPTS)!=JSCRIPT_REQ_APPROVAL)
 			return;
-		final Map<Long,String> approved=CMSecurity.getApprovedJScriptTable();
+		final Map<Long,String> approved=getApprovedJScriptTable();
 		if(approved.containsKey(Long.valueOf(hashCode)))
 			approved.remove(Long.valueOf(hashCode));
 		approved.put(Long.valueOf(hashCode),approver);
@@ -1013,11 +1069,11 @@ public class CMSecurity
 	 */
 	public static final boolean isApprovedJScript(final StringBuffer script)
 	{
-		if(CMProps.getIntVar(CMProps.Int.JSCRIPTS)==CMSecurity.JSCRIPT_ALL_APPROVAL)
+		if(CMProps.getIntVar(CMProps.Int.JSCRIPTS)==JSCRIPT_ALL_APPROVAL)
 			return true;
-		if(CMProps.getIntVar(CMProps.Int.JSCRIPTS)==CMSecurity.JSCRIPT__NO_APPROVAL)
+		if(CMProps.getIntVar(CMProps.Int.JSCRIPTS)==JSCRIPT__NO_APPROVAL)
 			return false;
-		final Map<Long,String> approved=CMSecurity.getApprovedJScriptTable();
+		final Map<Long,String> approved=getApprovedJScriptTable();
 		final Long hashCode=Long.valueOf(script.toString().hashCode());
 		final String approver=approved.get(hashCode);
 		if(approver==null)
@@ -1101,7 +1157,7 @@ public class CMSecurity
 	public static final boolean setDebugVar(final String anyFlag)
 	{
 		final String flag = anyFlag.toUpperCase().trim();
-		final DbgFlag dbgFlag = (DbgFlag)CMath.s_valueOf(CMSecurity.DbgFlag.values(), flag);
+		final DbgFlag dbgFlag = (DbgFlag)CMath.s_valueOf(DbgFlag.values(), flag);
 		if(dbgFlag!=null)
 			return setDebugVar(dbgFlag);
 		return false;
@@ -1116,7 +1172,7 @@ public class CMSecurity
 	public static final boolean removeDebugVar(final String anyFlag)
 	{
 		final String flag = anyFlag.toUpperCase().trim();
-		final DbgFlag dbgFlag = (DbgFlag)CMath.s_valueOf(CMSecurity.DbgFlag.values(), flag);
+		final DbgFlag dbgFlag = (DbgFlag)CMath.s_valueOf(DbgFlag.values(), flag);
 		if(dbgFlag!=null)
 			return removeDebugVar(dbgFlag);
 		return false;
@@ -1267,7 +1323,7 @@ public class CMSecurity
 		{
 			/*
 			String flag = anyFlag.toUpperCase().trim();
-			final DisFlag disFlag = (DisFlag)CMath.s_valueOf(CMSecurity.DisFlag.values(), flag);
+			final DisFlag disFlag = (DisFlag)CMath.s_valueOf(DisFlag.values(), flag);
 			if(disFlag!=null)
 			{
 				removeDisableVar(disFlag);
@@ -1297,7 +1353,7 @@ public class CMSecurity
 		{
 			/*
 			String flag = anyFlag.toUpperCase().trim();
-			final DisFlag disFlag = (DisFlag)CMath.s_valueOf(CMSecurity.DisFlag.values(), flag);
+			final DisFlag disFlag = (DisFlag)CMath.s_valueOf(DisFlag.values(), flag);
 			if(disFlag!=null)
 			{
 				return setDisableVar(disFlag);
@@ -1310,14 +1366,15 @@ public class CMSecurity
 			if(flagList.size()>0)
 			{
 				final String flag = getFinalSpecialXableFlagName(flagList.get(0));
-				if(!set.containsKey(flag))
+				if((!set.containsKey(flag))
+				||(CMClass.getCharClass(flag)!=null))
 				{
 					flagList.remove(0);
 					set.put(flag,flagList.toArray(new String[0]));
 					return true;
 				}
 				else
-				if(CMProps.getBoolVar(Bool.MUDSTARTED))
+				if(CMProps.isState(CMProps.HostState.RUNNING))
 					return true;
 			}
 		}
@@ -1338,7 +1395,7 @@ public class CMSecurity
 		{
 			/*
 			String flag = anyFlag.toUpperCase().trim();
-			final DisFlag disFlag = (DisFlag)CMath.s_valueOf(CMSecurity.DisFlag.values(), flag);
+			final DisFlag disFlag = (DisFlag)CMath.s_valueOf(DisFlag.values(), flag);
 			if(disFlag!=null)
 			{
 				return isDisabled(disFlag);
@@ -1527,7 +1584,7 @@ public class CMSecurity
 		if(set == null)
 		{
 			final String flag = anyFlag.toUpperCase().trim();
-			final DisFlag disFlag = (DisFlag)CMath.s_valueOf(CMSecurity.DisFlag.values(), flag);
+			final DisFlag disFlag = (DisFlag)CMath.s_valueOf(DisFlag.values(), flag);
 			if(disFlag!=null)
 			{
 				return isDisabled(disFlag);
@@ -1556,6 +1613,11 @@ public class CMSecurity
 		final List<String> V=CMParms.parseCommas(commaDelimFlagList.toUpperCase(),true);
 		final CMSecurity inst=instance();
 		inst.disVars.clear();
+		inst.expDisVars.clear();
+		inst.cmdDisVars.clear();
+		inst.racDisVars.clear();
+		inst.clsDisVars.clear();
+		inst.facDisVars.clear();
 		for(final String var : V)
 		{
 			if(!setAnyDisableVar(var))
@@ -1647,7 +1709,7 @@ public class CMSecurity
 		if(set == null)
 		{
 			final String flag = anyFlag.toUpperCase().trim();
-			final DisFlag disFlag = (DisFlag)CMath.s_valueOf(CMSecurity.DisFlag.values(), flag);
+			final DisFlag disFlag = (DisFlag)CMath.s_valueOf(DisFlag.values(), flag);
 			if(disFlag!=null)
 			{
 				removeDisableVar(disFlag);
@@ -1677,7 +1739,7 @@ public class CMSecurity
 		if(set == null)
 		{
 			final String flag = anyFlag.toUpperCase().trim();
-			final DisFlag disFlag = (DisFlag)CMath.s_valueOf(CMSecurity.DisFlag.values(), flag);
+			final DisFlag disFlag = (DisFlag)CMath.s_valueOf(DisFlag.values(), flag);
 			if(disFlag!=null)
 			{
 				return setDisableVar(disFlag);
@@ -1848,7 +1910,7 @@ public class CMSecurity
 		inst.saveFlags.clear();
 		for(final String flag : flagsList)
 		{
-			final SaveFlag flagObj = (SaveFlag)CMath.s_valueOf(CMSecurity.SaveFlag.class, flag);
+			final SaveFlag flagObj = (SaveFlag)CMath.s_valueOf(SaveFlag.class, flag);
 			if(flagObj != null)
 			{
 				inst.saveFlags.add(flagObj);
@@ -1934,7 +1996,7 @@ public class CMSecurity
 	 */
 	public static boolean isIPBlocked(final String ipAddress)
 	{
-		final LongSet group = CMSecurity.getIPBlocks();
+		final LongSet group = getIPBlocks();
 		final boolean chk = ((group != null) && (group.contains(makeIPNumFromInetAddress(ipAddress))));
 		/*
 		 if(chk && isDebugging(DbgFlag.TEMPMISC))
@@ -2113,6 +2175,161 @@ public class CMSecurity
 	}
 
 	/**
+	 * When an external connection occurs, this is the resulting
+	 * state from examining the incoming ip address against the
+	 * various security checks.
+	 *
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public static enum ConnectState
+	{
+		NORMAL,
+		BANNED,
+		BLOCKED;
+	}
+
+	/**
+	 * Returns the String version of the socket ip address,
+	 * or the word 'unknown'.
+	 *
+	 * @param sock the socket to get the address from
+	 * @return the word 'unknown' or the socket address
+	 */
+	public static final String getSocketAddress(final Socket sock)
+	{
+		String address="unknown";
+		try
+		{
+			address=sock.getInetAddress().getHostAddress().trim();
+		}
+		catch(final Exception e)
+		{
+		}
+		return address;
+	}
+
+	/**
+	 * Returns the Resource-global list of ip address statistics.
+	 * @return the Resource-global list of ip address statistics.
+	 */
+	private static final List<Triad<String,Long,Integer>> getIPAccessList()
+	{
+		@SuppressWarnings("unchecked")
+		List<Triad<String,Long,Integer>> accessed= (LinkedList<Triad<String,Long,Integer>>)Resources.staticInstance()._getResource("SYSTEM_IPACCESS_STATS");
+		if(accessed == null)
+		{
+			accessed= new LinkedList<Triad<String,Long,Integer>>();
+			Resources.staticInstance()._submitResource("SYSTEM_IPACCESS_STATS",accessed);
+		}
+		return accessed;
+	}
+
+	/**
+	 * If the given socket appears on the temporary ip block list,
+	 * then this will remove the entry.
+	 * @param sock the socket to prevent blockage for
+	 */
+	public static final void clearConnectState(final Socket sock)
+	{
+		final String address=getSocketAddress(sock);
+		if(!isDisabled(DisFlag.CONNSPAMBLOCK))
+		{
+			if(!CMProps.isOnWhiteList(CMProps.WhiteList.IPSCONN, address))
+			{
+				final List<Triad<String,Long,Integer>> accessed= getIPAccessList();
+				synchronized(accessed)
+				{
+					for(final Iterator<Triad<String,Long,Integer>> i=accessed.iterator();i.hasNext();)
+					{
+						final Triad<String,Long,Integer> triad=i.next();
+						if((triad.second.longValue()+CONN_LAST_DELAY_MS)<System.currentTimeMillis())
+							i.remove();
+						else
+						if(triad.first.equalsIgnoreCase(address))
+							i.remove();
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Checks the ban list, ip block whitelist, temporary block list, and black list for the
+	 * given ip address in the given socket, and returns the appropriate state.  This will
+	 * bump the number of connections within a period, so it should be carefully used.
+	 *
+	 * @see CMSecurity.ConnectState
+	 *
+	 * @param sock the socket to check and bump
+	 * @param numAtAddress null, or a 1 dimensional array to return the number of recent conns
+	 * @return the connect state
+	 */
+	public static final ConnectState getConnectState(final Socket sock, final int[] numAtAddress)
+	{
+		final String address=getSocketAddress(sock);
+		ConnectState proceed=ConnectState.NORMAL;
+		if(isBanned(address))
+			proceed=ConnectState.BANNED;
+		int numAtThisAddress=0;
+		boolean anyAtThisAddress=false;
+		if(!isDisabled(DisFlag.CONNSPAMBLOCK))
+		{
+			if(!CMProps.isOnWhiteList(CMProps.WhiteList.IPSCONN, address))
+			{
+				if(isIPBlocked(address))
+					proceed = ConnectState.BANNED;
+				else
+				{
+					final List<Triad<String,Long,Integer>> accessed= getIPAccessList();
+					synchronized(accessed)
+					{
+						for(final Iterator<Triad<String,Long,Integer>> i=accessed.iterator();i.hasNext();)
+						{
+							final Triad<String,Long,Integer> triad=i.next();
+							if((triad.second.longValue()+CONN_LAST_DELAY_MS)<System.currentTimeMillis())
+								i.remove();
+							else
+							if(triad.first.equalsIgnoreCase(address))
+							{
+								anyAtThisAddress=true;
+								triad.second=Long.valueOf(System.currentTimeMillis());
+								numAtThisAddress=triad.third.intValue()+1;
+								triad.third=Integer.valueOf(numAtThisAddress);
+							}
+						}
+						if(!anyAtThisAddress)
+							accessed.add(new Triad<String,Long,Integer>(address.trim(),Long.valueOf(System.currentTimeMillis()),Integer.valueOf(1)));
+					}
+				}
+				@SuppressWarnings("unchecked")
+				Set<String> autoblocked= (Set<String>)Resources.staticInstance()._getResource("SYSTEM_IPACCESS_AUTOBLOCK");
+				if(autoblocked == null)
+				{
+					autoblocked= new TreeSet<String>();
+					Resources.staticInstance()._submitResource("SYSTEM_IPACCESS_AUTOBLOCK",autoblocked);
+				}
+				if(autoblocked.contains(address.toUpperCase()))
+				{
+					if(!anyAtThisAddress)
+						autoblocked.remove(address.toUpperCase());
+					else
+						proceed=ConnectState.BLOCKED;
+				}
+				else
+				if(numAtThisAddress>=CONN_MAX_PER_ADDR)
+				{
+					autoblocked.add(address.toUpperCase());
+					proceed=ConnectState.BLOCKED;
+				}
+			}
+		}
+		if((numAtAddress != null)&&(numAtAddress.length>0))
+			numAtAddress[0] = numAtThisAddress;
+		return proceed;
+	}
+
+	/**
 	 * This enum represents all of the base security flags in the system.  Each flag
 	 * represents a command, feature, or subsystem that normal players may not normally
 	 * have access to, which is why these flags exist to grant it.  Many flags also
@@ -2126,7 +2343,7 @@ public class CMSecurity
 		ABILITIES, ABOVELAW, AFTER, AHELP, ALLSKILLS, ANNOUNCE, AS, ASYNC, AT, BAN,
 		BEACON, BOOT, CARRYALL, CATALOG, CHARGEN, CLOAK, CMD, CMDABILITIES,
 		CMDAREAS, CMDCLANS, CMDCLASSES, CMDEXITS, CMDFACTIONS, CMDITEMS,
-		CMDMOBS, CMDPLAYERS, CMDQUESTS, CMDRACES, CMDRECIPES, CMDROOMS,
+		CMDMOBS, CMDPLAYERS, CMDQUESTS, CMDRACES, CMDRECIPES, CMDROOMS, CMDCOMMANDS,
 		CMDSOCIALS, COMPONENTS, COPY, COPYITEMS, COPYMOBS, COPYROOMS,
 		DUMPFILE, EXPERTISE, EXPERTISES, EXPORT, EXPORTFILE, EXPORTPLAYERS,
 		GMODIFY, GOTO, I3, IDLEOK, IMC2, IMMORT, IMPORT, IMPORTITEMS, IMPORTMOBS,
@@ -2135,7 +2352,7 @@ public class CMSecurity
 		PAUSE, PKILL, POLLS, POSSESS, PURGE, RESET, RESETUTILS, RESTRING,
 		SESSIONS, SHUTDOWN, SNOOP, STAT, SUPERSKILL, SYSMSGS, TICKTOCK, TITLES,
 		TRAILTO, TRANSFER, WHERE, WIZEMOTE, WIZINV, MISC, CMDDATABASE, EVERY,
-		ACHIEVEMENTS,
+		ACHIEVEMENTS, PLANES, CMDHELP, CMDCRON, AUTOAWARDS, GRAPEVINE,
 
 		AREA_ABILITIES, AREA_ABOVELAW, AREA_AFTER, AREA_AHELP, AREA_ALLSKILLS,
 		AREA_ANNOUNCE, AREA_AS, AREA_ASYNC, AREA_AT, AREA_BAN, AREA_BEACON, AREA_BOOT,
@@ -2333,6 +2550,8 @@ public class CMSecurity
 		 */
 		public boolean containsJournal(final String journalFlag)
 		{
+			if(journalFlag.equals("*"))
+				return jFlags.size()>0;
 			if(jFlags.contains(journalFlag))
 				return true;
 			for(final SecGroup group : groups)
@@ -2676,8 +2895,9 @@ public class CMSecurity
 		IMPORT("area importing"),
 		PLAYERSTATS("player stat loading"),
 		CLANS("clan maint"),
-		BINOUT("binary telnet input"),
-		BININ("binary telnet output"),
+		BINOUT("binary telnet output"),
+		STROUT("string telnet output"),
+		BININ("binary telnet intput"),
 		BOOTSTRAPPER("Bootstrapper"),
 		CLANMEMBERS("Clan Membership"),
 		INPUT("All user input"),
@@ -2687,7 +2907,18 @@ public class CMSecurity
 		GMCP("GMCP Protocol"),
 		ELECTRICTHREAD("Electric currents"),
 		SCRIPTVARS("MOBPROG Script vars"),
-		SCRIPTTRACE("MOBPROG Script traving")
+		SCRIPTTRACE("MOBPROG Script traving"),
+		TOPTHREAD("Top report thread"),
+		SIEGECOMBAT("sailing ship fights"),
+		QUESTSCRIPTS("quest script parsing"),
+		SPACEMOVES("space object movement"),
+		RITUALS("rituals and services"),
+		CRONTRACE("cron job tracing"),
+		CALENDAR("calendar event tracing"),
+		TROPHIES("clan trophy logic tracing"),
+		PROPTAXES("property tax changes"),
+		RANDOMQUESTS("random quests generated"),
+		AUTOAWARDS("auto-awards system"),
 		;
 		private final String desc;
 
@@ -2740,6 +2971,7 @@ public class CMSecurity
 		WEATHER("area weather"),
 		WEATHERCHANGES("weather changes"),
 		WEATHERNOTIFIES("notification of weather changes"),
+		TODNOTIFIES("notification of time of day changes"),
 		QUESTS("quest system"),
 		SCRIPTABLEDELAY("script event delay"),
 		SCRIPTING("MOBPROG scripting"),
@@ -2800,7 +3032,25 @@ public class CMSecurity
 		COMBATSTATS("player combat stats"),
 		MQLCACHE("parsed mql cache"),
 		ITEMGENCACHE("generated item cache"),
-		AUTOMOODS("automatic mood changes")
+		AUTOMOODS("automatic mood changes"),
+		DEATHCRY("player purge death cry"),
+		DIS955RULE("no 5% failure chance"),
+		ITEMREJUV("item rejuv"),
+		RANDOMQUESTS("random quests"),
+		BADEXITS("unlinked exits"),
+		SPACETHREAD("space thread"),
+		CRONJOBS("cron jobs"),
+		AUTOAWARDS("auto-awards system"),
+		NPCAUTOAWARDS("auto-awards system for npcs"),
+		FATIGUE("fatigue system"),
+		UNLEVELXP("unleveling from xp"),
+		UNLEVEL("unleveling at all"),
+		CHARCRSTAT("stat choices in char creation"),
+		CHARCRRACE("race picking in char creation"),
+		CHARCRCLASS("class picking in char creation"),
+		CHARCRGENDER("gender picking in char creation"),
+		FULLSTATS("full stat selection in STAT command"),
+		GRAPEVINE("grapevine intermud service")
 		;
 		private final String desc;
 

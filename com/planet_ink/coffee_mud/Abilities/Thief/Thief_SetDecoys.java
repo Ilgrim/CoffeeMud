@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -181,7 +181,7 @@ public class Thief_SetDecoys extends ThiefSkill implements Trap
 		if((!invoker().mayIFight(mob))||(!mob.isInCombat())||(CMLib.dice().rollPercentage()<mob.charStats().getSave(CharStats.STAT_SAVE_TRAPS)-(getXLEVELLevel(invoker())*5)))
 			R.show(mob,affected,this,CMMsg.MSG_OK_ACTION,L("A decoy pops up, prompting <S-NAME> to glance toward(s) it, but <S-HE-SHE> <S-IS-ARE> not fooled."));
 		else
-		if(R.show(mob,null,this,CMMsg.MSG_OK_VISUAL,L("A decoy pops up, confusing <S-NAME>!")))
+		if(R.show(mob,null,this,CMMsg.MSG_OK_VISUAL,L("A decoy pops up, causing <S-NAME> to be distracted by it!")))
 		{
 			int max=R.maxRange();
 			final int level=getXLEVELLevel(invoker())+2;

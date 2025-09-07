@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -187,7 +187,7 @@ public class Thief_Squatting extends ThiefSkill
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already squatting."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already squatting."));
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
@@ -214,10 +214,10 @@ public class Thief_Squatting extends ThiefSkill
 		MOB warnMOB=null;
 		if((T.getOwnerName().length()>0)&&(!T.getOwnerName().startsWith("#")))
 		{
-			final Clan C=CMLib.clans().getClanExact(T.getOwnerName());
+			final Clan C=CMLib.clans().fetchClanAnyHost(T.getOwnerName());
 			if(C==null)
 			{
-				final MOB M=CMLib.players().getLoadPlayer(T.getOwnerName());
+				final MOB M=CMLib.players().getLoadPlayerAllHosts(T.getOwnerName());
 				if(M!=null)
 					warnMOB=M;
 			}
@@ -254,13 +254,13 @@ public class Thief_Squatting extends ThiefSkill
 			return false;
 		}
 
+		final CMMsg buyMsg = CMClass.getMsg(mob,warnMOB==null?mob:warnMOB,T,CMMsg.MSG_BUY,CMMsg.MSG_BUY,CMMsg.MSG_BUY,"");
 		final boolean success=proficiencyCheck(mob,0,auto);
-
 		final CMMsg msg=CMClass.getMsg(mob,null,this,auto?CMMsg.MASK_ALWAYS:CMMsg.MSG_DELICATE_SMALL_HANDS_ACT,CMMsg.MSG_DELICATE_SMALL_HANDS_ACT,CMMsg.MSG_DELICATE_SMALL_HANDS_ACT,auto?"":L("<S-NAME> start(s) squatting."));
 		if(!success)
 			return beneficialVisualFizzle(mob,null,auto?"":L("<S-NAME> can't seem to get comfortable here."));
 		else
-		if(mob.location().okMessage(mob,msg))
+		if(mob.location().okMessage(mob,msg) && mob.okMessage(mob, buyMsg))
 		{
 			mob.location().send(mob,msg);
 			failed=false;

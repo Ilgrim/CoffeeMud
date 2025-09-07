@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -72,16 +72,16 @@ public class MoneyChanger extends StdBehavior
 		if(rates.containsKey(currency))
 			return rates;
 		String myCurrency=CMLib.beanCounter().getCurrency(affecting);
-		if(myCurrency.equalsIgnoreCase(currency))
+		if(CMLib.beanCounter().isCurrencyMatch(myCurrency,currency))
 		{
 			rates.put(currency, Double.valueOf(cut));
 			return rates;
 		}
-		final SpaceObject homeO=CMLib.map().getSpaceObject(affecting, false);
+		final SpaceObject homeO=CMLib.space().getSpaceObject(affecting, false);
 		if(homeO!=null)
 		{
 			myCurrency=CMLib.beanCounter().getCurrency(homeO);
-			if(myCurrency.equalsIgnoreCase(currency))
+			if(CMLib.beanCounter().isCurrencyMatch(myCurrency,currency))
 			{
 				rates.put(currency, Double.valueOf(cut));
 				return rates;
@@ -97,16 +97,16 @@ public class MoneyChanger extends StdBehavior
 			}
 			return rates;
 		}
-		for(final Enumeration<Area> a=CMLib.map().spaceAreas();a.hasMoreElements();)
+		for(final Enumeration<Area> a=CMLib.space().spaceAreas();a.hasMoreElements();)
 		{
 			final Area A=a.nextElement();
 			if((A!=null)&&(A!=homeO))
 			{
 				myCurrency=CMLib.beanCounter().getCurrency(A);
-				if(myCurrency.equalsIgnoreCase(currency))
+				if(CMLib.beanCounter().isCurrencyMatch(myCurrency,currency))
 				{
 					final SpaceObject oA=(SpaceObject)A;
-					final long distance=CMLib.map().getDistanceFrom(homeO, oA);
+					final long distance=CMLib.space().getDistanceFrom(homeO, oA);
 					if((distance<0)||(distance>spaceMaxDistance))
 					{
 						rates.put(currency, Double.valueOf(spaceMaxCut));
@@ -129,6 +129,9 @@ public class MoneyChanger extends StdBehavior
 
 	protected boolean doIExchangeThisCurrency(final Environmental affecting, final String currency)
 	{
+		final MoneyLibrary.MoneyDefinition def=CMLib.beanCounter().getCurrencySet(currency);
+		if((def != null)&&(!def.canTrade()))
+			return false;
 		final Map<String,Double> rates=getRatesFor(affecting, currency);
 		return ((rates.size()==0)||(rates.containsKey(currency.toUpperCase())));
 	}
@@ -224,6 +227,12 @@ public class MoneyChanger extends StdBehavior
 			if(!doIExchangeThisCurrency(host,((Coins)msg.tool()).getCurrency()))
 			{
 				CMLib.commands().postSay(observer,source,L("I'm sorry, I don't accept that kind of currency."),true,false);
+				return false;
+			}
+			final MoneyLibrary.MoneyDefinition targetCurrencyDef=CMLib.beanCounter().getCurrencySet(CMLib.beanCounter().getCurrency(observer));
+			if((targetCurrencyDef != null)&&(!targetCurrencyDef.canTrade()))
+			{
+				CMLib.commands().postSay(observer,source,L("I'm sorry, I can't convert into @x1.",CMStrings.capitalizeAndLower(targetCurrencyDef.ID())),true,false);
 				return false;
 			}
 			double value=((Coins)msg.tool()).getTotalValue();

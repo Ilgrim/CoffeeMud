@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -114,7 +114,7 @@ public class Fighter_Whomp extends FighterSkill implements HealthCondition
 		{
 			if((msg.sourceMajor(CMMsg.MASK_EYES))
 			||(msg.sourceMajor(CMMsg.MASK_HANDS))
-			||(msg.sourceMajor(CMMsg.MASK_MOUTH))
+			||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_MOUTH)&&CMath.bset(msg.sourceMajor(),CMMsg.MASK_SOUND))
 			||(msg.sourceMajor(CMMsg.MASK_MOVE)))
 			{
 				if(msg.sourceMessage()!=null)
@@ -134,6 +134,17 @@ public class Fighter_Whomp extends FighterSkill implements HealthCondition
 		// a sleeping state, so that nothing they do
 		// can get them out of it.
 		affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_SLEEPING);
+		if(CMath.bset(affectableStats.disposition(),PhyStats.IS_FLYING))
+		{
+			if(affected instanceof Rider)
+			{
+				if((((Rider)affected).riding() == null)
+				||((((Rider)affected).riding().phyStats().disposition()&PhyStats.IS_FLYING)==0))
+					affectableStats.setDisposition(affectableStats.disposition()&(~PhyStats.IS_FLYING));
+			}
+			else
+				affectableStats.setDisposition(affectableStats.disposition()&(~PhyStats.IS_FLYING));
+		}
 	}
 
 	@Override
@@ -200,6 +211,12 @@ public class Fighter_Whomp extends FighterSkill implements HealthCondition
 			return false;
 		}
 
+		if((!auto)&&(!CMLib.flags().isStanding(mob))&&(mob!=target))
+		{
+			mob.tell(L("You need to stand up!"));
+			return false;
+		}
+
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
@@ -214,7 +231,9 @@ public class Fighter_Whomp extends FighterSkill implements HealthCondition
 		if(success)
 		{
 			invoker=mob;
-			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE|(auto?CMMsg.MASK_ALWAYS:0),L(auto?"<T-NAME> hit(s) the floor!":"^F<S-NAME> knock(s) <T-NAMESELF> to the floor!^?"+CMLib.protocol().msp("bashed2.wav",30)));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE|(auto?CMMsg.MASK_ALWAYS:0),
+					L(auto?"<T-NAME> hit(s) the floor!":"^F<S-NAME> knock(s) <T-NAMESELF> to the floor!^?")
+					+CMLib.protocol().msp("bashed2.wav",30));
 			CMLib.color().fixSourceFightColor(msg);
 			if(mob.location().okMessage(mob,msg))
 			{

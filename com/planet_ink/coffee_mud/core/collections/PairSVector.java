@@ -5,7 +5,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -87,9 +87,20 @@ public class PairSVector<T, K> extends SVector<Pair<T, K>> implements List<Pair<
 		add(new Pair<T, K>(t, k));
 	}
 
+	@Override
+	public void add(final int x, final T t, final K k)
+	{
+		add(x, new Pair<T, K>(t, k));
+	}
+
 	public void addElement(final T t, final K k)
 	{
 		add(new Pair<T, K>(t, k));
+	}
+
+	public void addElement(final int x, final T t, final K k)
+	{
+		add(x, new Pair<T, K>(t, k));
 	}
 
 	@Override

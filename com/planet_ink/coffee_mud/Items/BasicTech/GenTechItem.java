@@ -18,7 +18,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ public class GenTechItem extends StdTechItem
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this, false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this, false);
 	}
 
 	@Override
@@ -83,20 +83,22 @@ public class GenTechItem extends StdTechItem
 	public void setMiscText(final String newText)
 	{
 		miscText = "";
-		CMLib.coffeeMaker().setPropertiesStr(this, newText, false);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this, newText, false);
 		recoverPhyStats();
 	}
 
-	private final static String[] MYCODES={"TECHLEVEL"};
+	private final static String[] MYCODES={"TECHLEVEL","MANUFACTURER"};
 	@Override
 	public String getStat(final String code)
 	{
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			return CMLib.coffeeMaker().getGenItemStat(this,code);
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return "" + techLevel();
+		case 1:
+			return getManufacturerName();
 		default:
 			return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
 		}
@@ -108,10 +110,13 @@ public class GenTechItem extends StdTechItem
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			CMLib.coffeeMaker().setGenItemStat(this,code,val);
 		else
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			setTechLevel(CMath.s_parseIntExpression(val));
+			break;
+		case 1:
+			this.setManufacturerName(val);
 			break;
 		default:
 			CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);
@@ -119,8 +124,7 @@ public class GenTechItem extends StdTechItem
 		}
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<MYCODES.length;i++)
 		{

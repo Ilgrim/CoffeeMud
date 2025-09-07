@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -152,7 +152,9 @@ public class Spell_PurgeInvisibility extends Spell
 		{
 
 			final Room R=mob.location();
-			final CMMsg msg = CMClass.getMsg(mob, null, this, somanticCastCode(mob,null,auto),L((auto?"S":"^S<S-NAME> gesture(s) and a s")+"upressive magic falls over the area.^?"));
+			final CMMsg msg = CMClass.getMsg(mob, null, this, somaticCastCode(mob,null,auto),
+					(auto?L("Supressive magic falls over the area.^?"):
+						L("^S<S-NAME> gesture(s) and a supressive magic falls over the area.^?")));
 			if((R!=null)&&(R.okMessage(mob,msg)))
 			{
 				R.send(mob,msg);

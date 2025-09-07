@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -158,7 +158,7 @@ public class Skill_ScrollCopy extends StdSkill
 				{
 					final int xp=(int)Math.round(100.0*CMath.div(CMLib.ableMapper().lowestQualifyingLevel(thisSpell.ID()),CMLib.ableMapper().qualifyingClassLevel(mob,this)));
 					if(xp>=0)
-						CMLib.leveler().postExperience(mob,null,null,xp,false);
+						CMLib.leveler().postExperience(mob,"ABILITY:"+ID(),null,null,xp, false);
 				}
 			}
 		}

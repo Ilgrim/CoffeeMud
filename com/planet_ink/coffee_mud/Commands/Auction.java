@@ -1,5 +1,6 @@
 package com.planet_ink.coffee_mud.Commands;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.ShopKeeper.ViewType;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,9 +53,9 @@ public class Auction extends Channel implements Tickable
 		return "Auction";
 	}
 
-	protected final static String MESSAGE_NOAUCTION()
+	protected final String MESSAGE_NOAUCTION()
 	{
-		return CMLib.lang().fullSessionTranslation("There is not currently a live auction.  Use AUCTION UP syntax to add one, or visit an auctioneer for a long auction.");
+		return L("There is not currently a live auction.  Use AUCTION UP syntax to add one, or visit an auctioneer for a long auction.");
 	}
 
 	public String liveAuctionStatus()
@@ -87,6 +88,8 @@ public class Auction extends Channel implements Tickable
 	protected static final int	STATE_THREE		= 4;
 	protected static final int	STATE_CLOSED	= 5;
 
+	private static final Set<ViewType> viewFlags = new XHashSet<ViewType>(new ViewType[] {ViewType.BASIC});
+
 	@Override
 	public int getTickStatus()
 	{
@@ -108,10 +111,11 @@ public class Auction extends Channel implements Tickable
 			AD.setAuctionTickDown(AD.getAuctionTickDown()-1);
 			if(AD.getAuctionTickDown()<=0)
 			{
-				final MOB auctioneerM=AD.getAuctioningMob();
-				final MOB winnerM=AD.getHighBidderMob();
-				if((AD.getAuctionState()==STATE_START)&&((System.currentTimeMillis()-AD.getStartTime())<(5*15000)))
+				if((AD.getAuctionState()==STATE_START)
+				&&((System.currentTimeMillis()-AD.getStartTime())<(5*15000)))
 				{
+					final MOB auctioneerM=AD.getAuctioningMob();
+					final MOB winnerM=AD.getHighBidderMob();
 					if(((System.currentTimeMillis()-AD.getStartTime())>(3*15000))
 					&&((winnerM==null)||(winnerM==auctioneerM)))
 						setLiveAuctionState(STATE_RUNOUT);
@@ -120,31 +124,33 @@ public class Auction extends Channel implements Tickable
 					return true;
 				}
 				setLiveAuctionState(AD.getAuctionState()+1);
-				final Vector<String> V=new Vector<String>();
-				V.add("AUCTION");
-				V.add("CHANNEL");
+				final List<String> auctionCmdV=new ArrayList<String>();
+				auctionCmdV.add("AUCTION");
+				auctionCmdV.add("CHANNEL");
 				switch(AD.getAuctionState())
 				{
 				case STATE_RUNOUT:
-					V.add(L("The live auction for @x1 is almost done. The current bid is @x2.",
+					auctionCmdV.add(L("The live auction for ^[@x1^] is almost done. The current bid is @x2.",
 							AD.getAuctionedItem().name(),CMLib.beanCounter().nameCurrencyShort(AD.getCurrency(),AD.getBid())));
 					break;
 				case STATE_ONCE:
-					V.add(L("@x1 for @x2 going ONCE!",CMLib.beanCounter().nameCurrencyShort(AD.getCurrency(),AD.getBid()),AD.getAuctionedItem().name()));
+					auctionCmdV.add(L("@x1 for ^[@x2^] going ONCE!",CMLib.beanCounter().nameCurrencyShort(AD.getCurrency(),AD.getBid()),AD.getAuctionedItem().name()));
 					break;
 				case STATE_TWICE:
-					V.add(L("@x1 for @x2 going TWICE!",CMLib.beanCounter().nameCurrencyShort(AD.getCurrency(),AD.getBid()),AD.getAuctionedItem().name()));
+					auctionCmdV.add(L("@x1 for ^[@x2^] going TWICE!",CMLib.beanCounter().nameCurrencyShort(AD.getCurrency(),AD.getBid()),AD.getAuctionedItem().name()));
 					break;
 				case STATE_THREE:
-					V.add(L("@x1 going for @x2! Last chance!",AD.getAuctionedItem().name(),CMLib.beanCounter().nameCurrencyShort(AD.getCurrency(),AD.getBid())));
+					auctionCmdV.add(L("@x1 going for ^[@x2^]! Last chance!",AD.getAuctionedItem().name(),CMLib.beanCounter().nameCurrencyShort(AD.getCurrency(),AD.getBid())));
 					break;
 				case STATE_CLOSED:
 					{
+						final MOB auctioneerM=AD.getAuctioningMob();
+						final MOB winnerM=AD.getHighBidderMob();
 						if((winnerM!=null)&&(winnerM!=AD.getAuctioningMob()))
 						{
-							V.add(L("@x1 SOLD to @x2 for @x3.",AD.getAuctionedItem().name(),winnerM.name(),
+							auctionCmdV.add(L("^[@x1^] SOLD to @x2 for @x3.",AD.getAuctionedItem().name(),winnerM.name(),
 									CMLib.beanCounter().nameCurrencyShort(AD.getCurrency(),AD.getBid())));
-							auctioneerM.doCommand(V,MUDCmdProcessor.METAFLAG_FORCED);
+							auctioneerM.doCommand(auctionCmdV,MUDCmdProcessor.METAFLAG_FORCED);
 							if(AD.getAuctionedItem() != null)
 							{
 								AD.getAuctionedItem().unWear();
@@ -159,27 +165,49 @@ public class Auction extends Channel implements Tickable
 										winnerM.name(auctioneerM),
 										CMLib.beanCounter().nameCurrencyShort(AD.getCurrency(),houseCut)));
 								CMLib.commands().postStand(winnerM, true, true);
-								if(CMLib.commands().postGet(winnerM,null,AD.getAuctionedItem(),false)
-								||(winnerM.isMine(AD.getAuctionedItem())))
+								final boolean addRobberyProtection = !AD.getAuctionedItem().phyStats().isAmbiance(PhyStats.Ambiance.SUPPRESS_ROBBERY);
+								if(addRobberyProtection)
 								{
-									winnerM.tell(L("@x1 has been transferred to @x2.  You should have received the auctioned goods.  This auction is complete.",
-											CMLib.beanCounter().nameCurrencyShort(AD.getCurrency(),AD.getBid()),
-											auctioneerM.name(winnerM)));
-									if(AD.getAuctionedItem() instanceof LandTitle)
+									AD.getAuctionedItem().basePhyStats().addAmbiance(PhyStats.Ambiance.SUPPRESS_ROBBERY.code());
+									AD.getAuctionedItem().recoverPhyStats();
+								}
+								try
+								{
+									if(CMLib.commands().postGet(winnerM,null,AD.getAuctionedItem(),false)
+									||(winnerM.isMine(AD.getAuctionedItem())))
 									{
-										final CMMsg msg=CMClass.getMsg(auctioneerM,winnerM,AD.getAuctionedItem(),CMMsg.MASK_ALWAYS|CMMsg.TYP_GIVE,null);
-										AD.getAuctionedItem().executeMsg(winnerM,msg);
+										winnerM.tell(L("@x1 has been transferred to @x2.  You should have received the auctioned goods.  This auction is complete.",
+												CMLib.beanCounter().nameCurrencyShort(AD.getCurrency(),AD.getBid()),
+												auctioneerM.name(winnerM)));
+										if(AD.getAuctionedItem() instanceof LandTitle)
+										{
+											final CMMsg msg=CMClass.getMsg(auctioneerM,winnerM,AD.getAuctionedItem(),CMMsg.MASK_ALWAYS|CMMsg.TYP_GIVE,null);
+											AD.getAuctionedItem().executeMsg(winnerM,msg);
+										}
+									}
+									else
+									{
+										auctioneerM.moveItemTo(AD.getAuctionedItem());
+										auctioneerM.tell(L("Your transaction could not be completed because @x1 was unable to collect the item.  "
+												+ "Please contact @x2 about receipt of ^[@x3^] for @x4.",
+												winnerM.name(auctioneerM),
+												winnerM.name(auctioneerM),
+												AD.getAuctionedItem().name(winnerM),
+												CMLib.beanCounter().nameCurrencyShort(AD.getCurrency(),AD.getBid())));
+										winnerM.tell(L("Your transaction could not be completed because you were unable to collect the item.  "
+												+ "Please contact @x1 about receipt of ^[@x2^] for @x3.",
+												auctioneerM.name(winnerM),
+												AD.getAuctionedItem().name(winnerM),
+												CMLib.beanCounter().nameCurrencyShort(AD.getCurrency(),AD.getBid())));
 									}
 								}
-								else
+								finally
 								{
-									auctioneerM.moveItemTo(AD.getAuctionedItem());
-									auctioneerM.tell(L("Your transaction could not be completed because @x1 was unable to collect the item.  Please contact @x2 about receipt of @x3 for @x4.",
-											winnerM.name(auctioneerM),winnerM.name(auctioneerM),AD.getAuctionedItem().name(winnerM),
-											CMLib.beanCounter().nameCurrencyShort(AD.getCurrency(),AD.getBid())));
-									winnerM.tell(L("Your transaction could not be completed because you were unable to collect the item.  Please contact @x1 about receipt of @x2 for @x3.",
-											auctioneerM.name(winnerM),AD.getAuctionedItem().name(winnerM),
-											CMLib.beanCounter().nameCurrencyShort(AD.getCurrency(),AD.getBid())));
+									if(addRobberyProtection)
+									{
+										AD.getAuctionedItem().basePhyStats().delAmbiance(PhyStats.Ambiance.SUPPRESS_ROBBERY.code());
+										AD.getAuctionedItem().recoverPhyStats();
+									}
 								}
 							}
 						}
@@ -187,15 +215,17 @@ public class Auction extends Channel implements Tickable
 						{
 							if(!auctioneerM.isMine(AD.getAuctionedItem()))
 								auctioneerM.moveItemTo(AD.getAuctionedItem());
-							V.clear();
-							V.add("AUCTION");
-							V.add("CHANNEL");
-							V.add(L("The auction for @x1 has ended without a winner.",AD.getAuctionedItem().name()));
-							auctioneerM.doCommand(V,MUDCmdProcessor.METAFLAG_FORCED);
+							auctionCmdV.clear();
+							auctionCmdV.add("AUCTION");
+							auctionCmdV.add("CHANNEL");
+							auctionCmdV.add(L("The auction for ^[@x1^] has ended without a winner.",AD.getAuctionedItem().name()));
+							auctioneerM.doCommand(auctionCmdV,MUDCmdProcessor.METAFLAG_FORCED);
 						}
 						AD.setAuctioningMob(null);
+						AD.setAuctioningMobName(null);
 						AD.setAuctionedItem(null);
 						AD.setHighBidderMob(null);
+						AD.setHighBidderMobName(null);
 						AD.setHighBid(0.0);
 						AD.setBid(0.0);
 						AD.setAuctionState(0);
@@ -203,7 +233,8 @@ public class Auction extends Channel implements Tickable
 					}
 					return false;
 				}
-				auctioneerM.doCommand(V,MUDCmdProcessor.METAFLAG_FORCED);
+				final MOB auctioneerM=AD.getAuctioningMob();
+				auctioneerM.doCommand(auctionCmdV,MUDCmdProcessor.METAFLAG_FORCED);
 			}
 		}
 		return true;
@@ -211,7 +242,7 @@ public class Auction extends Channel implements Tickable
 
 	public boolean doLiveAuction(final MOB mob, final List<String> commands, final Environmental target)
 	{
-		final Vector<String> V=new Vector<String>();
+		final List<String> V=new ArrayList<String>();
 		V.add("AUCTION");
 		V.add("CHANNEL");
 		if(target!=null)
@@ -219,6 +250,7 @@ public class Auction extends Channel implements Tickable
 			if(!(target instanceof Item))
 				return false;
 			getLiveData().setAuctioningMob(mob);
+			getLiveData().setAuctioningMobName(null);
 			getLiveData().setAuctionedItem((Item)target);
 			final String sb=CMParms.combine(commands,0);
 			getLiveData().setCurrency(CMLib.english().parseNumPossibleGoldCurrency(mob,sb));
@@ -229,13 +261,14 @@ public class Auction extends Channel implements Tickable
 			getLiveData().setBid(CMath.mul(denomination,num));
 			getLiveData().setHighBid(getLiveData().getBid()-1);
 			getLiveData().setHighBidderMob(null);
+			getLiveData().setHighBidderMobName(null);
 			getLiveData().setStartTime(System.currentTimeMillis());
 			setLiveAuctionState(STATE_START);
 			CMLib.threads().startTickDown(this,Tickable.TICKID_LIVEAUCTION,1);
 			final String bidWords=CMLib.beanCounter().nameCurrencyShort(getLiveData().getCurrency(),getLiveData().getBid());
 			if(target instanceof Item)
 				mob.delItem((Item)target);
-			V.add(L("New live auction: @x1.  The opening bid is @x2.",getLiveData().getAuctionedItem().name(),bidWords));
+			V.add(L("New live auction: ^[@x1^].  The opening bid is @x2.",getLiveData().getAuctionedItem().name(),bidWords));
 			if(getLiveData().getAuctioningMob()!=null)
 				getLiveData().getAuctioningMob().doCommand(V,MUDCmdProcessor.METAFLAG_FORCED);
 		}
@@ -284,6 +317,11 @@ public class Auction extends Channel implements Tickable
 		}
 	}
 
+	protected Set<ViewType> viewFlags()
+	{
+		return viewFlags;
+	}
+
 	@Override
 	public boolean execute(final MOB mob, final List<String> commands, final int metaFlags)
 		throws java.io.IOException
@@ -313,7 +351,7 @@ public class Auction extends Channel implements Tickable
 		{
 			commands.remove(0);
 			final StringBuffer buf=new StringBuffer("");
-			if((getLiveData().getAuctionedItem()!=null)&&(getLiveData().getAuctioningMob()!=null))
+			if(getLiveData().getAuctionedItem()!=null)
 			{
 				buf.append(L("\n\r^HCurrent *live* auction: ^N\n\r"));
 				buf.append(liveAuctionStatus()+"\n\r");
@@ -327,12 +365,12 @@ public class Auction extends Channel implements Tickable
 		if(cmd.equals("UP"))
 		{
 			commands.remove(0);
-			if((getLiveData().getAuctionedItem()!=null)&&(getLiveData().getAuctioningMob()!=null))
+			if(getLiveData().getAuctionedItem()!=null)
 			{
 				mob.tell(L("A live auction is already underway.  Do AUCTION LIST to see it."));
 				return false;
 			}
-			final Vector<String> V=new Vector<String>();
+			final List<String> V=new ArrayList<String>();
 			if((commands.size()>=2)
 			&&((CMLib.english().parseNumPossibleGold(mob,commands.get(commands.size()-1))>0)||(commands.get(commands.size()-1).equals("0"))))
 			{
@@ -351,12 +389,12 @@ public class Auction extends Channel implements Tickable
 			}
 			if((E instanceof Container)&&(((Container)E).hasContent()))
 			{
-				mob.tell(L("@x1 will have to be emptied first.",E.name()));
+				mob.tell(L("^[@x1^] will have to be emptied first.",E.name()));
 				return false;
 			}
 			if(!(((Item)E).amWearingAt(Wearable.IN_INVENTORY)))
 			{
-				mob.tell(L("@x1 will have to be removed first.",E.name()));
+				mob.tell(L("^[@x1^] will have to be removed first.",E.name()));
 				return false;
 			}
 			final AuctionPolicy aRates=(AuctionPolicy)CMClass.getCommon("DefaultAuctionPolicy");
@@ -366,12 +404,12 @@ public class Auction extends Channel implements Tickable
 			if(deposit>0.0)
 			{
 				if((mob.isMonster())
-				||(!mob.session().confirm(L("Auctioning @x1 will cost a listing fee of @x2, proceed (Y/n)?",E.name(),depositAmt),"Y")))
+				||(!mob.session().confirm(L("Auctioning ^[@x1^] will cost a listing fee of @x2, proceed (Y/n)?",E.name(),depositAmt),"Y")))
 					return false;
 			}
 			else
 			if((mob.isMonster())
-			||(!mob.session().confirm(L("Auction @x1 live, with a starting bid of @x2 (Y/n)?",E.name(),(V.get(0))),"Y")))
+			||(!mob.session().confirm(L("Auction ^[@x1^] live, with a starting bid of @x2 (Y/n)?",E.name(),(V.get(0))),"Y")))
 				return false;
 			if(CMLib.beanCounter().getTotalAbsoluteValue(mob,CMLib.beanCounter().getCurrency(mob))<deposit)
 			{
@@ -381,14 +419,17 @@ public class Auction extends Channel implements Tickable
 			CMLib.beanCounter().subtractMoney(mob, CMLib.beanCounter().getCurrency(mob), deposit);
 			doLiveAuction(mob,V,E);
 			if(getLiveData().getAuctionedItem()!=null)
+			{
 				getLiveData().setAuctioningMob(mob);
+				getLiveData().setAuctioningMobName(null);
+			}
 			return true;
 		}
 		else
 		if(cmd.equals("BID"))
 		{
 			commands.remove(0);
-			if((getLiveData().getAuctionedItem()==null)||(getLiveData().getAuctioningMob()==null))
+			if(getLiveData().getAuctionedItem()==null)
 			{
 				mob.tell(MESSAGE_NOAUCTION());
 				return false;
@@ -411,17 +452,19 @@ public class Auction extends Channel implements Tickable
 		if(cmd.equals("CLOSE"))
 		{
 			commands.remove(0);
-			if((getLiveData().getAuctionedItem()==null)||(getLiveData().getAuctioningMob()==null))
+			if((getLiveData().getAuctionedItem()==null)
+			||(getLiveData().getAuctioningMob()==null)) // must be non-null below
 			{
 				mob.tell(MESSAGE_NOAUCTION());
 				return false;
 			}
-			if((getLiveData().getAuctionedItem()==null)||(getLiveData().getAuctioningMob()!=mob))
+			if((getLiveData().getAuctionedItem()==null)
+			||(getLiveData().getAuctioningMob()!=mob))
 			{
 				mob.tell(L("You are not currently running a live auction."));
 				return false;
 			}
-			final Vector<String> V=new Vector<String>();
+			final List<String> V=new ArrayList<String>();
 			V.add("AUCTION");
 			V.add(L("The auction has been closed."));
 			CMLib.threads().deleteTick(this,Tickable.TICKID_LIVEAUCTION);
@@ -429,6 +472,7 @@ public class Auction extends Channel implements Tickable
 			if((getLiveData().getHighBid()>0.0)&&(getLiveData().getHighBidderMob()!=null))
 				CMLib.coffeeShops().returnMoney(getLiveData().getHighBidderMob(),getLiveData().getCurrency(),getLiveData().getHighBid());
 			getLiveData().setAuctioningMob(null);
+			getLiveData().setAuctioningMobName(null);
 			getLiveData().setAuctionedItem(null);
 			super.execute(mob,V,metaFlags);
 			return true;
@@ -444,9 +488,9 @@ public class Auction extends Channel implements Tickable
 			}
 			Environmental E=null;
 			E=getLiveData().getAuctionedItem();
-			mob.tell(L("Item: @x1",E.name()));
+			mob.tell(L("Item: ^[@x1^]",E.name()));
 			CMLib.commands().handleBeingLookedAt(CMClass.getMsg(mob,CMMsg.MASK_ALWAYS|CMMsg.MSG_EXAMINE,null));
-			mob.tell(CMLib.coffeeShops().getViewDescription(mob,E));
+			mob.tell(CMLib.coffeeShops().getViewDescription(mob,E, new XHashSet<ViewType>(ViewType.BASIC)));
 			return true;
 		}
 		else
@@ -458,7 +502,7 @@ public class Auction extends Channel implements Tickable
 				mob.tell(L("Channel what?"));
 				return false;
 			}
-			if((getLiveData().getAuctionedItem()==null)||(getLiveData().getAuctioningMob()==null))
+			if(getLiveData().getAuctionedItem()==null)
 			{
 				mob.tell(L("Channeling is only allowed during live auctions."));
 				return false;

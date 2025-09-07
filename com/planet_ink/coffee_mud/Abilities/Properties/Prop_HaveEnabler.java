@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -271,6 +271,33 @@ public class Prop_HaveEnabler extends Prop_SpellAdder
 			if((code.equalsIgnoreCase("TONEDOWN-ARMOR"))
 			||(code.equalsIgnoreCase("TONEDOWN-WEAPON"))
 			||(code.equalsIgnoreCase("TONEDOWN-MISC")))
+			{
+				/*
+				final double pct=CMath.s_pct(val);
+				final String s=text();
+				int plusminus=s.indexOf('+');
+				int minus=s.indexOf('-');
+				if((minus>=0)&&((plusminus<0)||(minus<plusminus)))
+					plusminus=minus;
+				while(plusminus>=0)
+				{
+					minus=s.indexOf('-',plusminus+1);
+					plusminus=s.indexOf('+',plusminus+1);
+					if((minus>=0)&&((plusminus<0)||(minus<plusminus)))
+						plusminus=minus;
+				}
+				setMiscText(s);
+				*/
+			}
+			else
+			if(code.equalsIgnoreCase("TONEUP"))
+			{
+				setStat("TONEUP-MISC",val);
+			}
+			else
+			if((code.equalsIgnoreCase("TONEUP-ARMOR"))
+			||(code.equalsIgnoreCase("TONEUP-WEAPON"))
+			||(code.equalsIgnoreCase("TONEUP-MISC")))
 			{
 				/*
 				final double pct=CMath.s_pct(val);

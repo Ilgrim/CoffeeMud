@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -65,8 +65,8 @@ public class Prop_UseSpellCast extends Prop_SpellAdder
 		for(int v=0;v<V.size();v++)
 		{
 			Ability A=V.get(v).first;
-			Ability EA=target.fetchEffect(A.ID());
-			if((EA==null)&&(didHappen()))
+			Ability effectA=target.fetchEffect(A.ID());
+			if((effectA==null)&&(didHappen()))
 			{
 				final String t=A.text();
 				A=(Ability)A.copyOf();
@@ -89,11 +89,16 @@ public class Prop_UseSpellCast extends Prop_SpellAdder
 				&&((!A.canTarget(target))&&(!A.canAffect(target))))
 					return false;
 				A.invoke(qualMOB,V2,target,true,asLevel>0?asLevel:((affected!=null)?affected.phyStats().level():0));
-				if((maxTicks>0)&&(maxTicks<Short.MAX_VALUE))
+				effectA=target.fetchEffect(A.ID());
+				if(effectA != null)
 				{
-					EA=target.fetchEffect(A.ID());
-					if((EA!=null)&&(CMath.s_int(EA.getStat("TICKDOWN"))>maxTicks))
-						EA.setStat("TICKDOWN", Short.toString(maxTicks));
+					if((maxTicks>0)&&(maxTicks<Short.MAX_VALUE))
+					{
+						if(CMath.s_int(effectA.getStat("TICKDOWN"))>maxTicks)
+							effectA.setStat("TICKDOWN", Short.toString(maxTicks));
+					}
+					if(effectA.invoker()==null)
+						effectA.setInvoker(qualMOB);
 				}
 			}
 		}
@@ -148,20 +153,39 @@ public class Prop_UseSpellCast extends Prop_SpellAdder
 					&&(msg.amITarget(myItem)))
 						addMeIfNeccessary(msg.source(),msg.source(),0,maxTicks);
 					break;
-				case CMMsg.TYP_WEAR:
-					if(((myItem instanceof Armor)
-						&&(msg.amITarget(myItem)))
+				case CMMsg.TYP_PUFF:
+					if(((msg.amITarget(myItem))
+						&&((myItem instanceof Light)&&(myItem.fitsOn(Item.WORN_MOUTH))))
 					||((msg.amITarget(myItem.container()))
 						&&(myItem.container() instanceof Container)
 						&&(myItem.container() instanceof Light)
 						&&(myItem.container().fitsOn(Item.WORN_MOUTH))))
 							addMeIfNeccessary(msg.source(),msg.source(),0,maxTicks);
 					break;
+				case CMMsg.TYP_WEAR:
+					if(((msg.amITarget(myItem))
+						&&((myItem instanceof Armor)
+							||((myItem instanceof Light)&&(myItem.fitsOn(Item.WORN_MOUTH)))))
+					||((msg.amITarget(myItem.container()))
+						&&(myItem.container() instanceof Container)
+						&&(myItem.container() instanceof Light)
+						&&(myItem.container().fitsOn(Item.WORN_MOUTH))))
+							addMeIfNeccessary(msg.source(),msg.source(),0,maxTicks);
+					break;
+				case CMMsg.TYP_REMOVE:
+					if(msg.amITarget(myItem))
+						this.removeMyAffectsFrom(msg.source());
+					break;
 				case CMMsg.TYP_PUT:
 				case CMMsg.TYP_INSTALL:
 					if((myItem instanceof Container)
 					  &&(msg.amITarget(myItem)))
 						addMeIfNeccessary(msg.source(),msg.source(),0,maxTicks);
+					break;
+				case CMMsg.TYP_GET:
+					if((myItem instanceof Container)
+					  &&(msg.amITarget(myItem)))
+						this.removeMyAffectsFrom(msg.source());
 					break;
 				case CMMsg.TYP_WIELD:
 				case CMMsg.TYP_HOLD:

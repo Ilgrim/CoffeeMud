@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -55,6 +55,8 @@ public class Follower extends ActiveTicker
 	protected MOB		lastOwner		= null;
 	protected String	name			= null;
 
+	protected MaskingLibrary.CompiledZMask mask = null;
+
 	int direction=-1;
 
 	public Follower()
@@ -78,6 +80,10 @@ public class Follower extends ActiveTicker
 		noFollowers=V.contains("NOFOLLOWERS");
 		inventory=V.contains("INVENTORY")||V.contains("INV");
 		name=CMParms.getParmStr(newParms, "NAME", "");
+		final String maskStr = CMLib.masking().separateZapperMask(V);
+		this.mask=null;
+		if(maskStr.length()>0)
+			this.mask=CMLib.masking().getPreCompiledMask(maskStr);
 	}
 
 	@Override
@@ -158,7 +164,7 @@ public class Follower extends ActiveTicker
 				&&(msg.othersMessage()!=null)
 				&&((msg.targetMinor()==CMMsg.TYP_LEAVE)
 				 ||(msg.targetMinor()==CMMsg.TYP_FLEE))
-				&&((CMLib.masking().maskCheck(getParms(),mob,false))
+				&&((CMLib.masking().maskCheck(mask,mob,false))
 					||((name!=null)&&(name.length()>0)&&(mob.Name().equalsIgnoreCase(name))))
 				&&(CMLib.dice().rollPercentage()<=chance))
 				{
@@ -182,7 +188,7 @@ public class Follower extends ActiveTicker
 			||(msg.targetMinor()==CMMsg.TYP_FLEE)
 			||(msg.targetMinor()==CMMsg.TYP_RECALL)
 			||(msg.targetMinor()==CMMsg.TYP_ENTER))
-		&&((CMLib.masking().maskCheck(getParms(),mob,false))
+		&&((CMLib.masking().maskCheck(mask,mob,false))
 			||((name!=null)&&(name.length()>0)&&(mob.Name().equalsIgnoreCase(name))))
 		&&((!(affecting instanceof MOB))||CMLib.flags().canBeSeenBy(mob,(MOB)affecting))
 		&&(CMLib.dice().rollPercentage()<=chance))
@@ -208,7 +214,7 @@ public class Follower extends ActiveTicker
 				&&((name == null)||(name.length()==0)||(name.equalsIgnoreCase(M.Name())))
 				&&(!CMSecurity.isAllowed(M,room,CMSecurity.SecFlag.CMDMOBS))
 				&&(!CMSecurity.isAllowed(M,room,CMSecurity.SecFlag.CMDROOMS))
-				&&(CMLib.masking().maskCheck(getParms(),M,false)))
+				&&(CMLib.masking().maskCheck(mask,M,false)))
 					return M;
 			}
 		}
@@ -262,16 +268,7 @@ public class Follower extends ActiveTicker
 			if(direction<0)
 				return;
 
-			boolean move=true;
-			for(int m=0;m<room.numInhabitants();m++)
-			{
-				final MOB inhab=room.fetchInhabitant(m);
-				if((inhab!=null)
-				&&(CMSecurity.isAllowed(inhab,room,CMSecurity.SecFlag.CMDMOBS)
-				   ||CMSecurity.isAllowed(inhab,room,CMSecurity.SecFlag.CMDROOMS)))
-					move=false;
-			}
-			if(move)
+			if(!CMLib.hunt().isAnAdminHere(room, true))
 				CMLib.tracking().walk(mob,direction,false,false);
 			direction=-1;
 		}
@@ -312,7 +309,7 @@ public class Follower extends ActiveTicker
 			final Item I=(Item)ticking;
 			if((I.owner()!=null)
 			&&(I.owner() instanceof MOB)
-			&&(CMLib.masking().maskCheck(getParms(),I.owner(),false))
+			&&(CMLib.masking().maskCheck(mask,I.owner(),false))
 			&&(!CMSecurity.isAllowed((MOB)I.owner(),((MOB)I.owner()).location(),CMSecurity.SecFlag.CMDMOBS))
 			&&(!CMSecurity.isAllowed((MOB)I.owner(),((MOB)I.owner()).location(),CMSecurity.SecFlag.CMDROOMS)))
 				lastOwner=(MOB)I.owner();

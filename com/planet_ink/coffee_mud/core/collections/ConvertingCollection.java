@@ -2,7 +2,7 @@ package com.planet_ink.coffee_mud.core.collections;
 import java.util.*;
 
 /*
-   Copyright 2020-2020 Bo Zimmerman
+   Copyright 2020-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -16,11 +16,24 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+/**
+ * A simple Collection implementation that converts the objects in a backing
+ * collection from one type to another using a Converter.
+ *
+ * @param <L> the backing collection type
+ * @param <K> the outward facing collection type
+ */
 public class ConvertingCollection<L,K> implements Collection<K>
 {
 	private final Collection<L> list;
 	Converter<L, K> converter;
 
+	/**
+	 * Construct a new ConvertingCollection
+	 *
+	 * @param l the backing collection
+	 * @param conv the converter
+	 */
 	public ConvertingCollection(final Collection<L> l, final Converter<L, K> conv)
 	{
 		list=l;
@@ -118,7 +131,6 @@ public class ConvertingCollection<L,K> implements Collection<K>
 	}
 
 	@SuppressWarnings("unchecked")
-
 	@Override
 	public <T> T[] toArray(final T[] a)
 	{

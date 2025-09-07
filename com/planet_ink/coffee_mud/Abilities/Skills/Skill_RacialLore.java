@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -239,10 +239,10 @@ public class Skill_RacialLore extends StdSkill
 			final int lightest = targetR.lightestWeight();
 			tidbits.add(L("at maturity they are between @x1 and @x2 pounds",
 					""+lightest,""+(lightest+targetR.weightVariance())));
-			tidbits.add(L("they like to fight with @x1",targetR.myNaturalWeapon().name()));
+			tidbits.add(L("they like to fight with @x1",targetR.getNaturalWeapon().name()));
 			for(final RawMaterial M : targetR.myResources())
 			{
-				final String str=L("their bodies can be butchered for @x1",M.name().endsWith("s")?M.name():CMLib.english().makePlural(M.name()));
+				final String str=L("their bodies can be butchered for @x1",M.name());
 				if(!tidbits.contains(str))
 					tidbits.add(str);
 			}

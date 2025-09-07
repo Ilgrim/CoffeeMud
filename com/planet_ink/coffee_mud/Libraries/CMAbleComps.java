@@ -1,19 +1,13 @@
 package com.planet_ink.coffee_mud.Libraries;
 
-import java.util.Enumeration;
-import java.util.HashSet;
-import java.util.Hashtable;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Vector;
-
 import com.planet_ink.coffee_web.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.AbilityMapping;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityParameters.AbilityParmEditor;
+import com.planet_ink.coffee_mud.Libraries.interfaces.MaterialLibrary.DeadResourceRecord;
 import com.planet_ink.coffee_mud.core.exceptions.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMSecurity.DbgFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.Abilities.Common.CommonSkill;
@@ -23,19 +17,22 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.AbilityComponent.CompConnector;
 import com.planet_ink.coffee_mud.Common.interfaces.AbilityComponent.CompLocation;
+import com.planet_ink.coffee_mud.Common.interfaces.AbilityComponent.CompType;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.RawMaterial.Material;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
+import com.planet_ink.coffee_mud.MOBS.interfaces.Deity.RitualType;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 import java.net.Socket;
 import java.util.*;
 
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,6 +54,9 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 		return "CMAbleComps";
 	}
 
+	protected final Map<String, List<AbilityComponent>>	abilitiesWithCompsWithTriggers	= new Hashtable<String, List<AbilityComponent>>();
+	protected Map<String,List<Social>> compSocials=new SHashtable<String,List<Social>>();
+
 	protected final boolean isRightMaterial(final long type, final long itemMaterial, final boolean mithrilOK)
 	{
 		if(itemMaterial == type)
@@ -71,14 +71,26 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 
 	protected Item makeItemComponent(final AbilityComponent comp, final boolean mithrilOK)
 	{
-		if(comp.getType()==AbilityComponent.CompType.STRING)
+		if(comp.getType()==CompType.STRING)
 			return null;
 		else
-		if(comp.getType()==AbilityComponent.CompType.RESOURCE)
-			return CMLib.materials().makeItemResource((int)comp.getLongType(), comp.getSubType());
+		if(comp.getType()==CompType.RESOURCE)
+		{
+			final Item I = CMLib.materials().makeItemResource((int)comp.getLongType(), comp.getSubType());
+			if(comp.getAmount()>0)
+				I.basePhyStats().setWeight(comp.getAmount());
+			CMLib.materials().adjustResourceName(I);
+			return I;
+		}
 		else
-		if(comp.getType()==AbilityComponent.CompType.MATERIAL)
-			return CMLib.materials().makeItemResource(RawMaterial.CODES.MOST_FREQUENT(((int)comp.getLongType())&RawMaterial.MATERIAL_MASK), comp.getSubType());
+		if(comp.getType()==CompType.MATERIAL)
+		{
+			final Item I = CMLib.materials().makeItemResource(RawMaterial.CODES.MOST_FREQUENT(((int)comp.getLongType())&RawMaterial.MATERIAL_MASK), comp.getSubType());
+			if(comp.getAmount()>0)
+				I.basePhyStats().setWeight(comp.getAmount());
+			CMLib.materials().adjustResourceName(I);
+			return I;
+		}
 		return null;
 	}
 
@@ -86,22 +98,52 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 	{
 		if(I==null)
 			return false;
+		if(comp.getLocation()==CompLocation.TRIGGER)
+			return false;
 		Item container=null;
-		if((comp.getType()==AbilityComponent.CompType.STRING)
-		&&(!CMLib.english().containsString(I.name(),comp.getStringType())))
-			return false;
-		else
-		if((comp.getType()==AbilityComponent.CompType.RESOURCE)
-		&&((!(I instanceof RawMaterial))
-			||(I.material()!=comp.getLongType())
-			||((comp.getSubType().length()>0)&&(!((RawMaterial)I).getSubType().equalsIgnoreCase(comp.getSubType())))))
-			return false;
-		else
-		if((comp.getType()==AbilityComponent.CompType.MATERIAL)
-		&&((!(I instanceof RawMaterial))
-			||(!isRightMaterial(comp.getLongType(),I.material()&RawMaterial.MATERIAL_MASK,mithrilOK))
-			||((comp.getSubType().length()>0)&&(!((RawMaterial)I).getSubType().equalsIgnoreCase(comp.getSubType())))))
-			return false;
+		switch(comp.getType())
+		{
+		case STRING:
+			if(!CMLib.english().containsString(I.name(),comp.getStringType()))
+				return false;
+			break;
+		case RESOURCE:
+			if(I instanceof RawMaterial)
+			{
+				if((I.material()!=comp.getLongType())
+				||((comp.getSubType().length()>0)&&(!((RawMaterial)I).getSubType().equalsIgnoreCase(comp.getSubType()))))
+					return false;
+			}
+			else
+			if((I instanceof Drink)
+			&&(((Drink)I).liquidRemaining()>0))
+			{
+				final Drink D = (Drink)I;
+				if(D.liquidType()!=comp.getLongType())
+					return false;
+			}
+			else
+				return false; // its not a qualifying item type
+			break;
+		case MATERIAL:
+			if(I instanceof RawMaterial)
+			{
+				if((!isRightMaterial(comp.getLongType(),I.material()&RawMaterial.MATERIAL_MASK,mithrilOK))
+				||((comp.getSubType().length()>0)&&(!((RawMaterial)I).getSubType().equalsIgnoreCase(comp.getSubType()))))
+					return false;
+			}
+			else
+			if((I instanceof Drink)
+			&&(((Drink)I).liquidRemaining()>0))
+			{
+				final Drink D = (Drink)I;
+				if(!isRightMaterial(comp.getLongType(),D.liquidType()&RawMaterial.MATERIAL_MASK,mithrilOK))
+					return false;
+			}
+			else
+				return false; // its not a qualifying item type
+			break;
+		}
 		container=I.ultimateContainer(null);
 		if(container==null)
 			container=I;
@@ -109,6 +151,10 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 		{
 		case INVENTORY:
 			if((container.owner() instanceof Room)||(!container.amWearingAt(Wearable.IN_INVENTORY)))
+				return false;
+			break;
+		case HAVE:
+			if(container.owner() instanceof Room)
 				return false;
 			break;
 		case HELD:
@@ -129,19 +175,19 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 				return false;
 			break;
 		}
-		if((comp.getType()!=AbilityComponent.CompType.STRING)
+		if((comp.getType()!=CompType.STRING)
 		&&(CMLib.flags().isOnFire(I)||CMLib.flags().isEnchanted(I)))
 			return false;
-		if(comp.getType()==AbilityComponent.CompType.STRING)
+		if(comp.getType()==CompType.STRING)
 		{
 			if(I instanceof PackagedItems)
-				I=(Item)CMLib.materials().unbundle(I,amt[0],null);
+				I=CMLib.materials().unbundle(I,amt[0],null);
 			amt[0]-=I.numberOfItems();
 		}
 		else
 		if(I.phyStats().weight()>amt[0])
 		{
-			I=(Item)CMLib.materials().splitBundle(I,amt[0],null);
+			I=CMLib.materials().splitBundle(I,amt[0],null);
 			if(I==null)
 				return false;
 			amt[0]=amt[0]-I.phyStats().weight();
@@ -161,7 +207,7 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 
 	// returns list of components for the requirement list.
 	@Override
-	public List<Item> componentsSample(final List<AbilityComponent> req, final boolean mithrilOK)
+	public List<Item> makeComponentsSample(final List<AbilityComponent> req, final boolean mithrilOK)
 	{
 		if((req==null)||(req.size()==0))
 			return new Vector<Item>(0);
@@ -190,10 +236,13 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 		boolean found=false;
 		AbilityComponent comp = null;
 		final Room room = mob.location();
+		int minAmt = 0;
 		for(int i=0;i<req.size();i++)
 		{
 			comp=req.get(i);
-			currentAND=comp.getConnector()==AbilityComponent.CompConnector.AND;
+			if(comp.getConnector() == CompConnector.MESSAGE)
+				break; // we are done
+			currentAND=comp.getConnector()==CompConnector.AND;
 			if(previousValue&&(!currentAND))
 				return passes;
 			if((!previousValue)&&currentAND)
@@ -202,12 +251,35 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 			// if they fail the zappermask, its like the req is NOT even there...
 			if((comp.getCompiledMask()!=null)
 			&&(!CMLib.masking().maskCheck(comp.getCompiledMask(),mob,true)))
+			{
+				previousValue=false;
 				continue;
+			}
+
 			amt[0]=comp.getAmount();
 			thisSet.clear();
 			found=false;
+			if(comp.getLocation()==CompLocation.TRIGGER)
+			{
+				final Triggerer trig = confirmAbilityComponentTriggers(mob);
+				if(trig.wasCompletedRecently(mob, comp.getAbilityID()))
+				{
+					amt[0]=0;
+					found=true;
+				}
+				else
+					minAmt=1;
+			}
+			else
+			if(!mob.isPlayer())
+			{
+				amt[0]=0;
+				found=true;
+			}
+			else
 			if(comp.getLocation()!=CompLocation.ONGROUND)
 			{
+				minAmt=1;
 				for(int ii=0;ii<mob.numItems();ii++)
 				{
 					found=IsItemComponent(mob, comp, amt, mob.getItem(ii), thisSet,mithrilOK);
@@ -219,6 +291,7 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 			&&(room!=null)
 			&&((comp.getLocation()==CompLocation.ONGROUND)||(comp.getLocation()==CompLocation.NEARBY)))
 			{
+				minAmt=1;
 				for(int ii=0;ii<room.numItems();ii++)
 				{
 					found=IsItemComponent(mob, comp, amt, room.getItem(ii), thisSet,mithrilOK);
@@ -231,6 +304,36 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 			previousValue=amt[0]<=0;
 			if(previousValue)
 				passes.addAll(thisSet);
+		}
+		if(passes.size()<minAmt)
+			return null;
+		return passes;
+	}
+
+	// returns list of components found if all good, returns Integer of bad row if not.
+	@Override
+	public List<Item> makeComponents(final MOB mob, final List<AbilityComponent> req)
+	{
+		if((mob==null)||(req==null)||(req.size()==0))
+			return new Vector<Item>(0);
+		boolean currentAND=false;
+		final List<Item> passes=new ArrayList<Item>();
+		AbilityComponent comp = null;
+		for(int i=0;i<req.size();i++)
+		{
+			comp=req.get(i);
+			if(comp.getConnector()==CompConnector.MESSAGE)
+				return passes;
+			currentAND=comp.getConnector()==CompConnector.AND;
+			if((!currentAND)&&(passes.size()>0))
+				return passes;
+			// if they fail the zappermask, its like the req is NOT even there...
+			if((comp.getCompiledMask()!=null)
+			&&(!CMLib.masking().maskCheck(comp.getCompiledMask(),mob,true)))
+				continue;
+			final Item I=makeItemComponent(comp, false);
+			if(I!=null)
+				passes.add(I);
 		}
 		if(passes.size()==0)
 			return null;
@@ -253,37 +356,34 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 	{
 		final PairList<String,String> curr=new PairVector<String,String>();
 		String itemDesc=null;
-		curr.add("ANDOR",comp.getConnector()==AbilityComponent.CompConnector.AND?"&&":"||");
-		if(comp.getLocation()==AbilityComponent.CompLocation.HELD)
-			curr.add("DISPOSITION","held");
+		if(comp.getConnector()==CompConnector.MESSAGE)
+		{
+			curr.add("ANDOR","\"");
+			curr.add("MASK",comp.getMaskStr());
+			return curr;
+		}
+		curr.add("ANDOR",comp.getConnector()==CompConnector.AND?"&&":"||");
+		curr.add("DISPOSITION",comp.getLocation().name().toLowerCase());
+		if(comp.getLocation()==CompLocation.TRIGGER)
+			curr.add("TRIGGER",comp.getTriggererDef());
 		else
-		if(comp.getLocation()==AbilityComponent.CompLocation.WORN)
-			curr.add("DISPOSITION","worn");
-		else
-		if(comp.getLocation()==AbilityComponent.CompLocation.NEARBY)
-			curr.add("DISPOSITION","nearby");
-		else
-		if(comp.getLocation()==AbilityComponent.CompLocation.ONGROUND)
-			curr.add("DISPOSITION","onground");
-		else
-		if(comp.getLocation()==AbilityComponent.CompLocation.INVENTORY)
-			curr.add("DISPOSITION","inventory");
-
-		if(comp.isConsumed())
-			curr.add("FATE","consumed");
-		else
-			curr.add("FATE","kept");
-		curr.add("AMOUNT",""+comp.getAmount());
-		if(comp.getType()==AbilityComponent.CompType.STRING)
-			itemDesc=comp.getStringType();
-		else
-		if(comp.getType()==AbilityComponent.CompType.MATERIAL)
-			itemDesc=RawMaterial.Material.findByMask((int)comp.getLongType()).desc().toUpperCase();
-		else
-		if(comp.getType()==AbilityComponent.CompType.RESOURCE)
-			itemDesc=RawMaterial.CODES.NAME((int)comp.getLongType()).toUpperCase();
-		curr.add("COMPONENTID",itemDesc);
-		curr.add("SUBTYPE",comp.getSubType());
+		{
+			if(comp.isConsumed())
+				curr.add("FATE","consumed");
+			else
+				curr.add("FATE","kept");
+			curr.add("AMOUNT",""+comp.getAmount());
+			if(comp.getType()==CompType.STRING)
+				itemDesc=comp.getStringType();
+			else
+			if(comp.getType()==CompType.MATERIAL)
+				itemDesc=RawMaterial.Material.findByMask((int)comp.getLongType()).desc().toUpperCase();
+			else
+			if(comp.getType()==CompType.RESOURCE)
+				itemDesc=RawMaterial.CODES.NAME((int)comp.getLongType()).toUpperCase();
+			curr.add("COMPONENTID",itemDesc);
+			curr.add("SUBTYPE",comp.getSubType());
+		}
 		curr.add("MASK",comp.getMaskStr());
 		return curr;
 	}
@@ -292,44 +392,56 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 	public void setAbilityComponentCodedFromCodedPairs(final PairList<String,String> decodedDV, final AbilityComponent comp)
 	{
 		final String[] s=new String[7];
-		for(int i=0;i<7;i++)
+		for(int i=0;i<7 && i<decodedDV.size();i++)
 			s[i]=decodedDV.get(i).second;
+		if(s[0].equalsIgnoreCase("\""))
+			comp.setConnector(CompConnector.MESSAGE);
+		else
 		if(s[0].equalsIgnoreCase("||"))
-			comp.setConnector(AbilityComponent.CompConnector.OR);
+			comp.setConnector(CompConnector.OR);
 		else
-			comp.setConnector(AbilityComponent.CompConnector.AND);
-		if(s[1].equalsIgnoreCase("held"))
-			comp.setLocation(AbilityComponent.CompLocation.HELD);
-		else
-		if(s[1].equalsIgnoreCase("worn"))
-			comp.setLocation(AbilityComponent.CompLocation.WORN);
-		else
-		if(s[1].equalsIgnoreCase("nearby"))
-			comp.setLocation(AbilityComponent.CompLocation.NEARBY);
-		else
-		if(s[1].equalsIgnoreCase("onground"))
-			comp.setLocation(AbilityComponent.CompLocation.ONGROUND);
-		else
-			comp.setLocation(AbilityComponent.CompLocation.INVENTORY);
-		if(s[2].equalsIgnoreCase("consumed"))
-			comp.setConsumed(true);
-		else
-			comp.setConsumed(false);
-		comp.setAmount(CMath.s_int(s[3]));
-		final String compType=s[4];
-		final String subType=s[5];
-		int depth=CMLib.materials().getResourceCode(compType,false);
-		if(depth>=0)
-			comp.setType(AbilityComponent.CompType.RESOURCE, Integer.valueOf(depth), subType);
+			comp.setConnector(CompConnector.AND);
+		if(comp.getConnector()==CompConnector.MESSAGE)
+			comp.setMask(s[1]);
 		else
 		{
-			depth=CMLib.materials().getMaterialCode(compType,false);
-			if(depth>=0)
-				comp.setType(AbilityComponent.CompType.MATERIAL, Integer.valueOf(depth), subType);
+			final CompLocation loc;
+			loc = (CompLocation)CMath.s_valueOf(CompLocation.class, s[1].toUpperCase().trim());
+			comp.setLocation(loc);
+			if(comp.getLocation()==CompLocation.TRIGGER)
+			{
+				comp.setTriggererDef(s[2]);
+				comp.setMask(s[3]);
+			}
 			else
-				comp.setType(AbilityComponent.CompType.STRING, s[4].toUpperCase().trim(), "");
+			{
+				if(s[2].equalsIgnoreCase("consumed"))
+					comp.setConsumed(true);
+				else
+					comp.setConsumed(false);
+				comp.setAmount(CMath.s_int(s[3]));
+				final String compType=s[4]==null?"":s[4];
+				final String subType=s[5]==null?"":s[5];
+				int depth=CMLib.materials().findResourceCode(compType,false);
+				if(depth>=0)
+					comp.setType(CompType.RESOURCE, Integer.valueOf(depth), subType);
+				else
+				{
+					depth=CMLib.materials().findMaterialCode(compType,false);
+					if(depth>=0)
+						comp.setType(CompType.MATERIAL, Integer.valueOf(depth), subType);
+					else
+					if(s[4]==null)
+						comp.setType(CompType.STRING, "", "");
+					else
+						comp.setType(CompType.STRING, s[4].toUpperCase().trim(), "");
+				}
+				if(s[6] != null)
+					comp.setMask(s[6]);
+				else
+					comp.setMask("");
+			}
 		}
-		comp.setMask(s[6]);
 	}
 
 	protected List<PairList<String,String>> getAbilityComponentCodedListLists(final List<AbilityComponent> req)
@@ -343,14 +455,15 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 	}
 
 	@Override
-	public AbilityComponent createBlankAbilityComponent()
+	public AbilityComponent createBlankAbilityComponent(final String abilityID)
 	{
 		final AbilityComponent comp = (AbilityComponent)CMClass.getCommon("DefaultAbilityComponent");
-		comp.setConnector(AbilityComponent.CompConnector.AND);
-		comp.setLocation(AbilityComponent.CompLocation.INVENTORY);
+		comp.setAbilityID(abilityID!=null?abilityID.toUpperCase().trim():"");
+		comp.setConnector(CompConnector.AND);
+		comp.setLocation(CompLocation.INVENTORY);
 		comp.setConsumed(false);
 		comp.setAmount(1);
-		comp.setType(AbilityComponent.CompType.STRING, "resource-material-item name", "");
+		comp.setType(CompType.STRING, "resource-material-item name", "");
 		comp.setMask("");
 		return comp;
 	}
@@ -371,19 +484,37 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 			if(curr==null)
 				continue;
 			if(c>0)
+			{
 				buf.append(curr.get(0).second);
+				if(curr.get(0).second.equalsIgnoreCase("\""))
+				{
+					buf.append(curr.get(1).second);
+					buf.append(curr.get(0).second);
+					continue;
+				}
+			}
 			buf.append("(");
-			buf.append(curr.get(1).second);
+			final String type = curr.get(1).second;
+			buf.append(type);
 			buf.append(":");
-			buf.append(curr.get(2).second);
-			buf.append(":");
-			buf.append(curr.get(3).second);
-			buf.append(":");
-			buf.append(curr.get(4).second);
-			if(curr.get(5).second.toString().length()>0)
-				buf.append("(").append(curr.get(5).second).append(")");
-			buf.append(":");
-			buf.append(curr.get(6).second);
+			if(type.equalsIgnoreCase("TRIGGER"))
+			{
+				buf.append(curr.get(2).second);
+				buf.append(":");
+				buf.append(curr.get(3).second);
+			}
+			else
+			{
+				buf.append(curr.get(2).second);
+				buf.append(":");
+				buf.append(curr.get(3).second);
+				buf.append(":");
+				buf.append(curr.get(4).second);
+				if(curr.get(5).second.toString().length()>0)
+					buf.append("(").append(curr.get(5).second).append(")");
+				buf.append(":");
+				buf.append(curr.get(6).second);
+			}
 			buf.append(")");
 		}
 		return buf.toString();
@@ -401,11 +532,13 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 	@Override
 	public String getAbilityComponentDesc(final MOB mob, final AbilityComponent comp, final boolean useConnector)
 	{
+		if(comp.getConnector()==CompConnector.MESSAGE)
+			return comp.getMaskStr();
 		int amt=0;
 		String itemDesc=null;
 		final StringBuffer buf=new StringBuffer("");
 		if(useConnector)
-			buf.append(comp.getConnector()==AbilityComponent.CompConnector.AND?", and ":", or ");
+			buf.append(comp.getConnector()==CompConnector.AND?", and ":", or ");
 		if((mob!=null)
 		&&(comp.getCompiledMask()!=null)
 		&&(!CMLib.masking().maskCheck(comp.getCompiledMask(),mob,true)))
@@ -415,65 +548,91 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 			if(comp.getCompiledMask()!=null)
 				buf.append("MASK: "+comp.getMaskStr()+": ");
 		}
-		amt=comp.getAmount();
-		String subType=comp.getSubType();
-		if(subType.trim().length()>0)
+		if(comp.getLocation()==CompLocation.TRIGGER)
 		{
-			subType=subType.trim().toLowerCase();
-			if(comp.getType()==AbilityComponent.CompType.STRING)
-				itemDesc=((amt>1)?(amt+" "+CMLib.english().makePlural(comp.getStringType())):CMLib.english().startWithAorAn(comp.getStringType()));
-			else
-			if(comp.getType()==AbilityComponent.CompType.MATERIAL)
-			{
-				if(subType.indexOf(' ')>0)
-					itemDesc=amt+" "+subType;
-				else
-					itemDesc=amt+" "+RawMaterial.Material.findByMask((int)comp.getLongType()).noun().toLowerCase()+" ("+subType+") ";
-			}
-			else
-			if(comp.getType()==AbilityComponent.CompType.RESOURCE)
-			{
-				final String matName=RawMaterial.CODES.NAME((int)comp.getLongType()).toLowerCase();
-				if(subType.equals(matName)
-				&& (((comp.getLongType()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_CLOTH)
-					||((comp.getLongType()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_PAPER)))
-					itemDesc=amt+" "+subType+" bolt";
-				else
-					itemDesc=amt+" "+subType;
-			}
+			final Triggerer t = (Triggerer)CMClass.getCommon("DefaultTriggerer");
+			t.addTrigger(t, comp.getTriggererDef(), compSocials, null);
+			if((comp.getCompiledMask()!=null)&&(useConnector||(buf.length()>0)))
+				buf.append("then ");
+			buf.append(t.getTriggerDesc(t, "the player"));
 		}
 		else
 		{
-			if(comp.getType()==AbilityComponent.CompType.STRING)
-				itemDesc=((amt>1)?(amt+" "+comp.getStringType()+"s"):CMLib.english().startWithAorAn(comp.getStringType()));
+			amt=comp.getAmount();
+			String subType=comp.getSubType();
+			if(subType.trim().length()>0)
+			{
+				subType=subType.trim().toLowerCase();
+				if(comp.getType()==CompType.STRING)
+					itemDesc=((amt>1)?(amt+" "+CMLib.english().makePlural(comp.getStringType())):CMLib.english().startWithAorAn(comp.getStringType()));
+				else
+				if(comp.getType()==CompType.MATERIAL)
+				{
+					if(subType.indexOf(' ')>0)
+						itemDesc=amt+" "+subType;
+					else
+						itemDesc=amt+" "+RawMaterial.Material.findByMask((int)comp.getLongType()).noun().toLowerCase()+" ("+subType+") ";
+				}
+				else
+				if(comp.getType()==CompType.RESOURCE)
+				{
+					final String matName=RawMaterial.CODES.NAME((int)comp.getLongType()).toLowerCase();
+					if(subType.equals(matName)
+					&& (((comp.getLongType()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_CLOTH)
+						||((comp.getLongType()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_PAPER)))
+						itemDesc=amt+" "+subType+" bolt";
+					else
+						itemDesc=amt+" "+subType;
+				}
+			}
 			else
-			if(comp.getType()==AbilityComponent.CompType.MATERIAL)
-				itemDesc=amt+((amt>1)?" pounds":" pound")+" of "+RawMaterial.Material.findByMask((int)comp.getLongType()).noun().toLowerCase();
+			{
+				if(comp.getType()==CompType.STRING)
+					itemDesc=((amt>1)?(amt+" "+comp.getStringType()+"s"):CMLib.english().startWithAorAn(comp.getStringType()));
+				else
+				if(comp.getType()==CompType.MATERIAL)
+					itemDesc=amt+((amt>1)?" pounds":" pound")+" of "+RawMaterial.Material.findByMask((int)comp.getLongType()).noun().toLowerCase();
+				else
+				if(comp.getType()==CompType.RESOURCE)
+					itemDesc=amt+((amt>1)?" pounds":" pound")+" of "+RawMaterial.CODES.NAME((int)comp.getLongType()).toLowerCase();
+			}
+			if((comp.getLocation()==CompLocation.INVENTORY)||(comp.getLocation()==CompLocation.HAVE))
+				buf.append(itemDesc);
 			else
-			if(comp.getType()==AbilityComponent.CompType.RESOURCE)
-				itemDesc=amt+((amt>1)?" pounds":" pound")+" of "+RawMaterial.CODES.NAME((int)comp.getLongType()).toLowerCase();
+			if(comp.getLocation()==CompLocation.HELD)
+				buf.append(itemDesc+" held");
+			else
+			if(comp.getLocation()==CompLocation.WORN)
+				buf.append(L("@x1 worn or wielded",itemDesc));
+			else
+			if(comp.getLocation()==CompLocation.NEARBY)
+				buf.append(itemDesc+" nearby");
+			else
+			if(comp.getLocation()==CompLocation.ONGROUND)
+				buf.append(L("@x1 on the ground",itemDesc));
 		}
-		if(comp.getLocation()==AbilityComponent.CompLocation.INVENTORY)
-			buf.append(itemDesc);
-		else
-		if(comp.getLocation()==AbilityComponent.CompLocation.HELD)
-			buf.append(itemDesc+" held");
-		else
-		if(comp.getLocation()==AbilityComponent.CompLocation.WORN)
-			buf.append(L("@x1 worn or wielded",itemDesc));
-		else
-		if(comp.getLocation()==AbilityComponent.CompLocation.NEARBY)
-			buf.append(itemDesc+" nearby");
-		else
-		if(comp.getLocation()==AbilityComponent.CompLocation.ONGROUND)
-			buf.append(L("@x1 on the ground",itemDesc));
 		return buf.toString();
 	}
 
 	@Override
 	public String getAbilityComponentDesc(final MOB mob, final String AID)
 	{
-		return getAbilityComponentDesc(mob,getAbilityComponents(AID));
+		final List<AbilityComponent> comp = getAbilityComponents(AID);
+		if((comp != null)&&(comp.size()>0))
+			return getAbilityComponentDesc(mob,comp);
+		final List<Social> soc = this.compSocials.get(AID);
+		if(soc != null)
+		{
+			final StringBuilder buf = new StringBuilder("");
+			for(final Social s : soc)
+			{
+				if(buf.length()>0)
+					buf.append("\n\r");
+				buf.append(s.Name());
+			}
+			return buf.toString();
+		}
+		return "";
 	}
 
 	@Override
@@ -482,9 +641,11 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 		if(req==null)
 			return null;
 		final StringBuffer buf=new StringBuffer("");
+		if((req.size() > 0) && (req.get(req.size()-1).getConnector()==CompConnector.MESSAGE))
+			return req.get(req.size()-1).getMaskStr();
 		for (int r = 0; r < req.size(); r++)
 		{
-			buf.append(getAbilityComponentDesc(mob, req.get(r), r>0));
+			buf.append(getAbilityComponentDesc(mob, req.get(r), buf.length()>0));
 		}
 		return buf.toString();
 	}
@@ -494,7 +655,11 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 	{
 		int x=s.indexOf('=');
 		if(x<0)
-			return "Malformed component line (code 0): "+s;
+		{
+			if(CMLib.socials().putSocialsInHash(compSocials, new XArrayList<String>(s)) == 0)
+				return "Malformed component line (code 0): "+s;
+			return null;
+		}
 		final String id=s.substring(0,x).toUpperCase().trim();
 		String parms=s.substring(x+1);
 
@@ -503,21 +668,41 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 		List<AbilityComponent> parm=null;
 		AbilityComponent build=null;
 		int depth=0;
-		parm=new Vector<AbilityComponent>();
+		parm=new Vector<AbilityComponent>(); // part of final output
 		String error=null;
 		while(parms.length()>0)
 		{
 			build=(AbilityComponent)CMClass.getCommon("DefaultAbilityComponent");
-			build.setConnector(AbilityComponent.CompConnector.AND);
+			if(build == null)
+				return null; // probably shutting down
+			build.setAbilityID(id);
+			build.setConnector(CompConnector.AND);
 			if(parms.startsWith("||"))
 			{
-				build.setConnector(AbilityComponent.CompConnector.OR);
+				build.setConnector(CompConnector.OR);
 				parms=parms.substring(2).trim();
 			}
 			else
 			if(parms.startsWith("&&"))
 			{
 				parms = parms.substring(2).trim();
+			}
+			else
+			if(parms.startsWith("\""))
+			{
+				build.setConnector(CompConnector.MESSAGE);
+				parms=parms.substring(1).trim();
+				if(parms.endsWith("\""))
+					parms = parms.substring(0,parms.length()-1);
+				build.setMask(parms);
+				if(depth != 0)
+					error = "Malformed component line (code 1/3 - message depth): " + parms;
+				else
+				if(parm.size()==0)
+					error = "Malformed component line (code 1/2 - premature message): " + parms;
+				else
+					parm.add(build);
+				break;
 			}
 
 			if (!parms.startsWith("("))
@@ -547,32 +732,27 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 			parmS=parms.substring(1,x).trim();
 			parms=parms.substring(x+1).trim();
 
-			build.setLocation(AbilityComponent.CompLocation.INVENTORY);
+			build.setLocation(CompLocation.INVENTORY);
 			x=parmS.indexOf(':');
 			if(x<0)
 			{
 				error="Malformed component line (code 0-1): "+parmS;
 				continue;
 			}
-			if(parmS.substring(0,x).equalsIgnoreCase("held"))
-				build.setLocation(AbilityComponent.CompLocation.HELD);
-			else
-			if(parmS.substring(0,x).equalsIgnoreCase("worn"))
-				build.setLocation(AbilityComponent.CompLocation.WORN);
-			else
-			if(parmS.substring(0,x).equalsIgnoreCase("nearby"))
-				build.setLocation(AbilityComponent.CompLocation.NEARBY);
-			else
-			if(parmS.substring(0,x).equalsIgnoreCase("onground"))
-				build.setLocation(AbilityComponent.CompLocation.ONGROUND);
-			else
-			if((x>0)&&(!parmS.substring(0,x).equalsIgnoreCase("inventory")))
+			final String typeStr=parmS.substring(0,x).toUpperCase().trim();
+			CompLocation loc;
+			loc = (CompLocation)CMath.s_valueOf(CompLocation.class, typeStr);
+			if(loc == null)
 			{
-				error="Malformed component line (code 0-2): "+parmS;
-				continue;
+				if(x>0)
+				{
+					error="Malformed component line (code 0-2): "+parmS;
+					continue;
+				}
 			}
+			else
+				build.setLocation(loc);
 			parmS=parmS.substring(x+1);
-
 			build.setConsumed(true);
 			x=parmS.indexOf(':');
 			if (x < 0)
@@ -580,66 +760,79 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 				error = "Malformed component line (code 1-1): " + parmS;
 				continue;
 			}
-			if(parmS.substring(0,x).equalsIgnoreCase("kept"))
-				build.setConsumed(false);
-			else
-			if((x>0)&&(!parmS.substring(0,x).equalsIgnoreCase("consumed")))
+			if(build.getLocation() != CompLocation.TRIGGER)
 			{
-				error="Malformed component line (code 1-2): "+parmS;
-				continue;
-			}
-			parmS=parmS.substring(x+1);
-
-			build.setAmount(1);
-			x=parmS.indexOf(':');
-			if (x < 0)
-			{
-				error = "Malformed component line (code 2-1): " + parmS;
-				continue;
-			}
-			if((x>0)&&(!CMath.isInteger(parmS.substring(0,x))))
-			{
-				error="Malformed component line (code 2-2): "+parmS;
-				continue;
-			}
-			if(x>0)
-				build.setAmount(CMath.s_int(parmS.substring(0,x)));
-			parmS=parmS.substring(x+1);
-
-			build.setType(AbilityComponent.CompType.STRING, "", "");
-			x=parmS.indexOf(':');
-			if (x <= 0)
-			{
-				error = "Malformed component line (code 3-1): " + parmS;
-				continue;
-			}
-			rsc=parmS.substring(0,x);
-			String compType=rsc;
-			String subType="";
-			if(rsc.endsWith(")"))
-			{
-				final int y=rsc.lastIndexOf('(');
-				if(y>0)
+				if(parmS.substring(0,x).equalsIgnoreCase("kept"))
+					build.setConsumed(false);
+				else
+				if((x>0)&&(!parmS.substring(0,x).equalsIgnoreCase("consumed")))
 				{
-					compType=rsc.substring(0, y);
-					subType=rsc.substring(y+1,rsc.length()-1);
+					error="Malformed component line (code 1-2): "+parmS;
+					continue;
+				}
+				parmS=parmS.substring(x+1);
+
+				build.setAmount(1);
+				x=parmS.indexOf(':');
+				if (x < 0)
+				{
+					error = "Malformed component line (code 2-1): " + parmS;
+					continue;
+				}
+				if((x>0)&&(!CMath.isInteger(parmS.substring(0,x))))
+				{
+					error="Malformed component line (code 2-2): "+parmS;
+					continue;
+				}
+				if(x>0)
+					build.setAmount(CMath.s_int(parmS.substring(0,x)));
+				parmS=parmS.substring(x+1);
+
+				build.setType(CompType.STRING, "", "");
+				x=parmS.indexOf(':');
+				if (x <= 0)
+				{
+					error = "Malformed component line (code 3-1): " + parmS;
+					continue;
+				}
+				rsc=parmS.substring(0,x);
+				String compType=rsc;
+				String subType="";
+				if(rsc.endsWith(")"))
+				{
+					final int y=rsc.lastIndexOf('(');
+					if(y>0)
+					{
+						compType=rsc.substring(0, y);
+						subType=rsc.substring(y+1,rsc.length()-1);
+					}
+				}
+				int rscC=CMLib.materials().findResourceCode(compType,false);
+				if(rscC>=0)
+					build.setType(CompType.RESOURCE, Long.valueOf(rscC), subType);
+				else
+				{
+					rscC=CMLib.materials().findMaterialCode(compType,false);
+					if(rscC>=0)
+						build.setType(CompType.MATERIAL, Long.valueOf(rscC), subType);
+					else
+						build.setType(CompType.STRING, rsc.toUpperCase().trim(), "");
 				}
 			}
-			depth=CMLib.materials().getResourceCode(compType,false);
-			if(depth>=0)
-				build.setType(AbilityComponent.CompType.RESOURCE, Long.valueOf(depth), subType);
-			else
-			{
-				depth=CMLib.materials().getMaterialCode(compType,false);
-				if(depth>=0)
-					build.setType(AbilityComponent.CompType.MATERIAL, Long.valueOf(depth), subType);
-				else
-					build.setType(AbilityComponent.CompType.STRING, rsc.toUpperCase().trim(), "");
-			}
+			else // TRIGGER
+				build.setTriggererDef(parmS.substring(0,x).trim());
+
 			parmS=parmS.substring(x+1);
 
 			build.setMask(parmS);
 
+			if((build.getTriggererDef().trim().length()>0)
+			&&(id.trim().length()>0))
+			{
+				if(!abilitiesWithCompsWithTriggers.containsKey(id.toUpperCase()))
+					abilitiesWithCompsWithTriggers.put(id.toUpperCase(), new SLinkedList<AbilityComponent>());
+				abilitiesWithCompsWithTriggers.get(id.toUpperCase()).add(build);
+			}
 			parm.add(build);
 		}
 		if(parm instanceof Vector)
@@ -662,126 +855,266 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 		if(H==null)
 		{
 			H=new Hashtable<String,List<AbilityComponent>>();
-			final StringBuffer buf=new CMFile(Resources.makeFileResourceName("skills/components.txt"),null,CMFile.FLAG_LOGERRORS).text();
-			List<String> V=new Vector<String>();
-			if(buf!=null)
-				V=Resources.getFileLineVector(buf);
+			if(CMProps.isState(CMProps.HostState.SHUTTINGDOWN))
+				return H;
+			abilitiesWithCompsWithTriggers.clear();
+			compSocials.clear();
+			final CMFile[] fileList = CMFile.getExistingExtendedFiles(Resources.makeFileResourceName("skills/components.txt"),null,CMFile.FLAG_LOGERRORS);
+			List<String> V=null;
+			for(final CMFile F : fileList)
+			{
+				final StringBuffer buf = F.text();
+				if((buf!=null)&&(buf.length()>0))
+				{
+					if(V == null)
+						V=new ArrayList<String>(1);
+					V.addAll(Resources.getFileLineVector(buf));
+				}
+			}
 			String s=null;
 			String error=null;
 			if(V!=null)
-			for(int v=0;v<V.size();v++)
 			{
-				s=V.get(v).trim();
-				if(s.startsWith("#")||(s.length()==0)||s.startsWith(";")||s.startsWith(":"))
-					continue;
-				error=addAbilityComponent(s,H);
-				if(error!=null)
-					Log.errOut("CMAble",error);
+				for(int v=0;v<V.size();v++)
+				{
+					s=CMStrings.trimCRLF(V.get(v));
+					if(s.startsWith("#")||(s.length()==0)||s.startsWith(";")||s.startsWith(":"))
+						continue;
+					error=addAbilityComponent(s,H);
+					if(error!=null)
+						Log.errOut("CMAble",error + " on line " + v);
+				}
 			}
+			Triggerer.TrigSignal.sig++;
 			Resources.submitResource("COMPONENT_MAP",H);
 		}
 		return H;
 	}
 
 	@Override
+	public Map<String,List<Social>> getComponentSocials()
+	{
+		getAbilityComponentMap();
+		return compSocials;
+	}
+
+	@Override
 	public MaterialLibrary.DeadResourceRecord destroyAbilityComponents(final List<Object> found)
 	{
-		final MaterialLibrary.DeadResourceRecord record = new MaterialLibrary.DeadResourceRecord();
-		if((found==null)||(found.size()==0))
+		int lostValue=0;
+		int lostAmt=0;
+		int resCode=-1;
+		String subType="";
+		XVector<CMObject> lostProps = null; // goes into the final output
+		if((found!=null)&&(found.size()>0))
 		{
-			return record;
-		}
-		final XVector<Ability> props=new XVector<Ability>();
-		record.lostProps=props;
-		while(found.size()>0)
-		{
-			int i=0;
-			boolean destroy=false;
-			for(;i<found.size();i++)
+			lostProps=new XVector<CMObject>(); // goes into the final output
+			while(found.size()>0)
 			{
-				if(found.get(i) instanceof Boolean)
+				int i=0;
+				boolean destroy=false;
+				for(;i<found.size();i++)
 				{
-					destroy = ((Boolean) found.get(i)).booleanValue();
-					break;
+					if(found.get(i) instanceof Boolean)
+					{
+						destroy = ((Boolean) found.get(i)).booleanValue();
+						break;
+					}
+				}
+				final List<Pair<Integer,String>> compInts=new ArrayList<Pair<Integer,String>>();
+				while(i>=0)
+				{
+					if((destroy)
+					&&(found.get(0) instanceof Item))
+					{
+						final Item I=(Item)found.get(0);
+						lostProps.addAll(I.effects());
+						lostProps.addAll(I.behaviors());
+						lostAmt += I.basePhyStats().weight();
+						lostValue +=I.value();
+						compInts.add(new Pair<Integer,String>(
+								Integer.valueOf(I.material()),
+								((I instanceof RawMaterial)?((RawMaterial)I).getSubType():"")));
+						I.destroy();
+					}
+					found.remove(0);
+					i--;
+				}
+				if(compInts.size()>0)
+				{
+					Collections.sort(compInts, new Comparator<Pair<Integer,String>>()
+					{
+						@Override
+						public int compare(final Pair<Integer, String> o1, final Pair<Integer, String> o2)
+						{
+							return o1.first.compareTo(o2.first);
+						}
+					});
+					final int index=(int)Math.round(Math.floor(compInts.size()/2));
+					if(resCode<0)
+						resCode=compInts.get(index).first.intValue();
+					if((subType==null)||(subType.length()==0))
+						subType=compInts.get(index).second;
 				}
 			}
-			while(i>=0)
-			{
-				if((destroy)
-				&&(found.get(0) instanceof Item))
-				{
-					props.addAll(((Item)found.get(0)).effects());
-					record.lostAmt += ((Item)found.get(0)).basePhyStats().weight();
-					record.lostValue +=((Item)found.get(0)).value();
-					((Item)found.get(0)).destroy();
-				}
-				found.remove(0);
-				i--;
-			}
 		}
-		return record;
+		return new DeadResourceRecord()
+		{
+			int lostValue=0;
+			int lostAmt=0;
+			int resCode=-1;
+			String subType="";
+			List<CMObject> lostProps = null;
+
+			public DeadResourceRecord set(final int lostValue, final int lostAmt, final int resCode, final String subType, final List<CMObject> lostProps)
+			{
+				this.lostValue = lostValue;
+				this.lostAmt = lostAmt;
+				this.resCode = resCode;
+				this.subType = subType;
+				this.lostProps = lostProps;
+				return this;
+			}
+
+			@Override
+			public int getLostValue()
+			{
+				return lostValue;
+			}
+
+			@Override
+			public int getLostAmt()
+			{
+				return lostAmt;
+			}
+
+			@Override
+			public int getResCode()
+			{
+				return resCode;
+			}
+
+			@Override
+			public String getSubType()
+			{
+				return subType;
+			}
+
+			@Override
+			public List<CMObject> getLostProps()
+			{
+				return lostProps;
+			}
+		}.set(lostValue, lostAmt, resCode, subType, lostProps);
+	}
+
+	@Override
+	public List<Social> getSocialsSet(String named)
+	{
+		getAbilityComponentMap();
+		named=named.toUpperCase().trim();
+		final int spdex=named.indexOf(' ');
+		if(spdex>0)
+			named=named.substring(0,spdex);
+		return compSocials.get(named);
 	}
 
 	@Override
 	public void alterAbilityComponentFile(final String compID, final boolean delete)
 	{
-		final CMFile F=new CMFile(Resources.makeFileResourceName("skills/components.txt"),null,CMFile.FLAG_LOGERRORS);
+		final boolean isSocial =
+				((compID.length()>2)&&(compID.charAt(2)=='\t'))
+				||compSocials.containsKey(compID.trim().toUpperCase());
+		final CMFile[] fileList = CMFile.getExistingExtendedFiles(Resources.makeFileResourceName("skills/components.txt"),null,CMFile.FLAG_LOGERRORS);
 		if(delete)
 		{
-			Resources.findRemoveProperty(F, compID);
-			return;
-		}
-		final String parms=getAbilityComponentCodedString(compID);
-		final StringBuffer text=F.textUnformatted();
-		boolean lastWasCR=true;
-		boolean addIt=true;
-		int delFromHere=-1;
-		final String upID=compID.toUpperCase();
-		for(int t=0;t<text.length();t++)
-		{
-			if(text.charAt(t)=='\n')
-				lastWasCR=true;
-			else
-			if(text.charAt(t)=='\r')
-				lastWasCR=true;
-			else
-			if(Character.isWhitespace(text.charAt(t)))
-				continue;
-			else
-			if((lastWasCR)&&(delFromHere>=0))
+			//if it's not a social, you get to use the Resource method
+			if(!isSocial)
 			{
-				text.delete(delFromHere,t);
-				text.insert(delFromHere,parms+'\n');
-				delFromHere=-1;
-				addIt=false;
-				break;
+				for(final CMFile F : fileList)
+					Resources.findRemoveProperty(F, compID);
+				return;
+			}
+		}
+		final String parms=isSocial?compID:getAbilityComponentCodedString(compID);
+		for(final CMFile F : fileList)
+		{
+			final StringBuffer text=F.textUnformatted();
+			boolean lastWasCR=true;
+			boolean addIt=true;
+			boolean changed=false;
+			int delFromHere=-1;
+			final String upID;
+			if(isSocial)
+			{
+				final int x=compID.indexOf('\t',3);
+				if(x<0)
+					upID=compID.toUpperCase()+"\t";
+				else
+					upID=compID.substring(3,x+1).toUpperCase();
 			}
 			else
-			if((lastWasCR)&&(Character.toUpperCase(text.charAt(t))==upID.charAt(0)))
+				upID=compID.toUpperCase();
+			for(int t=0;t<text.length();t++)
 			{
-				if((text.substring(t).toUpperCase().startsWith(upID))
-				&&(text.substring(t+upID.length()).trim().startsWith("=")))
+				if(text.charAt(t)=='\n')
+					lastWasCR=true;
+				else
+				if(text.charAt(t)=='\r')
+					lastWasCR=true;
+				else
+				if(Character.isWhitespace(text.charAt(t)))
+					continue;
+				else
+				if((lastWasCR)&&(delFromHere>=0))
+				{
+					text.delete(delFromHere,t);
+					if(!delete)
+						text.insert(delFromHere,parms+'\n');
+					delFromHere=-1;
+					addIt=false;
+					changed=true;
+					break;
+				}
+				else
+				if((lastWasCR)
+				&&((isSocial && text.substring(t+3).startsWith(upID))
+				  ||((!isSocial)
+					&&(text.substring(t).toUpperCase().startsWith(upID))
+					&&(text.substring(t+upID.length()).trim().startsWith("=")))))
 				{
 					addIt=false;
 					delFromHere=t;
+					lastWasCR=false;
 				}
-				lastWasCR=false;
+				else
+					lastWasCR=false;
 			}
-			else
-				lastWasCR=false;
+			if(delFromHere>0)
+			{
+				text.delete(delFromHere,text.length());
+				if(!delete)
+					text.append(parms+'\n');
+				F.saveText(text.toString(),false);
+				break;
+			}
+			if(changed)
+			{
+				F.saveText(text.toString(),false);
+				break;
+			}
+			if(addIt && (F==fileList[fileList.length-1]))
+			{
+				if(!lastWasCR)
+					text.append('\n');
+				text.append(parms+'\n');
+				F.saveText(text.toString(),false);
+				break;
+			}
 		}
-		if(delFromHere>0)
-		{
-			text.delete(delFromHere,text.length());
-			text.append(parms+'\n');
-		}
-		if(addIt)
-		{
-			if(!lastWasCR)
-				text.append('\n');
-			text.append(parms+'\n');
-		}
-		F.saveText(text.toString(),false);
+		Resources.removeResource("COMPONENT_MAP");
+		abilitiesWithCompsWithTriggers.clear();
+		compSocials.clear();
 	}
 
 	@Override
@@ -999,7 +1332,8 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 		if(CS.getCurrentClass()==null)
 			return aL;
 		final HashSet<String> culturalAbilities=new HashSet<String>();
-		final QuadVector<String,Integer,Integer,Boolean> culturalAbilitiesDV = student.baseCharStats().getMyRace().culturalAbilities();
+		final QuintVector<String,Integer,Integer,Boolean,String> culturalAbilitiesDV =
+				student.baseCharStats().getMyRace().culturalAbilities();
 		for(int i=0;i<culturalAbilitiesDV.size();i++)
 			culturalAbilities.add(culturalAbilitiesDV.getFirst(i).toLowerCase());
 		for(int a=0;a<student.numAbilities();a++)
@@ -1049,5 +1383,226 @@ public class CMAbleComps extends StdLibrary implements AbilityComponents
 			}
 		}
 		return aL;
+	}
+
+	protected Triggerer getAbilityComponentTriggers(final MOB mob, final Ability A)
+	{
+		if((abilitiesWithCompsWithTriggers.size()>0)
+		&&(A!=null))
+		{
+			final String AID=A.ID().toUpperCase().trim();
+			final List<AbilityComponent> comps = abilitiesWithCompsWithTriggers.get(AID);
+			if(comps != null)
+			{
+				Triggerer trig = confirmAbilityComponentTriggers(mob);
+				if(trig.hasTrigger(AID))
+					return trig;
+				for(final AbilityComponent comp : comps)
+				{
+					if((comp.getCompiledMask()==null)
+					||(CMLib.masking().maskCheck(comp.getCompiledMask(), mob, true)))
+					{
+						if(trig.isDisabled())
+						{
+							trig = (Triggerer)CMClass.getCommon("DefaultTriggerer");
+							mob.setTriggerer(trig);
+						}
+						trig.addTrigger(AID, comp.getTriggererDef(), compSocials, null);
+						return trig;
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	protected Triggerer getActiveTriggerer(final MOB mob)
+	{
+		final Triggerer triggerer = mob.triggerer();
+		if(abilitiesWithCompsWithTriggers.size()==0)
+		{
+			if(triggerer.isObsolete() || (!triggerer.isDisabled()))
+			{
+				mob.setTriggerer((Triggerer)CMClass.getCommon("NonTriggerer"));
+				return mob.triggerer();
+			}
+			return triggerer;
+		}
+		if(!triggerer.isObsolete())
+			return triggerer;
+		return null;
+	}
+
+	@Override
+	public void addAssistingTriggerer(final MOB mob, final MOB assistingM, final Object key)
+	{
+		Triggerer activeTriggerer = getActiveTriggerer(mob);
+		if(activeTriggerer == null)
+		{
+			activeTriggerer = (Triggerer)CMClass.getCommon("DefaultTriggerer");
+			mob.setTriggerer(activeTriggerer);
+		}
+		activeTriggerer.addTriggerAssist(assistingM, key);
+	}
+
+	protected Triggerer confirmAbilityComponentTriggers(final MOB mob)
+	{
+		final Triggerer activeTriggerer = getActiveTriggerer(mob);
+		if(activeTriggerer != null)
+			return activeTriggerer;
+		final MaskingLibrary mlib = CMLib.masking();
+		Triggerer trig = null;
+		for(final Enumeration<Ability> a=mob.abilities();a.hasMoreElements();)
+		{
+			final Ability A=a.nextElement();
+			if(A!=null)
+			{
+				final List<AbilityComponent> comps = abilitiesWithCompsWithTriggers.get(A.ID().toUpperCase());
+				if(comps != null)
+				{
+					for(final AbilityComponent comp : comps)
+					{
+						if (((comp.getCompiledMask()==null)||mlib.maskCheck(comp.getCompiledMask(), mob, true))
+						&& (comp.getTriggererDef().length()>0))
+						{
+							if(trig == null)
+								trig = (Triggerer)CMClass.getCommon("DefaultTriggerer");
+							trig.addTrigger(A.ID().toUpperCase().trim(), comp.getTriggererDef(), compSocials, null);
+						}
+					}
+				}
+			}
+		}
+		if(trig == null)
+			trig = (Triggerer)CMClass.getCommon("NonTriggerer");
+		mob.setTriggerer(trig);
+		return trig;
+	}
+
+	protected boolean isAbilityComponentTriggerCompletedRecently(final MOB mob, final Ability A)
+	{
+		if(abilitiesWithCompsWithTriggers.size()==0)
+			return false;
+		final Triggerer trigs = getAbilityComponentTriggers(mob, A);
+		return trigs.wasCompletedRecently(mob, A.ID().toUpperCase());
+	}
+
+	@Override
+	public void startAbilityComponentTrigger(final MOB mob, final Ability A)
+	{
+		if(abilitiesWithCompsWithTriggers.size()==0)
+			return;
+		if(!abilitiesWithCompsWithTriggers.containsKey(A.ID().toUpperCase().trim()))
+			return;
+		final Room R=mob.location();
+		if(R==null)
+			return;
+		final Triggerer trigs = getAbilityComponentTriggers(mob, A);
+		if(trigs.getInProgress(mob).length>0) // one at a time, plz
+			return;
+		final CMMsg msg = trigs.genNextAbleTrigger(mob, mob, A.ID().toUpperCase().trim(), true);
+		try
+		{
+			if(R.okMessage(R, msg))
+			{
+				R.send(mob, msg);
+				return; // only one action, plz
+			}
+		}
+		catch(final Exception e)
+		{
+		}
+	}
+
+	@Override
+	public void tickAbilityComponentTriggers(final MOB mob)
+	{
+		final Triggerer triggerer = mob.triggerer();
+		if(abilitiesWithCompsWithTriggers.size()==0)
+		{
+			if(triggerer.isObsolete() || (!triggerer.isDisabled()))
+				mob.setTriggerer((Triggerer)CMClass.getCommon("NonTriggerer"));
+			return;
+		}
+		final Triggerer trigs = confirmAbilityComponentTriggers(mob);
+		final MOB[] who = trigs.whosDoneWaiting();
+		if(who.length>0)
+		{
+			for(final MOB M : who)
+			{
+				final CMMsg msg = CMClass.getMsg(M,null,null,CMMsg.MSG_OK_VISUAL,null);
+				try
+				{
+					M.executeMsg(M, msg);
+				}
+				catch(final Exception e)
+				{
+				}
+			}
+		}
+		if(mob.isPlayer())
+			return;
+		final Object[] keys = trigs.getInProgress(mob);
+		if(keys.length==0)
+			return;
+		final Room R=mob.location();
+		if(R==null)
+			return;
+		for(final Object key : keys)
+		{
+			final CMMsg msg = trigs.genNextAbleTrigger(mob, mob, key, false);
+			try
+			{
+				if(R.okMessage(R, msg))
+				{
+					R.send(mob, msg);
+					return; // only one action, plz
+				}
+			}
+			catch(final Exception e)
+			{
+			}
+		}
+	}
+
+	@Override
+	public void handleAbilityComponentTriggers(final CMMsg msg)
+	{
+		final MOB mob=msg.source();
+		final Triggerer triggerer = mob.triggerer();
+		getAbilityComponentMap(); // in case of pre-load
+		if(abilitiesWithCompsWithTriggers.size()==0)
+		{
+			if(triggerer.isObsolete() || (!triggerer.isDisabled()))
+				mob.setTriggerer((Triggerer)CMClass.getCommon("NonTriggerer"));
+			return;
+		}
+		final Triggerer trigs = confirmAbilityComponentTriggers(msg.source());
+		final Object[] whichTracking = trigs.whichTracking(msg);
+		if(whichTracking.length>0)
+		{
+			final Triad<MOB,Object,List<String>> comps = trigs.getCompleted(msg.source(), whichTracking, msg);
+			if((comps != null)
+			&&(comps.first!=null)
+			&&(comps.first.location()==msg.source().location()))
+			{
+				final Ability A=msg.source().fetchAbility(comps.second.toString());
+				if(A!=null)
+				{
+					mob.setActions(mob.actions()-CMProps.getSkillCombatActionCost(A.ID()));
+					msg.addTrailerRunnable(new Runnable()
+					{
+						final MOB mob = comps.first;
+						final List<String> args = new XVector<String>(comps.third);
+						final Ability ableA = A;
+						@Override
+						public void run()
+						{
+							ableA.invoke(mob, args, null, false, 0);
+						}
+					});
+				}
+			}
+		}
 	}
 }

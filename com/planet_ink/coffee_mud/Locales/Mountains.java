@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ public class Mountains extends StdRoom
 	{
 		super();
 		name="the mountain";
-		basePhyStats.setWeight(5);
+		setMovementCost(5);
 		recoverPhyStats();
 	}
 
@@ -82,6 +82,8 @@ public class Mountains extends StdRoom
 		Integer.valueOf(RawMaterial.RESOURCE_CRYSTAL),
 		Integer.valueOf(RawMaterial.RESOURCE_QUARTZ),
 		Integer.valueOf(RawMaterial.RESOURCE_DIRT),
+		Integer.valueOf(RawMaterial.RESOURCE_PALLADIUM),
+		Integer.valueOf(RawMaterial.RESOURCE_NICKEL),
 		Integer.valueOf(RawMaterial.RESOURCE_PLATINUM)};
 	public static final List<Integer> roomResources=new Vector<Integer>(Arrays.asList(resourceList));
 

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2020 Mike Rundell
+   Copyright 2000-2025 Mike Rundell
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,35 +52,61 @@ public class Dragonbreath extends StdAbility
 	@Override
 	public String displayText()
 	{
-		String prefix;
 		if((affected instanceof MOB)&&(!CMLib.flags().canBreathe((MOB)affected)))
-			prefix="Choking on ";
-		else
-			prefix="Bothered by ";
-		switch(getBreathColor(null))
 		{
-		case 'f': // fire
-			return L("("+prefix+"fumes)");
-		case 'l': // lightning
-			return L("("+prefix+"choking)");
-		case 'c':// cold
-			return L("("+prefix+"ice)");
-		case 'a': // acid
-			return L("("+prefix+"acid)");
-		case 'o': // ooze
-			return L("("+prefix+"ooze)");
-		case 's': // slime
-			return L("("+prefix+"slime)");
-		case 'g':// gas
-			return L("("+prefix+"gas)");
-		case 'u':// undead
-			return L("("+prefix+"evil)");
-		case 'p': // pebbles
-			return L("("+prefix+"rocks)");
-		case 'd': // dust
-			return L("("+prefix+"dust)");
-		default:
-			return L("("+prefix+"fumes)");
+			switch(getBreathColor(null))
+			{
+			case 'f': // fire
+				return L("(Choking on fumes)");
+			case 'l': // lightning
+				return L("(Choking on choking)");
+			case 'c':// cold
+				return L("(Choking on ice)");
+			case 'a': // acid
+				return L("(Choking on acid)");
+			case 'o': // ooze
+				return L("(Choking on ooze)");
+			case 's': // slime
+				return L("(Choking on slime)");
+			case 'g':// gas
+				return L("(Choking on gas)");
+			case 'u':// undead
+				return L("(Choking on evil)");
+			case 'p': // pebbles
+				return L("(Choking on rocks)");
+			case 'd': // dust
+				return L("(Choking on dust)");
+			default:
+				return L("(Choking on fumes)");
+			}
+		}
+		else
+		{
+			switch(getBreathColor(null))
+			{
+			case 'f': // fire
+				return L("(Bothered by fumes)");
+			case 'l': // lightning
+				return L("(Bothered by choking)");
+			case 'c':// cold
+				return L("(Bothered by ice)");
+			case 'a': // acid
+				return L("(Bothered by acid)");
+			case 'o': // ooze
+				return L("(Bothered by ooze)");
+			case 's': // slime
+				return L("(Bothered by slime)");
+			case 'g':// gas
+				return L("(Bothered by gas)");
+			case 'u':// undead
+				return L("(Bothered by evil)");
+			case 'p': // pebbles
+				return L("(Bothered by rocks)");
+			case 'd': // dust
+				return L("(Bothered by dust)");
+			default:
+				return L("(Bothered by fumes)");
+			}
 		}
 	}
 
@@ -199,7 +225,7 @@ public class Dragonbreath extends StdAbility
 		case 'f': // fire
 			return super.flags() | Ability.FLAG_FIREBASED;
 		case 'l': // lightning
-			return super.flags() | Ability.FLAG_AIRBASED;
+			return super.flags() | Ability.FLAG_ELECTRICBASED;
 		case 'c':// cold
 			return super.flags() | Ability.FLAG_WATERBASED;
 		case 'a': // acid
@@ -209,7 +235,7 @@ public class Dragonbreath extends StdAbility
 		case 's': // slime
 			return super.flags() | Ability.FLAG_EARTHBASED;
 		case 'g':// gas
-			return super.flags() | Ability.FLAG_INTOXICATING;
+			return super.flags() | Ability.FLAG_AIRBASED;
 		case 'u':// undead
 			return super.flags() | Ability.FLAG_UNHOLY;
 		case 'p': // pebbles
@@ -238,7 +264,7 @@ public class Dragonbreath extends StdAbility
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		final Set<MOB> h=properTargets(mob,givenTarget,auto);
-		if(h==null)
+		if((h==null)||(h.size()==0))
 		{
 			mob.tell(L("There doesn't appear to be anyone here worth breathing on."));
 			return false;

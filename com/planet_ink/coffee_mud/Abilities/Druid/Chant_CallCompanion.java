@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ public class Chant_CallCompanion extends Chant
 		for(final Iterator<MOB> m=H.iterator();m.hasNext();)
 		{
 			final MOB M=m.next();
-			if(!CMLib.flags().isAnimalIntelligence(M))
+			if(!CMLib.flags().isAnAnimal(M))
 				m.remove();
 		}
 		if((H.size()==0)||((H.size()==1)&&(H.contains(mob))))
@@ -136,7 +136,8 @@ public class Chant_CallCompanion extends Chant
 				final Ability A=CMClass.getAbility("Skill_Track");
 				if(A!=null)
 				{
-					A.invoke(follower,CMParms.parse("\""+CMLib.map().getExtendedRoomID(newRoom)+"\""),newRoom,true,0);
+					final List<String> lst = new XVector<String>(CMLib.map().getExtendedRoomID(newRoom),"NPC");
+					A.invoke(follower,lst,newRoom,true,0);
 					return true;
 				}
 			}

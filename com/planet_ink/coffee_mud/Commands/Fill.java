@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -69,7 +69,8 @@ public class Fill extends StdCommand
 			return false;
 		}
 
-		if((commands.size()<2)&&(!(mob.location() instanceof Drink)))
+		if((commands.size()<2)
+		&&(!(mob.location() instanceof Drink)))
 		{
 			CMLib.commands().postCommandFail(mob,origCmds,L("From what should I fill the @x1?",commands.get(0)));
 			return false;

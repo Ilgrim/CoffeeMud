@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -106,7 +106,7 @@ public class Fighter_FieldTactics extends FighterSkill
 	{
 		if(!super.tick(ticking,tickID))
 			return false;
-		if((affected!=null)&&(affected instanceof MOB)&&(activated))
+		if((affected instanceof MOB)&&(activated))
 		{
 			if(hiding(affected))
 			{
@@ -182,24 +182,38 @@ public class Fighter_FieldTactics extends FighterSkill
 		return super.okMessage(myHost,msg);
 	}
 
-	public boolean oneOf(final int dom)
+	protected boolean oneOf(final int dom)
 	{
-		for(int i=0;i<landClasses().length;i++)
+		final Integer[] domains = landClasses();
+		for(int i=0;i<domains.length;i++)
 		{
-			if((dom==landClasses()[i].intValue())
-			||(landClasses()[i].intValue()<0))
+			if((dom==domains[i].intValue()) || (domains[i].intValue()<0))
 				return true;
 		}
 		return false;
+	}
+
+	protected boolean appliesHere(final Room R)
+	{
+		if(R==null)
+			return false;
+		return oneOf(R.domainType());
+
+	}
+
+	protected boolean appliesTo(final MOB mob)
+	{
+		if(mob==null)
+			return false;
+		return appliesHere(mob.location());
+
 	}
 
 	@Override
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
 		super.affectPhyStats(affected,affectableStats);
-		if((affected instanceof MOB)
-		&&(((MOB)affected).location()!=null)
-		&&(oneOf(((MOB)affected).location().domainType())))
+		if((affected instanceof MOB) && (appliesTo((MOB)affected)))
 		{
 			if((hidden)&&((System.currentTimeMillis()-sitTime)>(60*2*1000)))
 				affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_HIDDEN);

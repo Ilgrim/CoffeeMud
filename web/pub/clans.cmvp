@@ -2,6 +2,7 @@
 
 <html>
 <head>
+	<META CHARSET="utf-8"/>
 	<link rel="coffeemud icon" href="images/coffeemud.ico" >
 	<link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="coffeemud.css">
 	<title>CoffeeMud Web Server</title>
@@ -26,10 +27,11 @@
 <TR><TD WIDTH=25% BGCOLOR=#FFCCFF><B>Qualifications</B></TD><TD>@ClanData?acceptance@</TD>
 <TR><TD WIDTH=25% BGCOLOR=#FFCCFF><B>Premise</B></TD><TD>@ClanData?premise&NOCOLOR@<BR></TD>
 <TR><TD WIDTH=25% BGCOLOR=#FFCCFF><B>Tax Rate</B></TD><TD>@ClanData?tax@</TD>
+<TR><TD WIDTH=25% BGCOLOR=#FFCCFF><B>Dues/yr</B></TD><TD>@ClanData?duesdesc@</TD>
 <TR><TD WIDTH=25% BGCOLOR=#FFCCFF><B>Trophies</B></TD><TD>@ClanData?trophies@</TD>
 <TR><TD WIDTH=25% BGCOLOR=#FFCCFF><B>Officers</B></TD>
 	<TD>
-		@ClanData?memberstart@	@loop@ @Clandata?membernext&clanfuncfilter=HOME_PRIVS@ @ClanData?membername@ (@ClanData?memberpos@)<BR> @back@
+		@ClanData?memberstart@	@loop@ @Clandata?membernext&CLANPUBLICFILTER=TRUE@ @ClanData?membername@ (@ClanData?memberpos@)<BR> @back@
 	</TD>
 </TR>
 <TR><TD WIDTH=25% BGCOLOR=#FFCCFF><B>Relations</B></TD>
@@ -38,7 +40,10 @@
 		<TABLE WIDTH=50% BORDER=1>
 		@loop@
 			@ClanData?otherclannext@
-			<TR><TD>@ClanData?otherclanname@</B></TD><TD>@ClanData?clanidrelations@</TD></TR>
+			@AddRequestParameter?THISREL=@@ClanData?clanidrelations@@ @
+			@if?!CheckReqParm?THISREL=NEUTRAL@
+				<TR><TD>@ClanData?otherclanname@</B></TD><TD>@ClanData?clanidrelations@</TD></TR>
+			@endif@
 		@back@
 		</TABLE>
 	</TD>

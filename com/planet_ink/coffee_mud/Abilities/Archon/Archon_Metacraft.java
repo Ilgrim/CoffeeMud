@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -86,20 +86,16 @@ public class Archon_Metacraft extends ArchonSkill
 	{
 		if(craftingSkills.size()==0)
 		{
-			final Vector<Ability> V=new Vector<Ability>();
-			for(final Enumeration<Ability> e=CMClass.abilities();e.hasMoreElements();)
-			{
-				final Ability A=e.nextElement();
-				if(A instanceof ItemCraftor)
-					V.addElement((Ability)A.copyOf());
-			}
+			final ArrayList<Ability> V=new ArrayList<Ability>();
+			for(final Enumeration<ItemCraftor> e=CMClass.craftorAbilities();e.hasMoreElements();)
+				V.add((Ability)e.nextElement().copyOf());
 			while(V.size()>0)
 			{
 				int lowest=Integer.MAX_VALUE;
 				Ability lowestA=null;
 				for(int i=0;i<V.size();i++)
 				{
-					final Ability A=V.elementAt(i);
+					final Ability A=V.get(i);
 					final int ii=CMLib.ableMapper().lowestQualifyingLevel(A.ID());
 					if(ii<lowest)
 					{
@@ -108,10 +104,10 @@ public class Archon_Metacraft extends ArchonSkill
 					}
 				}
 				if(lowestA==null)
-					lowestA=V.firstElement();
+					lowestA=V.get(0);
 				if(lowestA!=null)
 				{
-					V.removeElement(lowestA);
+					V.remove(lowestA);
 					craftingSkills.add(lowestA);
 				}
 				else
@@ -186,7 +182,7 @@ public class Archon_Metacraft extends ArchonSkill
 		}
 
 		ItemCraftor skill=null;
-		List<Pair<Ability,String>> skillsToUse=new Vector<Pair<Ability,String>>();
+		List<Pair<Ability,String>> skillsToUse=new ArrayList<Pair<Ability,String>>();
 		if(commands.size()>1)
 		{
 
@@ -209,11 +205,11 @@ public class Archon_Metacraft extends ArchonSkill
 			for(int i=0;i<craftingSkills.size();i++)
 			{
 				skill=(ItemCraftor)craftingSkills.get(i);
-				final List<List<String>> V=skill.matchingRecipeNames(recipe,false);
+				final List<String> V=skill.matchingRecipeNames(recipe,false);
 				if((V!=null)&&(V.size()>0))
 				{
-					for(final List<String> V2 : V)
-						skillsToUse.add(new Pair<Ability,String>(skill,replacePercent(V2.get(0),"")));
+					for(final String s2 : V)
+						skillsToUse.add(new Pair<Ability,String>(skill,replacePercent(s2,"")));
 				}
 			}
 			if(skillsToUse.size()==0)
@@ -221,11 +217,11 @@ public class Archon_Metacraft extends ArchonSkill
 				for(int i=0;i<craftingSkills.size();i++)
 				{
 					skill=(ItemCraftor)craftingSkills.get(i);
-					final List<List<String>> V=skill.matchingRecipeNames(recipe,true);
+					final List<String> V=skill.matchingRecipeNames(recipe,true);
 					if((V!=null)&&(V.size()>0))
 					{
-						for(final List<String> V2 : V)
-							skillsToUse.add(new Pair<Ability,String>(skill,replacePercent(V2.get(0),"")));
+						for(final String s2 : V)
+							skillsToUse.add(new Pair<Ability,String>(skill,replacePercent(s2,"")));
 					}
 				}
 			}
@@ -240,7 +236,7 @@ public class Archon_Metacraft extends ArchonSkill
 				skill = (ItemCraftor)CMLib.english().fetchEnvironmental(craftingSkills, skillName, false);
 			if(skill == null)
 			{
-				mob.tell(L("'@x1' is not a known crafting skill.",recipe));
+				mob.tell(L("'@x1' is not a known crafting skill.",skillName));
 				return false;
 			}
 			skillsToUse=new XVector<Pair<Ability,String>>();
@@ -252,18 +248,18 @@ public class Archon_Metacraft extends ArchonSkill
 			for(int i=0;i<craftingSkills.size();i++)
 			{
 				skill=(ItemCraftor)craftingSkills.get(i);
-				final List<List<String>> V=skill.matchingRecipeNames(recipe,false);
+				final List<String> V=skill.matchingRecipeNames(recipe,false);
 				if((V!=null)&&(V.size()>0))
-					skillsToUse.add(new Pair<Ability,String>(skill,this.replacePercent(V.get(0).get(0), "")));
+					skillsToUse.add(new Pair<Ability,String>(skill,this.replacePercent(V.get(0), "")));
 			}
 			if(skillsToUse.size()==0)
 			{
 				for(int i=0;i<craftingSkills.size();i++)
 				{
 					skill=(ItemCraftor)craftingSkills.get(i);
-					final List<List<String>> V=skill.matchingRecipeNames(recipe,true);
+					final List<String> V=skill.matchingRecipeNames(recipe,true);
 					if((V!=null)&&(V.size()>0))
-						skillsToUse.add(new Pair<Ability,String>(skill,this.replacePercent(V.get(0).get(0), "")));
+						skillsToUse.add(new Pair<Ability,String>(skill,this.replacePercent(V.get(0), "")));
 				}
 			}
 		}
@@ -280,12 +276,12 @@ public class Archon_Metacraft extends ArchonSkill
 		{
 			skill=(ItemCraftor)skillsToUse.get(s).first;
 			final String recipeName = skillsToUse.get(s).second;
-			final List<Item> items=new Vector<Item>();
+			final List<Item> items=new ArrayList<Item>();
 			if(everyFlag)
 			{
 				if(recipe==null)
 				{
-					List<ItemCraftor.ItemKeyPair> V=null;
+					List<ItemCraftor.CraftedItem> V=null;
 					if(material>=0)
 						V=skill.craftAllItemSets(material,false);
 					else
@@ -293,7 +289,7 @@ public class Archon_Metacraft extends ArchonSkill
 
 					if(V!=null)
 					{
-						for(final ItemCraftor.ItemKeyPair L: V)
+						for(final ItemCraftor.CraftedItem L: V)
 						{
 							items.add(L.item);
 							if(L.key!=null)
@@ -304,13 +300,13 @@ public class Archon_Metacraft extends ArchonSkill
 				else
 				if(material>=0)
 				{
-					final ItemCraftor.ItemKeyPair pair = skill.craftItem(recipeName,material,false, true);
+					final ItemCraftor.CraftedItem pair = skill.craftItem(recipeName,material,false, true);
 					if(pair!=null)
 						items.addAll(pair.asList());
 				}
 				else
 				{
-					final ItemCraftor.ItemKeyPair pair = skill.craftItem(recipeName,-1,false,true);
+					final ItemCraftor.CraftedItem pair = skill.craftItem(recipeName,-1,false,true);
 					if(pair!=null)
 						items.addAll(pair.asList());
 				}
@@ -318,13 +314,13 @@ public class Archon_Metacraft extends ArchonSkill
 			else
 			if(material>=0)
 			{
-				final ItemCraftor.ItemKeyPair pair = skill.craftItem(recipeName,material,false, true);
+				final ItemCraftor.CraftedItem pair = skill.craftItem(recipeName,material,false, true);
 				if(pair!=null)
 					items.addAll(pair.asList());
 			}
 			else
 			{
-				final ItemCraftor.ItemKeyPair pair = skill.craftItem(recipeName,-1,false,true);
+				final ItemCraftor.CraftedItem pair = skill.craftItem(recipeName,-1,false,true);
 				if(pair!=null)
 					items.addAll(pair.asList());
 			}
@@ -361,7 +357,7 @@ public class Archon_Metacraft extends ArchonSkill
 				}
 			}
 			else
-				xml.append(CMLib.coffeeMaker().getItemsXML(items,new Hashtable<String,List<Item>>(),files,null));
+				xml.append(CMLib.coffeeMaker().getUniqueItemsXML(items,new Hashtable<String,List<Item>>(),files,null));
 			mob.location().recoverPhyStats();
 			if(!everyFlag)
 				break;

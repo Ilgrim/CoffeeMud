@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -56,6 +56,7 @@ public class GenMagicInstrument extends GenItem implements MusicalInstrument, Mi
 		setDescription("");
 		baseGoldValue = 15;
 		basePhyStats().setLevel(1);
+		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_BONUS);
 		recoverPhyStats();
 		setMaterial(RawMaterial.RESOURCE_OAK);
 	}
@@ -80,15 +81,46 @@ public class GenMagicInstrument extends GenItem implements MusicalInstrument, Mi
 	}
 
 	@Override
+	public int getCharges()
+	{
+		return usesRemaining();
+	}
+
+	@Override
+	public void setCharges(final int newCharges)
+	{
+		this.setUsesRemaining(newCharges);
+	}
+
+	@Override
+	public int getMaxCharges()
+	{
+		return maxUses;
+	}
+
+	@Override
+	public void setMaxCharges(final int num)
+	{
+		maxUses = num;
+		if(num < getCharges() && (num > 0))
+			setCharges(num);
+	}
+
+	@Override
 	public String secretIdentity()
 	{
 		String id=super.secretIdentity();
 		final Ability A=getSpell();
-		String uses;
-		if(this.maxUses() < 999999)
-			uses=""+usesRemaining()+"/"+maxUses();
+		final String uses;
+		if(this.getCharges() < 999999)
+		{
+			if(this.getMaxCharges() < 999999)
+				uses=""+getCharges()+"/"+getMaxCharges();
+			else
+				uses = ""+getCharges();
+		}
 		else
-			uses = ""+usesRemaining();
+			uses="unlimited";
 		if(A!=null)
 			id="'A magic instrument of "+A.name()+"' Charges: "+uses+"\n\r"+id;
 		return id;
@@ -109,18 +141,6 @@ public class GenMagicInstrument extends GenItem implements MusicalInstrument, Mi
 		if((spellList==null)||(spellList.length()==0))
 			return null;
 		return CMClass.getAbility(spellList);
-	}
-
-	@Override
-	public int maxUses()
-	{
-		return maxUses;
-	}
-
-	@Override
-	public void setMaxUses(final int newMaxUses)
-	{
-		maxUses = newMaxUses;
 	}
 
 	@Override
@@ -172,7 +192,7 @@ public class GenMagicInstrument extends GenItem implements MusicalInstrument, Mi
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this,false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 	}
 
 	@Override
@@ -291,12 +311,12 @@ public class GenMagicInstrument extends GenItem implements MusicalInstrument, Mi
 	{
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			return CMLib.coffeeMaker().getGenItemStat(this,code);
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
-			if((getEnchantType()<0)||(getEnchantType()>=Ability.ACODE_DESCS_.length))
+			if((getEnchantType()<0)||(getEnchantType()>=Ability.ACODE.DESCS_.size()))
 				return "ANY";
-			return Ability.ACODE_DESCS_[getEnchantType()];
+			return Ability.ACODE.DESCS_.get(getEnchantType());
 		case 1:
 		{
 			final Ability A = getSpell();
@@ -305,7 +325,7 @@ public class GenMagicInstrument extends GenItem implements MusicalInstrument, Mi
 		case 2:
 			return this.getInstrumentTypeName();
 		case 3:
-			return ""+maxUses();
+			return ""+getMaxCharges();
 		default:
 			return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
 		}
@@ -317,10 +337,10 @@ public class GenMagicInstrument extends GenItem implements MusicalInstrument, Mi
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			CMLib.coffeeMaker().setGenItemStat(this,code,val);
 		else
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
-			setEnchantType(CMParms.indexOf(Ability.ACODE_DESCS_, val.toUpperCase().trim()));
+			setEnchantType(CMParms.indexOf(Ability.ACODE.DESCS_, val.toUpperCase().trim()));
 			break;
 		case 1:
 		{
@@ -337,7 +357,7 @@ public class GenMagicInstrument extends GenItem implements MusicalInstrument, Mi
 		case 3:
 		{
 			if(CMath.isMathExpression(val))
-				this.setMaxUses(CMath.parseIntExpression(val));
+				this.setMaxCharges(CMath.parseIntExpression(val));
 			break;
 		}
 		default:
@@ -346,8 +366,7 @@ public class GenMagicInstrument extends GenItem implements MusicalInstrument, Mi
 		}
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<MYCODES.length;i++)
 		{

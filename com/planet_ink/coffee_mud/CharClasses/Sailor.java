@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -148,11 +149,11 @@ public class Sailor extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),4,"Skill_AbandonShip",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Trawling",true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Boatwright",0,"",true,false,CMParms.parseSemicolons("Carpentry",true),"");
+		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Boatwright",0,"",true,SecretFlag.PUBLIC,CMParms.parseSemicolons("Carpentry",true),"");
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Skill_MorseCode",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Skill_FindShip",true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Skill_CrowsNest",0,"",true,false,CMParms.parseSemicolons("Skill_Climb(74)", true),"");
+		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Skill_CrowsNest",0,"",true,SecretFlag.PUBLIC,CMParms.parseSemicolons("Skill_Climb(74)", true),"");
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Skill_AvoidCurrents",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Skill_TieDown",false);
@@ -161,10 +162,11 @@ public class Sailor extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Skill_Diving",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Skill_ShipLore",true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Shipwright",0,"",false,false,CMParms.parseSemicolons("Boatwright",true),"");
+		CMLib.ableMapper().addCharAbilityMapping(ID(),9,"Shipwright",0,"",false,SecretFlag.PUBLIC,CMParms.parseSemicolons("Boatwright",true),"");
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Skill_SeaCharting",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Baiting",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Fighter_Breakout",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Skill_DeadReckoning",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"FishLore",false);
@@ -197,7 +199,8 @@ public class Sailor extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Thief_RammingSpeed",true);
 
-		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Skill_InterceptShip",0,"",true,false,CMParms.parseSemicolons("Skill_SeaCharting(50)", true),"");
+		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Skill_InterceptShip",0,"",true,SecretFlag.PUBLIC,CMParms.parseSemicolons("Skill_SeaCharting(50)", true),"");
+		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Skill_HardToStern",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"MasterTrawling",true);
 
@@ -207,54 +210,55 @@ public class Sailor extends StdCharClass
 
 		// to separate from artisan --------------------------------------------------------------------------------------------
 		//CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Chopping",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Digging",0,"",false,true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Digging",0,"",false,SecretFlag.SECRET);
 		//CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Carpentry",false);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Drilling",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Blacksmithing",0,"",false,true);
-		//CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Fishing",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Foraging",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Herbology",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Cobbling",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Hunting",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Mining",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Pottery",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Shearing",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"LockSmith",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Baking",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"FoodPrep",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"ScrimShaw",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"LeatherWorking",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"GlassBlowing",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Sculpting",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Tailoring",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Weaving",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"CageBuilding",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"JewelMaking",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Dyeing",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Embroidering",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Engraving",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Lacquerring",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Smelting",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Armorsmithing",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Fletching",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Weaponsmithing",0,"",false,true);
-		//CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Boatwright",0,"",false,true);
-		//CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Shipwright",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Wainwrighting",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"PaperMaking",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Distilling",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Farming",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Speculate",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Painting",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Construction",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Masonry",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Excavation",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Irrigation",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Landscaping",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Taxidermy",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Merchant",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Scrapping",0,"",false,true);
-		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Costuming",0,"",false,true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Drilling",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Blacksmithing",0,"",false,SecretFlag.SECRET);
+		//CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Fishing",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Foraging",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Herbology",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Cobbling",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Hunting",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Mining",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Pottery",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Shearing",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"LockSmith",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Baking",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"FoodPrep",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"ScrimShaw",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"LeatherWorking",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"GlassBlowing",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Sculpting",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Tailoring",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Weaving",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"CageBuilding",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"JewelMaking",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Dyeing",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Embroidering",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Engraving",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Lacquerring",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Smelting",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Armorsmithing",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Fletching",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Weaponsmithing",0,"",false,SecretFlag.SECRET);
+		//CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Boatwright",0,"",false,SecretFlag.SECRET);
+		//CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Shipwright",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Wainwrighting",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"PaperMaking",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Distilling",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Farming",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Shrooming",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Speculate",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Painting",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Construction",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Masonry",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Excavation",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Irrigation",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Landscaping",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Taxidermy",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Merchant",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Scrapping",0,"",false,SecretFlag.SECRET);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),-1,"Costuming",0,"",false,SecretFlag.SECRET);
 	}
 
 	@Override
@@ -281,7 +285,7 @@ public class Sailor extends StdCharClass
 					}
 				}
 				if(exp>0)
-					CMLib.leveler().postExperience(mob,null,null,exp,true);
+					CMLib.leveler().postExperience(mob,"CLASS:"+ID(),null,null,exp, true);
 			}
 		}
 		return super.tick(ticking,tickID);
@@ -302,36 +306,36 @@ public class Sailor extends StdCharClass
 			if(mob.playerStats().addRoomVisit(R))
 			{
 				final Area A=R.getArea();
-				CMLib.players().bumpPrideStat(mob,AccountStats.PrideStat.ROOMS_EXPLORED,1);
+				CMLib.players().bumpPrideStat(mob,PrideStats.PrideStat.ROOMS_EXPLORED,1);
 				if(mob.playerStats().hasVisited(R))
 				{
-					CMLib.leveler().postExperience(mob, null, null, amt, false);
-					final double totalCountableRooms=A.getAreaIStats()[Area.Stats.COUNTABLE_ROOMS.ordinal()];
+					CMLib.leveler().postExperience(mob, "CLASS:"+ID(), null, null, amt, false);
+					final double totalCountableRooms=A.getIStat(Area.Stats.COUNTABLE_ROOMS);
 					if((totalCountableRooms > 0)
-					&&(CMath.div(A.getAreaIStats()[Area.Stats.WATER_ROOMS.ordinal()], totalCountableRooms)>.80))
+					&&(CMath.div(A.getIStat(Area.Stats.WATER_ROOMS), totalCountableRooms)>.80))
 					{
 						final int pctAfter=mob.playerStats().percentVisited(mob,A);
 						if((pctBefore<50)&&(pctAfter>=50))
 						{
-							int xp=(int)Math.round(50.0*CMath.div(A.getAreaIStats()[Area.Stats.AVG_LEVEL.ordinal()],mob.phyStats().level()));
+							int xp=(int)Math.round(50.0*CMath.div(A.getIStat(Area.Stats.AVG_LEVEL),mob.phyStats().level()));
 							if(xp>125)
 								xp=125;
 							if(xp<50)
 								xp=50;
 							if((xp>0)
-							&&((xp=CMLib.leveler().postExperience(mob,null,null,xp,true))>0))
+							&&((xp=CMLib.leveler().postExperience(mob,"CLASS:"+ID(),null,null,xp, true))>0))
 								msg.addTrailerMsg(CMClass.getMsg(mob,null,null,CMMsg.MSG_OK_VISUAL,CMLib.lang().L("^HYou have familiarized yourself with '@x1', you gain @x2 experience.^?",A.name(),""+xp),CMMsg.NO_EFFECT,null,CMMsg.NO_EFFECT,null));
 						}
 						else
 						if((pctBefore<90)&&(pctAfter>=90))
 						{
-							int xp=(int)Math.round(100.0*CMath.div(A.getAreaIStats()[Area.Stats.AVG_LEVEL.ordinal()],mob.phyStats().level()));
+							int xp=(int)Math.round(100.0*CMath.div(A.getIStat(Area.Stats.AVG_LEVEL),mob.phyStats().level()));
 							if(xp>250)
 								xp=250;
 							if(xp<125)
 								xp=125;
 							if((xp>0)
-							&&((xp=CMLib.leveler().postExperience(mob,null,null,xp,true))>0))
+							&&((xp=CMLib.leveler().postExperience(mob,"CLASS:"+ID(),null,null,xp, true))>0))
 								msg.addTrailerMsg(CMClass.getMsg(mob,null,null,CMMsg.MSG_OK_VISUAL,CMLib.lang().L("^HYou have explored '@x1', you gain @x2 experience.^?",A.name(),""+xp),CMMsg.NO_EFFECT,null,CMMsg.NO_EFFECT,null));
 						}
 					}
@@ -352,21 +356,22 @@ public class Sailor extends StdCharClass
 			&&(msg.source().riding() !=null)
 			&&(!msg.source().isMonster())
 			&&(msg.source().playerStats()!=null)
-			&&(msg.source().riding().rideBasis() == Rideable.RIDEABLE_WATER))
+			&&(msg.source().riding().rideBasis() == Rideable.Basis.WATER_BASED))
 				giveExploreXP(msg.source(), (Room)msg.target(), 5, msg);
-			if((msg.source().riding() instanceof SailingShip)
+			if((msg.source().riding() instanceof NavigableItem)
+			&&(((NavigableItem)msg.source().riding()).navBasis() == Rideable.Basis.WATER_BASED)
 			&&(msg.source().Name().equals(msg.source().riding().Name()))
 			&&(myHost instanceof MOB)
 			&&(((MOB)myHost).playerStats()!=null)
 			&&(((MOB)myHost).location()!=null)
-			&&(((MOB)myHost).location().getArea() == ((BoardableShip)msg.source().riding()).getShipArea()))
+			&&(((MOB)myHost).location().getArea() == ((Boardable)msg.source().riding()).getArea()))
 				giveExploreXP((MOB)myHost, (Room)msg.target(), 10, msg);
 		}
 
 		if((msg.sourceMinor()==CMMsg.TYP_EXPCHANGE)
 		&&(msg.value()>0)
 		&&(msg.source().charStats().getCurrentClass() == this)
-		&&(CMLib.map().areaLocation(msg.source()) instanceof BoardableShip)
+		&&(CMLib.map().areaLocation(msg.source()) instanceof Boardable)
 		&&(msg.source() != msg.target()))
 		{
 			if(msg.target() instanceof MOB)
@@ -374,16 +379,16 @@ public class Sailor extends StdCharClass
 			else
 			if(msg.target() == null)
 			{
-				final BoardableShip shipArea = (BoardableShip)CMLib.map().areaLocation(msg.source());
-				final Room R=CMLib.map().roomLocation(shipArea.getShipItem());
+				final Boardable shipArea = (Boardable)CMLib.map().areaLocation(msg.source());
+				final Room R=CMLib.map().roomLocation(shipArea.getBoardableItem());
 				if(R!=null)
 				{
 					for(final Enumeration<Item> i=R.items();i.hasMoreElements();)
 					{
 						final Item I=i.nextElement();
-						if((I instanceof BoardableShip)
+						if((I instanceof Boardable)
 						&&(I.fetchEffect("Sinking")!=null)
-						&&(I!=shipArea.getShipItem()))
+						&&(I!=shipArea.getBoardableItem()))
 						{
 							msg.setValue(msg.value() * 2);
 							break;
@@ -423,8 +428,8 @@ public class Sailor extends StdCharClass
 			final Weapon w=CMClass.getWeapon("GenWeapon");
 			if(w != null)
 			{
-				w.setName("a belaying pin");
-				w.setDisplayText("a belaying pin lies here.");
+				w.setName(L("a belaying pin"));
+				w.setDisplayText(L("a belaying pin lies here."));
 				w.setMaterial(RawMaterial.RESOURCE_WOOD);
 				w.setWeaponClassification(Weapon.CLASS_BLUNT);
 				w.setWeaponDamageType(Weapon.TYPE_BASHING);
@@ -434,6 +439,7 @@ public class Sailor extends StdCharClass
 				w.basePhyStats().setAttackAdjustment(0);
 				w.recoverPhyStats();
 				outfitChoices.add(w);
+				cleanOutfit(outfitChoices);
 			}
 		}
 		return outfitChoices;

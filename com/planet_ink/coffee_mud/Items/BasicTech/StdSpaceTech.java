@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -41,9 +41,9 @@ public class StdSpaceTech extends StdTechItem implements SpaceObject
 		return "StdSpaceTech";
 	}
 
-	protected long[]		coordinates	= new long[3];
+	protected Coord3D		coordinates	= new Coord3D();
 	protected long			radius;
-	protected double[]		direction	= new double[2];
+	protected Dir3D			direction	= new Dir3D();
 	protected double		speed		= 0;
 	protected SpaceObject	spaceSource = null;
 	protected SpaceObject	spaceTarget = null;
@@ -64,27 +64,33 @@ public class StdSpaceTech extends StdTechItem implements SpaceObject
 	@Override
 	public void destroy()
 	{
-		CMLib.map().delObjectInSpace(this);
+		CMLib.space().delObjectInSpace(this);
 		super.destroy();
 	}
 
 	@Override
-	public BoundedCube getBounds()
+	public BoundedCube getCube()
 	{
-		return new BoundedObject.BoundedCube(coordinates(),radius());
+		return new BoundedCube(coordinates(),radius());
 	}
 
 	@Override
-	public long[] coordinates()
+	public BoundedSphere getSphere()
+	{
+		return new BoundedSphere(coordinates(),radius());
+	}
+
+	@Override
+	public Coord3D coordinates()
 	{
 		return coordinates;
 	}
 
 	@Override
-	public void setCoords(final long[] coords)
+	public void setCoords(final Coord3D coords)
 	{
-		if((coords!=null)&&(coords.length==3))
-			CMLib.map().moveSpaceObject(this,coords);
+		if((coords!=null)&&(coords.length()==3))
+			CMLib.space().moveSpaceObject(this,coords);
 	}
 
 	@Override
@@ -94,21 +100,27 @@ public class StdSpaceTech extends StdTechItem implements SpaceObject
 	}
 
 	@Override
+	public Coord3D center()
+	{
+		return coordinates();
+	}
+
+	@Override
 	public void setRadius(final long radius)
 	{
 		this.radius=radius;
 	}
 
 	@Override
-	public double[] direction()
+	public Dir3D direction()
 	{
 		return direction;
 	}
 
 	@Override
-	public void setDirection(final double[] dir)
+	public void setDirection(final Dir3D dir)
 	{
-		if((dir!=null)&&(dir.length==2))
+		if((dir!=null)&&(dir.length()==2))
 			direction=dir;
 	}
 

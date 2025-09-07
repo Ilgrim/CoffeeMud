@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,10 +48,10 @@ public class Bomb_Pepper extends StdBomb
 		return localizedName;
 	}
 
-	@Override
-	protected int trapLevel()
+	public Bomb_Pepper()
 	{
-		return 7;
+		super();
+		trapLevel = 7;
 	}
 
 	@Override
@@ -66,6 +66,18 @@ public class Bomb_Pepper extends StdBomb
 		final List<Item> V=new Vector<Item>();
 		V.add(CMLib.materials().makeItemResource(RawMaterial.RESOURCE_PEPPERS));
 		return V;
+	}
+
+	@Override
+	protected boolean canExplodeOutOf(final int material)
+	{
+		switch(material&RawMaterial.MATERIAL_MASK)
+		{
+		case RawMaterial.MATERIAL_ENERGY:
+		case RawMaterial.MATERIAL_GAS:
+			return false;
+		}
+		return true;
 	}
 
 	@Override
@@ -93,14 +105,22 @@ public class Bomb_Pepper extends StdBomb
 			||(invoker().getGroupMembers(new HashSet<MOB>()).contains(target))
 			||(target==invoker())
 			||(doesSaveVsTraps(target)))
-				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> avoid(s) the pepper bomb!"));
-			else
-			if(target.location().show(invoker(),target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("@x1 explodes pepper spray all over <T-NAME>!",affected.name())))
 			{
-				super.spring(target);
-				final Ability A=CMClass.getAbility("Spell_Irritation");
-				if(A!=null)
-					A.invoke(target,target,true,invoker().phyStats().level()+abilityCode());
+				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,
+						getAvoidMsg(L("<S-NAME> avoid(s) the pepper bomb!")));
+			}
+			else
+			{
+				final String triggerMsg = getTrigMsg(L("@x1 explodes pepper spray all over <T-NAME>!",affected.name()));
+				if(target.location().show(invoker(),target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,triggerMsg))
+				{
+					super.spring(target);
+					Ability A=(miscText.length()>0)?CMClass.getAbility(miscText):null;
+					if(A==null)
+						A=CMClass.getAbility("Spell_Irritation");
+					if(A!=null)
+						A.invoke(target,target,true,trapLevel()+abilityCode());
+				}
 			}
 		}
 	}

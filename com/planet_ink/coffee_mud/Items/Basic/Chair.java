@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ public class Chair extends StdRideable
 		material=RawMaterial.RESOURCE_OAK;
 		baseGoldValue=5;
 		basePhyStats().setLevel(1);
-		setRideBasis(Rideable.RIDEABLE_SIT);
+		setRideBasis(Rideable.Basis.FURNITURE_SIT);
 		setRiderCapacity(1);
 		recoverPhyStats();
 	}

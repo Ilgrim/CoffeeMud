@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -123,7 +123,7 @@ public class Chant_SummonMount extends Chant
 	{
 		if(tickID==Tickable.TICKID_MOB)
 		{
-			if((affected!=null)&&(affected instanceof MOB)&&(invoker!=null))
+			if((affected instanceof MOB)&&(invoker!=null))
 			{
 				final MOB mob=(MOB)affected;
 				if((mob.amFollowing()==null)
@@ -221,7 +221,7 @@ public class Chant_SummonMount extends Chant
 
 		final MOB newMOB=CMClass.getMOB("GenRideable");
 		final Rideable ride=(Rideable)newMOB;
-		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase());
+		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase());//normal
 		newMOB.basePhyStats().setLevel(level);
 		newMOB.basePhyStats().setWeight(500);
 		CMLib.factions().setAlignment(newMOB,Faction.Align.NEUTRAL);
@@ -236,13 +236,15 @@ public class Chant_SummonMount extends Chant
 		newMOB.setName(L("a wild horse"));
 		newMOB.setDisplayText(L("a wild horse stands here"));
 		newMOB.setDescription(L("An untamed beast of the fields, tame only by magical means."));
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0 RIDEOK"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		ride.setRiderCapacity(1);
 		newMOB.recoverCharStats();
 		newMOB.recoverPhyStats();
 		newMOB.recoverMaxState();
 		newMOB.resetToMaxState();
-		newMOB.text();
+		newMOB.setMiscText(newMOB.text());
 		return(newMOB);
 	}
 }

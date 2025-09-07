@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -229,7 +229,7 @@ public class ClanData extends StdWebMacro
 			return " @break@";
 		if(last.length()>0)
 		{
-			final Clan C=CMLib.clans().getClan(last);
+			final Clan C=CMLib.clans().getClanAnyHost(last);
 			if(C!=null)
 			{
 				final boolean webify=parms.containsKey("WEBCOLOR");
@@ -370,7 +370,7 @@ public class ClanData extends StdWebMacro
 						for(final Trophy t : Trophy.values())
 						{
 							if(CMath.bset(C.getTrophies(),t.flagNum()))
-								str.append(t.description+", ");
+								str.append(t.description()+", ");
 						}
 					}
 				}
@@ -383,7 +383,7 @@ public class ClanData extends StdWebMacro
 						for(final Trophy t : Trophy.values())
 						{
 							if(CMath.bset(C.getTrophies(),t.flagNum()))
-								str.append(t.codeString+", ");
+								str.append(t.codeString()+", ");
 						}
 					}
 				}
@@ -410,6 +410,27 @@ public class ClanData extends StdWebMacro
 					else
 						old=((int)Math.round(CMath.s_pct(old)*100.0))+"%";
 					str.append(old+", ");
+				}
+				if(parms.containsKey("DUES"))
+				{
+					String old=httpReq.getUrlParameter("DUES");
+					if(old==null)
+						old=""+((int)Math.round(C.getDues()));
+					else
+						old=""+((int)Math.round(CMath.s_double(old)));
+					str.append(old+", ");
+				}
+				if(parms.containsKey("DUESDESC"))
+				{
+					if(C.getDues()>0)
+					{
+						final Pair<String,String> bankInfo = C.getPreferredBanking();
+						if(bankInfo == null)
+							str.append("N/A, ");
+						else
+							str.append(CMLib.beanCounter().nameCurrencyLong(bankInfo.second, C.getDues())).append(", ");
+					}
+
 				}
 				if(parms.containsKey("CCLASSID"))
 				{
@@ -601,6 +622,22 @@ public class ClanData extends StdWebMacro
 							});
 						}
 						else
+						if(sort.equalsIgnoreCase("DUES"))
+						{
+							Collections.sort(members, new Comparator<MemberRecord>()
+							{
+								@Override
+								public int compare(final MemberRecord o1, final MemberRecord o2)
+								{
+									if(o1.dues==o2.dues)
+										return 0;
+									if(o1.dues<o2.dues)
+										return -1;
+									return 1;
+								}
+							});
+						}
+						else
 						if(sort.equalsIgnoreCase("DONATEDXP"))
 						{
 							Collections.sort(members, new Comparator<MemberRecord>()
@@ -635,6 +672,7 @@ public class ClanData extends StdWebMacro
 						posFilter=parms.get("CLANFUNCFILTER");
 					if(posFilter==null)
 						posFilter="";
+					final boolean publicFilter=CMath.s_bool(parms.get("CLANPUBLICFILTER"));
 					final Clan.Function reqFunction = (Clan.Function)CMath.s_valueOf(Clan.Function.values(), posFilter);
 					final List<MemberRecord> members = getMembers(C,httpReq);
 					for(final MemberRecord member : members)
@@ -642,13 +680,12 @@ public class ClanData extends StdWebMacro
 						final String name=member.name;
 						if((reqFunction!=null)&&(C.getAuthority(member.role,reqFunction)==Clan.Authority.CAN_NOT_DO))
 							continue;
-						if((!authorized)&&((M==null)||(!M.Name().equalsIgnoreCase(name))))
+						if((publicFilter)&&(!authorized))
 						{
-							if(reqFunction == null)
+							if((member.role<0)||(member.role>=C.getGovernment().getPositions().length))
 								continue;
-							if((reqFunction!=Clan.Function.ASSIGN)
-							&&(reqFunction!=Clan.Function.HOME_PRIVS)
-							&&(reqFunction!=Clan.Function.DECLARE))
+							final ClanPosition pos = C.getGovernment().getPositions()[member.role];
+							if(!pos.isPublic())
 								continue;
 						}
 						if((cmember==null)
@@ -744,7 +781,7 @@ public class ClanData extends StdWebMacro
 				if(parms.containsKey("OTHERCLANNAME"))
 				{
 					final String member=httpReq.getUrlParameter("CLANID");
-					final Clan CC=CMLib.clans().getClan(member);
+					final Clan CC=CMLib.clans().getClanAnyHost(member);
 					if(CC!=null)
 						str.append(CMStrings.removeColors(CC.getName())+", ");
 				}

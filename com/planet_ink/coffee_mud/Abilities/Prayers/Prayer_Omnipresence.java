@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ public class Prayer_Omnipresence extends Prayer
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_HOLY;
+		return Ability.FLAG_HOLY | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -79,7 +79,7 @@ public class Prayer_Omnipresence extends Prayer
 			return false;
 		final boolean success=proficiencyCheck(mob,0,auto);
 		if(!success)
-			this.beneficialVisualFizzle(mob,null,L("<S-NAME> @x1, but <S-YOU-ARE> unanswered.",prayWord(mob)));
+			this.beneficialVisualFizzle(mob,null,L("<S-NAME> @x1, but <S-IS-ARE> unanswered.",prayWord(mob)));
 		else
 		{
 			final CMMsg msg=CMClass.getMsg(mob,null,null,verbalCastCode(mob,null,auto),L("^S<S-NAME> @x1 for the power of omnipresence.^?",prayWord(mob)));
@@ -92,6 +92,7 @@ public class Prayer_Omnipresence extends Prayer
 				final Room thatRoom=mob.location();
 				final TrackingLibrary.TrackingFlags flags = CMLib.tracking().newFlags()
 														.plus(TrackingLibrary.TrackingFlag.NOAIR)
+														.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 														.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
 														.plus(TrackingLibrary.TrackingFlag.NOWATER);
 				mob.tell(L("Your mind is filled with visions as your presence expands...."));

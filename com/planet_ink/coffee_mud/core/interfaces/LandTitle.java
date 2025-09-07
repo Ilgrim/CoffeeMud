@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Set;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,21 +70,45 @@ public interface LandTitle extends PrivateProperty
 	public void updateTitle();
 
 	/**
-	 * The complete set of room objects represented by this title
+	 * The size of the complete set of room objects that are tied together by one or more titles.
+	 * Includes uncached rooms.
+	 * @see com.planet_ink.coffee_mud.Locales.interfaces.Room
+	 * @return the size of the complete set of Room objects represented by property
+	 */
+	public int getNumTitledRooms();
+
+	/**
+	 * The complete set of room objects represented by this title.
+	 * Will represent cached-rooms only, so thin uncached rooms not included.
 	 * @see com.planet_ink.coffee_mud.Locales.interfaces.Room
 	 * @return a list of the complete set of Room objects represented by this title
 	 */
-	public List<Room> getAllTitledRooms();
+	public List<Room> getTitledRooms();
 
 	/**
-	 * The complete set of room objects that are tied together by one or more titles.
+	 * A room object represented by this title
 	 * @see com.planet_ink.coffee_mud.Locales.interfaces.Room
-	 * @return a list of the complete set of Room objects represented by property
+	 * @return A Room object represented by this title
 	 */
-	public List<Room> getConnectedPropertyRooms();
+	public Room getATitledRoom();
 
 	/**
-	 * Returns a unique identifier corresponding to getConnectedPropertyRooms.
+	 * The size of the complete set of room objects that are tied together by one or more titles.
+	 * Includes uncached rooms, as this method helps enforce room limits.
+	 * @see com.planet_ink.coffee_mud.Locales.interfaces.Room
+	 * @return the size of the complete set of Room objects represented by property
+	 */
+	public int getNumConnectedPropertyRooms();
+
+	/**
+	 * A room objects that are tied together by one or more titles.
+	 * @see com.planet_ink.coffee_mud.Locales.interfaces.Room
+	 * @return a Room object represented by property
+	 */
+	public Room getAConnectedPropertyRoom();
+
+	/**
+	 * Returns a unique identifier corresponding to the connected property rooms.
 	 * An identifier that uniquely identifies all the connected lots of this property,
 	 * even if they are unowned, or owned by different people.  Think of it as a "subdivision"
 	 * when lots are variously owned, or a "mansion id" when lots are owned by one person.
@@ -105,6 +129,20 @@ public interface LandTitle extends PrivateProperty
 	public void setRentalProperty(boolean truefalse);
 
 	/**
+	 * Returns whether theft is allowed or monitored in this room by
+	 * Arrest behaviors.
+	 * @return true to allow theft, false for default behavior
+	 */
+	public boolean allowTheft();
+
+	/**
+	 * Sets whether theft is allowed or monitored in this room by
+	 * Arrest behaviors.
+	 * @param allow true to allow theft, false for default behavior
+	 */
+	public void setAllowTheft(final boolean allow);
+
+	/**
 	 * If back taxes is owned on this property, this is how the value is set.  The
 	 * value should be in base coffeemud currency
 	 * @param amount the back taxes owed
@@ -119,7 +157,7 @@ public interface LandTitle extends PrivateProperty
 	public int backTaxes();
 
 	/**
-	 * If this title allows expansion construction, this this will return the new
+	 * If this title allows expansion construction, this will return the new
 	 * title to assign to the newly constructed rooms.
 	 * @see LandTitle#allowsExpansionConstruction()
 	 * @return the new title to assigne to a new room.

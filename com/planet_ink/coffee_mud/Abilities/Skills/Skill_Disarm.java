@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -152,10 +152,10 @@ public class Skill_Disarm extends StdSkill
 		final boolean hit=(auto)||CMLib.combat().rollToHit(mob,victim);
 		final boolean success=proficiencyCheck(mob,-levelDiff,auto)&&(hit);
 		if((success)
-		   &&((hisWeapon.fitsOn(Wearable.WORN_WIELD))
-			  ||hisWeapon.fitsOn(Wearable.WORN_WIELD|Wearable.WORN_HELD)))
+		&&((hisWeapon.fitsOn(Wearable.WORN_WIELD))
+			||hisWeapon.fitsOn(Wearable.WORN_WIELD|Wearable.WORN_HELD)))
 		{
-			if(mob.location().show(mob,victim,this,CMMsg.MSG_NOISYMOVEMENT,null))
+			if(mob.location().show(mob,victim,this,CMMsg.MSG_NOISYMOVEMENT|CMMsg.MASK_MALICIOUS,null))
 			{
 				final CMMsg msg=CMClass.getMsg(victim,hisWeapon,null,CMMsg.MSG_DROP,null);
 				if(mob.location().okMessage(mob,msg))

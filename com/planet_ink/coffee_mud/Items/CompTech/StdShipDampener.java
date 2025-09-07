@@ -1,6 +1,5 @@
 package com.planet_ink.coffee_mud.Items.CompTech;
 import com.planet_ink.coffee_mud.core.interfaces.*;
-import com.planet_ink.coffee_mud.core.interfaces.BoundedObject.BoundedCube;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.CMSecurity.DbgFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
@@ -25,7 +24,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -100,7 +99,7 @@ public class StdShipDampener extends StdElecCompItem
 				wearAndTear = Math.min(1.0, reliability * CMath.div(this.usesRemaining(), 100.0));
 
 			final double amountNeeded = (msg.value()-1.0);
-			final double powerUsed = CMath.mul(ship.getShipArea().numberOfProperIDedRooms() , efficiency ); // eff is from 0.5 (great) to 2.0 (terrible)
+			final double powerUsed = CMath.mul(ship.getArea().numberOfProperIDedRooms() , efficiency ); // eff is from 0.5 (great) to 2.0 (terrible)
 			double powerFactor = 1.0;
 			if(powerUsed > this.powerRemaining())
 			{
@@ -116,7 +115,7 @@ public class StdShipDampener extends StdElecCompItem
 		return true;
 	}
 
-	protected static void sendComputerMessage(final ShipWarComponent me, final String circuitKey, final MOB mob, final Item controlI, final String code)
+	protected static void sendComputerMessage(final Technical me, final String circuitKey, final MOB mob, final Item controlI, final String code)
 	{
 		for(final Iterator<Computer> c=CMLib.tech().getComputers(circuitKey);c.hasNext();)
 		{

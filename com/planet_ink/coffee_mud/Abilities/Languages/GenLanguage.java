@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,7 +60,11 @@ public class GenLanguage extends StdLanguage
 	private static final int V_WSETS=1;//L<S[]>
 	private static final int V_HSETS=2;//H<S,S>
 	private static final int V_HELP=3;//S
-	private static final int NUM_VS=4;//S
+	private static final int V_INTS=4;//L<S>
+	private static final int V_NAT=5;//L<B>
+	private static final int V_VERB=6;//S
+	private static final int V_TVERB=7;//S
+	private static final int NUM_VS=8;//S
 
 	private static final Object[] makeEmpty()
 	{
@@ -69,6 +73,10 @@ public class GenLanguage extends StdLanguage
 		O[V_WSETS]=new Vector<String[]>();
 		O[V_HSETS]=new Hashtable<String,String>();
 		O[V_HELP]="<ABILITY>This language is not yet documented.";
+		O[V_INTS]=new HashSet<String>();
+		O[V_NAT]=Boolean.TRUE;
+		O[V_VERB]="";
+		O[V_TVERB]="";
 		return O;
 	}
 
@@ -113,11 +121,37 @@ public class GenLanguage extends StdLanguage
 	}
 
 	@Override
+	@SuppressWarnings("unchecked")
+	public Set<String> languagesSupported()
+	{
+		return (Set<String>)V(ID,V_INTS);
+	}
+
+	@Override
+	public boolean isANaturalLanguage()
+	{
+		return ((Boolean)V(ID,V_NAT)).booleanValue();
+	}
+
+
+	@Override
+	public String getVerb()
+	{
+		return (String)V(ID,V_VERB);
+	}
+
+	@Override
+	public String getTranslationVerb()
+	{
+		return (String)V(ID,V_TVERB);
+	}
+
+	@Override
 	public CMObject newInstance()
 	{
 		try
 		{
-			final GenLanguage A=this.getClass().newInstance();
+			final GenLanguage A=this.getClass().getDeclaredConstructor().newInstance();
 			A.ID=ID;
 			return A;
 		}
@@ -152,6 +186,10 @@ public class GenLanguage extends StdLanguage
 										 "WORDS",//2S
 										 "HASHEDWORDS",//2S
 										 "HELP",//27I
+										 "INTERPRETS", // S
+										 "NATURALLANG", // B
+										 "VERB", // S
+										 "TRANSVERB", // S
 										};
 
 	@Override
@@ -214,15 +252,22 @@ public class GenLanguage extends StdLanguage
 			return CMParms.toKeyValueSlashListString((Map<String, String>) V(ID, V_HSETS));
 		case 5:
 			return (String) V(ID, V_HELP);
+		case 6:
+			return CMParms.combineWith((Set<String>)V(ID,V_INTS), ',');
+		case 7:
+			return V(ID,V_NAT).toString();
+		case 8:
+			return V(ID,V_VERB).toString();
+		case 9:
+			return V(ID,V_TVERB).toString();
 		default:
 			if (code.equalsIgnoreCase("javaclass"))
 				return "GenLanguage";
 			else
 			if(code.equalsIgnoreCase("allxml"))
 				return getAllXML();
-			break;
+			return super.getStat(code);
 		}
-		return "";
 	}
 
 	@Override
@@ -252,6 +297,8 @@ public class GenLanguage extends StdLanguage
 				ID=val;
 				if(num!=9)
 					CMClass.addClass(CMObjectType.ABILITY,this);
+				if(!((Set<String>)V(ID,V_INTS)).contains(ID))
+					((Set<String>)V(ID,V_INTS)).add(ID);
 			}
 			break;
 		case 1:
@@ -268,7 +315,10 @@ public class GenLanguage extends StdLanguage
 				final String[] allSets = val.split("/");
 				final List<String[]> wordSets = new Vector<String[]>();
 				for (final String wordList : allSets)
-					wordSets.add(CMParms.parseCommas(wordList, true).toArray(new String[0]));
+				{
+					if(wordList.trim().length()>0)
+						wordSets.add(CMParms.parseCommas(wordList, true).toArray(new String[0]));
+				}
 				SV(ID, V_WSETS, wordSets);
 			}
 			else
@@ -287,9 +337,33 @@ public class GenLanguage extends StdLanguage
 		case 5:
 			SV(ID, V_HELP, val);
 			break;
+		case 6:
+		{
+			final Set<String> ints = new XHashSet<String>(CMParms.parseCommas(val, true));
+			if(!ints.contains(ID()))
+				ints.add(ID());
+			SV(ID, V_INTS, ints);
+			break;
+		}
+		case 7:
+		{
+			if(!CMath.isBool(val))
+				SV(ID, V_NAT, Boolean.TRUE);
+			else
+				SV(ID, V_NAT, Boolean.valueOf(CMath.s_bool(val)));
+			break;
+		}
+		case 8:
+			SV(ID, V_VERB, val);
+			break;
+		case 9:
+			SV(ID, V_TVERB, val);
+			break;
 		default:
 			if(code.equalsIgnoreCase("allxml")&&ID.equalsIgnoreCase("GenLanguage"))
 				parseAllXML(val);
+			else
+				super.setStat(code, val);
 			break;
 		}
 	}

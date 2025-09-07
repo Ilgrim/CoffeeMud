@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,15 +43,52 @@ import java.util.*;
  */
 public interface ItemCraftor extends CraftorAbility
 {
+	public enum CraftorType
+	{
+		Weapons,
+		Armor,
+		General,
+		Consumables,
+		LargeConstructions,
+		Resources,
+		ClanItems,
+		Magic
+	}
+
+	/**
+	 * Returns the general craftor type of this skill, to let
+	 * outside subsystems know what they might expect.
+	 * @see ItemCraftor.CraftorType
+	 * @return the craftor type
+	 */
+	public CraftorType getCraftorType();
+
 	/**
 	 * Crafts a random item of a type supported by this class of
 	 * the given resource code.
-	 * Returns a vector containing the finished Item.  A second element is
+	 * Returns a pair containing the finished Item.  A second element is
 	 * rare, but will occur when a key is required and also generated.
 	 * @param material the rawmaterial code to make the item out of
-	 * @return a vector of Item(s)
+	 * @return an item pair
 	 */
-	public ItemKeyPair craftAnyItem(int material);
+	public CraftedItem craftAnyItem(int material);
+
+	/**
+	 * Crafts a random item of a type supported by this class of
+	 * a random resource code but within the given level range.
+	 * Returns a item pair containing the finished Item.  A second element is
+	 * rare, but will occur when a key is required and also generated.
+	 * @param minlevel the min level to try to match
+	 * @param maxlevel the max level to try to match
+	 * @return an item pair
+	 */
+	public CraftedItem craftAnyItemNearLevel(int minlevel, int maxlevel);
+
+	/**
+	 * Returns the level range of the items craftable by this skill.
+	 * @return the level range of the items craftable by this skill.
+	 */
+	public int[] getCraftableLevelRange();
 
 	/**
 	 * Crafts every item of a type supported by this class of
@@ -63,7 +100,7 @@ public interface ItemCraftor extends CraftorAbility
 	 * @param forceLevels forces crafted item to have a level if it otherwise doesn't
 	 * @return a vector of vectors of item(s)
 	 */
-	public List<ItemKeyPair> craftAllItemSets(int material, boolean forceLevels);
+	public List<CraftedItem> craftAllItemSets(int material, boolean forceLevels);
 
 	/**
 	 * Crafts every item of a type supported by this class of
@@ -74,7 +111,7 @@ public interface ItemCraftor extends CraftorAbility
 	 * @param forceLevels forces crafted item to have a level if it otherwise doesn't
 	 * @return a vector of vectors of item vector(s)
 	 */
-	public List<ItemKeyPair> craftAllItemSets(boolean forceLevels);
+	public List<CraftedItem> craftAllItemSets(boolean forceLevels);
 
 	/**
 	 * Crafts the item specified by the recipe name, of a supported
@@ -84,7 +121,7 @@ public interface ItemCraftor extends CraftorAbility
 	 * @param recipeName the name of the item to make
 	 * @return a vector of Item(s)
 	 */
-	public ItemKeyPair craftItem(String recipeName);
+	public CraftedItem craftItem(String recipeName);
 
 	/**
 	 * Crafts the item specified by the recipe name, of the specified
@@ -97,22 +134,24 @@ public interface ItemCraftor extends CraftorAbility
 	 * @param noSafety whether normal safeguards against creating broken items are overridden
 	 * @return a vector of Item(s)
 	 */
-	public ItemKeyPair craftItem(String recipeName, int material, boolean forceLevels, boolean noSafety);
+	public CraftedItem craftItem(String recipeName, int material, boolean forceLevels, boolean noSafety);
 
 	/**
 	 * For auto-crafting, this object represents an item,
 	 * and (optionally) a key to go with it.
 	 * @author Bo Zimmerman
 	 */
-	public class ItemKeyPair
+	public class CraftedItem
 	{
 		public Item item;
 		public DoorKey key;
+		public int duration;
 
-		public ItemKeyPair(final Item item, final DoorKey key)
+		public CraftedItem(final Item item, final DoorKey key, final int duration)
 		{
 			this.item = item;
 			this.key = key;
+			this.duration=duration;
 		}
 
 		public List<Item> asList()
@@ -126,21 +165,6 @@ public interface ItemCraftor extends CraftorAbility
 		}
 
 	}
-
-	/**
-	 * The base unlocalized brand added to crafted items
-	 */
-	public final static String CRAFTING_BRAND_STR_PREFIX="This is the work of ";
-
-	/**
-	 * The base unlocalized brand added to anonymously crafted items
-	 */
-	public final static String CRAFTING_BRAND_STR_ANON=CRAFTING_BRAND_STR_PREFIX+"an anonymous craftsman.";
-
-	/**
-	 * The base unlocalized brand added to named crafted items
-	 */
-	public final static String CRAFTING_BRAND_STR_NAME=CRAFTING_BRAND_STR_PREFIX+"@x1.";
 
 	/**
 	 * Returns whether the given item could have been crafted by this skill.

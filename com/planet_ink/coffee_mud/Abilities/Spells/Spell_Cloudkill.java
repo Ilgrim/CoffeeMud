@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -88,6 +88,12 @@ public class Spell_Cloudkill extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags()|Ability.FLAG_AIRBASED;
+	}
+
+	@Override
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
 		super.affectPhyStats(affected,affectableStats);
@@ -125,7 +131,7 @@ public class Spell_Cloudkill extends Spell
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		final Set<MOB> h=properTargets(mob,givenTarget,auto);
-		if(h==null)
+		if((h==null)||(h.size()==0))
 		{
 			mob.tell(L("There doesn't appear to be anyone here worth clouding."));
 			return false;
@@ -165,6 +171,7 @@ public class Spell_Cloudkill extends Spell
 
 							if(damage<=0)
 								damage=1;
+							damage += super.getX1Level(mob);
 							if(target.location()==mob.location())
 							{
 								String addOn = "";

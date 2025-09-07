@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,8 +50,7 @@ public class Javelin extends StdWeapon
 		basePhyStats.setWeight(2);
 		basePhyStats().setAttackAdjustment(0);
 		basePhyStats().setDamage(6);
-		maxRange=10;
-		minRange=0;
+		setRanges(0, 10);
 		baseGoldValue=1;
 		setUsesRemaining(1);
 		recoverPhyStats();

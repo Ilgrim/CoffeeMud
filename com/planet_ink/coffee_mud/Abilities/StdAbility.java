@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMSecurity.DisFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -8,11 +9,13 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.Session.SessionPing;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.Basic.StdItem;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.AbilityMapping;
+import com.planet_ink.coffee_mud.core.interfaces.CostDef.CostType;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.MOB.Attrib;
@@ -21,7 +24,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -75,7 +78,7 @@ public class StdAbility implements Ability
 	{
 		try
 		{
-			return this.getClass().newInstance();
+			return this.getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -193,7 +196,8 @@ public class StdAbility implements Ability
 		return false;
 	}
 
-	protected int getTicksBetweenCasts()
+	@Override
+	public int getTicksBetweenCasts()
 	{
 		return 0;
 	}
@@ -207,13 +211,18 @@ public class StdAbility implements Ability
 	{
 	}
 
-	protected ExpertiseLibrary.SkillCostDefinition getRawTrainingCost()
+	protected CostDef getRawTrainingCost()
 	{
 		return CMProps.getNormalSkillGainCost(ID());
 	}
 
+	public void setTickDown(final int down)
+	{
+		this.tickDown = down;
+	}
+
 	@Override
-	public ExpertiseLibrary.SkillCost getTrainingCost(final MOB mob)
+	public CostManager getTrainingCost(final MOB mob)
 	{
 		int qualifyingLevel;
 		int playerLevel=1;
@@ -222,12 +231,12 @@ public class StdAbility implements Ability
 			final Integer[] O=CMLib.ableMapper().getCostOverrides(mob,ID());
 			if(O!=null)
 			{
-				Integer val=O[AbilityMapper.Cost.TRAIN.ordinal()];
+				Integer val=O[AbilityMapper.AbilCostType.TRAIN.ordinal()];
 				if(val!=null)
-					return CMLib.expertises().createNewSkillCost(ExpertiseLibrary.CostType.TRAIN,Double.valueOf(val.intValue()));
-				val=O[AbilityMapper.Cost.PRAC.ordinal()];
+					return CMLib.utensils().createCostManager(CostType.TRAIN,Double.valueOf(val.intValue()));
+				val=O[AbilityMapper.AbilCostType.PRAC.ordinal()];
 				if(val!=null)
-					return CMLib.expertises().createNewSkillCost(ExpertiseLibrary.CostType.PRACTICE,Double.valueOf(val.intValue()));
+					return CMLib.utensils().createCostManager(CostType.PRACTICE,Double.valueOf(val.intValue()));
 			}
 			qualifyingLevel=CMLib.ableMapper().qualifyingLevel(mob, this);
 			playerLevel=mob.basePhyStats().level();
@@ -239,12 +248,12 @@ public class StdAbility implements Ability
 		}
 		if(qualifyingLevel<=0)
 			qualifyingLevel=1;
-		final ExpertiseLibrary.SkillCostDefinition rawCost=getRawTrainingCost();
+		final CostDef rawCost=getRawTrainingCost();
 		if(rawCost==null)
-			return CMLib.expertises().createNewSkillCost(ExpertiseLibrary.CostType.TRAIN,Double.valueOf(1.0));
+			return CMLib.utensils().createCostManager(CostType.TRAIN,Double.valueOf(1.0));
 		final double[] vars=new double[]{ qualifyingLevel,playerLevel};
 		final double value=CMath.parseMathExpression(rawCost.costDefinition(),vars);
-		return CMLib.expertises().createNewSkillCost(rawCost.type(),Double.valueOf(value));
+		return CMLib.utensils().createCostManager(new CostDef.Cost(value, rawCost.type(), rawCost.typeCurrency()));
 	}
 
 	protected int practicesToPractice(final MOB mob)
@@ -252,8 +261,8 @@ public class StdAbility implements Ability
 		if(mob!=null)
 		{
 			final Integer[] O=CMLib.ableMapper().getCostOverrides(mob,ID());
-			if((O!=null)&&(O[AbilityMapper.Cost.PRACPRAC.ordinal()]!=null))
-				return O[AbilityMapper.Cost.PRACPRAC.ordinal()].intValue();
+			if((O!=null)&&(O[AbilityMapper.AbilCostType.PRACPRAC.ordinal()]!=null))
+				return O[AbilityMapper.AbilCostType.PRACPRAC.ordinal()].intValue();
 		}
 		return iniPracticesToPractice();
 	}
@@ -319,9 +328,20 @@ public class StdAbility implements Ability
 	}
 
 	@Override
+	public boolean mayBeEnchanted()
+	{
+		if((CMLib.ableMapper().lowestQualifyingLevel(ID())>POWER_LEVEL_THRESHOLD)
+		||(usageCost(null,true)[0]>POWER_COST_THRESHOLD)
+		||(overrideMana()>POWER_OVERRIDE_THRESHOLD)
+		||(CMath.bset(flags(), FLAG_CLANMAGIC)))
+			return false;
+		return true;
+	}
+
+	@Override
 	public String L(final String str, final String ... xs)
 	{
-		return CMLib.lang().fullSessionTranslation(str, xs);
+		return CMLib.lang().fullSessionTranslation(getClass(), str, xs);
 	}
 
 	protected static String[] I(final String[] str)
@@ -337,13 +357,21 @@ public class StdAbility implements Ability
 			return Ability.QUALITY_INDIFFERENT;
 		if(isAutoInvoked())
 			return Ability.QUALITY_INDIFFERENT;
-		if((mob!=null)&&(target!=null)&&(mob.getVictim()==target))
+		if(mob != null)
 		{
-			if((minRange()>0)&&(mob.rangeToTarget()<minRange()))
+			if((target!=null)
+			&&(mob.getVictim()==target))
+			{
+				if((minRange()>0)&&(mob.rangeToTarget()<minRange()))
+					return Ability.QUALITY_INDIFFERENT;
+				if(mob.rangeToTarget()>maxRange())
+					return Ability.QUALITY_INDIFFERENT;
+			}
+			final Room R=mob.location();
+			if((R!=null)
+			&&(this.canAffect(CAN_ROOMS)||this.canTarget(CAN_ROOMS))
+			&&(R.fetchEffect(ID())!=null))
 				return Ability.QUALITY_INDIFFERENT;
-			if(mob.rangeToTarget()>maxRange())
-				return Ability.QUALITY_INDIFFERENT;
-
 		}
 		switch(abstractQuality)
 		{
@@ -368,71 +396,78 @@ public class StdAbility implements Ability
 		return castingQuality(mob,target,abstractQuality());
 	}
 
-	protected synchronized int expertise(final MOB mob, final Ability A, final ExpertiseLibrary.Flag code)
+	protected synchronized int expertise(final MOB mob, final Ability A, final ExpertiseLibrary.XType code)
 	{
 		if((mob!=null)
 		&&(A.isNowAnAutoEffect()
 			||(A.canBeUninvoked())
 			||A.isAutoInvoked()))
 		{
-			return CMLib.expertises().getExpertiseLevel(mob, A.ID(), code);
+			int xlevel = CMLib.expertises().getExpertiseLevelCached(mob, A.ID(), code);
+			final CharStats charStats=mob.charStats(); // circumstantial bonuses
+			final String codeStr="X"+code.name()+"+";
+			xlevel += charStats.getAbilityAdjustment(codeStr+ID().toUpperCase());
+			xlevel += charStats.getAbilityAdjustment(codeStr+Ability.ACODE.DESCS.get(classificationCode()&Ability.ALL_ACODES));
+			xlevel += charStats.getAbilityAdjustment(codeStr+Ability.DOMAIN.DESCS.get((classificationCode()&Ability.ALL_DOMAINS)>> 5));
+			xlevel += charStats.getAbilityAdjustment(codeStr+"*");
+			return xlevel;
 		}
 		return 0;
 	}
 
 	protected int getX1Level(final MOB mob)
 	{
-		return expertise(mob, this, ExpertiseLibrary.Flag.X1);
+		return expertise(mob, this, ExpertiseLibrary.XType.X1);
 	}
 
 	protected int getX2Level(final MOB mob)
 	{
-		return expertise(mob, this, ExpertiseLibrary.Flag.X2);
+		return expertise(mob, this, ExpertiseLibrary.XType.X2);
 	}
 
 	protected int getX3Level(final MOB mob)
 	{
-		return expertise(mob, this, ExpertiseLibrary.Flag.X3);
+		return expertise(mob, this, ExpertiseLibrary.XType.X3);
 	}
 
 	protected int getX4Level(final MOB mob)
 	{
-		return expertise(mob, this, ExpertiseLibrary.Flag.X4);
+		return expertise(mob, this, ExpertiseLibrary.XType.X4);
 	}
 
 	protected int getX5Level(final MOB mob)
 	{
-		return expertise(mob, this, ExpertiseLibrary.Flag.X5);
+		return expertise(mob, this, ExpertiseLibrary.XType.X5);
 	}
 
 	protected int getXLEVELLevel(final MOB mob)
 	{
-		return expertise(mob, this, ExpertiseLibrary.Flag.LEVEL);
+		return expertise(mob, this, ExpertiseLibrary.XType.LEVEL);
 	}
 
 	protected int getXLOWCOSTLevel(final MOB mob)
 	{
-		return expertise(mob, this, ExpertiseLibrary.Flag.LOWCOST);
+		return expertise(mob, this, ExpertiseLibrary.XType.LOWCOST);
 	}
 
 	protected int getXLOWFREECOSTLevel(final MOB mob)
 	{
-		return expertise(mob, this, ExpertiseLibrary.Flag.LOWFREECOST);
+		return expertise(mob, this, ExpertiseLibrary.XType.LOWFREECOST);
 	}
 
 	protected int getXMAXRANGELevel(final MOB mob)
 	{
-		return expertise(mob, this, ExpertiseLibrary.Flag.MAXRANGE);
+		return expertise(mob, this, ExpertiseLibrary.XType.MAXRANGE);
 	}
 
 	protected int getXTIMELevel(final MOB mob)
 	{
-		return expertise(mob, this, ExpertiseLibrary.Flag.TIME);
+		return expertise(mob, this, ExpertiseLibrary.XType.TIME);
 	}
 
 	protected int getXPCOSTLevel(final MOB mob)
 	{
-		return expertise(mob, this, ExpertiseLibrary.Flag.XPCOST);
+		return expertise(mob, this, ExpertiseLibrary.XType.XPCOST);
 	}
 
 	protected int getXPCOSTAdjustment(final MOB mob, final int xpLoss)
@@ -500,6 +535,8 @@ public class StdAbility implements Ability
 	{
 		if(time>System.currentTimeMillis())
 			tickDown=(int)((time-System.currentTimeMillis())/CMProps.getTickMillis());
+		else
+			tickDown=(int)Math.round(CMath.div(time,CMProps.getTickMillis()));
 	}
 
 	@Override
@@ -604,11 +641,63 @@ public class StdAbility implements Ability
 		return (int)Math.round(CMath.mul(baseTickTime,CMath.mul(getXTIMELevel(invokerMOB),0.20)));
 	}
 
+	protected void gmcpAddNotify(final MOB mob)
+	{
+		if(mob != null)
+		{
+			final Session session = mob.session();
+			if(session != null)
+			{
+				if(session.getClientTelnetMode(Session.TELNET_GMCP))
+				{
+					final int code = this.classificationCode();
+					final String domain = (Ability.ACODE.DESCS.get(code&Ability.ALL_ACODES)).toLowerCase()+
+							"-"+(Ability.DOMAIN.DESCS.get((code&Ability.ALL_DOMAINS)>>5)).toLowerCase();
+					final String json = "{\"name\":\""+name()+"\",\"group\":\""+domain+"\"}";
+					session.doPing(SessionPing.GMCP_PING_EFFECTS, Long.valueOf(mob.numEffects()+1));
+					session.sendGMCPEvent("char.effects.add", json);
+				}
+			}
+		}
+	}
+
+	protected void gmcpRemoveNotify(final MOB mob)
+	{
+		if(mob != null)
+		{
+			final Session session = mob.session();
+			if(session != null)
+			{
+				if(session.getClientTelnetMode(Session.TELNET_GMCP))
+				{
+					final int code = this.classificationCode();
+					final String domain = (Ability.ACODE.DESCS.get(code&Ability.ALL_ACODES)).toLowerCase()+
+							"-"+(Ability.DOMAIN.DESCS.get((code&Ability.ALL_DOMAINS)>>5)).toLowerCase();
+					final String json = "{\"name\":\""+name()+"\",\"group\":\""+domain+"\"}";
+					session.doPing(SessionPing.GMCP_PING_EFFECTS, Long.valueOf(mob.numEffects()-1));
+					session.sendGMCPEvent("char.effects.remove", json);
+				}
+			}
+		}
+	}
+
+	protected void addEffect(final MOB invokerMOB, final Physical affected)
+	{
+		affected.addEffect(this);
+		if(!(affected instanceof MOB))
+			CMLib.threads().startTickDown(this,Tickable.TICKID_MOB,1);
+	}
+
+	protected boolean alreadyAffected(final Physical affected)
+	{
+		return affected.fetchEffect(ID())!=null;
+	}
+
 	@Override
 	public void startTickDown(final MOB invokerMOB, final Physical affected, int tickTime)
 	{
 		if(invokerMOB!=null)
-			invoker=invokerMOB;
+			setInvoker(invokerMOB);
 
 		savable=false; // makes it so that the effect does not save!
 
@@ -628,9 +717,48 @@ public class StdAbility implements Ability
 			final Room room=mob.location();
 			if(room==null)
 				return;
-			if(affected.fetchEffect(ID())==null)
-				affected.addEffect(this);
-			room.recoverRoomStats();
+			if(!alreadyAffected(affected))
+			{
+				gmcpAddNotify(mob);
+				addEffect(invokerMOB, affected);
+				final int ecap=CMProps.getIntVar(CMProps.Int.EFFECTCAP);
+				if(ecap>0)
+				{
+					final List<Ability> candidates = new ArrayList<Ability>(mob.numEffects());
+					for(final Enumeration<Ability> e = mob.effects();e.hasMoreElements();)
+					{
+						final Ability eA=e.nextElement();
+						if((eA!=null)
+						&&(eA.canBeUninvoked())
+						&&(eA.invoker()!=null))
+							candidates.add(eA);
+					}
+					if(candidates.size()>ecap)
+					{
+						final Ability deadA=candidates.get(CMLib.dice().roll(1, candidates.size(), -1));
+						if(deadA!=null)
+							deadA.unInvoke();
+					}
+				}
+			}
+			final CharStats charStats = mob.charStats();
+			if(charStats.isAbilityAdjustment("TICK"))
+			{
+				tickTime += charStats.getAbilityAdjustment("TICK+"+ID().toUpperCase());
+				tickTime += charStats.getAbilityAdjustment("TICK+"+Ability.ACODE.DESCS.get(classificationCode()&Ability.ALL_ACODES));
+				tickTime += charStats.getAbilityAdjustment("TICK+"+Ability.DOMAIN.DESCS.get((classificationCode()&Ability.ALL_DOMAINS)>> 5));
+				tickTime += charStats.getAbilityAdjustment("TICK+*");
+			}
+			if(mob.isPlayer())
+				CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.EFFECTSHAD, 1, this);
+			try
+			{
+				room.recoverRoomStats();
+			}
+			catch(final Exception e)
+			{
+				Log.errOut(e);
+			}
 			if(invoker()!=affected)
 			{
 				for(int c=0;c<mob.charStats().numClasses();c++)
@@ -639,16 +767,70 @@ public class StdAbility implements Ability
 		}
 		else
 		{
-			if(affected.fetchEffect(this.ID())==null)
-				affected.addEffect(this);
+			if(!alreadyAffected(affected))
+				addEffect(invokerMOB, affected);
 
 			if(affected instanceof Room)
 				((Room)affected).recoverRoomStats();
 			else
 				affected.recoverPhyStats();
-			CMLib.threads().startTickDown(this,Tickable.TICKID_MOB,1);
 		}
 		tickDown=tickTime;
+	}
+
+	protected void commonTelL(final MOB mob, final Environmental target, final Environmental tool, String str, final String... vars)
+	{
+		if(mob.isMonster())
+		{
+			str = CMStrings.replaceWord(str, "you are", "I am");
+			str = CMStrings.replaceWord(str, "you", "I");
+			str = CMStrings.replaceWord(str, "your", "my");
+			str = CMStrings.replaceWord(str, "you've", "I've");
+			str = L(str,vars);
+			if(target!=null)
+				str=CMStrings.replaceAll(str,"<T-NAME>",target.name());
+			if(tool!=null)
+				str=CMStrings.replaceAll(str,"<O-NAME>",tool.name());
+			CMLib.commands().postSay(mob,null,str,false,false);
+			return;
+		}
+		mob.tell(mob,target,tool,L(str,vars));
+	}
+
+	protected void commonTelL(final MOB mob, String commonTelStr, final String... vars)
+	{
+		if(mob==null)
+			return;
+		if(mob.isMonster())
+		{
+			commonTelStr = CMStrings.replaceWord(commonTelStr, "you are", "I am");
+			commonTelStr = CMStrings.replaceWord(commonTelStr, "you", "I");
+			commonTelStr = CMStrings.replaceWord(commonTelStr, "your", "my");
+			commonTelStr = CMStrings.replaceWord(commonTelStr, "you've", "I've");
+			commonTelStr = L(commonTelStr,vars);
+			CMLib.commands().postSay(mob,null,commonTelStr,false,false);
+			return;
+		}
+
+		mob.tell(L(commonTelStr,vars));
+	}
+
+	protected void commonTell(final MOB mob, String str)
+	{
+		if(mob==null)
+			return;
+
+		if(mob.isMonster())
+		{
+			str = CMStrings.replaceWord(str, "you are", "I am");
+			str = CMStrings.replaceWord(str, "you", "I");
+			str = CMStrings.replaceWord(str, "your", "my");
+			str = CMStrings.replaceWord(str, "you've", "I've");
+			CMLib.commands().postSay(mob,null,str,false,false);
+			return;
+		}
+
+		mob.tell(str);
 	}
 
 	public boolean disregardsArmorCheck(final MOB mob)
@@ -664,10 +846,12 @@ public class StdAbility implements Ability
 	protected int getPersonalLevelAdjustments(final MOB caster)
 	{
 		final CharStats charStats = caster.charStats();
-		return  charStats.getAbilityAdjustment("level+"+ID())
-			+ charStats.getAbilityAdjustment("level+"+Ability.ACODE_DESCS[classificationCode()&Ability.ALL_ACODES])
-			+ charStats.getAbilityAdjustment("level+"+Ability.DOMAIN_DESCS[(classificationCode()&Ability.ALL_DOMAINS)>> 5])
-			+ charStats.getAbilityAdjustment("level+*");
+		if(!charStats.isAbilityAdjustment("LEVEL"))
+			return 0;
+		return  charStats.getAbilityAdjustment("LEVEL+"+ID().toUpperCase())
+			+ charStats.getAbilityAdjustment("LEVEL+"+Ability.ACODE.DESCS.get(classificationCode()&Ability.ALL_ACODES))
+			+ charStats.getAbilityAdjustment("LEVEL+"+Ability.DOMAIN.DESCS.get((classificationCode()&Ability.ALL_DOMAINS)>> 5))
+			+ charStats.getAbilityAdjustment("LEVEL+*");
 	}
 
 	@Override
@@ -697,36 +881,6 @@ public class StdAbility implements Ability
 		for(int c=0;c<CS.numClasses();c++)
 			level=CS.getMyClass(c).classDurationModifier(invoker(),this,level);
 		return level;
-	}
-
-	protected int experienceLevels(final MOB caster, final int asLevel)
-	{
-		if(caster==null)
-			return 1;
-		int adjLevel=1;
-		final int qualifyingLevel=CMLib.ableMapper().qualifyingLevel(caster,this);
-		final int lowestQualifyingLevel=CMLib.ableMapper().lowestQualifyingLevel(this.ID());
-		if(qualifyingLevel>=0)
-		{
-			final int qualClassLevel=CMLib.ableMapper().qualifyingClassLevel(caster,this);
-			if(qualClassLevel>=qualifyingLevel)
-				adjLevel=(qualClassLevel-qualifyingLevel)+1;
-			else
-			if(caster.phyStats().level()>=qualifyingLevel)
-				adjLevel=(caster.phyStats().level()-qualifyingLevel)+1;
-			else
-			if(caster.phyStats().level()>=lowestQualifyingLevel)
-				adjLevel=(caster.phyStats().level()-lowestQualifyingLevel)+1;
-		}
-		else
-		if(caster.phyStats().level()>=lowestQualifyingLevel)
-			adjLevel=(caster.phyStats().level()-lowestQualifyingLevel)+1;
-		if(asLevel>0)
-			adjLevel=asLevel;
-		adjLevel += getPersonalLevelAdjustments(caster);
-		if(adjLevel<1)
-			return 1;
-		return adjLevel+getXLEVELLevel(caster);
 	}
 
 	@Override
@@ -790,9 +944,55 @@ public class StdAbility implements Ability
 		return getTarget(mob,commands,givenTarget,false,false);
 	}
 
+	//BZ: The magical pre-cast mana-saving range check, pt 1/2
+	protected boolean checkTargetRange(final MOB mob, final MOB target)
+	{
+		if((target != null)
+		&&(target!=mob)
+		&&((minRange()>0)||((maxRange()>0)&&(maxRange()<99999)))
+		&&(abstractQuality()==Ability.QUALITY_MALICIOUS))
+		{
+			if((minRange()>0)
+			&&(((mob.getVictim()==target)&&(mob.rangeToTarget()<minRange()))
+			  ||((target.getVictim()==mob)&&(target.rangeToTarget()<minRange())))
+			)
+			{
+				failureTell(mob,mob,false,L("You are too close to @x1 to do that.",target.name()));
+				return false;
+			}
+			else
+			if((maxRange()>0)
+			&&(maxRange()<99999)
+			&&(((mob.getVictim()==target)&&(mob.rangeToTarget()>maxRange()))
+			  ||((target.getVictim()==mob)&&(target.rangeToTarget()>maxRange())))
+			)
+			{
+				failureTell(mob,mob,false,L("You are too far away from @x1 to do that.",target.name()));
+				return false;
+			}
+		}
+		return true;
+	}
+
+	protected MOB getVisibleRoomTarget(final MOB mob, final String whom)
+	{
+		if(mob == null)
+			return null;
+		final Room R=mob.location();
+		if(R==null)
+			return null;
+		MOB target = R.fetchInhabitant(whom);
+		int ctr=1;
+		while ((target != null)
+		&& (!CMLib.flags().canBeSeenBy(target, mob))
+		&&(whom.indexOf('.')<0))
+			target = R.fetchInhabitant(whom+"."+(++ctr));
+		return target;
+	}
+
 	protected MOB getTarget(final MOB mob, final List<String> commands, final Environmental givenTarget, final boolean quiet, final boolean alreadyAffOk)
 	{
-		String targetName=CMParms.combine(commands,0);
+		final String targetName=CMParms.combine(commands,0);
 		MOB target=null;
 		if((givenTarget!=null)
 		&&(givenTarget instanceof MOB))
@@ -818,7 +1018,7 @@ public class StdAbility implements Ability
 				target=mob;
 			if(target == null)
 			{
-				mob.tell(L("You need to specify a target."));
+				failureTell(mob,mob,false,L("You need to specify a target."));
 				return null;
 			}
 		}
@@ -828,7 +1028,7 @@ public class StdAbility implements Ability
 		else
 		if(mob.location()!=null)
 		{
-			target=mob.location().fetchInhabitant(targetName);
+			target=getVisibleRoomTarget(mob,targetName);
 			if(target==null)
 			{
 				final Environmental t=mob.location().fetchFromRoomFavorItems(null,targetName);
@@ -841,9 +1041,6 @@ public class StdAbility implements Ability
 			}
 		}
 
-		if(target!=null)
-			targetName=target.name();
-
 		if((target==null)
 		||((givenTarget==null)
 			&&(!CMLib.flags().canBeSeenBy(target,mob))
@@ -851,10 +1048,10 @@ public class StdAbility implements Ability
 		{
 			if(!quiet)
 			{
-				if(targetName.trim().length()==0)
-					mob.tell(L("You don't see them here."));
+				if(targetName.length()==0)
+					failureTell(mob,mob,false,L("You don't see them here."));
 				else
-					mob.tell(L("You don't see anyone called '@x1' here.",targetName));
+					failureTell(mob,mob,false,L("You don't see anyone called '@x1' here.",targetName));
 			}
 			return null;
 		}
@@ -864,12 +1061,16 @@ public class StdAbility implements Ability
 			if((givenTarget==null)&&(!quiet))
 			{
 				if(target==mob)
-					mob.tell(L("You are already affected by @x1.",name()));
+					failureTell(mob,mob,false,L("You are already affected by @x1.",name()));
 				else
-					mob.tell(target,null,null,L("<S-NAME> is already affected by @x1.",name()));
+					failureTell(mob,target,false,L("<S-NAME> is already affected by @x1.",name()));
 			}
 			return null;
 		}
+
+		if(!checkTargetRange(mob,target))
+			target=null;
+
 		return target;
 	}
 
@@ -914,7 +1115,7 @@ public class StdAbility implements Ability
 			final boolean quiet)
 	{
 		final Room R=mob.location();
-		String targetName=CMParms.combine(commands,0);
+		final String targetName=CMParms.combine(commands,0);
 		Physical target=null;
 		if(givenTarget != null)
 			target=givenTarget;
@@ -922,7 +1123,9 @@ public class StdAbility implements Ability
 		if((targetName.length()==0)&&(mob.isInCombat())&&(castingQuality(mob,mob.getVictim())==Ability.QUALITY_MALICIOUS))
 			target=mob.getVictim();
 		else
-		if(targetName.equalsIgnoreCase("self")||targetName.equalsIgnoreCase("me"))
+		if(targetName.equalsIgnoreCase("self")
+		||targetName.equalsIgnoreCase("me")
+		||((targetName.length()==0)&&(castingQuality(mob,mob)==Ability.QUALITY_BENEFICIAL_SELF)))
 			target=mob;
 		else
 		if((targetName.length()==0)&&(mob.isInCombat())&&(abstractQuality()==Ability.QUALITY_MALICIOUS))
@@ -930,12 +1133,15 @@ public class StdAbility implements Ability
 		else
 		if(R!=null)
 		{
-			target=R.fetchFromRoomFavorMOBs(null,targetName);
+			if((target==null)
+			&&(targetName.equalsIgnoreCase("here")))
+				target=R;
+			if(target == null)
+				target=R.fetchFromRoomFavorMOBs(null,targetName);
 			if(target==null)
 				target=R.fetchFromMOBRoomFavorsItems(mob,null,targetName,filter);
 			if((target==null)
 			&&(targetName.equalsIgnoreCase("room")
-				||targetName.equalsIgnoreCase("here")
 				||targetName.equalsIgnoreCase("place")))
 				target=R;
 			int dir=-1;
@@ -952,22 +1158,19 @@ public class StdAbility implements Ability
 				}
 			}
 		}
-		if(target!=null)
-			targetName=target.name();
-
 		if((target==null)
 		||((givenTarget==null)
 		   &&(!CMLib.flags().canBeSeenBy(target,mob))
-		   &&((!CMLib.flags().canBeHeardMovingBy(target,mob))
+		   &&((!CMLib.flags().canBeHeardMovingBy(target,mob)) // do you REALLY can't detect them
 				||((target instanceof MOB)&&(!((MOB)target).isInCombat())))))
 		{
 			if(!quiet)
 			{
 				if(targetName.trim().length()==0)
-					mob.tell(L("You don't see that here."));
+					failureTell(mob,mob,false,L("You don't see that here."));
 				else
 				if(!CMLib.flags().isSleeping(mob))
-					mob.tell(L("You don't see '@x1' here.",targetName));
+					failureTell(mob,mob,false,L("You don't see '@x1' here.",targetName));
 			}
 			return null;
 		}
@@ -979,7 +1182,7 @@ public class StdAbility implements Ability
 				if(!quiet)
 				{
 					if(target==mob)
-						mob.tell(L("You are already affected by @x1.",name()));
+						failureTell(mob,mob,false,L("You are already affected by @x1.",name()));
 					else
 						mob.tell(mob,target,null,L("<T-NAME> is already affected by @x1.",name()));
 				}
@@ -1069,7 +1272,8 @@ public class StdAbility implements Ability
 		return getTarget(mob, location, givenTarget, container, commands, filter, false);
 	}
 
-	protected Item evalTargetItem(final MOB mob, final Environmental givenTarget, final Environmental target, final String targetName, final boolean quiet)
+	protected Item evalTargetItem(final MOB mob, final Room location, final Environmental givenTarget, final Environmental target,
+								  final String targetName, final String ogTargetName, final boolean quiet)
 	{
 		if((target==null)
 		||(!(target instanceof Item))
@@ -1078,17 +1282,22 @@ public class StdAbility implements Ability
 			if(!quiet)
 			{
 				if(targetName.length()==0)
-					mob.tell(L("You need to be more specific."));
+					failureTell(mob,mob,false,L("You need to be more specific."));
 				else
 				if((target==null)||(target instanceof Item))
 				{
 					if(targetName.trim().length()==0)
-						mob.tell(L("You don't see that here."));
+						failureTell(mob,mob,false,L("You don't see that here."));
 					else
 					if(!CMLib.flags().isSleeping(mob)) // no idea why this is here :(
-						mob.tell(L("You don't see anything called '@x1' here.",targetName));
+					{
+						if(location != null)
+							failureTell(mob,mob,false,L("You don't see anything called '@x1' here.",ogTargetName));
+						else
+							failureTell(mob,mob,false,L("You don't have anything called '@x1'.",ogTargetName));
+					}
 					else // this was added for clan donate (and other things I'm sure) while sleeping.
-						mob.tell(L("You don't see '@x1' in your dreams.",targetName));
+						failureTell(mob,mob,false,L("You don't see '@x1' in your dreams.",ogTargetName));
 				}
 				else
 					mob.tell(mob,target,null,L("You can't do that to <T-NAMESELF>."));
@@ -1102,6 +1311,7 @@ public class StdAbility implements Ability
 			final List<String> commands, final Filterer<Environmental> filter, final boolean quiet)
 	{
 		String targetName=CMParms.combine(commands,0);
+		final String ogTargetName = targetName;
 
 		Environmental target=null;
 		if((givenTarget!=null)&&(givenTarget instanceof Item))
@@ -1114,12 +1324,13 @@ public class StdAbility implements Ability
 			if(location!=null)
 				target=location.fetchFromMOBRoomFavorsItems(mob,container,targetName,filter);
 			else
+			if(mob != null)
 				target=mob.fetchItem(container, filter, targetName);
 		}
 		if(target!=null)
 			targetName=target.name();
 
-		return evalTargetItem(mob, givenTarget, target, targetName, quiet);
+		return evalTargetItem(mob, location, givenTarget, target, targetName, ogTargetName, quiet);
 
 	}
 
@@ -1139,6 +1350,7 @@ public class StdAbility implements Ability
 			final List<String> commands, final Filterer<Environmental> filter, final boolean quiet)
 	{
 		String targetName=CMParms.combine(commands,0);
+		final String ogTargetname = targetName;
 
 		Environmental target=null;
 		if((givenTarget!=null)&&(givenTarget instanceof Item))
@@ -1154,7 +1366,7 @@ public class StdAbility implements Ability
 		if(target!=null)
 			targetName=target.name();
 
-		return evalTargetItem(mob, givenTarget, target, targetName, quiet);
+		return evalTargetItem(mob, location, givenTarget, target, targetName, ogTargetname, quiet);
 	}
 
 	@Override
@@ -1202,16 +1414,27 @@ public class StdAbility implements Ability
 			if(CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.SUPERSKILL))
 				return true;
 			final CharStats charStats = mob.charStats();
-			pctChance += charStats.getAbilityAdjustment("prof+"+ID());
-			pctChance += charStats.getAbilityAdjustment("prof+"+Ability.ACODE_DESCS[classificationCode()&Ability.ALL_ACODES]);
-			pctChance += charStats.getAbilityAdjustment("prof+"+Ability.DOMAIN_DESCS[(classificationCode()&Ability.ALL_DOMAINS)>> 5]);
-			pctChance += charStats.getAbilityAdjustment("prof+*");
+			if(charStats.isAbilityAdjustment("PROF"))
+			{
+				pctChance += charStats.getAbilityAdjustment("PROF+"+ID().toUpperCase());
+				pctChance += charStats.getAbilityAdjustment("PROF+"+Ability.ACODE.DESCS.get(classificationCode()&Ability.ALL_ACODES));
+				pctChance += charStats.getAbilityAdjustment("PROF+"+Ability.DOMAIN.DESCS.get((classificationCode()&Ability.ALL_DOMAINS)>> 5));
+				pctChance += charStats.getAbilityAdjustment("PROF+*");
+			}
 		}
 
-		if(pctChance>95)
-			pctChance=95;
-		if(pctChance<5)
-			pctChance=5;
+		final int xlevel = getXLEVELLevel(mob);
+		pctChance += (2*xlevel);
+
+		if(!CMSecurity.isDisabled(DisFlag.DIS955RULE))
+		{
+			if(pctChance>95)
+				pctChance=95;
+			if(pctChance<5)
+				pctChance=5;
+		}
+
+		pctChance += xlevel/2;
 
 		if(adjustment>=0)
 			pctChance+=adjustment;
@@ -1244,13 +1467,18 @@ public class StdAbility implements Ability
 
 		if(canBeUninvoked())
 		{
-			being.delEffect(this);
 			if(being instanceof Room)
+			{
+				being.delEffect(this);
 				((Room)being).recoverRoomStats();
+			}
 			else
 			if(being instanceof MOB)
 			{
 				final MOB M=(MOB)being;
+				if(M.fetchEffect(ID())==this)
+					this.gmcpRemoveNotify(M);
+				being.delEffect(this);
 				final Room R=M.location();
 				if((R!=null)&&(R.isInhabitant(M)))
 					R.recoverRoomStats();
@@ -1262,7 +1490,10 @@ public class StdAbility implements Ability
 				}
 			}
 			else
+			{
+				being.delEffect(this);
 				being.recoverPhyStats();
+			}
 		}
 	}
 
@@ -1301,85 +1532,109 @@ public class StdAbility implements Ability
 
 	protected int[] buildCostArray(final MOB mob, final int consumed, int minimum)
 	{
-		final int[] usageCosts=new int[Ability.USAGEINDEX_TOTAL];
-		int costDown=0;
-		if(consumed>2)
-		{
-			costDown=getXLOWCOSTLevel(mob);
-			if(costDown>=consumed)
-				costDown=consumed/2;
-			minimum=(minimum-costDown);
-			if(minimum<5)
-				minimum=5;
-			final int freeDown=getXLOWFREECOSTLevel(mob) / 2;
-			costDown += freeDown;
-			minimum=(minimum-freeDown);
-			if(minimum<0)
-				minimum=0;
-		}
 		final boolean useMana=CMath.bset(usageType(),Ability.USAGE_MANA);
 		final boolean useMoves=CMath.bset(usageType(),Ability.USAGE_MOVEMENT);
 		final boolean useHits=CMath.bset(usageType(),Ability.USAGE_HITPOINTS);
-		int divider=1;
-		if((useMana)&&(useMoves)&&(useHits))
-			divider=3;
-		else
-		if((useMana)&&(useMoves)&&(!useHits))
-			divider=2;
-		else
-		if((useMana)&&(!useMoves)&&(useHits))
-			divider=2;
-		else
-		if((!useMana)&&(useMoves)&&(useHits))
-			divider=2;
-
-		if(useMana)
+		final int[] usageCosts=new int[Ability.USAGEINDEX_TOTAL];
+		final int divider=Math.max(1,(useMana?1:0) + (useMoves?1:0) + (useHits?1:0));
+		final boolean[] useCostTypes = new boolean[] {useMana, useMoves, useHits};
+		for(int costType=0;costType<Ability.USAGEINDEX_TOTAL;costType++)
 		{
-			if(consumed==COST_ALL)
+			if(useCostTypes[costType])
 			{
-				usageCosts[0]=(mob.maxState().getMana()-costDown);
-				if(mob.baseState().getMana()>mob.maxState().getMana())
-					usageCosts[0]=(mob.baseState().getMana()-costDown);
+				int maxAmt;
+				int baseAmt;
+				if(mob == null)
+				{
+					maxAmt=1000;
+					baseAmt=1000;
+				}
+				else
+				{
+					switch(costType)
+					{
+					case 1:
+						maxAmt=mob.maxState().getMovement();
+						baseAmt=mob.baseState().getMovement();
+						break;
+					case 2:
+						maxAmt=mob.maxState().getHitPoints();
+						baseAmt=mob.baseState().getHitPoints();
+						break;
+					default:
+					case 0:
+						maxAmt=mob.maxState().getMana();
+						baseAmt=mob.baseState().getMana();
+						break;
+					}
+				}
+				int costDown=0;
+				final int rawCost;
+				if(consumed==COST_ALL)
+					rawCost = (baseAmt>maxAmt) ? baseAmt : maxAmt;
+				else
+				if(consumed>COST_PCT)
+					rawCost = (int)Math.round(CMath.mul(maxAmt,CMath.div((COST_ALL-consumed),100.0)));
+				else
+					rawCost = consumed / divider;
+				if((rawCost>2)&&(mob!=null))
+				{
+					costDown=getXLOWCOSTLevel(mob);
+					final int fivePercent=(int)Math.round(CMath.mul(rawCost,0.05));
+					if(fivePercent > 1)
+						costDown *= fivePercent;
+					if((costDown>=rawCost)&&(rawCost<Integer.MAX_VALUE/2))
+						costDown=rawCost/2;
+					minimum=(minimum-costDown);
+					if(minimum<5)
+						minimum=5;
+					final int freeDown=getXLOWFREECOSTLevel(mob) / 2;
+					costDown += freeDown;
+					minimum=(minimum-freeDown);
+					if(minimum<0)
+						minimum=0;
+				}
+				usageCosts[costType]= rawCost - costDown;
+				if(usageCosts[costType]<minimum)
+					usageCosts[costType]=minimum;
+				if(mob != null)
+				{
+					final CharStats charStats = mob.charStats();
+					if(useHits && charStats.isAbilityAdjustment("HPCOST"))
+					{
+						int amt = 0;
+						amt += charStats.getAbilityAdjustment("HPCOST+"+ID().toUpperCase());
+						amt += charStats.getAbilityAdjustment("HPCOST+"+Ability.ACODE.DESCS.get(classificationCode()&Ability.ALL_ACODES));
+						amt += charStats.getAbilityAdjustment("HPCOST+"+Ability.DOMAIN.DESCS.get((classificationCode()&Ability.ALL_DOMAINS)>> 5));
+						amt += charStats.getAbilityAdjustment("HPCOST+*");
+						usageCosts[Ability.USAGEINDEX_HITPOINTS] += amt;
+						if(usageCosts[Ability.USAGEINDEX_HITPOINTS]<0)
+							usageCosts[Ability.USAGEINDEX_HITPOINTS]=0;
+					}
+					if(useMana && charStats.isAbilityAdjustment("MNCOST"))
+					{
+						int amt = 0;
+						amt += charStats.getAbilityAdjustment("MNCOST+"+ID().toUpperCase());
+						amt += charStats.getAbilityAdjustment("MNCOST+"+Ability.ACODE.DESCS.get(classificationCode()&Ability.ALL_ACODES));
+						amt += charStats.getAbilityAdjustment("MNCOST+"+Ability.DOMAIN.DESCS.get((classificationCode()&Ability.ALL_DOMAINS)>> 5));
+						amt += charStats.getAbilityAdjustment("MNCOST+*");
+						usageCosts[Ability.USAGEINDEX_MANA] += amt;
+						if(usageCosts[Ability.USAGEINDEX_MANA]<0)
+							usageCosts[Ability.USAGEINDEX_MANA]=0;
+					}
+					if(useMoves && charStats.isAbilityAdjustment("MVCOST"))
+					{
+						int amt = 0;
+						amt += charStats.getAbilityAdjustment("MVCOST+"+ID().toUpperCase());
+						amt += charStats.getAbilityAdjustment("MVCOST+"+Ability.ACODE.DESCS.get(classificationCode()&Ability.ALL_ACODES));
+						amt += charStats.getAbilityAdjustment("MVCOST+"+Ability.DOMAIN.DESCS.get((classificationCode()&Ability.ALL_DOMAINS)>> 5));
+						amt += charStats.getAbilityAdjustment("MVCOST+*");
+						usageCosts[Ability.USAGEINDEX_MOVEMENT] += amt;
+						if(usageCosts[Ability.USAGEINDEX_MOVEMENT]<0)
+							usageCosts[Ability.USAGEINDEX_MOVEMENT]=0;
+					}
+				}
 			}
-			else
-			if(consumed>COST_PCT)
-				usageCosts[0]=(int)(Math.round(CMath.mul(mob.maxState().getMana(),CMath.div((COST_ALL-consumed),100.0)))-costDown);
-			else
-				usageCosts[0]=((consumed-costDown)/divider);
-			if(usageCosts[0]<minimum)
-				usageCosts[0]=minimum;
-		}
-		if(useMoves)
-		{
-			if(consumed==COST_ALL)
-			{
-				usageCosts[1]=(mob.maxState().getMovement()-costDown);
-				if(mob.baseState().getMovement()>mob.maxState().getMovement())
-					usageCosts[1]=(mob.baseState().getMovement()-costDown);
-			}
-			else
-			if(consumed>COST_PCT)
-				usageCosts[1]=(int)(Math.round(CMath.mul(mob.maxState().getMovement(),CMath.div((COST_ALL-consumed),100.0)))-costDown);
-			else
-				usageCosts[1]=((consumed-costDown)/divider);
-			if(usageCosts[1]<minimum)
-				usageCosts[1]=minimum;
-		}
-		if(useHits)
-		{
-			if(consumed==COST_ALL)
-			{
-				usageCosts[2]=(mob.maxState().getHitPoints()-costDown);
-				if(mob.baseState().getHitPoints()>mob.maxState().getHitPoints())
-					usageCosts[2]=(mob.baseState().getHitPoints()-costDown);
-			}
-			else
-			if(consumed>COST_PCT)
-				usageCosts[2]=(int)(Math.round(CMath.mul(mob.maxState().getHitPoints(),CMath.div((COST_ALL-consumed),100.0)))-costDown);
-			else
-				usageCosts[2]=((consumed-costDown)/divider);
-			if(usageCosts[2]<minimum)
-				usageCosts[2]=minimum;
 		}
 		return usageCosts;
 	}
@@ -1399,21 +1654,17 @@ public class StdAbility implements Ability
 	@Override
 	public int[] usageCost(final MOB mob, final boolean ignoreClassOverride)
 	{
+		final Map<String,int[]> overrideCache=getHardOverrideManaCache();
 		if(mob==null)
 		{
-			final Map<String,int[]> overrideCache=getHardOverrideManaCache();
-			if(!overrideCache.containsKey(ID()))
-			{
-				final int[] usage=new int[Ability.USAGEINDEX_TOTAL];
-				Arrays.fill(usage,overrideMana());
-				overrideCache.put(ID(), usage);
-			}
-			return overrideCache.get(ID());
+			if(overrideCache.containsKey(ID()))
+				return overrideCache.get(ID());
+
 		}
 		if(usageType()==Ability.USAGE_NADA)
 			return STATIC_USAGE_NADA;
 
-		final int[][] abilityUsageCache=mob.getAbilityUsageCache(ID());
+		final int[][] abilityUsageCache=(mob==null)?new int[Ability.CACHEINDEX_TOTAL][]:mob.getAbilityUsageCache(ID());
 		final int myCacheIndex=ignoreClassOverride?Ability.CACHEINDEX_CLASSLESS:Ability.CACHEINDEX_NORMAL;
 		final int[] myCache=abilityUsageCache[myCacheIndex];
 		final boolean rebuildCache=(myCache==null);
@@ -1430,16 +1681,19 @@ public class StdAbility implements Ability
 		{
 			int diff=0;
 			int lowest=Integer.MAX_VALUE;
-			for(int c=0;c<mob.charStats().numClasses();c++)
+			if(mob != null)
 			{
-				final CharClass C=mob.charStats().getMyClass(c);
-				final int qualifyingLevel=CMLib.ableMapper().getQualifyingLevel(C.ID(),true,ID());
-				final int classLevel=mob.charStats().getClassLevel(C.ID());
-				if((qualifyingLevel>=0)&&(classLevel>=qualifyingLevel))
+				for(int c=0;c<mob.charStats().numClasses();c++)
 				{
-					diff+=(classLevel-qualifyingLevel);
-					if(qualifyingLevel<lowest)
-						lowest=qualifyingLevel;
+					final CharClass C=mob.charStats().getMyClass(c);
+					final int qualifyingLevel=CMLib.ableMapper().getQualifyingLevel(C.ID(),true,ID());
+					final int classLevel=mob.charStats().getClassLevel(C.ID());
+					if((qualifyingLevel>=0)&&(classLevel>=qualifyingLevel))
+					{
+						diff+=(classLevel-qualifyingLevel);
+						if(qualifyingLevel<lowest)
+							lowest=qualifyingLevel;
+					}
 				}
 			}
 			if(lowest==Integer.MAX_VALUE)
@@ -1450,31 +1704,50 @@ public class StdAbility implements Ability
 			}
 
 			Integer[] costOverrides=null;
-			if(!ignoreClassOverride)
+			if((!ignoreClassOverride)&&(mob!=null))
 				costOverrides=CMLib.ableMapper().getCostOverrides(mob,ID());
-			consumed=CMProps.getMaxManaException(ID());
-			if(consumed==Short.MIN_VALUE)
-				consumed=CMProps.getIntVar(CMProps.Int.MANACOST);
-			if(consumed<0)
-				consumed=(50+lowest);
 			minimum=CMProps.getMinManaException(ID());
-			if(minimum==Short.MIN_VALUE)
+			if(minimum==Integer.MIN_VALUE)
 				minimum=CMProps.getIntVar(CMProps.Int.MANAMINCOST);
 			if(minimum<0)
 			{
-				minimum=lowest;
-				if(minimum<5)
-					minimum=5;
+				minimum=(lowest*CMath.abs(minimum));
+				int actualMinimum=5;
+				final int exception = CMProps.getMinManaException("_DEFAULT");
+				if(exception > 0 )
+					actualMinimum = exception;
+				if(minimum<actualMinimum)
+					minimum=actualMinimum;
 			}
-			if(diff>0)
-				consumed=(consumed - (consumed /10 * diff));
+			final Object cost = CMProps.getManaCostObject(ID());
+			if(cost instanceof Integer)
+				consumed=((Integer)cost).intValue();
+			else
+			if(cost instanceof CMath.CompiledFormula)
+			{
+				final double[] vars = new double[] {
+					lowest,
+					(mob==null)?lowest:mob.phyStats().level(),
+					minimum,
+					(mob==null)?lowest:adjustedLevel(mob,0),
+					diff
+				};
+				consumed=(int)CMath.parseMathExpression((CMath.CompiledFormula)cost, vars, 0.0);
+			}
+			else
+				consumed=-1;
+			if((consumed<0)&&(consumed>-9999))
+				consumed=50+(lowest*CMath.abs(consumed));
+			if((diff>0)
+			&&(!(cost instanceof CMath.CompiledFormula)))
+				consumed=(consumed - (consumed/30 * diff));
 			if(consumed<minimum)
 				consumed=minimum;
-			if((overrideMana()>=0) && (CMProps.getMaxManaException(ID()) == Integer.MIN_VALUE))
+			if((overrideMana()>=0) && (CMProps.getManaCostExceptionObject(ID()) == null))
 				consumed=overrideMana();
-			if((costOverrides!=null)&&(costOverrides[AbilityMapper.Cost.MANA.ordinal()]!=null))
+			if((costOverrides!=null)&&(costOverrides[AbilityMapper.AbilCostType.MANA.ordinal()]!=null))
 			{
-				consumed=costOverrides[AbilityMapper.Cost.MANA.ordinal()].intValue();
+				consumed=costOverrides[AbilityMapper.AbilCostType.MANA.ordinal()].intValue();
 				if((consumed<minimum)&&(consumed>=0))
 					minimum=consumed;
 			}
@@ -1487,6 +1760,8 @@ public class StdAbility implements Ability
 			else
 				abilityUsageCache[myCacheIndex]=usageCost;
 		}
+		if(mob == null)
+			overrideCache.put(ID(), usageCost);
 		return usageCost;
 	}
 
@@ -1520,25 +1795,19 @@ public class StdAbility implements Ability
 			final int currentProficiency=A.proficiency()+adjustment;
 			if(((int)Math.round(Math.sqrt((mob.charStats().getStat(CharStats.STAT_INTELLIGENCE)))*34.0*Math.random()))>=currentProficiency)
 			{
-				final int qualLevel=CMLib.ableMapper().qualifyingLevel(mob,A);
-				final double adjustedChance;
-				if((qualLevel<0)
-				||(qualLevel>30))
-					adjustedChance=100.1;
-				else
-				{
-					final float fatigueFactor=(mob.curState().getFatigue() > CharState.FATIGUED_MILLIS ? 50.0f : 100.0f);
-					final int maxLevel=CMProps.get(mob.session()).getInt(CMProps.Int.LASTPLAYERLEVEL);
-					adjustedChance=fatigueFactor * CMath.div((maxLevel+1-qualLevel),((2*maxLevel)+(10*qualLevel)));
-				}
-				if(CMLib.dice().rollPercentage()<Math.round(adjustedChance))
+				final int adjustedChance=CMLib.ableMapper().getProfGainChance(mob, A);
+				if(CMLib.dice().rollPercentage()<adjustedChance)
 				{
 					// very important, since these can be autoinvoked affects (copies)!
 					A.setProficiency(A.proficiency()+1);
-					if((this!=A)&&(proficiency()<maxProficiency))
+					if((this!=A)
+					&&(this.isSavable())
+					&&(proficiency()<maxProficiency))
 						setProficiency(A.proficiency());
 					final Ability effA=mob.fetchEffect(ID());
-					if((effA!=null) && (effA!=A) && (effA!=this)
+					if((effA!=null)
+					&& (effA!=A)
+					&& (effA!=this)
 					&&(effA.invoker()==mob)
 					&&(effA.proficiency()<maxProficiency))
 						effA.setProficiency(A.proficiency());
@@ -1547,14 +1816,41 @@ public class StdAbility implements Ability
 					((StdAbility)A).lastCastHelp=System.currentTimeMillis();
 				}
 			}
+			if((A.proficiency() >= maxProficiency)
+			&&(mob.isPlayer()))
+			{
+				final List<String> channels = CMLib.channels().getFlaggedChannelNames(ChannelsLibrary.ChannelFlag.PROFICIENT, mob);
+				for (int i = 0; i < channels.size(); i++)
+					CMLib.commands().postChannel(channels.get(i), mob.clans(), L("@x1 is now proficient at @x2.", mob.name(), A.Name()), true,mob);
+				CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.SKILLPROF, 1, A);
+			}
 		}
 		else
 			A.setProficiency(maxProficiency);
 	}
 
+	protected boolean failureTell(final MOB mob, final MOB targetM, final boolean auto, final String msg)
+	{
+		if(mob==null)
+			return false;
+		if(auto
+		&&(mob.isMonster())
+		&&(targetM!=null)
+		&&(targetM.isPlayer()))
+			targetM.tell(targetM,null,null,msg);
+		else
+			mob.tell(targetM,null,null,msg);
+		return false;
+	}
+
 	@Override
 	public boolean preInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel, final int secondsElapsed, final double actionsRemaining)
 	{
+		if(mob.commandQueSize() > 1)
+		{
+			mob.tell(L("You cancel @x1.",name()));
+			return false;
+		}
 		return true;
 	}
 
@@ -1567,12 +1863,51 @@ public class StdAbility implements Ability
 		return invoke(mob,V,target,auto,asLevel);
 	}
 
+	// needs to be public because StdAbility is not local to any of the skills
+	public boolean testUsageCost(final MOB mob, final boolean auto, final int[] consumed, final boolean quiet)
+	{
+		if(mob.curState().getMana()<consumed[Ability.USAGEINDEX_MANA])
+		{
+			if(!quiet)
+			{
+				if(mob.maxState().getMana()==consumed[Ability.USAGEINDEX_MANA])
+					failureTell(mob,mob,auto,L("You must be at full mana to do that."));
+				else
+					failureTell(mob,mob,auto,L("You don't have enough mana to do that."));
+			}
+			return false;
+		}
+		if(mob.curState().getMovement()<consumed[Ability.USAGEINDEX_MOVEMENT])
+		{
+			if(!quiet)
+			{
+				if(mob.maxState().getMovement()==consumed[Ability.USAGEINDEX_MOVEMENT])
+					failureTell(mob,mob,auto,L("You must be at full movement to do that."));
+				else
+					failureTell(mob,mob,auto,L("You don't have enough movement to do that.  You are too tired."));
+			}
+			return false;
+		}
+		if(mob.curState().getHitPoints()<consumed[Ability.USAGEINDEX_HITPOINTS])
+		{
+			if(!quiet)
+			{
+				if(mob.maxState().getHitPoints()==consumed[Ability.USAGEINDEX_HITPOINTS])
+					failureTell(mob,mob,auto,L("You must be at full health to do that."));
+				else
+					failureTell(mob,mob,auto,L("You don't have enough hit points to do that."));
+			}
+			return false;
+		}
+		return true;
+	}
+
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical target, final boolean auto, final int asLevel)
 	{
 		//expertiseCache=null; // this was insane!
-		if((mob!=null)&&(getXMAXRANGELevel(mob)>0))
-			invoker=mob;
+		if((mob!=null)&&(getXMAXRANGELevel(mob)>0)) // wut? this must be preventing an npe in some edge case...
+			setInvoker(mob);
 		if((!auto)&&(mob!=null))
 		{
 			isAnAutoEffect=false;
@@ -1586,18 +1921,19 @@ public class StdAbility implements Ability
 			&&(getTimeOfNextCast()>0)
 			&&(System.currentTimeMillis()<getTimeOfNextCast())
 			&&(room!=null)
-			&&(room.getArea()!=null))
+			&&(room.getArea()!=null)
+			&&(!CMSecurity.isAllowed(mob, room, CMSecurity.SecFlag.ALLSKILLS)))
 			{
 				final TimeClock C=room.getArea().getTimeObj();
 				if(C!=null)
-					mob.tell(L("You must wait @x1 before you can do that again.",C.deriveEllapsedTimeString(getTimeOfNextCast()-System.currentTimeMillis())));
+					failureTell(mob,mob,auto,L("You must wait @x1 before you can do that again.",C.deriveEllapsedTimeString(getTimeOfNextCast()-System.currentTimeMillis())));
 				return false;
 			}
 
 			if(CMath.bset(usageType(),Ability.USAGE_MOVEMENT)
 			&&(CMLib.flags().isBound(mob)))
 			{
-				mob.tell(L("You are bound!"));
+				failureTell(mob,mob,auto,L("You are bound!"));
 				return false;
 			}
 
@@ -1626,7 +1962,7 @@ public class StdAbility implements Ability
 					final double amtPenalty = rule.amtPenalty();
 					if(amtPenalty < 0)
 					{
-						mob.tell(L("You can't do that again just yet."));
+						failureTell(mob,mob,auto,L("You can't do that again just yet."));
 						return false;
 					}
 					else
@@ -1652,42 +1988,21 @@ public class StdAbility implements Ability
 			}
 			else
 				timeCache=null;
-			if(mob.curState().getMana()<consumed[Ability.USAGEINDEX_MANA])
-			{
-				if(mob.maxState().getMana()==consumed[Ability.USAGEINDEX_MANA])
-					mob.tell(L("You must be at full mana to do that."));
-				else
-					mob.tell(L("You don't have enough mana to do that."));
+
+			if(!testUsageCost(mob,false,consumed,auto))
 				return false;
-			}
-			if(mob.curState().getMovement()<consumed[Ability.USAGEINDEX_MOVEMENT])
-			{
-				if(mob.maxState().getMovement()==consumed[Ability.USAGEINDEX_MOVEMENT])
-					mob.tell(L("You must be at full movement to do that."));
-				else
-					mob.tell(L("You don't have enough movement to do that.  You are too tired."));
-				return false;
-			}
-			if(mob.curState().getHitPoints()<consumed[Ability.USAGEINDEX_HITPOINTS])
-			{
-				if(mob.maxState().getHitPoints()==consumed[Ability.USAGEINDEX_HITPOINTS])
-					mob.tell(L("You must be at full health to do that."));
-				else
-					mob.tell(L("You don't have enough hit points to do that."));
-				return false;
-			}
 
 			if((minCastWaitTime()>0)&&(lastCastHelp>0))
 			{
 				if((System.currentTimeMillis()-lastCastHelp)<minCastWaitTime())
 				{
 					if(minCastWaitTime()<=1000)
-						mob.tell(L("You need a second to recover before doing that again."));
+						failureTell(mob,mob,auto,L("You need a second to recover before doing that again."));
 					else
 					if(minCastWaitTime()<=5000)
-						mob.tell(L("You need a few seconds to recover before doing that again."));
+						failureTell(mob,mob,auto,L("You need a few seconds to recover before doing that again."));
 					else
-						mob.tell(L("You need awhile to recover before doing that again."));
+						failureTell(mob,mob,auto,L("You need awhile to recover before doing that again."));
 					return false;
 				}
 			}
@@ -1715,8 +2030,6 @@ public class StdAbility implements Ability
 	protected boolean checkComponents(final MOB mob)
 	{
 		if((mob!=null)
-		&&(mob.session()!=null)
-		&&(mob.soulMate()==null)
 		&&(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.COMPONENTS))
 		)
 		{
@@ -1726,9 +2039,11 @@ public class StdAbility implements Ability
 				final List<Object> components=CMLib.ableComponents().componentCheck(mob,componentsRequirements, false);
 				if(components==null)
 				{
-					mob.tell(L("You lack the necessary materials to use this @x1, the requirements are: @x2.",
-							Ability.ACODE_DESCS[classificationCode()&Ability.ALL_ACODES].toLowerCase(),
+					failureTell(mob,mob,false,L("The requirements to use this @x1 are: @x2.",
+							Ability.ACODE.DESCS.get(classificationCode()&Ability.ALL_ACODES).toLowerCase(),
 							CMLib.ableComponents().getAbilityComponentDesc(mob,ID())));
+					if(!mob.isPlayer())
+						CMLib.ableComponents().startAbilityComponentTrigger(mob, this);
 					return false;
 				}
 				CMLib.ableComponents().destroyAbilityComponents(components);
@@ -1802,7 +2117,11 @@ public class StdAbility implements Ability
 	{
 		if(tickAdjustmentFromStandard>0)
 			return tickAdjustmentFromStandard;
-		return adjustMaliciousTickdownTime(mob,target,((int)Math.round(CMath.mul(adjustedLevel(mob,asLevel),1.1)))+25,asLevel);
+		final int tickTime = adjustMaliciousTickdownTime(mob,target,((int)Math.round(CMath.mul(adjustedLevel(mob,asLevel),1.1)))+25,asLevel);
+		if(tickAdjustmentFromStandard == 0)
+			return tickTime;
+		else
+			return (int)Math.round(CMath.mul(CMath.div(-tickAdjustmentFromStandard, 100.0) , (double)tickTime));
 	}
 
 	public Ability maliciousAffect(final MOB mob, final Physical target, final int asLevel, int tickAdjustmentFromStandard, final int additionAffectCheckCode)
@@ -1822,7 +2141,7 @@ public class StdAbility implements Ability
 			else
 				return null;
 		}
-		invoker=mob;
+		setInvoker(mob);
 		final Ability newOne=(Ability)copyOf();
 		((StdAbility)newOne).canBeUninvoked=true;
 		tickAdjustmentFromStandard=getMaliciousTickdownTime(mob,target,tickAdjustmentFromStandard,asLevel);
@@ -1845,13 +2164,31 @@ public class StdAbility implements Ability
 	protected boolean beneficialVisualFizzle(final MOB mob, final Environmental target, final String message)
 	{
 		// it didn't work, but tell everyone you tried.
-		final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_OK_VISUAL,message);
+
+		final CMMsg msg;
+		if(mob.charStats().getBodyPart(Race.BODY_HAND)>0)
+			msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_HANDS,message);
+		else
+			msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_OK_VISUAL,message);
 		final Room room=mob.location();
 		if(room==null)
 			return false;
 		if(room.okMessage(mob,msg))
 			room.send(mob,msg);
 
+		return false;
+	}
+
+	protected boolean beneficialSoundFizzle(final MOB mob, final Environmental target, final String message)
+	{
+		// it didn't work, but tell everyone you tried.
+
+		final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,message);
+		final Room room=mob.location();
+		if(room==null)
+			return false;
+		if(room.okMessage(mob,msg))
+			room.send(mob,msg);
 		return false;
 	}
 
@@ -1886,16 +2223,66 @@ public class StdAbility implements Ability
 		return tickDown;
 	}
 
+	protected boolean aPossibleAbuserOfCasterLevel(final MOB casterM)
+	{
+		if(casterM == null)
+			return false;
+		if(casterM.isPlayer())
+			return true;
+		final Room R=casterM.location();
+		if(R==null)
+			return false;
+		if(casterM instanceof Deity)
+			return false;
+		final MOB folM=casterM.getGroupLeader();
+		if(folM.isPlayer())
+			return true;
+		/* too much
+		for(final Enumeration<MOB> m=R.inhabitants();m.hasMoreElements();)
+		{
+			final MOB M=m.nextElement();
+			if((M!=null)
+			&&(M!=casterM)
+			&&(M.isPlayer())
+			&&(casterM.willFollowOrdersOf(M)))
+				return true;
+		}
+		*/
+		return false;
+	}
+
 	protected int getBeneficialTickdownTime(final MOB mob, final Environmental target, final int tickAdjustmentFromStandard, final int asLevel)
 	{
 		if(tickAdjustmentFromStandard>0)
 			return tickAdjustmentFromStandard;
-		return adjustBeneficialTickdownTime(mob,target,(adjustedLevel(mob,asLevel)*5)+60);
+		int casterLevel = adjustedLevel(mob,asLevel);
+		if((mob != target)
+		&&(target instanceof MOB)
+		&&(aPossibleAbuserOfCasterLevel(mob)))
+		{
+			final int levelCap = ((MOB)target).phyStats().level() + CMProps.getIntVar(CMProps.Int.EXPRATE);
+			if(casterLevel >  levelCap)
+				casterLevel = levelCap;
+		}
+		final int beneficialTicks = (casterLevel*4)+40;
+		final int tickTime = adjustBeneficialTickdownTime(mob,target,beneficialTicks);
+		if(tickAdjustmentFromStandard==0)
+			return tickTime;
+		else
+			return (int)Math.round(CMath.mul(CMath.div(-tickAdjustmentFromStandard, 100.0) , (double)tickTime));
+	}
+
+	public int getTickdownTime(final MOB mob, final Physical target, final int asLevel, final int tickAdjustmentFromStandard)
+	{
+		if(abstractQuality()==Ability.QUALITY_MALICIOUS)
+			return getMaliciousTickdownTime(mob, target, tickAdjustmentFromStandard, asLevel);
+		else
+			return getBeneficialTickdownTime(mob, target, tickAdjustmentFromStandard, asLevel);
 	}
 
 	public Ability beneficialAffect(final MOB mob, final Physical target, final int asLevel, int tickAdjustmentFromStandard)
 	{
-		invoker=mob;
+		setInvoker(mob);
 		final Ability newOne=(Ability)this.copyOf();
 		((StdAbility)newOne).canBeUninvoked=true;
 		tickAdjustmentFromStandard=getBeneficialTickdownTime(mob,target,tickAdjustmentFromStandard,asLevel);
@@ -1903,7 +2290,7 @@ public class StdAbility implements Ability
 		return newOne;
 	}
 
-	protected void spreadImmunity(final MOB mob)
+	public void spreadImmunity(final MOB mob)
 	{
 		if((mob==null)||(mob.fetchEffect(ID())!=null))
 			return;
@@ -2015,14 +2402,14 @@ public class StdAbility implements Ability
 	@Override
 	public String requirements(final MOB mob)
 	{
-		final ExpertiseLibrary.SkillCost cost=getTrainingCost(mob);
+		final CostManager cost=getTrainingCost(mob);
 		return cost.requirements(mob);
 	}
 
 	@Override
 	public boolean canBeLearnedBy(final MOB teacher, final MOB student)
 	{
-		final ExpertiseLibrary.SkillCost cost=getTrainingCost(student);
+		final CostManager cost=getTrainingCost(student);
 		if(!cost.doesMeetCostRequirements(student))
 		{
 			final String ofWhat=cost.costType(student);
@@ -2137,9 +2524,9 @@ public class StdAbility implements Ability
 		if((extraMask.length()>0)&&(!CMLib.masking().maskCheck(extraMask,student,true)))
 		{
 			final String reason="requirements: "+CMLib.masking().maskDesc(extraMask);
-			student.tell(L("You may not learn '@x1' at this time due to the @x2.",name(),reason));
+			student.tell(L("You may not learn '@x1' at this time due to the @x2",name(),reason));
 			if(teacher != null)
-				teacher.tell(L("@x1 does not fit the '@x2' @x3.",student.name(),name(),reason));
+				teacher.tell(L("@x1 does not fit the '@x2' @x3",student.name(),name(),reason));
 			return false;
 		}
 
@@ -2176,6 +2563,11 @@ public class StdAbility implements Ability
 		}
 	}
 
+	protected int modifyCastCode(final int castCode, final MOB mob, final Physical target, final boolean auto)
+	{
+		return castCode;
+	}
+
 	protected int verbalCastCode(final MOB mob, final Physical target, final boolean auto)
 	{
 		int affectType=CMMsg.MSG_CAST_VERBAL_SPELL;
@@ -2183,7 +2575,7 @@ public class StdAbility implements Ability
 			affectType=CMMsg.MSG_CAST_ATTACK_VERBAL_SPELL;
 		if(auto)
 			affectType=affectType|CMMsg.MASK_ALWAYS;
-		return affectType;
+		return modifyCastCode(affectType, mob, target, auto);
 	}
 
 	protected int verbalSpeakCode(final MOB mob, final Physical target, final boolean auto)
@@ -2193,7 +2585,7 @@ public class StdAbility implements Ability
 			affectType=CMMsg.MSG_NOISE|CMMsg.MASK_MOUTH|CMMsg.MASK_MALICIOUS;
 		if(auto)
 			affectType=affectType|CMMsg.MASK_ALWAYS;
-		return affectType;
+		return modifyCastCode(affectType, mob, target, auto);
 	}
 
 	protected int verbalCastMask(final MOB mob,final Physical target, final boolean auto)
@@ -2201,7 +2593,7 @@ public class StdAbility implements Ability
 		return verbalCastCode(mob,target,auto)&CMMsg.MAJOR_MASK;
 	}
 
-	protected int somanticCastCode(final MOB mob, final Physical target, final boolean auto)
+	protected int somaticCastCode(final MOB mob, final Physical target, final boolean auto)
 	{
 		int affectType=CMMsg.MSG_CAST_SOMANTIC_SPELL;
 		if(castingQuality(mob,target)==Ability.QUALITY_MALICIOUS)
@@ -2211,9 +2603,9 @@ public class StdAbility implements Ability
 		return affectType;
 	}
 
-	protected int somanticCastMask(final MOB mob, final Physical target, final boolean auto)
+	protected int somaticCastMask(final MOB mob, final Physical target, final boolean auto)
 	{
-		return somanticCastCode(mob,target,auto)&CMMsg.MAJOR_MASK;
+		return somaticCastCode(mob,target,auto)&CMMsg.MAJOR_MASK;
 	}
 
 	@Override
@@ -2264,11 +2656,12 @@ public class StdAbility implements Ability
 		}
 		else
 		{
-			final int prof75=(int)Math.round(CMath.mul(CMLib.ableMapper().getMaxProficiency(student,true,yourAbility.ID()), .75));
+			final double max75 =CMath.div(CMProps.getIntVar(CMProps.Int.PRACMAXPCT), 100.0);
+			final int prof75=(int)Math.round(CMath.mul(CMLib.ableMapper().getMaxProficiency(student,true,yourAbility.ID()), max75));
 			if(yourAbility.proficiency()>prof75-1)
 			{
 				teacher.tell(L("You can't teach @x1 any more about '@x2'.",student.charStats().himher(),name()));
-				student.tell(L("You can't learn any more about '@x1' except through dilligence.",name()));
+				student.tell(L("You can't learn any more about '@x1' except through diligence.",name()));
 				return false;
 			}
 		}
@@ -2301,12 +2694,13 @@ public class StdAbility implements Ability
 	{
 		if(student.fetchAbility(ID())==null)
 		{
-			final ExpertiseLibrary.SkillCost cost=getTrainingCost(student);
+			final CostManager cost=getTrainingCost(student);
 			if(!cost.doesMeetCostRequirements(student))
 				return;
-			cost.spendSkillCost(student);
+			cost.doSpend(student);
 			final Ability newAbility=(Ability)newInstance();
-			final int prof75=(int)Math.round(CMath.mul(CMLib.ableMapper().getMaxProficiency(student,true,newAbility.ID()), .75));
+			final double max75 =CMath.div(CMProps.getIntVar(CMProps.Int.PRACMAXPCT), 100.0);
+			final int prof75=(int)Math.round(CMath.mul(CMLib.ableMapper().getMaxProficiency(student,true,newAbility.ID()), max75));
 			newAbility.setProficiency((int)Math.round(CMath.mul(proficiency(),((CMath.div(teacher.charStats().getStat(CharStats.STAT_WISDOM)+student.charStats().getStat(CharStats.STAT_INTELLIGENCE),100.0))))));
 			if(newAbility.proficiency()>prof75)
 				newAbility.setProficiency(prof75);
@@ -2349,7 +2743,8 @@ public class StdAbility implements Ability
 		if(yourAbility!=null)
 		{
 			final Ability teachAbility=teacher.fetchAbility(ID());
-			final int prof75=(int)Math.round(CMath.mul(CMLib.ableMapper().getMaxProficiency(student,true,yourAbility.ID()), .75));
+			final double max75 =CMath.div(CMProps.getIntVar(CMProps.Int.PRACMAXPCT), 100.0);
+			final int prof75=(int)Math.round(CMath.mul(CMLib.ableMapper().getMaxProficiency(student,true,yourAbility.ID()), max75));
 			if(yourAbility.proficiency()<prof75)
 			{
 				student.setPractices(student.getPractices()-practicesToPractice(student));
@@ -2413,14 +2808,23 @@ public class StdAbility implements Ability
 	{
 		if(mob == null)
 			return true;
+		return getInappropriateFaction(mob) == null;
+	}
+
+	protected Faction getInappropriateFaction(final MOB mob)
+	{
+		if(mob == null)
+			return null;
 		for(final Enumeration<String> e=mob.factions();e.hasMoreElements();)
 		{
 			final String factionID=e.nextElement();
 			final Faction F=CMLib.factions().getFaction(factionID);
-			if((F!=null)&&F.hasUsage(this))
-				return F.canUse(mob,this);
+			if((F!=null)
+			&&(F.hasUsage(this))
+			&&(!F.canUse(mob,this)))
+				return F;
 		}
-		return true;
+		return null;
 	}
 
 	@Override
@@ -2436,7 +2840,7 @@ public class StdAbility implements Ability
 	}
 
 	private static final String[]	CODES			= { "CLASS", "TEXT" };
-	private static final String[]	INTERNAL_CODES	= { "TICKDOWN","LEVEL","ISANAUTOEFFECT","NAME" };
+	private static final String[]	INTERNAL_CODES	= { "TICKDOWN","LEVEL","ISANAUTOEFFECT","NAME","NEXTCAST","CANUNINVOKE" };
 
 	@Override
 	public String[] getStatCodes()
@@ -2490,6 +2894,10 @@ public class StdAbility implements Ability
 				return Boolean.toString(isAnAutoEffect);
 			case 3:
 				return name();
+			case 4:
+				return ""+this.getTimeOfNextCast();
+			case 5:
+				return ""+this.canBeUninvoked();
 			default:
 				break;
 			}
@@ -2520,6 +2928,14 @@ public class StdAbility implements Ability
 				isAnAutoEffect = CMath.s_bool(val);
 				break;
 			case 3:
+				break;
+			case 4:
+				if(CMath.isLong(val))
+					setTimeOfNextCast(CMath.s_long(val));
+				break;
+			case 5:
+				this.canBeUninvoked = CMath.s_bool(val);
+				this.unInvoked=false;
 				break;
 			default:
 				break;

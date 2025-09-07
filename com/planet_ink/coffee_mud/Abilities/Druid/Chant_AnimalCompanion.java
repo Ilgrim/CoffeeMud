@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ public class Chant_AnimalCompanion extends Chant
 		MOB target=getTarget(mob,commands,givenTarget);
 		if(target==null)
 			return false;
-		if(!CMLib.flags().isAnimalIntelligence(target))
+		if(!CMLib.flags().isAnAnimal(target))
 		{
 			mob.tell(L("This chant only works on animals."));
 			return false;
@@ -111,13 +111,13 @@ public class Chant_AnimalCompanion extends Chant
 
 		if(target.isInCombat())
 		{
-			mob.tell(target,null,null,L("Not while <S-NAME> <S-IS-ARE> fighting!"));
+			failureTell(mob,target,auto,L("Not while <S-NAME> <S-IS-ARE> fighting!"));
 			return false;
 		}
 
 		if(CMLib.flags().isSleeping(target) || (!CMLib.flags().canBeHeardSpeakingBy(mob,target)) || (!target.isMonster()))
 		{
-			mob.tell(target,null,null,L("<S-NAME> cannot make the oath with you right now!"));
+			failureTell(mob,target,auto,L("<S-NAME> cannot make the oath with you right now!"));
 			return false;
 		}
 
@@ -126,7 +126,7 @@ public class Chant_AnimalCompanion extends Chant
 		{
 			final MOB M=mob.fetchFollower(f);
 			if((M!=mob)
-			&&(CMLib.flags().isAnimalIntelligence(M))
+			&&(CMLib.flags().isAnAnimal(M))
 			&&(M.fetchEffect("Loyalty")!=null))
 				numLoyal++;
 		}
@@ -160,10 +160,18 @@ public class Chant_AnimalCompanion extends Chant
 				for(final Enumeration<Ability> a=target.personalEffects();a.hasMoreElements();)
 				{
 					final Ability A=a.nextElement();
-					if((A!=null)&&((A.flags()&Ability.FLAG_CHARMING)!=0)&&(A.canBeUninvoked()))
+					if((A!=null)
+					&&((A.flags()&Ability.FLAG_CHARMING)!=0)
+					&&(A.canBeUninvoked()))
 					{
 						affects.remove(A);
+						// in case there is wandering off...
+						final Room oldR = target.location();
+						oldR.delInhabitant(target);
+						target.setLocation(null);
 						A.unInvoke();
+						oldR.addInhabitant(target);
+						target.setLocation(oldR);
 						mob.makePeace(true);
 						target.makePeace(true);
 						if((target.amFollowing()!=mob)
@@ -207,6 +215,8 @@ public class Chant_AnimalCompanion extends Chant
 				&&(target.getStartRoom()!=null))
 				{
 					final MOB oldTarget=target;
+					target.setFollowing(null);
+					mob.delFollower(target);
 					target = (MOB) target.copyOf();
 					target.basePhyStats().setRejuv(PhyStats.NO_REJUV);
 					target.phyStats().setRejuv(PhyStats.NO_REJUV);

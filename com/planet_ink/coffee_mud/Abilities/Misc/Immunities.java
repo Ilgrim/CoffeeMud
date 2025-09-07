@@ -22,7 +22,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -96,9 +96,12 @@ public class Immunities extends StdAbility
 		return canBeUninvoked;
 	}
 
-	public int				resistanceCode	= 0;
-	public boolean			canBeUninvoked	= false;
-	public HashSet<Integer>	immunes			= new HashSet<Integer>();
+	private boolean				  canBeUninvoked	= false;
+	private final HashSet<Integer>immunes			= new HashSet<Integer>();
+	private final List<String>	  effects			= new Vector<String>();
+	private final List<String>	  behaviors			= new Vector<String>();
+	private volatile int		  bct				= 0;
+	private volatile int		  fct				= 0;
 
 	public static Map<String,Integer> immunityTypes=new SHashtable<String,Integer>(new Object[][]
 	{
@@ -124,6 +127,8 @@ public class Immunities extends StdAbility
 	{
 		super.setMiscText(text);
 		immunes.clear();
+		effects.clear();
+		behaviors.clear();
 		final Vector<String> immunities=CMParms.parse(text.toUpperCase());
 		for(final String v : immunities)
 		{
@@ -135,7 +140,56 @@ public class Immunities extends StdAbility
 			else
 			if(immunityTypes.containsKey(v))
 				immunes.add(immunityTypes.get(v));
+			else
+			{
+				final Behavior B = CMClass.getBehavior(v);
+				if(B != null)
+					behaviors.add(B.ID());
+				else
+				{
+					final Ability A = CMClass.getAbility(v);
+					if(A != null)
+						effects.add(A.ID());
+					else
+						Log.errOut("Immunities", "Illegal parm "+v+" in "+text);
+				}
+			}
 		}
+	}
+
+	@Override
+	public boolean tick(final Tickable ticking, final int tickID)
+	{
+		final Physical P = affected;
+		if(P instanceof Behavable)
+		{
+			if(bct != ((Behavable)P).numBehaviors())
+			{
+				bct = ((Behavable)P).numBehaviors();
+				for(int s=behaviors.size()-1;s>=0;s--)
+				{
+					final String str=behaviors.get(s);
+					final Behavior B = ((Behavable)P).fetchBehavior(str);
+					if(B != null)
+						((MOB)P).delBehavior(B);
+				}
+			}
+		}
+		if(fct != P.numEffects())
+		{
+			fct = P.numEffects();
+			for(int s=effects.size()-1;s>=0;s--)
+			{
+				final String str=effects.get(s);
+				final Ability A = P.fetchEffect(str);
+				if(A != null)
+				{
+					A.unInvoke();
+					P.delEffect(A);
+				}
+			}
+		}
+		return true;
 	}
 
 	@Override
@@ -146,11 +200,15 @@ public class Immunities extends StdAbility
 			|| immunes.contains(Integer.valueOf(msg.sourceMinor())))
 		&&(CMath.bset(msg.targetMajor(),CMMsg.MASK_MALICIOUS)||(msg.targetMinor()==CMMsg.TYP_DAMAGE)||(msg.targetMinor()==CMMsg.TYP_LEGALWARRANT)))
 		{
-			String immunityName="certain";
-			if(msg.tool()!=null)
-				immunityName=msg.tool().name();
+			if((msg.tool()==msg.source())&&(msg.sourceMinor()==CMMsg.TYP_GAS))
+				return false;
 			if(!msg.sourceMajor(CMMsg.MASK_CNTRLMSG) && !msg.targetMajor(CMMsg.MASK_CNTRLMSG))
 			{
+				String immunityName="certain";
+				if(msg.tool() instanceof MOB)
+					Log.debugOut("Got a weird Immunity: "+msg.toFlatString());
+				if(msg.tool()!=null)
+					immunityName=msg.tool().name();
 				final Room R=CMLib.map().roomLocation(msg.target());
 				if(msg.target()!=msg.source())
 					R.show(msg.source(),msg.target(),CMMsg.MSG_OK_VISUAL,L("<T-NAME> seem(s) immune to @x1 attacks from <S-NAME>.",immunityName));

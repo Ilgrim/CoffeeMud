@@ -19,7 +19,7 @@ import com.planet_ink.coffee_web.server.WebServer;
 import com.planet_ink.coffee_web.util.CWConfig;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -141,7 +141,7 @@ public class CGIProcessor implements HTTPOutputConverter
 		}
 		final File scriptFilenameFile = config.getFileManager().createFileFromPath(scriptFilename.replace('/', config.getFileManager().getFileSeparator()));
 		env.put(EnvironmentVariables.SCRIPT_FILENAME.name(),scriptFilenameFile.getAbsolutePath());
-		env.put(EnvironmentVariables.SERVER_ADMIN.name(),"unknonwn@nowhere.com"); //TODO: add this to config -- nice idea
+		env.put(EnvironmentVariables.SERVER_ADMIN.name(),config.getAdminEmail());
 		env.put(EnvironmentVariables.SERVER_NAME.name(),request.getHost());
 		env.put(EnvironmentVariables.SERVER_PORT.name(),""+request.getClientPort());
 		env.put(EnvironmentVariables.SERVER_PROTOCOL.name(),"HTTP/"+request.getHttpVer());

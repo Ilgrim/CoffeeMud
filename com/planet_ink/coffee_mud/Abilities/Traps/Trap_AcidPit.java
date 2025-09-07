@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,10 +60,10 @@ public class Trap_AcidPit extends Trap_RoomPit
 		return 0;
 	}
 
-	@Override
-	protected int trapLevel()
+	public Trap_AcidPit()
 	{
-		return 18;
+		super();
+		trapLevel = 18;
 	}
 
 	@Override

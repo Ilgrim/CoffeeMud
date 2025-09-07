@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -169,9 +169,14 @@ public class Thief_BackStab extends ThiefSkill
 			mob.tell(L("@x1 is watching you too closely to do that.",target.name(mob)));
 			return false;
 		}
+		if((!auto)&&(!CMLib.flags().isStanding(mob))&&(mob!=target))
+		{
+			mob.tell(L("You need to stand up!"));
+			return false;
+		}
 		if(lastMOB.equals(target+""))
 		{
-			mob.tell(target,null,null,L("@x1 is watching <S-HIS-HER> back too closely to do that again.",target.name(mob)));
+			failureTell(mob,target,auto,L("@x1 is watching <S-HIS-HER> back too closely to do that again.",target.name(mob)));
 			return false;
 		}
 		if(mob.isInCombat())

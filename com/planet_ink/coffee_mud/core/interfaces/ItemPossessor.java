@@ -3,9 +3,11 @@ package com.planet_ink.coffee_mud.core.interfaces;
 import java.util.Enumeration;
 import java.util.List;
 
+import com.planet_ink.coffee_mud.core.CMProps;
 import com.planet_ink.coffee_mud.Items.interfaces.Item;
+import com.planet_ink.coffee_mud.Libraries.interfaces.TimeManager;
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,11 +62,53 @@ public interface ItemPossessor extends PhysicalAgent, ItemCollection
 	 */
 	public void moveItemTo(Item container);
 
-	/** constants for the addItem methods to denote how long the item lives before expiring */
-	public enum Expire { Never, Monster_EQ, Player_Drop, Resource, Monster_Body, Player_Body	}
+	/**
+	 * Generates a specific search-string name for the given
+	 * object in this possessor.  Since items or mobs with the exact
+	 * same name can be in a given room, a context-number-suffix
+	 * (.1, .2, etc..) is used to specify which of the identical
+	 * objects to return in the list.  This method wil, given
+	 * an item or mob, will generate that search string
+	 * by returning the name plus the optional context suffix.
+	 * @param E the mob or item to return a search string for
+	 * @return the specific search string that returns the given object
+	 */
+	public String getContextName(Environmental E);
+
+	/**
+	 * Constants for the addItem methods to denote how long the item
+	 * lives before expiring.  Includes method to return that time
+	 * in milliseconds.
+	 * */
+	public enum Expire
+	{
+		Never(null),
+		Monster_EQ(CMProps.Int.EXPIRE_MONSTER_EQ),
+		Player_Drop(CMProps.Int.EXPIRE_PLAYER_DROP),
+		Resource(CMProps.Int.EXPIRE_RESOURCE),
+		Monster_Body(CMProps.Int.EXPIRE_MONSTER_BODY),
+		Player_Body(CMProps.Int.EXPIRE_PLAYER_BODY),
+		Inheret(null);
+		private final CMProps.Int propCode;
+		private Expire(final CMProps.Int propCode)
+		{
+			this.propCode = propCode;
+		}
+		/**
+		 * Return the expiration time of an item of this
+		 * expire code in RL milliseconds.
+		 * @return the number of milliseconds
+		 */
+		public long getExpirationMilliseconds()
+		{
+			if(propCode == null)
+				return 0;
+			return CMProps.getIntVar(this.propCode) * TimeManager.MILI_MINUTE;
+		}
+	}
 
 	/** constant for the moveItemTo methods to denote flags are being given -- normal operation */
-	public enum Move { Followers}
+	public enum Move { Followers, Optimize}
 
 	/** constant for the findItem/findItems method denoting special modifying flags on the search */
 	public enum Find { WornOnly, UnwornOnly, AddCoins, RespectLocation}

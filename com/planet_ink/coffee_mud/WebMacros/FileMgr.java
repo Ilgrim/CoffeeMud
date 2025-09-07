@@ -21,7 +21,7 @@ import java.util.*;
 import java.util.regex.Pattern;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -125,7 +125,13 @@ public class FileMgr extends StdWebMacro
 				filePath+="/";
 			String prefix="";
 			if(parms.containsKey("DEFAULT"))
-				prefix = new CMFile(filePath,M).canVFSEquiv()?"::":"//";
+			{
+				final CMFile F = new CMFile(filePath+file,M);
+				if(F.exists() && (file.length()>0))
+					prefix = F.isVFSFile()?"::":"//";
+				else
+					prefix = new CMFile(filePath,M).canVFSEquiv()?"::":"//";
+			}
 			else
 			if(parms.containsKey("VFS")
 			||parms.containsKey("LOCAL")

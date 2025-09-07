@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -98,14 +98,14 @@ public class Digging extends GatheringSkill
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			final MOB mob=(MOB)affected;
 			if(tickUp==3)
 			{
 				if(found!=null)
 				{
-					commonTell(mob,L("You have found some @x1!",foundShortName));
+					commonTelL(mob,"You have found some @x1!",foundShortName);
 					displayText=L("You are digging out @x1",foundShortName);
 					verb=L("digging out @x1",foundShortName);
 					if((found.material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_PRECIOUS)
@@ -113,16 +113,14 @@ public class Digging extends GatheringSkill
 				}
 				else
 				{
-					final StringBuffer str=new StringBuffer(L("You can't seem to find anything worth digging up here.\n\r"));
 					int d=lookingForMat(RawMaterial.MATERIAL_PRECIOUS,mob.location());
 					if(d<0) d=lookingForMat(RawMaterial.MATERIAL_GLASS,mob.location());
 					if(d<0) d=lookingForRsc(RawMaterial.RESOURCE_SAND,mob.location());
 					if(d<0) d=lookingForRsc(RawMaterial.RESOURCE_STONE,mob.location());
 					if(d<0)
-						str.append(L("You might try elsewhere."));
+						commonTelL(mob,"You can't seem to find anything worth digging up here.\n\rYou might try elsewhere.");
 					else
-						str.append(L("You might try @x1.",CMLib.directions().getInDirectionName(d)));
-					commonTell(mob,str.toString());
+						commonTelL(mob,"You can't seem to find anything worth digging up here.\n\rYou might try @x1.",CMLib.directions().getInDirectionName(d));
 					unInvoke();
 				}
 
@@ -152,10 +150,10 @@ public class Digging extends GatheringSkill
 					msg.setValue(amount);
 					if(mob.location().okMessage(mob, msg))
 					{
-						String s="s";
-						if((msg.value()==1)||(foundShortName.endsWith("s")))
-							s="";
-						msg.modify(L("<S-NAME> manage(s) to dig out @x1 @x2@x3.",""+msg.value(),foundShortName,s));
+						if(msg.value()<2)
+							msg.modify(L("<S-NAME> manage(s) to dig out @x1.",found.name()));
+						else
+							msg.modify(L("<S-NAME> manage(s) to dig out @x1 pounds of @x2.",""+msg.value(),foundShortName));
 						mob.location().send(mob, msg);
 						for(int i=0;i<msg.value();i++)
 						{
@@ -196,7 +194,7 @@ public class Digging extends GatheringSkill
 		&&(!confirmPossibleMaterialLocation(RawMaterial.RESOURCE_SAND,mob.location()))
 		&&(!confirmPossibleMaterialLocation(RawMaterial.RESOURCE_STONE,mob.location())))
 		{
-			commonTell(mob,L("You don't think this is a good place to dig for gems."));
+			commonTelL(mob,"You don't think this is a good place to dig for gems.");
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
@@ -216,11 +214,14 @@ public class Digging extends GatheringSkill
 		}
 
 		final int duration=getDuration(mob,1);
+		final String oldFoundName = (found==null)?"":found.Name();
 		final CMMsg msg=CMClass.getMsg(mob,found,this,getActivityMessageType(),L("<S-NAME> start(s) digging for gems."));
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);
 			found=(Item)msg.target();
+			if((found!=null)&&(!found.Name().equals(oldFoundName)))
+				foundShortName=CMLib.english().removeArticleLead(found.Name());
 			beneficialAffect(mob,mob,asLevel,duration);
 		}
 		return true;

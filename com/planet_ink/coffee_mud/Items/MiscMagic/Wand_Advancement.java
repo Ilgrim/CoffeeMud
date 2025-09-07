@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@ public class Wand_Advancement extends StdWand implements ArchonOnly
 		this.setUsesRemaining(50);
 		material=RawMaterial.RESOURCE_OAK;
 		baseGoldValue=20000;
+		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_BONUS);
 		recoverPhyStats();
 		secretWord="LEVEL UP";
 	}
@@ -73,20 +74,22 @@ public class Wand_Advancement extends StdWand implements ArchonOnly
 	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		final MOB mob=msg.source();
-		switch(msg.sourceMinor())
+		switch(msg.targetMinor())
 		{
 		case CMMsg.TYP_WAND_USE:
 			if((mob.isMine(this))
 			&&(amBeingWornProperly())
-			&&(msg.target() instanceof MOB)
-			&&(mob.location().isInhabitant((MOB)msg.target())))
+			&&(msg.target()==this)
+			&&(msg.tool() instanceof MOB)
+			&&(mob.location().isInhabitant((MOB)msg.tool())))
 			{
-				final MOB target=(MOB)msg.target();
+				final MOB target=(MOB)msg.tool();
 				final int x=msg.targetMessage().toUpperCase().indexOf("LEVEL UP");
-				if((!mob.isMonster())
-				&&(x>=0)
-				&&(mob.session().getPreviousCMD()!=null)
-				&&(CMParms.combine(mob.session().getPreviousCMD(),0).toUpperCase().indexOf("LEVEL UP")<0))
+				final LinkedList<List<String>> hist = (mob.session()!=null)?mob.session().getHistory():null;
+				if((x>=0)
+				&&(hist!=null)
+				&&(hist.size()>0)
+				&&(CMParms.combine(hist.getLast(),0).toUpperCase().indexOf("LEVEL UP")<0))
 					mob.tell(L("The wand fizzles in an irritating way."));
 				else
 				if(x>=0)
@@ -104,12 +107,19 @@ public class Wand_Advancement extends StdWand implements ArchonOnly
 							||(CMSecurity.isDisabled(CMSecurity.DisFlag.LEVELS)))
 								mob.tell(L("The wand will not work on such as @x1.",target.name(mob)));
 							else
-							if((target.getExpNeededLevel()==Integer.MAX_VALUE)
-							||(target.charStats().getCurrentClass().expless())
-							||(target.charStats().getMyRace().expless()))
-								CMLib.leveler().level(target);
-							else
-								CMLib.leveler().postExperience(target,null,null,target.getExpNeededLevel()+1,false);
+							{
+								final int nextLevel = target.phyStats().level()+1;
+								int tries = 100;
+								while((target.phyStats().level()<nextLevel)&&(--tries>0))
+								{
+									if((target.getExpNeededLevel()==Integer.MAX_VALUE)
+									||(target.charStats().getCurrentClass().expless())
+									||(target.charStats().getMyRace().expless()))
+										CMLib.leveler().level(target);
+									else
+										CMLib.leveler().postExperience(target,"MISC:"+ID(),null,null,target.getExpNeededLevel()+1, false);
+								}
+							}
 						}
 					}
 				}
@@ -118,5 +128,6 @@ public class Wand_Advancement extends StdWand implements ArchonOnly
 		default:
 			break;
 		}
+		super.executeMsg(myHost, msg);
 	}
 }

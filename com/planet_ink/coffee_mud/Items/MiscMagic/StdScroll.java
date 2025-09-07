@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,6 +57,14 @@ public class StdScroll extends StdItem implements MiscMagic, Scroll
 		baseGoldValue=200;
 		setUsesRemaining(0);
 		recoverPhyStats();
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a scroll");
 	}
 
 	@Override
@@ -105,7 +113,12 @@ public class StdScroll extends StdItem implements MiscMagic, Scroll
 	@Override
 	public String secretIdentity()
 	{
-		return StdScroll.makeSecretIdentity("scroll",super.secretIdentity()," Charges: "+usesRemaining(),getSpells());
+		String uses;
+		if(this.usesRemaining() < 999999)
+			uses = ""+usesRemaining();
+		else
+			uses="unlimited";
+		return StdScroll.makeSecretIdentity("scroll",super.secretIdentity()," Charges: "+uses,getSpells());
 	}
 
 	public static String makeSecretIdentity(final String thang, final String id, final String more, final List<Ability> V)
@@ -158,7 +171,7 @@ public class StdScroll extends StdItem implements MiscMagic, Scroll
 						mob.tell(L("@x1 glows softly.",name()));
 						final Ability SA=mob.fetchAbility(S.ID());
 						if(SA!=null)
-							addedExpertise+=CMLib.expertises().getExpertiseLevel(mob, S.ID(), ExpertiseLibrary.Flag.LEVEL);
+							addedExpertise+=CMLib.expertises().getExpertiseLevelCached(mob, S.ID(), ExpertiseLibrary.XType.LEVEL);
 						setReadableScrollBy(mob.Name());
 						break;
 					}
@@ -235,29 +248,48 @@ public class StdScroll extends StdItem implements MiscMagic, Scroll
 	}
 
 	@Override
+	public void recoverPhyStats()
+	{
+		super.recoverPhyStats();
+		if(((phyStats().disposition()&PhyStats.IS_BONUS)==0)
+		&&(usesRemaining()>0)
+		&&(getSpellList()!=null)
+		&&(getSpellList().length()>0))
+			phyStats().setDisposition(phyStats().disposition()|PhyStats.IS_BONUS);
+	}
+
+	@Override
 	public List<Ability> getSpells()
 	{
 		int baseValue=200;
 		final List<Ability> theSpells=new Vector<Ability>();
 		final String names=getSpellList();
-		final List<String> parsedSpells=CMParms.parseSemicolons(names, true);
-		for(String thisOne : parsedSpells)
+		if(names.length()>0)
 		{
-			thisOne=thisOne.trim();
-			String parms="";
-			final int x=thisOne.indexOf('(');
-			if((x>0)&&(thisOne.endsWith(")")))
+			final List<String> parsedSpells=CMParms.parseSemicolons(names, true);
+			if(parsedSpells.size()==0)
+				this.setSpellList("");
+			else
 			{
-				parms=thisOne.substring(x+1,thisOne.length()-1);
-				thisOne=thisOne.substring(0,x).trim();
-			}
-			Ability A=CMClass.getAbility(thisOne);
-			if((A!=null)&&((A.classificationCode()&Ability.ALL_DOMAINS)!=Ability.DOMAIN_ARCHON))
-			{
-				A=(Ability)A.copyOf();
-				A.setMiscText(parms);
-				baseValue+=(100*CMLib.ableMapper().lowestQualifyingLevel(A.ID()));
-				theSpells.add(A);
+				for(String thisOne : parsedSpells)
+				{
+					thisOne=thisOne.trim();
+					String parms="";
+					final int x=thisOne.indexOf('(');
+					if((x>0)&&(thisOne.endsWith(")")))
+					{
+						parms=thisOne.substring(x+1,thisOne.length()-1);
+						thisOne=thisOne.substring(0,x).trim();
+					}
+					Ability A=CMClass.getAbility(thisOne);
+					if((A!=null)&&((A.classificationCode()&Ability.ALL_DOMAINS)!=Ability.DOMAIN_ARCHON))
+					{
+						A=(Ability)A.copyOf();
+						A.setMiscText(parms);
+						baseValue+=(100*CMLib.ableMapper().lowestQualifyingLevel(A.ID()));
+						theSpells.add(A);
+					}
+				}
 			}
 		}
 		setBaseValue(baseValue);
@@ -310,14 +342,14 @@ public class StdScroll extends StdItem implements MiscMagic, Scroll
 	@Override
 	public String getStat(final String code)
 	{
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return ID();
 		case 1:
-			return "" + basePhyStats().ability();
-		case 2:
 			return "" + basePhyStats().level();
+		case 2:
+			return "" + basePhyStats().ability();
 		case 3:
 			return text();
 		}
@@ -327,7 +359,7 @@ public class StdScroll extends StdItem implements MiscMagic, Scroll
 	@Override
 	public void setStat(final String code, final String val)
 	{
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return;
@@ -349,8 +381,7 @@ public class StdScroll extends StdItem implements MiscMagic, Scroll
 		return CODES;
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<CODES.length;i++)
 		{

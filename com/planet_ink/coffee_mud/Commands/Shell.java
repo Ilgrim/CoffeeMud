@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ public class Shell extends StdCommand
 		return access;
 	}
 
-	protected static DVector pwds=new DVector(2);
+	protected static PairVector<MOB,String> pwds=new PairVector<MOB,String>();
 
 	protected enum SubCmds
 	{
@@ -60,6 +60,7 @@ public class Shell extends StdCommand
 		MAKEDIRECTORY('+',"MAKEDIRECTORY","MKDIR","MD"),
 		FINDFILE('*',"FINDFILE","FF"),
 		SEARCHTEXT('&',"SEARCHTEXT","GREP","ST"),
+		JRUN(':',"EXEC","JRUN"),
 		EDIT('/',"EDIT"),
 		MOVE('~',"MOVE","MV"),
 		COMPAREFILES('?',"COMPAREFILES","DIFF","CF")
@@ -235,7 +236,7 @@ public class Shell extends StdCommand
 	@Override
 	public Object executeInternal(final MOB mob, final int metaFlags, final Object... args) throws java.io.IOException
 	{
-		final String pwd=(pwds.contains(mob))?(String)pwds.get(pwds.indexOf(mob),2):"";
+		final String pwd=(pwds.containsFirst(mob))?(String)pwds.get(pwds.indexOfFirst(mob)).second:"";
 		if((args.length>0)&&(args[0].equals(".")))
 			return pwd;
 		return null;
@@ -245,7 +246,7 @@ public class Shell extends StdCommand
 	public boolean execute(final MOB mob, final List<String> commands, final int metaFlags)
 		throws java.io.IOException
 	{
-		String pwd=(pwds.contains(mob))?(String)pwds.get(pwds.indexOf(mob),2):"";
+		String pwd=(pwds.containsFirst(mob))?(String)pwds.get(pwds.indexOfFirst(mob)).second:"";
 		commands.remove(0);
 		if(commands.size()==0)
 		{
@@ -320,78 +321,94 @@ public class Shell extends StdCommand
 			final int COL3_LEN=CMLib.lister().fixColWidth(opts.longDir?10.0:10.0, mob);
 			final int COL4_LEN=CMLib.lister().fixColWidth(opts.longDir?20.0:20.0, mob);
 			int col=0;
-			if(opts.longDir)
-				msg.append("\n\r^y .\n\r^y ..\n\r");
-			else
-				msg.append("\n\r^y"+CMStrings.padRight(" .",COL1_LEN))
-					.append(CMStrings.padRight("  ..",COL1_LEN))
-					.append("\n\r");
+			final List<String> hiearchy=new ArrayList<String>();
 			for (final CMFile dir : dirs)
 			{
-				final CMFile entry=dir;
-				if(entry.isDirectory())
-				{
-					if(entry.isLocalFile()&&(!entry.canVFSEquiv()))
-						msg.append(" ");
-					else
-					if((entry.isLocalFile()&&(entry.canVFSEquiv()))
-					||((entry.isVFSFile())&&(entry.canLocalEquiv())))
-						msg.append("^R+");
-					else
-						msg.append("^r-");
-					msg.append("^y"+CMStrings.padRight(entry.getName(),COL1_LEN));
-					if(opts.longDir)
-					{
-						msg.append("^w"+CMStrings.padRight(""+entry.length(),COL2_LEN));
-						msg.append("^w"+CMStrings.padRight(entry.author(),COL3_LEN));
-						msg.append("^w"+CMStrings.padRight(CMLib.time().date2String(entry.lastModified()),COL4_LEN));
-						msg.append("\n\r");
-					}
-					else
-					{
-						if(++col>=2)
-						{
-							col=0;
-							msg.append("\n\r");
-						}
-					}
-				}
+				final String parentPath = dir.getParentFile().getAbsolutePath();
+				if(!hiearchy.contains(parentPath))
+					hiearchy.add(parentPath);
 			}
-			for (final CMFile dir : dirs)
+			for(final String hDirPath : hiearchy)
 			{
 				if(killOnSession && ((mob.session()==null)||(mob.session().isStopped())))
 					break;
-				final CMFile entry=dir;
-				if(!entry.isDirectory())
+				if(hiearchy.size()>0)
+					msg.append("\n\r^H"+hDirPath).append("^?");
+				if(opts.longDir)
+					msg.append("\n\r^y .\n\r^y ..\n\r");
+				else
+					msg.append("\n\r^y"+CMStrings.padRight(" .",COL1_LEN))
+						.append(CMStrings.padRight("  ..",COL1_LEN))
+						.append("\n\r");
+				for (final CMFile dir : dirs)
 				{
-					if(entry.isLocalFile()&&(!entry.canVFSEquiv()))
-						msg.append(" ");
-					else
-					if((entry.isLocalFile()&&(entry.canVFSEquiv()))
-					||((entry.isVFSFile())&&(entry.canLocalEquiv())))
-						msg.append("^R+");
-					else
-						msg.append("^r-");
-					msg.append("^w"+CMStrings.padRight(entry.getName(),COL1_LEN));
-					if(opts.longDir)
+					final CMFile entry=dir;
+					if(entry.isDirectory()
+					&&(entry.getParentFile().getAbsolutePath().equals(hDirPath)))
 					{
-						msg.append("^w"+CMStrings.padRight(""+entry.length(),COL2_LEN));
-						msg.append("^w"+CMStrings.padRight(entry.author(),COL3_LEN));
-						msg.append("^w"+CMStrings.padRight(CMLib.time().date2String(entry.lastModified()),COL4_LEN));
-						msg.append("\n\r");
-					}
-					else
-					{
-						if(++col>=2)
+						if(entry.isLocalFile()&&(!entry.canVFSEquiv()))
+							msg.append(" ");
+						else
+						if((entry.isLocalFile()&&(entry.canVFSEquiv()))
+						||((entry.isVFSFile())&&(entry.canLocalEquiv())))
+							msg.append("^R+");
+						else
+							msg.append("^r-");
+						msg.append("^y"+CMStrings.padRight(entry.getName(),COL1_LEN));
+						if(opts.longDir)
 						{
-							col=0;
+							msg.append("^w"+CMStrings.padRight(""+entry.length(),COL2_LEN));
+							msg.append("^w"+CMStrings.padRight(entry.author(),COL3_LEN));
+							msg.append("^w"+CMStrings.padRight(CMLib.time().date2String(entry.lastModified()),COL4_LEN));
 							msg.append("\n\r");
+						}
+						else
+						{
+							if(++col>=2)
+							{
+								col=0;
+								msg.append("\n\r");
+							}
 						}
 					}
 				}
+				for (final CMFile dir : dirs)
+				{
+					if(killOnSession && ((mob.session()==null)||(mob.session().isStopped())))
+						break;
+					final CMFile entry=dir;
+					if((!entry.isDirectory())
+					&&(entry.getParentFile().getAbsolutePath().equals(hDirPath)))
+					{
+						if(entry.isLocalFile()&&(!entry.canVFSEquiv()))
+							msg.append(" ");
+						else
+						if((entry.isLocalFile()&&(entry.canVFSEquiv()))
+						||((entry.isVFSFile())&&(entry.canLocalEquiv())))
+							msg.append("^R+");
+						else
+							msg.append("^r-");
+						msg.append("^w"+CMStrings.padRight(entry.getName(),COL1_LEN));
+						if(opts.longDir)
+						{
+							msg.append("^w"+CMStrings.padRight(""+entry.length(),COL2_LEN));
+							msg.append("^w"+CMStrings.padRight(entry.author(),COL3_LEN));
+							msg.append("^w"+CMStrings.padRight(CMLib.time().date2String(entry.lastModified()),COL4_LEN));
+							msg.append("\n\r");
+						}
+						else
+						{
+							if(++col>=2)
+							{
+								col=0;
+								msg.append("\n\r");
+							}
+						}
+					}
+				}
+				if(!msg.toString().endsWith("\n\r"))
+					msg.append("\n\r");
 			}
-			if(!msg.toString().endsWith("\n\r"))
-				msg.append("\n\r");
 			if(mob.session()!=null)
 				mob.session().colorOnlyPrintln(msg.toString());
 			break;
@@ -535,6 +552,11 @@ public class Shell extends StdCommand
 		}
 		case CHANGEDIRECTORY: // cd
 		{
+			if(commands.size()<2)
+			{
+				mob.tell(L("^xError  : a target directory must be specified!^N"));
+				return false;
+			}
 			final CMFile newDir=new CMFile(incorporateBaseDir(pwd,CMParms.combine(commands,1)),mob);
 			final String changeTo=newDir.getVFSPathAndName();
 			if(!newDir.exists())
@@ -549,12 +571,18 @@ public class Shell extends StdCommand
 			}
 			pwd=changeTo;
 			mob.tell(L("Directory is now: /@x1",pwd));
-			pwds.removeElement(mob);
+			pwds.removeElementFirst(mob);
 			pwds.add(mob,pwd);
 			return true;
 		}
 		case DELETE: // delete
 		{
+			if(commands.size()<2)
+			{
+				mob.tell(L("^xError  : target file/path must be specified!^N"));
+				mob.tell(L("^xOptions: -r = recurse into directories.^N"));
+				return false;
+			}
 			final cp_options opts=new cp_options(commands);
 			final CMFile[] dirs=CMFile.getFileList(incorporateBaseDir(pwd,CMParms.combine(commands,1)),mob,opts.recurse,false,skipHash);
 			if(dirs==null)
@@ -594,6 +622,11 @@ public class Shell extends StdCommand
 		}
 		case TYPE: // type
 		{
+			if(commands.size()<2)
+			{
+				mob.tell(L("^xError  : file must be specified!^N"));
+				return false;
+			}
 			final CMFile[] dirs=CMFile.getFileList(incorporateBaseDir(pwd,CMParms.combine(commands,1)),mob,false,false,skipHash);
 			if(dirs==null)
 			{
@@ -628,8 +661,63 @@ public class Shell extends StdCommand
 			}
 			break;
 		}
+		case JRUN: // jrun
+		{
+			if(commands.size()<2)
+			{
+				mob.tell(L("^xError  : file must be specified!^N"));
+				return false;
+			}
+			final CMFile[] dirs=CMFile.getFileList(incorporateBaseDir(pwd,CMParms.combine(commands,1)),mob,false,false,skipHash);
+			if(dirs==null)
+			{
+				mob.tell(L("^xError: invalid filename!^N"));
+				return false;
+			}
+			if(dirs.length==0)
+			{
+				mob.tell(L("^xError: no files matched^N"));
+				return false;
+			}
+			for (final CMFile dir : dirs)
+			{
+				if(killOnSession && ((mob.session()==null)||(mob.session().isStopped())))
+					break;
+				final CMFile CF=dir;
+				if((CF==null)||(!CF.exists()))
+				{
+					mob.tell(L("^xError: file does not exist!^N"));
+					return false;
+				}
+				if(!CF.canRead())
+				{
+					mob.tell(L("^xError: access denied!^N"));
+					return false;
+				}
+				if(mob.session()!=null)
+				{
+					final Command C=CMClass.getCommand("JRUN");
+					if((C!=null)&&(C.securityCheck(mob)))
+					{
+						final List<String> cmdV=new XVector<String>("JRUN",dir.getAbsolutePath());
+						C.execute(mob, cmdV, 0);
+					}
+					else
+					{
+						mob.tell(L("^xError: access denied!^N"));
+						return false;
+					}
+				}
+			}
+			break;
+		}
 		case MAKEDIRECTORY: // makedirectory
 		{
+			if(commands.size()<2)
+			{
+				mob.tell(L("^xError  : path must be specified!^N"));
+				return false;
+			}
 			final CMFile CF=new CMFile(incorporateBaseDir(pwd,CMParms.combine(commands,1)),mob);
 			if(CF.exists())
 			{
@@ -651,6 +739,11 @@ public class Shell extends StdCommand
 		}
 		case FINDFILE: // findfiles
 		{
+			if(commands.size()<2)
+			{
+				mob.tell(L("^xError  : file mask must be specified!^N"));
+				return false;
+			}
 			String substring=CMParms.combine(commands,1).trim();
 			if(substring.length()==0)
 				substring="*";
@@ -751,6 +844,11 @@ public class Shell extends StdCommand
 		}
 		case EDIT: // edit
 		{
+			if(commands.size()<2)
+			{
+				mob.tell(L("^xError  : target file must be specified!^N"));
+				return false;
+			}
 			final CMFile file=new CMFile(incorporateBaseDir(pwd,CMParms.combine(commands,1)),mob);
 			if((!file.canWrite())
 			||(file.isDirectory()))
@@ -1003,14 +1101,25 @@ public class Shell extends StdCommand
 				if(s.trim().length()>0)
 					text2.append(s.trim()).append("\n\r");
 			}
-			final LinkedList<CMStrings.Diff> diffs=CMStrings.diff_main(text1.toString(), text2.toString(), false);
-			boolean flipFlop=false;
-			for(final CMStrings.Diff d : diffs)
+			final LinkedList<CMStrings.Diff> diffs=CMStrings.diffMain(text1.toString(), text2.toString(), false);
 			{
-				final StringBuilder str=new StringBuilder("\n\r^H"+d.operation.toString()+": ");
-				str.append(flipFlop?"^N":"^w");
-				flipFlop=!flipFlop;
-				str.append(d.text);
+				final StringBuilder str = new StringBuilder("");
+				for(final CMStrings.Diff d : diffs)
+				{
+					switch(d.operation)
+					{
+					case DELETE:
+						str.append("^r");
+						break;
+					case EQUAL:
+						str.append("^N");
+						break;
+					case INSERT:
+						str.append("^g");
+						break;
+					}
+					str.append(d.text);
+				}
 				mob.session().colorOnlyPrintln(str.toString());
 			}
 			mob.tell(L("^HDONE."));

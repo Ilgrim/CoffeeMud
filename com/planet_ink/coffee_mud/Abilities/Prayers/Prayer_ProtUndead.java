@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ public class Prayer_ProtUndead extends Prayer
 
 		final MOB mob=(MOB)affected;
 
-		if(mob.charStats().getMyRace().racialCategory().equalsIgnoreCase("Undead"))
+		if(CMLib.flags().isUndead(mob))
 		{
 			final int damage=(int)Math.round(CMath.div(mob.phyStats().level()+(2*getXLEVELLevel(invoker())),3.0));
 			final MOB invoker=(invoker()!=null) ? invoker() : mob;
@@ -119,7 +119,7 @@ public class Prayer_ProtUndead extends Prayer
 		if(mob.isInCombat())
 		{
 			final MOB victim=mob.getVictim();
-			if(victim.charStats().getMyRace().racialCategory().equalsIgnoreCase("Undead"))
+			if(CMLib.flags().isUndead(victim))
 			{
 				final int xlvl=super.getXLEVELLevel(invoker());
 				affectableStats.setArmor(affectableStats.armor()-50-(5*xlvl));
@@ -148,8 +148,8 @@ public class Prayer_ProtUndead extends Prayer
 		{
 			final MOB victim=mob.getVictim();
 			if((victim!=null)
-			&&(victim.charStats().getMyRace().racialCategory().equalsIgnoreCase("Undead"))
-			&&(!mob.charStats().getMyRace().racialCategory().equalsIgnoreCase("Undead")))
+			&&(CMLib.flags().isUndead(victim))
+			&&(!CMLib.flags().isUndead(mob)))
 				return super.castingQuality(mob, target,Ability.QUALITY_BENEFICIAL_SELF);
 		}
 		return super.castingQuality(mob,target);

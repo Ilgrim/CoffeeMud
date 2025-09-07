@@ -19,7 +19,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ public class GenBoffWeapon extends StdBoffWeapon
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this,false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 	}
 
 	@Override
@@ -89,7 +89,7 @@ public class GenBoffWeapon extends StdBoffWeapon
 	public void setMiscText(final String newText)
 	{
 		miscText="";
-		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this,newText,false);
 		recoverPhyStats();
 	}
 
@@ -113,12 +113,6 @@ public class GenBoffWeapon extends StdBoffWeapon
 			GenWeapon.setGenWeaponStat(this,code,val);
 		else
 			CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);
-	}
-
-	@Override
-	protected int getCodeNum(final String code)
-	{
-		return GenWeapon.getGenWeaponCodeNum(code);
 	}
 
 	private static String[] codes=null;

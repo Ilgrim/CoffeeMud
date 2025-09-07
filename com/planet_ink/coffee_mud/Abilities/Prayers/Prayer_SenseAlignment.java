@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ public class Prayer_SenseAlignment extends Prayer
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_NEUTRAL;
+		return Ability.FLAG_NEUTRAL | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -98,12 +98,12 @@ public class Prayer_SenseAlignment extends Prayer
 				String alignment;
 				final String goodEvilName = CMLib.flags().getAlignmentName(target).toLowerCase();
 				if(CMLib.flags().isChaotic(target))
-					alignment = L("chaotic "+goodEvilName);
+					alignment = L("chaotic @x1",goodEvilName);
 				else
 				if(CMLib.flags().isChaotic(target))
-					alignment = L("lawful "+goodEvilName);
+					alignment = L("lawful @x1",goodEvilName);
 				else
-					alignment = L(goodEvilName);
+					alignment = goodEvilName;
 				mob.tell(mob,target,null,L("<T-NAME> seem(s) like <T-HE-SHE> is @x1.",alignment.toLowerCase()));
 			}
 		}

@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -46,20 +46,7 @@ public class BankAccountInfo extends StdWebMacro
 	{
 		double balance=0.0;
 		MoneyLibrary.DebtItem debt=null;
-		List<Item> items=new Vector<Item>(1);
-
-		@Override
-		public void finalize() throws Throwable
-		{
-			if(items != null)
-			{
-				for(final Item I : items)
-				{
-					I.destroy();
-				}
-			}
-			super.finalize();
-		}
+		String itemList="";
 	}
 
 	public static double getAccountInfoBalance(final HTTPRequest httpReq, final Banker B, final MOB playerM)
@@ -82,7 +69,22 @@ public class BankAccountInfo extends StdWebMacro
 			final Double bal=Double.valueOf(B.getBalance(playerM.Name())); // this works for clans because name==clan name
 			info.balance=bal.doubleValue();
 			info.debt=B.getDebtInfo(playerM.Name());
-			info.items=B.getDepositedItems(playerM.Name());
+			final List<Item> items=B.getDepositedItems(playerM.Name());
+			if((items!=null)&&(items.size()>0))
+			{
+				final StringBuffer list=new StringBuffer("");
+				for(final Item I : items)
+				{
+					if(!(I instanceof Coins))
+					{
+						if(list.length()>0)
+							list.append(", ");
+						list.append(((Environmental)I).name());
+					}
+					I.destroy();
+				}
+				info.itemList=list.toString();
+			}
 		}
 		httpReq.getRequestObjects().put("BANKINFO: "+B.bankChain()+": "+playerM.Name(),info);
 		return info;
@@ -106,7 +108,7 @@ public class BankAccountInfo extends StdWebMacro
 			String player=httpReq.getUrlParameter("PLAYER");
 			if((player==null)||(player.length()==0))
 				player=httpReq.getUrlParameter("CLAN");
-			final Banker B=CMLib.map().getBank(last,last);
+			final Banker B=CMLib.city().getBank(last,last);
 			if(B==null)
 				return "BANKER not found?!";
 			if((player!=null)&&(player.length()>0))
@@ -194,21 +196,7 @@ public class BankAccountInfo extends StdWebMacro
 				return CMLib.beanCounter().nameCurrencyLong(playerM,B.totalItemsWorth(playerM.Name()));
 			if(parms.containsKey("ITEMSLIST"))
 			{
-				final List<Item> items=acct.items;
-				if(items != null)
-				{
-					final StringBuffer list=new StringBuffer("");
-					for(int v=0;v<items.size();v++)
-					{
-						if(!(items.get(v) instanceof Coins))
-						{
-							list.append(((Environmental)items.get(v)).name());
-							if(v<(items.size()-1))
-								list.append(", ");
-						}
-					}
-					return list.toString();
-				}
+				return acct.itemList;
 			}
 			return "";
 		}

@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -151,6 +152,7 @@ public class Beastmaster extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"AnimalBonding",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Chant_SensePregnancy",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_WildernessLore",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Chant_KnowAnimal",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Fighter_Kick",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Chant_SensePoison",false);
@@ -195,6 +197,7 @@ public class Beastmaster extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Chant_Fertility",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Chant_CallMate",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Chant_BullStrength",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Skill_ResistBuck",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Skill_Attack2",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Fighter_Pin",false);
@@ -213,6 +216,7 @@ public class Beastmaster extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Druid_ShapeShift4",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Chant_AnimalSpy",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Herding",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Chant_Plague",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Chant_SpeedBirth",false);
@@ -233,9 +237,11 @@ public class Beastmaster extends StdCharClass
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Skill_AttackHalf",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Chant_NeutralizePoison",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),22,"Chant_SummonAnimals",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Chant_UnicornsHealth",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Chant_FindMate",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Fighter_BearHug",true);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Thief_Ambush",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Chant_SummonFear",true);
@@ -243,6 +249,9 @@ public class Beastmaster extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Druid_Rend",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Chant_Crossbreed",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Chant_Dragonsight",false);
+
+		CMLib.ableMapper().addCharAbilityMapping(ID(),28,"Chant_PlanarAdaptation", 0, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Druid_PackCall",true);
 
@@ -330,7 +339,7 @@ public class Beastmaster extends StdCharClass
 		if((mob!=null)
 		&&(mob!=killed)
 		&&(!mob.amDead())
-		&&((!mob.isMonster())||(!CMLib.flags().isAnimalIntelligence(mob)))
+		&&((!mob.isMonster())||(!CMLib.flags().isAnAnimal(mob)))
 		&&((mob.getVictim()==killed)
 		 ||(followers.contains(mob))
 		 ||(mob==killer)))
@@ -348,6 +357,7 @@ public class Beastmaster extends StdCharClass
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}
@@ -368,7 +378,12 @@ public class Beastmaster extends StdCharClass
 				if((A!=null)
 				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
-					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+				{
+					giveMobAbility(mob,A,
+							CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),
+							CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),
+							isBorrowedClass);
+				}
 			}
 		}
 	}

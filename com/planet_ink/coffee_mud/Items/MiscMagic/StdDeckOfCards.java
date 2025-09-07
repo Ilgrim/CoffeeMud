@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-	Copyright (c) 2005-2020 Bo Zimmerman
+	Copyright (c) 2005-2025 Bo Zimmerman
 	All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
@@ -70,14 +70,14 @@ public class StdDeckOfCards extends StdHandOfCards implements DeckOfCards
 	// this object can manage one or more hands
 	// keyed by the mob/player object.
 	// This functionality is optional.
-	DVector hands=new DVector(2);
+	PairList<MOB,HandOfCards> hands=new PairVector<MOB,HandOfCards>();
 
 	// the constructor for this class doesn't do much except set
 	// some of the display properties of the deck container
 	public StdDeckOfCards()
 	{
 		super();
-		name="A deck of cards";
+		_name="A deck of cards";
 		displayText=L("A deck of cards has been left here.");
 		secretIdentity="A magical deck of cards.  Say \"Shuffle\" to me.";
 		recoverPhyStats();
@@ -87,6 +87,14 @@ public class StdDeckOfCards extends StdHandOfCards implements DeckOfCards
 	protected boolean abilityImbuesMagic()
 	{
 		return false;
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a deck of cards");
 	}
 
 	// makePlayingCard(int cardBitCode)
@@ -190,7 +198,7 @@ public class StdDeckOfCards extends StdHandOfCards implements DeckOfCards
 		// next destroy and clear any hands we may
 		// be managing.
 		for(int h=hands.size()-1;h>=0;h--)
-			((Item)hands.elementAt(h,2)).destroy();
+			((Item)hands.get(h).second).destroy();
 		hands.clear();
 
 		// if something went wrong (because a player cast
@@ -219,8 +227,8 @@ public class StdDeckOfCards extends StdHandOfCards implements DeckOfCards
 		if(player!=null)
 		for(int i=0;i<hands.size();i++)
 		{
-			if(hands.elementAt(i,1)==player)
-				return (HandOfCards)hands.elementAt(i,2);
+			if(hands.get(i).first==player)
+				return hands.get(i).second;
 		}
 		return null;
 	}
@@ -235,13 +243,13 @@ public class StdDeckOfCards extends StdHandOfCards implements DeckOfCards
 	{
 		if(player==null)
 			return null;
-		if(hands.contains(player))
-			return (HandOfCards)hands.elementAt(hands.indexOf(player),2);
+		if(hands.containsFirst(player))
+			return hands.get(hands.indexOfFirst(player)).second;
 		if(cards==null)
 		{
 			cards=((HandOfCards)CMClass.getMiscMagic("StdHandOfCards")).createEmptyHand(player);
 		}
-		hands.addElement(player,cards);
+		hands.add(player,cards);
 		return cards;
 	}
 
@@ -259,7 +267,7 @@ public class StdDeckOfCards extends StdHandOfCards implements DeckOfCards
 		final List<Item> cardSet=cards.getContents();
 		for(int c=0;c<cardSet.size();c++)
 			addCard((PlayingCard)cardSet.get(c));
-		hands.removeElement(player);
+		hands.removeElementFirst(player);
 		cards.destroy();
 	}
 

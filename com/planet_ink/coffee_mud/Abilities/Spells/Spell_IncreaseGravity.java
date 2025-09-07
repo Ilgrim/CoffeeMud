@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -98,7 +98,7 @@ public class Spell_IncreaseGravity extends Spell
 		if(!super.tick(ticking,tickID))
 			return false;
 		else
-		if((affected!=null)&&(affected instanceof Room)&&(invoker!=null))
+		if((affected instanceof Room)&&(invoker!=null))
 		{
 			final Room room=(Room)affected;
 			for(int i=0;i<room.numInhabitants();i++)
@@ -224,7 +224,9 @@ public class Spell_IncreaseGravity extends Spell
 		if(success)
 		{
 
-			final CMMsg msg = CMClass.getMsg(mob, target, this, somanticCastCode(mob,target,auto), L((auto?"G":"^S<S-NAME> speak(s) and wave(s) and g")+"ravity begins to increase!^?"));
+			final CMMsg msg = CMClass.getMsg(mob, target, this, somaticCastCode(mob,target,auto),
+					(auto?L("Gravity begins to increase!^?"):
+						L("^S<S-NAME> speak(s) and wave(s) and gravity begins to increase!^?")));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

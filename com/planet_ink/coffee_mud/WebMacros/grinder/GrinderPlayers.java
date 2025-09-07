@@ -27,7 +27,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -47,7 +47,9 @@ public class GrinderPlayers extends GrinderMobs
 	{
 		if(E.playerStats()==null)
 			return "";
-		E.playerStats().getTitles().clear();
+		final List<String> titles = E.playerStats().getTitles();
+		for(int i=titles.size()-1;i>=0;i--)
+			E.playerStats().delTitle(titles.get(i));
 		if(httpReq.isUrlParameter("TITLE0"))
 		{
 			int num=0;
@@ -55,7 +57,7 @@ public class GrinderPlayers extends GrinderMobs
 			{
 				final String aff=httpReq.getUrlParameter("TITLE"+num);
 				if(aff.trim().length()>0)
-					E.playerStats().getTitles().add(aff.trim());
+					E.playerStats().addTitle(aff.trim());
 				num++;
 			}
 		}
@@ -85,7 +87,7 @@ public class GrinderPlayers extends GrinderMobs
 			case NAME:
 				break; // dont set name!
 			case DESCRIPTION:
-				M.setDescription(old);
+				M.setDescription(CMStrings.fixMudCRLF(old));
 				break;
 			case LASTDATETIME:
 				if (M.playerStats() != null)
@@ -139,7 +141,7 @@ public class GrinderPlayers extends GrinderMobs
 				break;
 			case DEITYNAME:
 				if (CMLib.map().getDeity(old) != null)
-					M.setWorshipCharID(old);
+					M.baseCharStats().setWorshipCharID(old);
 				break;
 			case LIEGE:
 				if (CMLib.players().getPlayerAllHosts(old) != null)
@@ -342,7 +344,7 @@ public class GrinderPlayers extends GrinderMobs
 				}
 				break;
 			}
-			case FOLLOWERNAMES:
+			case ACCOUNT:
 			{
 				if(M.playerStats()!=null)
 				{
@@ -365,20 +367,22 @@ public class GrinderPlayers extends GrinderMobs
 				}
 				break;
 			}
-			case ACCOUNT:
+			case FOLLOWERNAMES:
 				break;
 			}
 		}
 		if(M.playerStats()!=null)
 		{
+			final List<String> titles = M.playerStats().getTitles();
+			for(int i=titles.size()-1;i>=0;i--)
+				M.playerStats().delTitle(titles.get(i));
 			int b=0;
-			M.playerStats().getTitles().clear();
 			while(httpReq.isUrlParameter("TITLE"+b))
 			{
 				String old=httpReq.getUrlParameter("TITLE"+b);
 				if(old==null)
 					old="";
-				M.playerStats().getTitles().add(old);
+				M.playerStats().addTitle(old);
 				b++;
 			}
 		}
@@ -411,8 +415,7 @@ public class GrinderPlayers extends GrinderMobs
 				num++;
 				aff=httpReq.getUrlParameter("CHARCLASS"+num);
 			}
-			M.baseCharStats().setMyClasses(classList.toString());
-			M.baseCharStats().setMyLevels(levelsList.toString());
+			M.baseCharStats().setAllClassInfo(classList.toString(), levelsList.toString());
 			M.basePhyStats().setLevel(totalLevel);
 		}
 		return "";
@@ -420,7 +423,7 @@ public class GrinderPlayers extends GrinderMobs
 
 	public static String editPlayer(final MOB whom, final HTTPRequest httpReq, final java.util.Map<String,String> parms, final MOB M)
 	{
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return CMProps.getVar(CMProps.Str.MUDSTATUS);
 
 		final List<Item> allitems=new ArrayList<Item>();
@@ -487,7 +490,7 @@ public class GrinderPlayers extends GrinderMobs
 		{
 			final String old=httpReq.getUrlParameter("DEITY");
 			if((old!=null)&&(CMLib.map().getDeity(old)!=null))
-				M.setWorshipCharID(CMLib.map().getDeity(old).Name());
+				M.baseCharStats().setWorshipCharID(CMLib.map().getDeity(old).Name());
 		}
 		if(httpReq.isUrlParameter("FLAG"))
 		{
@@ -519,12 +522,17 @@ public class GrinderPlayers extends GrinderMobs
 				}
 			}
 		}
-		String error=GrinderExits.dispositions(M,httpReq,parms);
+		String error;
+		/* not supported
+		error=GrinderExits.dispositions(M,httpReq,parms);
 		if(error.length()>0)
 			return error;
+		*/
+		/* not supported
 		error=GrinderMobs.senses(M,httpReq,parms);
 		if(error.length()>0)
 			return error;
+		*/
 		error=titleList(M,httpReq,parms);
 		if(error.length()>0)
 			return error;

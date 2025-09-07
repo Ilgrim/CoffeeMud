@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -270,7 +270,7 @@ public class RandomItems extends ActiveTicker
 			}
 			Resources.submitResource("RANDOMITEMS-XML/"+filename.length()+"/"+filename.hashCode(),items);
 			for(final Item I : items)
-				CMLib.threads().deleteAllTicks(I);
+				CMLib.threads().unTickAll(I);
 		}
 		else
 		{
@@ -309,7 +309,7 @@ public class RandomItems extends ActiveTicker
 
 				Resources.submitResource("RANDOMITEMS-"+filename,items);
 				for(final Item I : items)
-					CMLib.threads().deleteAllTicks(I);
+					CMLib.threads().unTickAll(I);
 			}
 		}
 		return items;
@@ -319,7 +319,7 @@ public class RandomItems extends ActiveTicker
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
 		super.tick(ticking,tickID);
-		if((!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if((!CMProps.isState(CMProps.HostState.RUNNING))
 		||(!(ticking instanceof Environmental))
 		||(CMSecurity.isDisabled(CMSecurity.DisFlag.RANDOMITEMS)))
 			return true;
@@ -390,7 +390,6 @@ public class RandomItems extends ActiveTicker
 					((MOB)ticking).addItem(I);
 					I.wearIfPossible((MOB)ticking);
 					maintained.add(I);
-					I.setContainer((Container)ticking);
 				}
 				else
 				{

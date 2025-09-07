@@ -1,8 +1,10 @@
 package com.planet_ink.coffee_mud.Libraries;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMClass.CMObjectType;
 import com.planet_ink.coffee_mud.core.CMSecurity.DbgFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
+import com.planet_ink.coffee_mud.core.exceptions.CMException;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -10,12 +12,14 @@ import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.Session.InputCallback;
+import com.planet_ink.coffee_mud.Common.interfaces.TimeClock.TimePeriod;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.JournalsLibrary.CommandJournalFlags;
 import com.planet_ink.coffee_mud.Libraries.interfaces.JournalsLibrary.ForumJournal;
 import com.planet_ink.coffee_mud.Libraries.interfaces.JournalsLibrary.ForumJournalFlags;
+import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -23,8 +27,11 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.io.IOException;
 import java.util.*;
 
+import org.mozilla.javascript.Context;
+import org.mozilla.javascript.ScriptableObject;
+
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -46,11 +53,19 @@ public class CMJournals extends StdLibrary implements JournalsLibrary
 		return "CMJournals";
 	}
 
-	public final int QUEUE_SIZE=100;
-	protected final SHashtable<String,CommandJournal>	commandJournals		= new SHashtable<String,CommandJournal>();
-	protected final Vector<ForumJournal> 				forumJournalsSorted	= new Vector<ForumJournal>();
-	protected final SHashtable<String,ForumJournal>	 	forumJournals		= new SHashtable<String,ForumJournal>();
-	protected final SHashtable<String,List<ForumJournal>>clanForums			= new SHashtable<String,List<ForumJournal>>();
+	public final int									QUEUE_SIZE			= 100;
+	protected final static int							SWEEP_TICK_MAX		= 60;
+	protected volatile int								sweepTickDown		= SWEEP_TICK_MAX;
+	protected volatile long								lastSweepTime		= System.currentTimeMillis() - TimeManager.MILI_YEAR;
+	protected final SHashtable<String, CommandJournal>	commandJournals		= new SHashtable<String, CommandJournal>();
+	protected final Vector<ForumJournal>				forumJournalsSorted	= new Vector<ForumJournal>();
+	protected final SHashtable<String, ForumJournal>	forumJournals		= new SHashtable<String, ForumJournal>();
+	protected final Map<String, List<ForumJournal>>		clanForums			= new SHashtable<String, List<ForumJournal>>();
+	protected final Map<String, Integer>				itemJournals		= new SHashtable<String, Integer>();
+	protected final PairList<Long, String>				cronJobs			= new PairVector<Long, String>();
+	protected final List<JournalEntry>					nextEvents			= new LinkedList<JournalEntry>();
+
+	protected volatile int lastMotdDate = -1;
 
 	protected final static List<ForumJournal> emptyForums = new ReadOnlyVector<ForumJournal>(0);
 
@@ -61,7 +76,7 @@ public class CMJournals extends StdLibrary implements JournalsLibrary
 		journalSummaryStats= (Hashtable<String,JournalMetaData>)Resources.getResource("FORUM_JOURNAL_STATS");
 		if(journalSummaryStats == null)
 		{
-			synchronized("FORUM_JOURNAL_STATS".intern())
+			synchronized(CMClass.getSync("FORUM_JOURNAL_STATS"))
 			{
 				journalSummaryStats= (Hashtable<String,JournalMetaData>)Resources.getResource("FORUM_JOURNAL_STATS");
 				if(journalSummaryStats==null)
@@ -83,7 +98,7 @@ public class CMJournals extends StdLibrary implements JournalsLibrary
 		JournalMetaData metaData = journalSummaryStats.get(journal.NAME().toUpperCase().trim());
 		if(metaData == null)
 		{
-			synchronized(journal.NAME().intern())
+			synchronized(CMClass.getSync("JOURNAL_"+journal.NAME()))
 			{
 				metaData = journalSummaryStats.get(journal.NAME().toUpperCase().trim());
 				if(metaData == null)
@@ -231,7 +246,7 @@ public class CMJournals extends StdLibrary implements JournalsLibrary
 		if(journal == null)
 			return;
 		final Hashtable<String,JournalMetaData> journalSummaryStats=getSummaryStats();
-		synchronized(journal.NAME().intern())
+		synchronized(CMClass.getSync("JOURNAL_"+journal.NAME()))
 		{
 			journalSummaryStats.remove(journal.NAME().toUpperCase().trim());
 		}
@@ -528,7 +543,9 @@ public class CMJournals extends StdLibrary implements JournalsLibrary
 				final String replyMask=flagMap.containsKey(ForumJournalFlags.REPLY)?flagMap.get(ForumJournalFlags.REPLY).trim():"";
 				final String adminMask=flagMap.containsKey(ForumJournalFlags.ADMIN)?flagMap.get(ForumJournalFlags.ADMIN).trim():"";
 				final String category =flagMap.containsKey(ForumJournalFlags.CATEGORY)?flagMap.get(ForumJournalFlags.CATEGORY).trim():"";
-				
+				final String attachMask=flagMap.containsKey(ForumJournalFlags.ATTACH)?flagMap.get(ForumJournalFlags.ATTACH).trim():"+SYSOP -NAMES";
+				final int maxAttach=CMath.s_int(flagMap.containsKey(ForumJournalFlags.MAXATTACH)?flagMap.get(ForumJournalFlags.MAXATTACH).trim():"3");
+
 				@Override
 				public String NAME()
 				{
@@ -551,6 +568,18 @@ public class CMJournals extends StdLibrary implements JournalsLibrary
 				public String replyMask()
 				{
 					return replyMask;
+				}
+
+				@Override
+				public String attachMask()
+				{
+					return attachMask;
+				}
+
+				@Override
+				public int maxAttach()
+				{
+					return maxAttach;
 				}
 
 				@Override
@@ -592,6 +621,9 @@ public class CMJournals extends StdLibrary implements JournalsLibrary
 					else
 					if(fl==ForumJournalFlags.ADMIN)
 						return maskCheck(M,adminMask);
+					else
+					if(fl==ForumJournalFlags.ATTACH)
+						return maskCheck(M,attachMask);
 					return false;
 				}
 
@@ -650,7 +682,7 @@ public class CMJournals extends StdLibrary implements JournalsLibrary
 		S.setVar(mob.Name(),"VALUE", oldValue);
 		final CMMsg msg2=CMClass.getMsg(mob,mob,null,CMMsg.MSG_OK_VISUAL,null,null,L("COMMANDJOURNAL_@x1",CMJ.NAME()));
 		S.executeMsg(mob, msg2);
-		S.dequeResponses();
+		S.dequeResponses(null);
 		S.tick(mob,Tickable.TICKID_MOB);
 		final String response=S.getVar("*","VALUE");
 		if(response!=null)
@@ -676,11 +708,314 @@ public class CMJournals extends StdLibrary implements JournalsLibrary
 		return commandJournals.get(named.toUpperCase().trim());
 	}
 
-	public void expirationJournalSweep()
+	protected static class JScriptWindow extends ScriptableObject
+	{
+		@Override
+		public String getClassName()
+		{
+			return "JScriptWindow";
+		}
+		static final long serialVersionUID=45;
+		MOB s=null;
+
+		public MOB mob()
+		{
+			return s;
+		}
+
+		public static String[] functions = { "mob", "toJavaString", "getCMType" };
+
+		public JScriptWindow(final MOB executor)
+		{
+			s = executor;
+		}
+
+		public String toJavaString(final Object O)
+		{
+			return Context.toString(O);
+		}
+
+		public String getCMType(final Object O)
+		{
+			if(O == null)
+				return "null";
+			final CMObjectType typ = CMClass.getObjectType(O);
+			if(typ == null)
+				return "unknown";
+			return typ.name().toLowerCase();
+		}
+	}
+
+	protected long runCronJob(final String jobKey, final boolean debug)
+	{
+		Session fakeS=null;
+		long touch = -1;
+		MOB mob=null;
+		try
+		{
+			setThreadStatus(serviceClient,"running job "+jobKey);
+			final JournalEntry E = CMLib.database().DBReadJournalEntry("SYSTEM_CRON", jobKey);
+			if(E==null)
+				return -1;
+			if(System.currentTimeMillis()<E.update())
+				return E.update();
+			if(debug)
+				Log.debugOut("Running cron job "+E.subj());
+			mob = CMLib.players().getLoadPlayerAllHosts(E.from());
+			if(mob == null)
+			{
+				Log.errOut("Cron job "+E.subj()+" has unkknown runner "+E.from());
+				return touch;
+			}
+			long interval = CMProps.getMillisPerMudHour();
+			try
+			{
+				final String intStr = CMParms.getParmStr(E.data(), "INTERVAL", ""+CMProps.getMillisPerMudHour());
+				if(CMath.isLong(intStr))
+					interval = CMath.s_long(intStr);
+				else
+				{
+					TimeClock C = E.getKnownClock();
+					if (C == null)
+						C = CMLib.time().homeClock(mob);
+					final int ticks = CMLib.time().parseTickExpression(C, intStr);
+					interval = ticks * CMProps.getTickMillis();
+				}
+			}
+			catch(final CMException e)
+			{
+				Log.errOut("cron",e.getMessage());
+			}
+			touch = System.currentTimeMillis()+interval;
+			E.update(System.currentTimeMillis()+interval);
+			CMLib.database().DBTouchJournalMessage(jobKey, E.update());
+			if(mob.session()==null)
+			{
+				fakeS=(Session)CMClass.getCommon("FakeSession");
+				fakeS.setMob(mob);
+				final LinkedList<List<String>> pcmds = fakeS.getHistory();
+				if(pcmds.size()>0)
+				{
+					pcmds.getLast().clear();
+					pcmds.getLast().addAll(new XVector<String>("Y"));
+				}
+			}
+			final PlayerStats pStats=mob.playerStats();
+			final List<String> commands = Resources.getFileLineVector(new StringBuffer(E.msg()));
+			for(int i=0;i<commands.size();i++)
+			{
+				if(fakeS != null)
+				{
+					final LinkedList<List<String>> pcmds = fakeS.getHistory();
+					if(pcmds.size()>0)
+					{
+						pcmds.getLast().clear();
+						pcmds.getLast().addAll(new XVector<String>("Y"));
+					}
+				}
+				final String input = commands.get(i).trim().replace('`', '\'');
+				if(input.equalsIgnoreCase("<MOBPROG>"))
+				{
+					final StringBuilder str=new StringBuilder("");
+					i++;
+					while((i<commands.size())&&(!commands.get(i).equalsIgnoreCase("</MOBPROG>")))
+					{
+						str.append(commands.get(i).replace('`', '\'')).append("\n");
+						i++;
+					}
+					if(i>=commands.size())
+					{
+						Log.errOut("Cron job "+E.subj()+" has MOBPROG w/o /MOBPROG");
+						return touch;
+					}
+					if(debug)
+						Log.debugOut("CRON: "+E.subj()+": "+str.toString());
+					final ScriptingEngine S=(ScriptingEngine)CMClass.getCommon("DefaultScriptingEngine");
+					S.setSavable(false);
+					S.setVarScope("*");
+					S.setScript(str.toString());
+					final CMMsg msg2=CMClass.getMsg(mob,mob,null,CMMsg.MSG_OK_VISUAL,null,null,L("MPRUN"));
+					S.executeMsg(mob, msg2);
+					S.dequeResponses(null);
+					S.tick(mob,Tickable.TICKID_MOB);
+				}
+				else
+				if(input.equalsIgnoreCase("<SCRIPT>"))
+				{
+					final StringBuilder str=new StringBuilder("");
+					i++;
+					while((i<commands.size())&&(!commands.get(i).equalsIgnoreCase("</SCRIPT>")))
+					{
+						str.append(commands.get(i).replace('`', '\'')).append("\n\r");
+						i++;
+					}
+					if(i>=commands.size())
+					{
+						Log.errOut("Cron job "+E.subj()+" has SCRIPT w/o /SCRIPT");
+						return touch;
+					}
+					final Context cx = Context.enter();
+					try
+					{
+						if(debug)
+							Log.debugOut("CRON: "+E.subj()+": "+str.toString());
+						final JScriptWindow scope = new JScriptWindow(mob);
+						cx.initStandardObjects(scope);
+						scope.defineFunctionProperties(JScriptWindow.functions,
+													   JScriptWindow.class,
+													   ScriptableObject.DONTENUM);
+						cx.evaluateString(scope, str.toString(),"<cmd>", 1, null);
+					}
+					catch(final Exception e)
+					{
+						Log.errOut("CRON: "+E.subj()+": JavaScript error: @x1",e.getMessage());
+					}
+					Context.exit();
+				}
+				else
+				if(input.trim().length()>0)
+				{
+					if(debug)
+						Log.debugOut("CRON: "+E.subj()+": "+input);
+					List<String> parsedInput=CMParms.parse(input);
+					if((parsedInput.size()>0)&&(mob!=null))
+					{
+						final String firstWord=parsedInput.get(0);
+						final String rawAliasDefinition=(pStats!=null)?pStats.getAlias(firstWord):"";
+						final List<List<String>> executableCommands=new LinkedList<List<String>>();
+						if(rawAliasDefinition.length()>0)
+						{
+							parsedInput.remove(0);
+							final boolean[] echo = new boolean[1];
+							CMLib.utensils().deAlias(rawAliasDefinition, parsedInput, executableCommands, echo);
+						}
+						else
+							executableCommands.add(parsedInput);
+						mob.setActions(0.0);
+						for(final Iterator<List<String>> x=executableCommands.iterator();x.hasNext();)
+						{
+							parsedInput=x.next();
+							final List<List<String>> MORE_CMDS=CMLib.lang().preCommandParser(parsedInput);
+							for(int m=0;m<MORE_CMDS.size();m++)
+								mob.enqueCommand(MORE_CMDS.get(m),MUDCmdProcessor.METAFLAG_INORDER,0);
+						}
+						mob.setActions(99);
+						int tries=99;
+						while(mob.dequeCommand() && (--tries>0))
+							mob.setActions(99);
+					}
+				}
+			}
+		}
+		finally
+		{
+			if((fakeS != null)&&(mob!=null))
+			{
+				fakeS.setMob(null);
+				if(mob.session()==fakeS)
+					mob.setSession(null);
+			}
+		}
+		return touch;
+	}
+
+	protected JournalEntry processCalendarExpiration(final JournalEntry expiredEntry)
+	{
+		JournalEntry nextStart = null;
+		if((expiredEntry != null)
+		&&(System.currentTimeMillis() >= expiredEntry.expiration())
+		&&(expiredEntry.data().length()>0)
+		&&(expiredEntry.data().startsWith("<")))
+		{
+			final List<XMLTag> pieces = CMLib.xml().parseAllXML(expiredEntry.data());
+			final XMLTag periodTag = CMLib.xml().getPieceFromPieces(pieces, "PERIOD");
+			final XMLTag durationTag = CMLib.xml().getPieceFromPieces(pieces, "HOURS");
+			if((periodTag != null)&&(durationTag!=null))
+			{
+				final String[] repeat = periodTag.value().trim().toUpperCase().split(" ");
+				if(repeat.length>1)
+				{
+					final JournalEntry newEntry = expiredEntry.copyOf();
+					final long n = CMath.s_long(repeat[0]);
+					final TimePeriod P = (TimePeriod)CMath.s_valueOf(TimePeriod.class, repeat[1]);
+					final int hours = CMath.s_int(durationTag.value());
+					final TimeClock nowC = expiredEntry.getKnownClock();
+					TimeClock expiredC = null;
+					if(nowC != null)
+						expiredC = nowC.fromTimePeriodCodeString(expiredEntry.dateStr());
+					long multiplier = 0;
+					long durationMillis = 0;
+					while((newEntry.date()>0)
+					&&(newEntry.date()<=System.currentTimeMillis()))
+					{
+						multiplier += 1;
+						if(expiredC != null)
+						{
+							final TimeClock C = (TimeClock)expiredC.copyOf();
+							C.bump(P, (int)(n * multiplier));
+							newEntry.dateStr(C.toTimePeriodCodeString());
+							durationMillis = CMProps.getMillisPerMudHour() * hours;
+						}
+						else
+						{
+							durationMillis = TimeManager.MILI_HOUR * hours;
+							final Calendar C = Calendar.getInstance();
+							C.setTimeInMillis(newEntry.date());
+							if(P == TimePeriod.SEASON)
+							{
+								C.add(Calendar.MONTH, 3*(int)(n*multiplier));
+								newEntry.dateStr(""+(C.getTimeInMillis()));
+							}
+							else
+							if(P == TimePeriod.MONTH)
+							{
+								C.add(Calendar.MONTH, (int)(n * multiplier));
+								newEntry.dateStr(""+(C.getTimeInMillis()));
+							}
+							else
+								newEntry.dateStr(""+(expiredEntry.date()+(n*P.getIncrement()*multiplier)));
+						}
+					}
+					if(newEntry.date()>0)
+					{
+						newEntry.update(newEntry.date());
+						newEntry.expiration(newEntry.date() + durationMillis);
+
+						newEntry.key(null);
+						CMLib.database().DBWriteJournal("SYSTEM_CALENDAR", newEntry);
+						if(CMSecurity.isDebugging(DbgFlag.CALENDAR))
+							Log.debugOut("Next entry "+newEntry.key()+" will happen @ "+CMLib.time().date2String(newEntry.expiration())+".");
+						nextStart=newEntry;
+					}
+				}
+			}
+			expiredEntry.data("");
+			CMLib.database().DBUpdateJournal("SYSTEM_CALENDAR", expiredEntry);
+		}
+		return nextStart;
+	}
+
+	protected void expirationJournalSweep()
 	{
 		setThreadStatus(serviceClient,"expiration journal sweeping");
 		try
 		{
+			for(final String journalName : itemJournals.keySet())
+			{
+				final Integer expireDays = itemJournals.get(journalName);
+				setThreadStatus(serviceClient,"updating journal "+journalName);
+				final long expirationDate = System.currentTimeMillis() - (TimeManager.MILI_DAY * expireDays.intValue());
+				final List<JournalEntry> items=CMLib.database().DBReadJournalMsgsOlderThan(journalName,null,expirationDate);
+				for(int i=items.size()-1;i>=0;i--)
+				{
+					final JournalEntry entry=items.get(i);
+					final String from=entry.from();
+					final String message=entry.msg();
+					Log.sysOut(Thread.currentThread().getName(),"Expired "+journalName+" from "+from+": "+message);
+					CMLib.database().DBDeleteJournal(journalName,entry.key());
+				}
+				setThreadStatus(serviceClient,"command journal sweeping");
+			}
 			for(final Enumeration<CommandJournal> e=commandJournals();e.hasMoreElements();)
 			{
 				final CommandJournal CMJ=e.nextElement();
@@ -701,6 +1036,22 @@ public class CMJournals extends StdLibrary implements JournalsLibrary
 					setThreadStatus(serviceClient,"command journal sweeping");
 				}
 			}
+			boolean resetCalendar = false;
+			final List<JournalEntry> expired=CMLib.database().DBReadJournalMsgsByExpiRange("SYSTEM_CALENDAR",null,lastSweepTime, System.currentTimeMillis(), "<PERIOD>");
+			for(final JournalEntry expiredEntry : expired)
+				resetCalendar = (processCalendarExpiration(expiredEntry) != null) || resetCalendar;
+			final long expirationDate = System.currentTimeMillis() - TimeManager.MILI_YEAR;
+			final List<JournalEntry> items=CMLib.database().DBReadJournalMsgsOlderThan("SYSTEM_CALENDAR",null,expirationDate);
+			for(int i=items.size()-1;i>=0;i--)
+			{
+				final JournalEntry entry=items.get(i);
+				final String from=entry.from();
+				final String message=entry.msg();
+				Log.sysOut(Thread.currentThread().getName(),"Expired event from "+from+": "+message);
+				CMLib.database().DBDeleteJournal("SYSTEM_CALENDAR",entry.key());
+			}
+			if(resetCalendar)
+				resetCalendarEvents();
 		}
 		catch(final NoSuchElementException nse)
 		{
@@ -720,7 +1071,7 @@ public class CMJournals extends StdLibrary implements JournalsLibrary
 					for(int i=items.size()-1;i>=0;i--)
 					{
 						final JournalEntry entry=items.get(i);
-						if(!CMath.bset(entry.attributes(), JournalEntry.ATTRIBUTE_PROTECTED))
+						if(!CMath.bset(entry.attributes(), JournalEntry.JournalAttrib.PROTECTED.bit))
 						{
 							final String from=entry.from();
 							final String message=entry.msg();
@@ -742,28 +1093,341 @@ public class CMJournals extends StdLibrary implements JournalsLibrary
 	@Override
 	public boolean activate()
 	{
+		if(!super.activate())
+			return false;
 		if(serviceClient==null)
 		{
 			name="THJournals"+Thread.currentThread().getThreadGroup().getName().charAt(0);
-			serviceClient=CMLib.threads().startTickDown(this, Tickable.TICKID_SUPPORT|Tickable.TICKID_SOLITARYMASK, MudHost.TIME_SAVETHREAD_SLEEP, 1);
+			serviceClient=CMLib.threads().startTickDown(this,
+					Tickable.TICKID_SUPPORT|Tickable.TICKID_SOLITARYMASK,
+					MudHost.TIME_UTILTHREAD_SLEEP/10, 1);
 		}
+		cronJobs.clear();
+		final List<JournalEntry> jobs = CMLib.database().DBReadJournalMsgsByCreateDate("SYSTEM_CRON", true);
+		if(jobs != null)
+		{
+			for(final JournalEntry E : jobs)
+				cronJobs.add(new Pair<Long,String>(Long.valueOf(E.update()),E.key()));
+		}
+		initializeCalendarEvents();
 		return true;
+	}
+
+	protected void initializeCalendarEvents()
+	{
+		final List<JournalEntry> entries=CMLib.database().DBReadAllJournalMsgsByExpiDateStr("SYSTEM_CALENDAR",System.currentTimeMillis(), "/");
+		for(final JournalEntry entry : entries)
+		{
+			final long diff = Math.abs(entry.update()-entry.date());
+			if(diff >= CMProps.getMillisPerMudHour())
+			{
+				entry.update(entry.date());
+				final List<XMLTag> pieces = CMLib.xml().parseAllXML(entry.data());
+				final XMLTag durationTag = CMLib.xml().getPieceFromPieces(pieces, "HOURS");
+				if(durationTag != null)
+				{
+					final int num = CMath.s_int(durationTag.value());
+					entry.expiration(entry.date() + (CMProps.getMillisPerMudHour() * num));
+				}
+				Log.debugOut("Fixing calendar entry "+entry.key());
+				CMLib.database().DBUpdateJournal("SYSTEM_CALENDAR", entry);
+			}
+		}
+		resetCalendarEvents();
+	}
+
+	protected void resetCalendarEvents(final long now)
+	{
+		synchronized(this.nextEvents)
+		{
+			this.nextEvents.clear();
+			while(CMLib.threads().isTicking(this, Tickable.TICKID_EVENT))
+				CMLib.threads().deleteTick(this, Tickable.TICKID_EVENT);
+			final List<JournalEntry> calendar = new Vector<JournalEntry>();
+			long endestTime = System.currentTimeMillis() + TimeManager.MILI_YEAR;
+			for(final JournalEntry holiday : CMLib.quests().getHolidayEntries(true))
+			{
+				if(holiday.date()>=now)
+				{
+					calendar.add(holiday);
+					if(holiday.date()<endestTime)
+						endestTime=holiday.date();
+				}
+			}
+			long nextTime = endestTime+1000;
+			calendar.addAll(CMLib.database().DBReadJournalMsgsByUpdateRange("SYSTEM_CALENDAR", null, now, nextTime));
+			final List<JournalEntry> partials = new LinkedList<JournalEntry>();
+			for(final JournalEntry entry : calendar)
+			{
+				if(entry.date() <= nextTime)
+				{
+					if(entry.date() < nextTime)
+					{
+						partials.clear();
+						nextTime=entry.date();
+					}
+					partials.add(entry);
+				}
+			}
+			nextEvents.addAll(partials);
+			if(nextEvents.size()>0)
+			{
+				if(CMSecurity.isDebugging(DbgFlag.CALENDAR))
+					Log.debugOut("Next Calendar thread will process "+nextEvents.size()+" events @ "+CMLib.time().date2String(nextTime)+".");
+				CMLib.threads().startTickDown(this, Tickable.TICKID_EVENT, nextTime-System.currentTimeMillis(), 1);
+			}
+		}
+	}
+
+	@Override
+	public void resetCalendarEvents()
+	{
+		resetCalendarEvents(System.currentTimeMillis());
+	}
+
+	protected String getCalendarEvent(TimeClock localClock, final JournalEntry event)
+	{
+		if(localClock == null)
+			localClock = event.getKnownClock();
+		if(localClock == null)
+			localClock = CMLib.time().globalClock();
+		if(event == null)
+			return "";
+		final TimeClock eC = localClock.deriveClock(event.expiration());
+		String endDateStr = eC.getShortestTimeDescription();
+		endDateStr += " (" + CMLib.time().date2String24(event.expiration())+")";
+		final long expiresIn = event.expiration() - System.currentTimeMillis();
+		if((event.msg() != null)
+		&&(event.msg().trim().length()>0)
+		&&(event.msg().indexOf("<PERIOD>")>=0)
+		&&(!event.from().equalsIgnoreCase("Holiday"))
+		&&(expiresIn < (TimeManager.MILI_HOUR+CMProps.getTickMillis()))
+		&&(expiresIn > 0))
+		{
+			final CMJournals lib = this;
+			CMLib.threads().scheduleRunnable(new Runnable()
+			{
+				final String key = event.key();
+				final CMJournals me = lib;
+				@Override
+				public void run()
+				{
+					final JournalEntry entry = CMLib.database().DBReadJournalEntry("SYSTEM_CALENDAR", key);
+					final JournalEntry nextStart = processCalendarExpiration(entry);
+					if((nextStart!=null)&&(nextStart.date() > System.currentTimeMillis()))
+					{
+						synchronized(me.nextEvents)
+						{
+							if(me.nextEvents.size()>0)
+							{
+								final JournalEntry sampleE = me.nextEvents.get(0);
+								if(nextStart.date() < sampleE.date())
+								{
+									while(CMLib.threads().isTicking(me, TICKID_EVENT))
+										CMLib.threads().deleteTick(me, Tickable.TICKID_EVENT);
+									me.nextEvents.clear();
+									nextEvents.add(nextStart);
+									if(CMSecurity.isDebugging(DbgFlag.CALENDAR))
+										Log.debugOut("Next Calendar thread: "+nextEvents.size()+" events.");
+									CMLib.threads().startTickDown(me, Tickable.TICKID_EVENT, nextStart.date()-System.currentTimeMillis(), 1);
+								}
+								else
+								if(nextStart.date() == sampleE.date())
+									me.nextEvents.add(nextStart);
+							}
+							else
+							{
+								while(CMLib.threads().isTicking(me, TICKID_EVENT))
+									CMLib.threads().deleteTick(me, Tickable.TICKID_EVENT);
+								me.nextEvents.clear();
+								nextEvents.add(nextStart);
+								if(CMSecurity.isDebugging(DbgFlag.CALENDAR))
+									Log.debugOut("Next Calendar thread will handle "+nextEvents.size()+" events.");
+								CMLib.threads().startTickDown(me, Tickable.TICKID_EVENT, nextStart.date()-System.currentTimeMillis(), 1);
+							}
+						}
+					}
+				}
+			}, expiresIn);
+		}
+		final String eventMessage = L("@x1 is now started, and will end at @x2.",event.subj(),endDateStr);
+		if(CMSecurity.isDebugging(DbgFlag.CALENDAR))
+			Log.debugOut("Calendar generated message: "+eventMessage);
+		return eventMessage;
+	}
+
+	protected void postCalendarEventTo(final JournalEntry event, final List<Area> areas, final MOB M)
+	{
+		if((M != null)
+		&&(M.session()!=null)
+		&&(CMLib.flags().isInTheGame(M, true))
+		&&(M.location()!=null))
+		{
+			final Room R=M.location();
+			final Session S = M.session();
+			final Area A = (R!=null)?R.getArea():null;
+			boolean forbid=areas.size()>0;
+			if(A!=null)
+			{
+				for(final Area A1 : areas)
+				{
+					if((A==A1)||(A1.inMyMetroArea(A)))
+						forbid=false;
+				}
+			}
+			if(!forbid)
+			{
+				final List<String> channels=CMLib.channels().getFlaggedChannelNames(ChannelsLibrary.ChannelFlag.CALENDAR, null);
+				for(final String channelName : channels)
+				{
+					final ChannelsLibrary myChanLib=CMLib.get(S)._channels();
+					final int chanNum = myChanLib.getChannelIndex(channelName);
+					if(chanNum >= 0)
+					{
+						if(CMSecurity.isDebugging(DbgFlag.CALENDAR))
+							Log.debugOut("Calendar posting event to channel: "+channelName);
+						final String str="["+channelName+"] '"+getCalendarEvent(CMLib.time().localClock(M),event)+"'^</CHANNEL^>^?^.";
+						final CMMsg msg=CMClass.getMsg(M,null,null,
+								CMMsg.MASK_CHANNEL|CMMsg.MASK_ALWAYS|CMMsg.MSG_SPEAK,"^Q^<CHANNEL \""+channelName+"\"^>"+str,
+								CMMsg.NO_EFFECT,null,
+								CMMsg.MASK_CHANNEL|(CMMsg.TYP_CHANNEL+chanNum),"^Q^<CHANNEL \""+channelName+"\"^>"+str);
+						CMLib.channels().sendChannelCMMsgTo(M.session(), true, chanNum, msg, M);
+					}
+				}
+			}
+		}
+	}
+
+	protected void processCalendarEvents()
+	{
+		synchronized(this.nextEvents)
+		{
+			final long resetTime =System.currentTimeMillis() + CMProps.getTickMillis();
+			final List<Area> areas = new LinkedList<Area>();
+			for(final JournalEntry event : nextEvents)
+			{
+				areas.clear();
+				if(event.to().length() > 0)
+				{
+					final List<String> areaNames = CMParms.parse(event.to().toUpperCase().trim());
+					if((!areaNames.contains("ALL"))&&(!areaNames.contains("ANY")))
+					{
+						for(final String sA : areaNames)
+						{
+							final Area A = CMLib.map().findArea(sA);
+							if(A!=null)
+								areas.add(A);
+						}
+					}
+				}
+				if(event.from().equals("SYSTEM")||event.from().equals("Holiday"))
+				{
+					if(areas.size()==0)
+					{
+						if(CMSecurity.isDebugging(DbgFlag.CALENDAR))
+							Log.debugOut("Calendar "+event.from()+" announce: "+event.subj()+"@"+event.dateStr());
+						final List<String> channels=CMLib.channels().getFlaggedChannelNames(ChannelsLibrary.ChannelFlag.CALENDAR, null);
+						for(int i=0;i<channels.size();i++)
+							CMLib.commands().postChannel(channels.get(i),null,getCalendarEvent(null,event),true,null);
+					}
+					else
+					{
+						for(final Session S : CMLib.sessions().allIterableAllHosts())
+						{
+							final MOB M = (S!=null)?S.mob():null;
+							if(M!=null)
+							{
+								if(CMSecurity.isDebugging(DbgFlag.CALENDAR))
+									Log.debugOut("Calendar session announce to "+M.name()+": "+event.subj()+"@"+event.dateStr());
+								postCalendarEventTo(event, areas, M);
+							}
+						}
+					}
+				}
+				else
+				{
+					final Clan C = CMLib.clans().fetchClanAnyHost(event.from());
+					if(C != null)
+					{
+						if(CMSecurity.isDebugging(DbgFlag.CALENDAR))
+							Log.debugOut("Calendar clan announce to "+C.name()+": "+event.subj()+"@"+event.dateStr());
+						C.clanAnnounce(getCalendarEvent(null,event));
+					}
+					else
+					{
+						final MOB M = CMLib.players().getPlayerAllHosts(event.from());
+						if(M!=null)
+						{
+							if(CMSecurity.isDebugging(DbgFlag.CALENDAR))
+								Log.debugOut("Calendar npc announce to "+M.name()+": "+event.subj()+"@"+event.dateStr());
+							postCalendarEventTo(event, areas, M);
+						}
+					}
+				}
+			}
+			resetCalendarEvents(resetTime);
+		}
 	}
 
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
+		if(tickStatus == Tickable.STATUS_ALIVE)
+			return true;
 		tickStatus=Tickable.STATUS_ALIVE;
 		try
 		{
-			if((!CMSecurity.isDisabled(CMSecurity.DisFlag.SAVETHREAD))
-			&&(!CMSecurity.isDisabled(CMSecurity.DisFlag.JOURNALTHREAD)))
+			if((tickID & Tickable.TICKID_SHORTERMASK)==Tickable.TICKID_EVENT)
 			{
-				isDebugging=CMSecurity.isDebugging(DbgFlag.JOURNALTHREAD);
-				tickStatus=Tickable.STATUS_ALIVE;
-				expirationJournalSweep();
-				setThreadStatus(serviceClient,"sleeping");
+				if(CMSecurity.isDebugging(DbgFlag.CALENDAR))
+					Log.debugOut("Starting calendar processing for "+name());
+				processCalendarEvents();
+				if(CMSecurity.isDebugging(DbgFlag.CALENDAR))
+					Log.debugOut("Finished calendar processing for "+name());
+				return false; // processing ALWAYS reschedules, so KILL this one.
 			}
+
+			// here and below is the normal utilithread
+			if((--sweepTickDown)<=0)
+			{
+				sweepTickDown = CMJournals.SWEEP_TICK_MAX;
+				if((!CMSecurity.isDisabled(CMSecurity.DisFlag.SAVETHREAD))
+				&&(!CMSecurity.isDisabled(CMSecurity.DisFlag.JOURNALTHREAD)))
+				{
+					isDebugging=CMSecurity.isDebugging(DbgFlag.JOURNALTHREAD);
+					if((this.lastMotdDate > -1)
+					&&(Calendar.getInstance().get(Calendar.DAY_OF_MONTH)!=this.lastMotdDate))
+					{
+						final CMFile motdFile = new CMFile(Resources.buildResourcePath("text")+"motd.txt",null);
+						if(motdFile.exists())
+							motdFile.deleteAll();
+					}
+					this.lastMotdDate=Calendar.getInstance().get(Calendar.DAY_OF_MONTH);
+					expirationJournalSweep();
+				}
+				lastSweepTime = System.currentTimeMillis();
+			}
+			if(!CMSecurity.isDisabled(CMSecurity.DisFlag.CRONJOBS))
+			{
+				final boolean debug=CMSecurity.isDebugging(DbgFlag.CRONTRACE);
+				final List<Pair<Long,String>> jobsToRun = new ArrayList<Pair<Long,String>>(1);
+				for(int i=0;i<cronJobs.size();i++)
+				{
+					final Long L=cronJobs.getFirst(i);
+					if(System.currentTimeMillis()>L.longValue())
+						jobsToRun.add(cronJobs.get(i));
+				}
+				for(final Pair<Long,String> job : jobsToRun)
+				{
+					final long tm = runCronJob(job.second, debug);
+					if(tm < 0)
+						cronJobs.remove(job);
+					else
+					if(tm != job.first.longValue())
+						job.first=Long.valueOf(tm);
+				}
+			}
+			setThreadStatus(serviceClient,"sleeping");
 		}
 		finally
 		{
@@ -838,6 +1502,8 @@ public class CMJournals extends StdLibrary implements JournalsLibrary
 	{
 		clearCommandJournals();
 		clearForumJournals();
+		cronJobs.clear();
+		itemJournals.clear();
 		if(CMLib.threads().isTicking(this, TICKID_SUPPORT|Tickable.TICKID_SOLITARYMASK))
 		{
 			CMLib.threads().deleteTick(this, TICKID_SUPPORT|Tickable.TICKID_SOLITARYMASK);
@@ -960,7 +1626,7 @@ public class CMJournals extends StdLibrary implements JournalsLibrary
 				switch(state)
 				{
 				case INPUT:
-					sess.promptPrint(L("^X"+CMStrings.padRight(""+vbuf.size(),3)+")^.^N "));
+					sess.promptPrint("^X"+CMStrings.padRight(""+vbuf.size(),3)+")^.^N "); // no L necc
 					this.noTrim=true;
 					break;
 				case MENU:
@@ -1382,7 +2048,7 @@ public class CMJournals extends StdLibrary implements JournalsLibrary
 			sess.setAfkFlag(false);
 			if(!menuMode)
 			{
-				final String line =unsafePrompt(sess,"^X"+CMStrings.padRight(""+vbuf.size(),3)+")^.^N ",".");
+				final String line =unsafePrompt(sess,"^X"+CMStrings.padRight(""+vbuf.size(),3)+")^.^N ","."); // no L necc
 				if(line.trim().equals("."))
 					menuMode=true;
 				else
@@ -1542,6 +2208,24 @@ public class CMJournals extends StdLibrary implements JournalsLibrary
 	}
 
 	@Override
+	public boolean unsubscribeFromAll(final String username)
+	{
+		final Map<String, List<String>> lists=Resources.getCachedMultiLists("mailinglists.txt",true);
+		boolean updateMailingLists=false;
+		if(lists != null)
+		{
+			for(final String journalName : lists.keySet())
+			{
+				final List<String> mylist=lists.get(journalName);
+				updateMailingLists = mylist.remove(username) || updateMailingLists;
+			}
+		}
+		if(updateMailingLists)
+			Resources.updateCachedMultiLists("mailinglists.txt");
+		return updateMailingLists;
+	}
+
+	@Override
 	public boolean subscribeToJournal(final String journalName, final String userName, final boolean saveMailingList)
 	{
 		boolean updateMailingLists=false;
@@ -1626,5 +2310,16 @@ public class CMJournals extends StdLibrary implements JournalsLibrary
 			Resources.updateCachedMultiLists("mailinglists.txt");
 		}
 		return updateMailingLists;
+	}
+
+	@Override
+	public void registerItemJournal(final Item itemJournal)
+	{
+		if(itemJournal != null)
+		{
+			final int expireDays = CMath.s_int(itemJournal.getStat("EXPIRE"));
+			if(expireDays > 0)
+				this.itemJournals.put(itemJournal.Name(), Integer.valueOf(expireDays));
+		}
 	}
 }

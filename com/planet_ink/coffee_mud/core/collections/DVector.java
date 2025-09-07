@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -32,31 +32,54 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+
+/**
+ * A multi-dimensional vector class. Each element of the DVector is an array of
+ * Objects, all of the same length (the number of dimensions). The first object
+ * in each array is used when searching or sorting.
+ *
+ * This is one of the oldest and most hated classes in CoffeeMud, but it is
+ * still found in quite a few places. It is synchronized, and not very fast.
+ *
+ * @author Bo Zimmerman
+ *
+ */
 public class DVector implements Cloneable, NList<Object>, java.io.Serializable
 {
-	public static final long 	serialVersionUID=43353454350L;
-	protected int 				dimensions=1;
-	private SVector<Object[]> 	stuff;
-	private final static int 	MAX_SIZE=9;
+	public static final long		serialVersionUID	= 43353454350L;
+	protected int					dimensions			= 1;
+	private final SVector<Object[]>	stuff;
+	private final static int		MAX_SIZE			= 10;
 
 	public final static DVector empty = new DVector(1);
 
+	/**
+	 * Constructs a new DVector with the given number of dimensions.
+	 * @param dim the number of dimensions
+	 */
 	public DVector(final int dim)
 	{
 		if(dim<1)
-			throw new java.lang.IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException();
 		if(dim>MAX_SIZE)
-			throw new java.lang.IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException();
 		dimensions=dim;
 		stuff=new SVector<Object[]>(1);
 	}
 
+	/**
+	 * Constructs a new DVector with the given number of dimensions and starting
+	 * size.
+	 *
+	 * @param dim the number of dimensions
+	 * @param startingSize the initial capacity
+	 */
 	public DVector(final int dim, final int startingSize)
 	{
 		if(dim<1)
-			throw new java.lang.IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException();
 		if(dim>MAX_SIZE)
-			throw new java.lang.IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException();
 		dimensions=dim;
 		stuff=new SVector<Object[]>(startingSize);
 	}
@@ -96,7 +119,7 @@ public class DVector implements Cloneable, NList<Object>, java.io.Serializable
 	public synchronized Object[] elementsAt(final int x)
 	{
 		if((x<0)||(x>=stuff.size()))
-			throw new java.lang.IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException();
 		return stuff.elementAt(x);
 	}
 
@@ -104,7 +127,7 @@ public class DVector implements Cloneable, NList<Object>, java.io.Serializable
 	public synchronized Object[] removeElementsAt(final int x)
 	{
 		if((x<0)||(x>=stuff.size()))
-			throw new java.lang.IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException();
 		final Object[] O=stuff.elementAt(x);
 		stuff.removeElementAt(x);
 		return O;
@@ -126,32 +149,65 @@ public class DVector implements Cloneable, NList<Object>, java.io.Serializable
 	public synchronized void sortBy(int dim)
 	{
 		if((dim<1)||(dim>dimensions))
-			throw new java.lang.IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException();
 		dim--;
 		if(stuff!=null)
 		{
-			final TreeSet<Object> sorted=new TreeSet<Object>();
-			Object O=null;
-			for (final Object[] name : stuff)
-			{
-				O=(name)[dim];
-				if(!sorted.contains(O))
-					sorted.add(O);
-			}
-			final SVector<Object[]> newStuff = new SVector<Object[]>(stuff.size());
-			for(final Iterator<Object> i=sorted.iterator();i.hasNext();)
-			{
-				O=i.next();
-				for (final Object[] Os : stuff)
+			final int d=dim;
+			final List<Object[]> subStuff=new ArrayList<Object[]>(stuff.size());
+			subStuff.addAll(stuff);
+			Collections.sort(subStuff,new Comparator<Object[]>(){
+				@SuppressWarnings({ "unchecked", "rawtypes" })
+				@Override
+				public int compare(final Object[] o1, final Object[] o2)
 				{
-					if(O==Os[dim])
-						newStuff.addElement(Os);
+					final Object oo1=o1[d];
+					final Object oo2=o2[d];
+					if(oo1 == oo2)
+						return 0;
+					if(oo1==null)
+					{
+						if(oo2==null)
+							return 0;
+						return -1;
+					}
+					else
+					if(oo2==null)
+						return 1;
+					if(oo1 instanceof Comparable)
+						return ((Comparable)oo1).compareTo(oo2);
+					return Integer.valueOf(oo1.hashCode()).compareTo(Integer.valueOf(oo2.hashCode()));
 				}
-			}
-			stuff=newStuff;
+			});
+			stuff.clear();
+			stuff.addAll(subStuff);
 		}
 	}
 
+	/**
+	 * Sorts the DVector according to the given comparator.
+	 *
+	 * @param comparator the comparator to use
+	 */
+	public synchronized void sortBy(final Comparator<Object[]> comparator)
+	{
+		if(stuff!=null)
+		{
+			final List<Object[]> subStuff=new ArrayList<Object[]>(stuff.size());
+			subStuff.addAll(stuff);
+			Collections.sort(subStuff,comparator);
+			stuff.clear();
+			stuff.addAll(subStuff);
+		}
+	}
+
+	/**
+	 * Converts a Map into a 2-dimensional DVector, where the first dimension is
+	 * the key, and the second dimension is the value.
+	 *
+	 * @param h the map to convert
+	 * @return the newly created DVector
+	 */
 	public static DVector toNVector(final Map<? extends Object,? extends Object> h)
 	{
 		final DVector DV=new DVector(2);
@@ -166,23 +222,33 @@ public class DVector implements Cloneable, NList<Object>, java.io.Serializable
 	public synchronized void addSharedElements(final Object[] O)
 	{
 		if(dimensions!=O.length)
-			throw new java.lang.IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException();
 		stuff.addElement(O);
 	}
 
-	@Override
+	/**
+	 * Adds an element to the end of the DVector. The number of objects in the
+	 * array must match the number of dimensions of the DVector.
+	 *
+	 * @param Os the array of objects to add
+	 */
 	public synchronized void addElement(final Object... Os)
 	{
 		if(dimensions!=Os.length)
-			throw new java.lang.IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException();
 		stuff.addElement(Os);
 	}
 
-	@Override
+	/**
+	 * Adds an element to the end of the DVector. The number of objects in the
+	 * array must match the number of dimensions of the DVector.
+	 *
+	 * @param Os the array of objects to add
+	 */
 	public synchronized void add(final Object... Os)
 	{
 		if(dimensions!=Os.length)
-			throw new java.lang.IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException();
 		stuff.addElement(Os);
 	}
 
@@ -236,7 +302,7 @@ public class DVector implements Cloneable, NList<Object>, java.io.Serializable
 	{
 		final Vector<Object> V=new Vector<Object>(stuff.size());
 		if(dimensions<dim)
-			throw new java.lang.IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException();
 		for (final Object[] name : stuff)
 			V.addElement(name[dim-1]);
 		return V;
@@ -256,7 +322,7 @@ public class DVector implements Cloneable, NList<Object>, java.io.Serializable
 	public synchronized Object elementAt(final int i, final int dim)
 	{
 		if(dimensions<dim)
-			throw new java.lang.IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException();
 		return (stuff.elementAt(i))[dim-1];
 	}
 
@@ -264,7 +330,7 @@ public class DVector implements Cloneable, NList<Object>, java.io.Serializable
 	public synchronized Object get(final int i, final int dim)
 	{
 		if(dimensions<dim)
-			throw new java.lang.IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException();
 		return (stuff.elementAt(i))[dim-1];
 	}
 
@@ -272,7 +338,7 @@ public class DVector implements Cloneable, NList<Object>, java.io.Serializable
 	public synchronized void setElementAt(final int index, final int dim, final Object O)
 	{
 		if(dimensions<dim)
-			throw new java.lang.IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException();
 		stuff.elementAt(index)[dim-1]=O;
 	}
 
@@ -280,23 +346,35 @@ public class DVector implements Cloneable, NList<Object>, java.io.Serializable
 	public synchronized void set(final int index, final int dim, final Object O)
 	{
 		if(dimensions<dim)
-			throw new java.lang.IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException();
 		stuff.elementAt(index)[dim-1]=O;
 	}
 
-	@Override
+	/**
+	 * Inserts an element into the DVector at the given index. The number of
+	 * objects in the array must match the number of dimensions of the DVector.
+	 *
+	 * @param here the index at which to insert the new element
+	 * @param Os the array of objects to add
+	 */
 	public synchronized void insertElementAt(final int here, final Object... Os)
 	{
 		if(dimensions!=Os.length)
-			throw new java.lang.IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException();
 		stuff.insertElementAt(Os,here);
 	}
 
-	@Override
+	/**
+	 * Inserts an element into the DVector at the given index. The number of
+	 * objects in the array must match the number of dimensions of the DVector.
+	 *
+	 * @param here the index at which to insert the new element
+	 * @param Os the array of objects to add
+	 */
 	public synchronized void add(final int here, final Object... Os)
 	{
 		if(dimensions!=Os.length)
-			throw new java.lang.IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException();
 		stuff.insertElementAt(Os,here);
 	}
 }

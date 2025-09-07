@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -89,7 +89,13 @@ public class Thief_RunningFight extends ThiefSkill
 	@Override
 	public int classificationCode()
 	{
-		return Ability.ACODE_THIEF_SKILL|Ability.DOMAIN_DIRTYFIGHTING;
+		return Ability.ACODE_THIEF_SKILL|Ability.DOMAIN_EVASIVE;
+	}
+
+	@Override
+	public long flags()
+	{
+		return Ability.FLAG_MOVING;
 	}
 
 	@Override
@@ -127,45 +133,58 @@ public class Thief_RunningFight extends ThiefSkill
 		if(msg.amISource(mob)
 		&&(msg.targetMinor()==CMMsg.TYP_LEAVE)
 		&&(mob.isInCombat())
-		&&(mob.getVictim()!=null)
-		&&(msg.target() instanceof Room)
-		&&(msg.tool() instanceof Exit)
-		&&((mob.fetchAbility(ID())==null)||proficiencyCheck(null,0,false))
-		&&((CMLib.dice().rollPercentage()+mob.phyStats().level()+(2*getXLEVELLevel(mob)))>mob.getVictim().charStats().getSave(CharStats.STAT_SAVE_TRAPS))
-		&&((CMLib.dice().rollPercentage()+mob.phyStats().level()+(2*getXLEVELLevel(mob)))>mob.getVictim().charStats().getSave(CharStats.STAT_SAVE_MIND)))
+		&&(msg.source().riding()==null))
 		{
-			final MOB M=mob.getVictim();
-			if((M==null)||(M.getVictim()!=mob))
+			final MOB vic = mob.getVictim();
+			if((vic!=null)
+			&&(msg.source().getVictim().riding()==null)
+			&&(msg.target() instanceof Room)
+			&&(msg.tool() instanceof Exit)
+			&&((mob.fetchAbility(ID())==null)||proficiencyCheck(null,0,false))
+			&&((CMLib.dice().rollPercentage()+mob.phyStats().level()+(2*getXLEVELLevel(mob)))>vic.charStats().getSave(CharStats.STAT_SAVE_TRAPS))
+			&&((CMLib.dice().rollPercentage()+mob.phyStats().level()+(2*getXLEVELLevel(mob)))>vic.charStats().getSave(CharStats.STAT_SAVE_MIND)))
 			{
-				mob.tell(M,null,null,L("<S-NAME> is not fighting you!"));
-				return false;
-			}
-			int dir=-1;
-			for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
-			{
-				if(mob.location().getRoomInDir(d)!=null)
+				final MOB M=vic;
+				final Room R = (Room)msg.target();
+				if((M==null)||(M.getVictim()!=mob))
 				{
-					if((mob.location().getRoomInDir(d)!=null)
-					&&(mob.location().getReverseExit(d)==msg.tool()))
+					mob.tell(M,null,null,L("<S-NAME> is not fighting you!"));
+					return false;
+				}
+				int dir=-1;
+				for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+				{
+					if(mob.location().getRoomInDir(d)!=null)
 					{
-						dir=d; break;
+						if((mob.location().getRoomInDir(d)!=null)
+						&&(mob.location().getReverseExit(d)==msg.tool()))
+						{
+							dir=d; break;
+						}
 					}
 				}
-			}
-			if(dir<0)
-				return super.okMessage(myHost,msg);
-			mob.makePeace(true);
-			if(CMLib.tracking().walk(M,dir,false,false))
-			{
-				M.setVictim(mob);
-				lastOpponent=M;
-				if(CMLib.dice().rollPercentage()<5)
-					super.helpProficiency(mob, 0);
-			}
-			else
-			{
-				M.setVictim(mob);
-				mob.setVictim(M);
+				if(dir<0)
+					return super.okMessage(myHost,msg);
+				mob.makePeace(true);
+				if(CMLib.tracking().walk(M,dir,false,false))
+				{
+					M.setVictim(mob);
+					lastOpponent=M;
+					if(CMLib.dice().rollPercentage()<5)
+						super.helpProficiency(mob, 0);
+					final Room startMR = M.getStartRoom();
+					if((M.isMonster())
+					&&(startMR!=null)
+					&&((!CMLib.flags().isMobile(M))
+						||(startMR.getArea()!=R.getArea()))
+					&&(M.fetchBehavior("WanderHomeLater")==null))
+						CMLib.tracking().markToWanderHomeLater(M, (int)CMProps.getTicksPerHour()/4);
+				}
+				else
+				{
+					M.setVictim(mob);
+					mob.setVictim(M);
+				}
 			}
 		}
 		return super.okMessage(myHost,msg);

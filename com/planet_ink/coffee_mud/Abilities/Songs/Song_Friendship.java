@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -161,7 +161,9 @@ public class Song_Friendship extends Song
 			super.unInvoke();
 			if(mob!=invoker)
 			{
-				if((canBeUninvoked()&&(!mob.amDead())))
+				if((canBeUninvoked())
+				&&(!mob.amDead())
+				&&(mob.location()!=null))
 				{
 					mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-YOUPOSS> free-will returns."));
 					mob.setFollowing(null);

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -118,7 +118,8 @@ public class Thief_PirateFamiliar extends ThiefSkill
 		SPIDERMONKEY("spidermonkey"),
 		BOA_CONSTRICTOR("boa constrictor"),
 		IGUANA("iguana"),
-		SEATURTLE("sea turtle")
+		SEATURTLE("sea turtle"),
+		HILLGIANT("hill giant")
 		;
 		public String name;
 		private Familiar(final String name)
@@ -126,8 +127,6 @@ public class Thief_PirateFamiliar extends ThiefSkill
 			this.name=name;
 		}
 	}
-
-	protected Familiar		familiarType			= Familiar.PARROT;
 
 	@Override
 	public int castingQuality(final MOB mob, final Physical target)
@@ -155,7 +154,7 @@ public class Thief_PirateFamiliar extends ThiefSkill
 				if(M.amFollowing()!=null)
 					invoker=M.amFollowing();
 			}
-			final MOB invoker=this.invoker;
+			final MOB invoker=this.invoker();
 			if(invoker!=null)
 			{
 				if(affectableStats.level() < invoker.phyStats().level()-3)
@@ -218,87 +217,93 @@ public class Thief_PirateFamiliar extends ThiefSkill
 
 	public MOB determineMonster(final MOB caster, int level)
 	{
-
 		final MOB newMOB=CMClass.getMOB("GenMOB");
-		newMOB.basePhyStats().setAbility(super.getXLEVELLevel(caster));
+		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase() + super.getXLEVELLevel(caster));
 		if(level < 1)
 			level=1;
 		newMOB.basePhyStats().setLevel(level);
 		newMOB.basePhyStats().setRejuv(PhyStats.NO_REJUV);
 		newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'M');
-		final int choice=CMLib.dice().roll(1,6,-1);
 		String choiceStr;
-		switch(choice)
+		if((CMLib.map().getArea("The Itantan Sea")!=null)
+		&&(caster.charStats().getMyRace().ID().equals("Halfling")))
 		{
-		case 0:
-		{
-			choiceStr="parrot";
-			newMOB.setName(L("a parrot"));
-			newMOB.setDisplayText(L("a parrot is here"));
+			choiceStr=L("a hill giant");
+			newMOB.setName(L("a hill giant"));
+			newMOB.setDisplayText(L("a hill giant is here"));
 			newMOB.setDescription(L("He doesn't like you, and has said as much."));
 			newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'M');
-			newMOB.baseCharStats().setMyRace(CMClass.getRace("SongBird"));
-			familiarType = Familiar.PARROT;
-			break;
+			newMOB.baseCharStats().setMyRace(CMClass.getRace("Giant"));
 		}
-		case 1:
+		else
 		{
-			choiceStr="rat";
-			newMOB.setName(L("a rat"));
-			newMOB.setDisplayText(L("a rat scurries nearby"));
-			newMOB.setDescription(L("Such a cute, furry little guy!"));
-			newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'M');
-			newMOB.baseCharStats().setMyRace(CMClass.getRace("Rodent"));
-			familiarType = Familiar.RAT;
-			break;
-		}
-		case 2:
-		{
-			choiceStr="spidermonkey";
-			newMOB.setName(L("a spidermonkey"));
-			newMOB.setDisplayText(L("a mischievous monkey is watching you"));
-			newMOB.setDescription(L("Don`t blink, or she may swipe your stuff."));
-			newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'F');
-			newMOB.baseCharStats().setMyRace(CMClass.getRace("Monkey"));
-			familiarType = Familiar.SPIDERMONKEY;
-			break;
-		}
-		case 3:
-		{
-			choiceStr="boa constrictor";
-			newMOB.setName(L("a boa constrictor"));
-			newMOB.setDisplayText(L("a huge boa constrictor is slithering around"));
-			newMOB.setDescription(L("He looks cuddly, but I wouldn`t risk it."));
-			newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'M');
-			newMOB.baseCharStats().setMyRace(CMClass.getRace("Snake"));
-			familiarType = Familiar.BOA_CONSTRICTOR;
-			break;
-		}
-		case 4:
-		{
-			choiceStr="iguana";
-			newMOB.setName(L("an iguana"));
-			newMOB.setDisplayText(L("an iguana is standing here"));
-			newMOB.setDescription(L("She looks like a nice loyal companion."));
-			newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'F');
-			newMOB.baseCharStats().setMyRace(CMClass.getRace("Lizard"));
-			familiarType = Familiar.IGUANA;
-			break;
-		}
-		case 5:
-		{
-			choiceStr="sea turtle";
-			newMOB.setName(L("a sea turtle"));
-			newMOB.setDisplayText(L("a sea turtle is crawling around here"));
-			newMOB.setDescription(L("Not very fast, but pretty cute."));
-			newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'F');
-			newMOB.baseCharStats().setMyRace(CMClass.getRace("Turtle"));
-			familiarType = Familiar.SEATURTLE;
-			break;
-		}
-		default:
-			choiceStr="dog";
-			break;
+			final int choice=CMLib.dice().roll(1,6,-1);
+			switch(choice)
+			{
+			case 0:
+			{
+				choiceStr="parrot";
+				newMOB.setName(L("a parrot"));
+				newMOB.setDisplayText(L("a parrot is here"));
+				newMOB.setDescription(L("He doesn't like you, and has said as much."));
+				newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'M');
+				newMOB.baseCharStats().setMyRace(CMClass.getRace("SongBird"));
+				break;
+			}
+			case 1:
+			{
+				choiceStr="rat";
+				newMOB.setName(L("a rat"));
+				newMOB.setDisplayText(L("a rat scurries nearby"));
+				newMOB.setDescription(L("Such a cute, furry little guy!"));
+				newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'M');
+				newMOB.baseCharStats().setMyRace(CMClass.getRace("Rodent"));
+				break;
+			}
+			case 2:
+			{
+				choiceStr=L("spidermonkey");
+				newMOB.setName(L("a spidermonkey"));
+				newMOB.setDisplayText(L("a mischievous monkey is watching you"));
+				newMOB.setDescription(L("Don`t blink, or she may swipe your stuff."));
+				newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'F');
+				newMOB.baseCharStats().setMyRace(CMClass.getRace("Monkey"));
+				break;
+			}
+			case 3:
+			{
+				choiceStr=L("boa constrictor");
+				newMOB.setName(L("a boa constrictor"));
+				newMOB.setDisplayText(L("a huge boa constrictor is slithering around"));
+				newMOB.setDescription(L("He looks cuddly, but I wouldn`t risk it."));
+				newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'M');
+				newMOB.baseCharStats().setMyRace(CMClass.getRace("Snake"));
+				break;
+			}
+			case 4:
+			{
+				choiceStr="iguana";
+				newMOB.setName(L("an iguana"));
+				newMOB.setDisplayText(L("an iguana is standing here"));
+				newMOB.setDescription(L("She looks like a nice loyal companion."));
+				newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'F');
+				newMOB.baseCharStats().setMyRace(CMClass.getRace("Lizard"));
+				break;
+			}
+			case 5:
+			{
+				choiceStr=L("sea turtle");
+				newMOB.setName(L("a sea turtle"));
+				newMOB.setDisplayText(L("a sea turtle is crawling around here"));
+				newMOB.setDescription(L("Not very fast, but pretty cute."));
+				newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'F');
+				newMOB.baseCharStats().setMyRace(CMClass.getRace("Turtle"));
+				break;
+			}
+			default:
+				choiceStr="dog";
+				break;
+			}
 		}
 		newMOB.recoverPhyStats();
 		newMOB.recoverCharStats();
@@ -308,7 +313,9 @@ public class Thief_PirateFamiliar extends ThiefSkill
 		newMOB.basePhyStats().setSpeed(CMLib.leveler().getLevelMOBSpeed(newMOB));
 		newMOB.setExperience(CMLib.leveler().getLevelExperience(newMOB, newMOB.basePhyStats().level()));
 		newMOB.baseCharStats().getMyRace().startRacing(newMOB,false);
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		CMLib.factions().setAlignment(newMOB,Faction.Align.GOOD);
 		newMOB.setStartRoom(null);
 		newMOB.recoverCharStats();
@@ -340,7 +347,7 @@ public class Thief_PirateFamiliar extends ThiefSkill
 		{
 			newMOB.addBehavior(B);
 		}
-		newMOB.text();
+		newMOB.setMiscText(newMOB.text());
 		newMOB.recoverCharStats();
 		newMOB.recoverPhyStats();
 		newMOB.recoverMaxState();

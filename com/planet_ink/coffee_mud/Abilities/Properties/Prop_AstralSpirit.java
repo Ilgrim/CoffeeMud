@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -135,7 +135,9 @@ public class Prop_AstralSpirit extends Property
 					return false;
 				}
 			}
-			if((msg.tool()!=null)&&(msg.tool().ID().equalsIgnoreCase("Skill_Revoke")))
+			if((msg.tool()!=null)
+			&&(msg.tool().ID().startsWith("Skill_"))
+			&&(msg.tool().ID().endsWith("Revoke")))
 				return super.okMessage(myHost,msg);
 			else
 			if(msg.targetMinor()==CMMsg.TYP_WEAPONATTACK)
@@ -168,7 +170,12 @@ public class Prop_AstralSpirit extends Property
 	@Override
 	public void affectCharStats(final MOB affected, final CharStats affectableStats)
 	{
-		affectableStats.setMyRace(spiritRace());
+		if(affectableStats.getMyRace()!=spiritRace())
+		{
+			affectableStats.getMyRace().unaffectCharStats(affected, affectableStats);
+			affectableStats.setMyRace(spiritRace());
+			spiritRace().affectCharStats(affected, affectableStats);
+		}
 		affectableStats.setWearableRestrictionsBitmap(affectableStats.getWearableRestrictionsBitmap()|affectableStats.getMyRace().forbiddenWornBits());
 		super.affectCharStats(affected, affectableStats);
 	}

@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,6 +57,14 @@ public class HoleInTheGround extends GenContainer
 									|PhyStats.IS_NOT_SEEN);
 		setMaterial(RawMaterial.RESOURCE_DUST);
 		recoverPhyStats();
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a hole");
 	}
 
 	@Override
@@ -110,7 +118,7 @@ public class HoleInTheGround extends GenContainer
 						return false;
 					}
 				}
-				if((msg.tool() instanceof ClanItem))
+				if(msg.tool() instanceof ClanItem)
 				{
 					msg.source().tell(L("Go may not bury a clan item."));
 					return false;

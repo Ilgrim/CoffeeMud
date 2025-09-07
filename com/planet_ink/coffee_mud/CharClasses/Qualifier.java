@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ public class Qualifier extends StdCharClass
 			{
 				final Ability A=a.nextElement();
 				final int lvl=CMLib.ableMapper().lowestQualifyingLevel(A.ID());
-				if((lvl>0)&&(!CMLib.ableMapper().classOnly("Archon",A.ID())))
+				if((lvl>0)&&(!(A instanceof ArchonOnly)))
 					CMLib.ableMapper().addCharAbilityMapping(ID(),lvl,A.ID(),false);
 			}
 		}
@@ -126,7 +126,12 @@ public class Qualifier extends StdCharClass
 				if((A!=null)
 				&&(!CMLib.ableMapper().getAllQualified(ID(),true,A.ID()))
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
-					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+				{
+					giveMobAbility(mob,A,
+								   CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),
+								   CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),
+								   isBorrowedClass);
+				}
 			}
 		}
 	}

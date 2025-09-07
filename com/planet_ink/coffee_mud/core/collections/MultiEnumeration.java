@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Vector;
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -21,40 +21,79 @@ import java.util.Vector;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+/**
+ * An enumeration that is made up of multiple enumerations.
+ *
+ * @param <K> the type of object being enumerated
+ */
 public class MultiEnumeration<K> implements Enumeration<K>
 {
-	private final LinkedList<Enumeration<K>> enums=new LinkedList<Enumeration<K>>();
-	private volatile Enumeration<K> enumer=null;
+	private final LinkedList<Enumeration<? extends K>> enums=new LinkedList<Enumeration<? extends K>>();
+	private volatile Enumeration<? extends K> enumer=null;
 
+	/**
+	 * A builder interface for constructing a multi-enumeration
+	 *
+	 * @param <K> the type of object being enumerated
+	 */
 	public static interface MultiEnumeratorBuilder<K>
 	{
+		/**
+		 * Returns the multi-enumeration being built
+		 * @return the multi-enumeration being built
+		 */
 		public MultiEnumeration<K> getList();
 	}
 
-	public MultiEnumeration(final Enumeration<K>... esets)
-	{
-		if((esets!=null)&&(esets.length>0))
-		{
-			for(final Enumeration<K> E : esets)
-			{
-				if(E!=null)
-					enums.add(E);
-			}
-		}
-	}
-
+	/**
+	 * Construct a new multi-enumeration
+	 *
+	 * @param esets the enumerations to include
+	 */
 	public MultiEnumeration(final Collection<Enumeration<K>> esets)
 	{
 		if(esets!=null)
 			enums.addAll(esets);
 	}
 
+	/**
+	 * Construct a new multi-enumeration
+	 */
+	public MultiEnumeration()
+	{
+	}
+
+	/**
+	 * Construct a new multi-enumeration
+	 *
+	 * @param eset the enumeration to include
+	 */
 	public MultiEnumeration(final Enumeration<K> eset)
 	{
 		enums.add(eset);
 	}
 
-	public MultiEnumeration<K> addEnumeration(final Enumeration<K> set)
+	/**
+	 * Construct a new multi-enumeration
+	 *
+	 * @param esets the enumerations to include
+	 */
+	public MultiEnumeration(final Enumeration<? extends K>[] esets)
+	{
+		if(esets != null)
+		{
+			for(final Enumeration<? extends K> e: esets)
+				addEnumeration(e);
+		}
+	}
+
+	/**
+	 * Adds a new enumeration
+	 *
+	 * @param set the enumerations to add
+	 * @return this object
+	 */
+	public MultiEnumeration<K> addEnumeration(final Enumeration<? extends K> set)
 	{
 		if(set != null)
 			enums.add(set);

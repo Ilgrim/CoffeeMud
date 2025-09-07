@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.List;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,6 +44,15 @@ public interface Command extends CMObject
 	 * @return the set of command words that the user enters
 	 */
 	public String[] getAccessWords();
+
+
+	/**
+	 * Returns whether this commands`s access words should be
+	 * places in the master list of commands.
+	 * @see com.planet_ink.coffee_mud.Commands.interfaces.Command#getAccessWords()
+	 * @return whether to add the access words to the commands list
+	 */
+	public boolean putInCommandlist();
 
 	/**
 	 * Returns the number of actions required to completely
@@ -85,7 +94,7 @@ public interface Command extends CMObject
 	public double checkedActionsCost(final MOB mob, final List<String> cmds);
 
 	/**
-	 * Whether the a group leader or charmer can order their followers
+	 * Whether a group leader or charmer can order their followers
 	 * to do this command.
 	 * @return whether this command can be ordered.
 	 */
@@ -97,6 +106,12 @@ public interface Command extends CMObject
 	 * @return true if the command is available, and false if it is unknown
 	 */
 	public boolean securityCheck(MOB mob);
+
+	/**
+	 * Returns whether this class generic or not.
+	 * @return whether this class is defined fully by parameters
+	 */
+	public boolean isGeneric();
 
 	/**
 	 * This method actually performs the command, when the given parsed
@@ -122,8 +137,12 @@ public interface Command extends CMObject
 	 * does not have enough actions to complete it immediately.  The
 	 * method is called when the command is entered, and every second
 	 * afterwards until the invoker has enough actions to complete it.
-	 * At completion time, execute is called.
+	 * At completion time, execute is called.  It is called with -1
+	 * seconds elapsed if it is cancelled.
+	 *
 	 * @see Command#execute(MOB, List, int)
+	 * @see Command#canBeCancelled()
+	 *
 	 * @param mob the player or mob invoking the command
 	 * @param commands the parameters entered for the command (including the trigger word)
 	 * @param metaFlags flags denoting how the command is being executed
@@ -134,6 +153,18 @@ public interface Command extends CMObject
 	 */
 	public boolean preExecute(MOB mob, List<String> commands, int metaFlags, int secondsElapsed, double actionsRemaining)
 		throws java.io.IOException;
+
+	/**
+	 * Returns true if the command will not be executed if all are true:
+	 * 1. the player lacks the actions to complete the command in one tick
+	 * 2. the player has an queued command whose action cost gr. 0.0
+	 * When cancelled, preExecute is called with a secondsElapsed of -1
+	 *
+	 * @see Command#preExecute(MOB, List, int, int, double)
+	 *
+	 * @return true if the command can be cancelled, false otherwise
+	 */
+	public boolean canBeCancelled();
 
 	/**
 	 * This method is used for making "insider" calls to the command.  It's parameters

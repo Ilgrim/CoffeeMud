@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -112,7 +112,7 @@ public class Fighter_CalledStrike extends FighterSkill
 			A=(LimbDamage)CMClass.getAbility("Amputation");
 			A.setAffectedOne(mob);
 		}
-		if(A.damageLimb(gone)!=null)
+		if(A.damageLimb(gone, true)!=null)
 		{
 			if(mob.fetchEffect(A.ID())==null)
 				mob.addNonUninvokableEffect(A);
@@ -122,10 +122,11 @@ public class Fighter_CalledStrike extends FighterSkill
 	}
 
 	@Override
-	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
+		super.executeMsg(myHost, msg);
 		if((affected==null)||(!(affected instanceof MOB))||(target==null))
-			return super.okMessage(myHost,msg);
+			return;
 		final MOB mob=(MOB)affected;
 		if(msg.amISource(mob)
 		&&(msg.amITarget(target))
@@ -133,7 +134,8 @@ public class Fighter_CalledStrike extends FighterSkill
 		{
 			int hurtAmount=msg.value();
 			final int reqDivisor=hpReq+getXLEVELLevel(invoker());
-			if(hurtAmount>=(target.baseState().getHitPoints()/reqDivisor))
+			if((hurtAmount>=(target.baseState().getHitPoints()/reqDivisor))
+			&&(msg.value()>0))
 			{
 				hurtAmount=(target.baseState().getHitPoints()/reqDivisor);
 				msg.setValue(msg.value()+hurtAmount);
@@ -143,7 +145,6 @@ public class Fighter_CalledStrike extends FighterSkill
 				mob.tell(mob,target,null,L("You failed to cut off <T-YOUPOSS> '@x1'.",gone));
 			unInvoke();
 		}
-		return super.okMessage(myHost,msg);
 	}
 
 	protected boolean prereqs(final MOB mob, final boolean quiet)
@@ -196,8 +197,7 @@ public class Fighter_CalledStrike extends FighterSkill
 		if(commands.size()>0)
 		{
 			final String s=commands.get(0);
-			if(mob.location().fetchInhabitant(s)!=null)
-				target=mob.location().fetchInhabitant(s);
+			target=getVisibleRoomTarget(mob,s);
 			if((target!=null)&&(!CMLib.flags().canBeSeenBy(target,mob)))
 			{
 				mob.tell(L("You can't see '@x1' here.",s));

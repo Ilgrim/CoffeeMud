@@ -1,5 +1,6 @@
 package com.planet_ink.coffee_mud.Behaviors;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.ItemPossessor.Move;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -12,6 +13,7 @@ import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.Basic.StdItem;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.CostDef.CostType;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -19,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,8 +50,17 @@ public class WaterCurrents extends ActiveTicker
 		return Behavior.CAN_ROOMS | Behavior.CAN_AREAS;
 	}
 
+	protected static String DEFAULT_MINCOMING_MSG = CMLib.lang().L("<S-NAME> <S-IS-ARE> swept in from @x1 by the current.");
+	protected static String DEFAULT_MOUTGOING_MSG = CMLib.lang().L("<S-NAME> <S-IS-ARE> swept @x1 by the current.");
+	protected static String DEFAULT_IINCOMING_MSG = CMLib.lang().L("@x2 is swept in from @x1 by the current.");
+	protected static String DEFAULT_IOUTGOING_MSG = CMLib.lang().L("@x2 is swept @x1 by the current.");
+
 	protected String	dirs	= "";
 	protected boolean	doBoats = false;
+	protected String	minMsg	= DEFAULT_MINCOMING_MSG;
+	protected String	moutMsg	= DEFAULT_MOUTGOING_MSG;
+	protected String	iinMsg	= DEFAULT_IINCOMING_MSG;
+	protected String	ioutMsg	= DEFAULT_IOUTGOING_MSG;
 
 	public WaterCurrents()
 	{
@@ -68,19 +79,37 @@ public class WaterCurrents extends ActiveTicker
 	public void setParms(final String newParms)
 	{
 		super.setParms(newParms);
-		final Vector<String> V=CMParms.parse(newParms);
+		final Map<String,String> parms = super.getCleanedParms();
 		dirs="";
-		for(int v=0;v<V.size();v++)
+		this.doBoats=parms.containsKey("BOATS");
+		parms.remove("BOATS");
+		this.minMsg=parms.containsKey("INMSG")?parms.get("INMSG"):WaterCurrents.DEFAULT_MINCOMING_MSG;
+		if(this.minMsg.equals(WaterCurrents.DEFAULT_MINCOMING_MSG))
+			this.iinMsg = WaterCurrents.DEFAULT_IINCOMING_MSG;
+		else
+			this.iinMsg = CMStrings.replaceAll(CMStrings.replaceAll(this.minMsg, "<S-NAME>", "@x2"),"<S-IS-ARE>",L("is"));
+		parms.remove("INMSG");
+		this.moutMsg=parms.containsKey("OUTMSG")?parms.get("OUTMSG"):WaterCurrents.DEFAULT_MOUTGOING_MSG;
+		if(this.moutMsg.equals(WaterCurrents.DEFAULT_MOUTGOING_MSG))
+			this.ioutMsg = WaterCurrents.DEFAULT_IOUTGOING_MSG;
+		else
+			this.ioutMsg = CMStrings.replaceAll(CMStrings.replaceAll(this.moutMsg, "<S-NAME>", "@x2"),"<S-IS-ARE>",L("is"));
+		parms.remove("OUTMSG");
+		final String go = parms.get("GO");
+		if(go != null)
 		{
-			final String str=V.get(v);
-			if(str.equalsIgnoreCase("BOATS"))
-				this.doBoats=true;
-			else
+			for(final String goDir : CMParms.parse(go))
 			{
-				final int dir=CMLib.directions().getGoodDirectionCode(str);
+				final int dir=CMLib.directions().getGoodDirectionCode(goDir);
 				if(dir>=0)
 					dirs=dirs+CMLib.directions().getDirectionChar(dir);
 			}
+		}
+		for(final String key : parms.keySet())
+		{
+			final int dir=CMLib.directions().getGoodDirectionCode(key);
+			if(dir>=0)
+				dirs=dirs+CMLib.directions().getDirectionChar(dir);
 		}
 		if(dirs.length()==0)
 			dirs="NE";
@@ -118,12 +147,12 @@ public class WaterCurrents extends ActiveTicker
 				if((I!=null)
 				&&(I.container()==null)
 				&&((!(I instanceof Rideable))
-					||(((Rideable)I).rideBasis()!=Rideable.RIDEABLE_WATER)
+					||(((Rideable)I).rideBasis()!=Rideable.Basis.WATER_BASED)
 					||(((Rideable)I).numRiders()==0)
 					||(doBoats))
 				&&(!CMLib.flags().isInFlight(I))
 				&&(!CMLib.flags().isMobile(I))
-				&&((CMLib.flags().isGettable(I))||(I instanceof BoardableShip))
+				&&((CMLib.flags().isGettable(I))||(I instanceof Boardable))
 				&&((!(I instanceof Exit))||(doBoats))
 				&&(!done.contains(I)))
 				{
@@ -132,7 +161,8 @@ public class WaterCurrents extends ActiveTicker
 				}
 			}
 		}
-		if((todo.size()>0)&&(R!=null))
+		if((todo.size()>0
+		)&&(R!=null))
 		{
 			int dir=-1;
 			Room R2=null;
@@ -153,7 +183,8 @@ public class WaterCurrents extends ActiveTicker
 					}
 				}
 			}
-			if(R2!=null)
+			if((R2!=null)
+			&&(todo.size()>0))
 			{
 				MOB M=null;
 				Item I=null;
@@ -163,14 +194,14 @@ public class WaterCurrents extends ActiveTicker
 					if(todo.elementAt(m) instanceof MOB)
 					{
 						M=(MOB)todo.elementAt(m);
-						final CMMsg themsg=CMClass.getMsg(srcM,M,new AWaterCurrent(),CMMsg.MSG_OK_ACTION,L("<T-NAME> <T-IS-ARE> swept @x1 by the current.",
-								CMLib.directions().getDirectionName(dir).toLowerCase()));
+						final CMMsg themsg=CMClass.getMsg(M,R,new AWaterCurrent(),CMMsg.MASK_ALWAYS|CMMsg.MSG_LEAVE,
+								CMStrings.replaceVariables(moutMsg,CMLib.directions().getDirectionName(dir).toLowerCase()));
 						if(R.okMessage(M,themsg))
 						{
 							R.send(M,themsg);
 							R2.bringMobHere(M,true);
-							R2.showOthers(srcM,M,new AWaterCurrent(),CMMsg.MSG_OK_ACTION,L("<T-NAME> <T-IS-ARE> swept in from @x1 by the current.",
-									CMLib.directions().getFromCompassDirectionName(R.getReverseDir(dir)).toLowerCase()));
+							R2.showOthers(M,R,new AWaterCurrent(),CMMsg.MASK_ALWAYS|CMMsg.MSG_ENTER,
+									CMStrings.replaceVariables(minMsg,CMLib.directions().getFromCompassDirectionName(R.getReverseDir(dir)).toLowerCase()));
 							CMLib.commands().postLook(M,true);
 						}
 					}
@@ -178,25 +209,27 @@ public class WaterCurrents extends ActiveTicker
 					if(todo.elementAt(m) instanceof Item)
 					{
 						I=(Item)todo.elementAt(m);
-						if(R.show(srcM,I,new AWaterCurrent(),CMMsg.MSG_OK_ACTION,L("@x1 is swept @x2 by the current.",
-								I.name(),CMLib.directions().getDirectionName(dir).toLowerCase())))
+						if(R.show(srcM,I,new AWaterCurrent(),CMMsg.MSG_OK_ACTION,
+								CMStrings.replaceVariables(ioutMsg,CMLib.directions().getDirectionName(dir).toLowerCase(),I.name())))
 						{
-							if(I instanceof BoardableShip)
+							if(I instanceof Boardable)
 							{
-								for(final Enumeration<Room> r = ((BoardableShip)I).getShipArea().getProperMap();r.hasMoreElements();)
+								for(final Enumeration<Room> r = ((Boardable)I).getArea().getProperMap();r.hasMoreElements();)
 								{
 									final Room R3=r.nextElement();
 									if((R3!=null)&&((R3.domainType()&Room.INDOORS)==0))
-										R3.showHappens(CMMsg.MSG_OK_ACTION, L("@x1 is swept @x2 by the current.",I.name(),CMLib.directions().getDirectionName(dir).toLowerCase()));
+										R3.showHappens(CMMsg.MSG_OK_ACTION, CMStrings.replaceVariables(ioutMsg,CMLib.directions().getDirectionName(dir).toLowerCase(),I.name()));
 								}
 							}
-							R2.moveItemTo(I,ItemPossessor.Expire.Player_Drop);
-							R2.showOthers(srcM,I,new AWaterCurrent(),CMMsg.MSG_OK_ACTION,L("@x1 is swept in from @x2 by the current.",
-									I.name(),CMLib.directions().getFromCompassDirectionName(R.getReverseDir(dir)).toLowerCase()));
+							R2.moveItemTo(I,ItemPossessor.Expire.Inheret,Move.Optimize);
+							R2.showOthers(srcM,I,new AWaterCurrent(),CMMsg.MSG_OK_ACTION,
+									CMStrings.replaceVariables(iinMsg,CMLib.directions().getFromCompassDirectionName(R.getReverseDir(dir)).toLowerCase(),I.name()));
 						}
 					}
 				}
 				srcM.destroy();
+				R2.recoverRoomStats();
+				R.recoverRoomStats();
 			}
 		}
 	}
@@ -296,6 +329,12 @@ public class WaterCurrents extends ActiveTicker
 		}
 
 		@Override
+		public int getTicksBetweenCasts()
+		{
+			return 0;
+		}
+
+		@Override
 		public boolean canTarget(final int can_code)
 		{
 			return false;
@@ -354,15 +393,15 @@ public class WaterCurrents extends ActiveTicker
 		}
 
 		@Override
-		public ExpertiseLibrary.SkillCost getTrainingCost(final MOB mob)
+		public CostManager getTrainingCost(final MOB mob)
 		{
-			return CMLib.expertises().createNewSkillCost(ExpertiseLibrary.CostType.TRAIN, Double.valueOf(1.0));
+			return CMLib.utensils().createCostManager(CostType.TRAIN, Double.valueOf(1.0));
 		}
 
 		@Override
 		public String L(final String str, final String... xs)
 		{
-			return CMLib.lang().fullSessionTranslation(str, xs);
+			return CMLib.lang().fullSessionTranslation(getClass(), str, xs);
 		}
 
 		@Override
@@ -650,7 +689,7 @@ public class WaterCurrents extends ActiveTicker
 		{
 			try
 			{
-				return this.getClass().newInstance();
+				return this.getClass().getDeclaredConstructor().newInstance();
 			}
 			catch (final Exception e)
 			{
@@ -869,6 +908,12 @@ public class WaterCurrents extends ActiveTicker
 
 		@Override
 		public boolean isGeneric()
+		{
+			return false;
+		}
+
+		@Override
+		public boolean mayBeEnchanted()
 		{
 			return false;
 		}

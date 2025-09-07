@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ public class ExpertiseData extends StdWebMacro
 				final StringBuffer str=new StringBuffer("");
 				if(parms.containsKey("HELP"))
 				{
-					StringBuilder s=CMLib.help().getHelpText(E.ID(),null,false);
+					String s=CMLib.help().getHelpText(E.ID(),null,false);
 					if(s==null)
 						s=CMLib.help().getHelpText(E.name(),null,false);
 					int limit=78;
@@ -79,11 +79,11 @@ public class ExpertiseData extends StdWebMacro
 					{
 						if(s.toUpperCase().trim().startsWith("<EXPERTISE>"))
 							s=s.trim().substring(11);
-						str.append(helpHelp(new StringBuilder(s))+", ");
+						str.append(helpHelp(s)+", ");
 					}
 					else
 					{
-						StringBuilder s2=CMLib.help().getHelpText(E.ID(),null,false);
+						String s2=CMLib.help().getHelpText(E.ID(),null,false);
 						if(s2==null)
 							s2=CMLib.help().getHelpText(E.name(),null,false);
 						str.append(helpHelp(s2));

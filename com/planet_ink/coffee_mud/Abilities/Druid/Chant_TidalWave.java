@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -173,9 +173,9 @@ public class Chant_TidalWave extends Chant
 		{
 			gatherHighestLevels(casterM,(Rideable)target,grp,highestLevels,highestLevelM);
 		}
-		if(target instanceof BoardableShip)
+		if(target instanceof Boardable)
 		{
-			final Area A=((BoardableShip)target).getShipArea();
+			final Area A=((Boardable)target).getArea();
 			gatherHighestLevels(casterM,A,grp,highestLevels,highestLevelM);
 		}
 		if(target instanceof Room)
@@ -218,7 +218,7 @@ public class Chant_TidalWave extends Chant
 	{
 		if(mob!=null)
 		{
-			if(!(target instanceof BoardableShip))
+			if(!(target instanceof Boardable))
 				return Ability.QUALITY_INDIFFERENT;
 		}
 		return super.castingQuality(mob,target);
@@ -233,9 +233,9 @@ public class Chant_TidalWave extends Chant
 
 		}
 
-		if(target instanceof BoardableShip)
+		if(target instanceof Boardable)
 		{
-			final Item I=((BoardableShip)target).getShipItem();
+			final Item I=((Boardable)target).getBoardableItem();
 			if(I != null)
 				return CMLib.map().roomLocation(target);
 		}
@@ -272,7 +272,7 @@ public class Chant_TidalWave extends Chant
 			if(target==null)
 				return false;
 
-			if(target instanceof BoardableShip)
+			if(target instanceof Boardable)
 			{ //ok
 				if(target instanceof PrivateProperty)
 				{
@@ -282,7 +282,7 @@ public class Chant_TidalWave extends Chant
 						return false;
 					}
 				}
-				for(final Enumeration<Room> r=((BoardableShip)target).getShipArea().getProperMap();r.hasMoreElements();)
+				for(final Enumeration<Room> r=((Boardable)target).getArea().getProperMap();r.hasMoreElements();)
 				{
 					final Room R2=r.nextElement();
 					if((R2!=null)&&((R2.domainType()&Room.INDOORS)==0))
@@ -292,7 +292,7 @@ public class Chant_TidalWave extends Chant
 				washDirection="overboard";
 			}
 			else
-			if((target instanceof Rideable) && (((Rideable)target).rideBasis() == Rideable.RIDEABLE_WATER))
+			if((target instanceof Rideable) && (((Rideable)target).rideBasis() == Rideable.Basis.WATER_BASED))
 			{ //ok
 				targetRooms.add(CMLib.map().roomLocation(target));
 				washRoom = CMLib.map().roomLocation(target);
@@ -313,7 +313,7 @@ public class Chant_TidalWave extends Chant
 		else
 		{
 			target = R;
-			if(R.getArea() instanceof BoardableShip)
+			if(R.getArea() instanceof Boardable)
 			{ //ok
 				if(target instanceof PrivateProperty)
 				{
@@ -323,8 +323,8 @@ public class Chant_TidalWave extends Chant
 						return false;
 					}
 				}
-				target=((BoardableShip)R.getArea()).getShipItem();
-				for(final Enumeration<Room> r=((BoardableShip)target).getShipArea().getProperMap();r.hasMoreElements();)
+				target=((Boardable)R.getArea()).getBoardableItem();
+				for(final Enumeration<Room> r=((Boardable)target).getArea().getProperMap();r.hasMoreElements();)
 				{
 					final Room R2=r.nextElement();
 					if((R2!=null)&&((R2.domainType()&Room.INDOORS)==0))
@@ -363,11 +363,11 @@ public class Chant_TidalWave extends Chant
 			fromDir="right here";
 		else
 		{
-			if(R.getArea() instanceof BoardableShip)
+			if(R.getArea() instanceof Boardable)
 			{
 				if((R.domainType()&Room.INDOORS)==0)
 				{
-					final Item I=((BoardableShip)R.getArea()).getShipItem();
+					final Item I=((Boardable)R.getArea()).getBoardableItem();
 					if((I!=null)&&(I.owner() instanceof Room))
 					{
 						final Room R2=(Room)I.owner();
@@ -449,7 +449,7 @@ public class Chant_TidalWave extends Chant
 		if(success)
 		{
 			final Set<MOB> casterGroup=mob.getGroupMembers(new HashSet<MOB>());
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L(""):L("^S<S-NAME> chant(s), calling in a tidal wave from @x1.^?",fromDir));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> chant(s), calling in a tidal wave from @x1.^?",fromDir));
 			if(R.okMessage(mob,msg))
 			{
 				R.send(mob, msg);
@@ -505,7 +505,7 @@ public class Chant_TidalWave extends Chant
 											if(!washRoom.isInhabitant(M))
 												CMLib.tracking().walkForced(M, R2, washRoom, false, true, L("<S-NAME> washes in."));
 											if((!R2.isInhabitant(M))&&(M.isMonster()))
-												CMLib.tracking().markToWanderHomeLater(M);
+												CMLib.tracking().markToWanderHomeLater(M,0);
 										}
 									}
 								}

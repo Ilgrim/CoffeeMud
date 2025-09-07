@@ -19,7 +19,7 @@ import com.planet_ink.coffee_web.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -113,7 +113,7 @@ public class AccountData extends StdWebMacro
 				else
 				{
 					String id="";
-					set=new Vector<String>();
+					set=new ArrayList<String>();
 					for(int i=0;httpReq.isUrlParameter("FLAG"+id);id=""+(++i))
 						set.add(httpReq.getUrlParameter("FLAG"+id));
 				}

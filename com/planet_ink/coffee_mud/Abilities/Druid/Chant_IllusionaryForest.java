@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -159,7 +159,7 @@ public class Chant_IllusionaryForest extends Chant
 			break;
 		case 5:
 			newRoom.setDisplayText(L("Dark Forest"));
-			newRoom.setDescription(L("The trees around you are dark and old, their branches seeming to reach towards you.  In the distance, a wolfs howl can be heard."));
+			newRoom.setDescription(L("The trees around you are dark and old, their branches seeming to reach towards you.  In the distance, a wolf`s howl can be heard."));
 			break;
 		case 6:
 			newRoom.setDisplayText(L("End of the path"));

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class Decorating extends CommonSkill
+public class Decorating extends CommonSkill implements RecipeDriven
 {
 	@Override
 	public String ID()
@@ -70,10 +70,65 @@ public class Decorating extends CommonSkill
 		verb=L("mounting");
 	}
 
-	protected String	mountWord	= "mounted";
-	protected Item		mountingI	= null;
-	protected Room		mountingR	= null;
-	protected boolean	messedUp	= false;
+	//protected static final int RCP_FINALNAME=0;
+	//protected static final int RCP_LEVEL=1;
+	protected static final int	RCP_TICKS		= 2;
+	protected static final int	RCP_VERB		= 3;
+	protected static final int	RCP_DISPLAY		= 4;
+	protected static final int	RCP_XLEVEL		= 5;
+	protected static final int	RCP_MISC		= 6;
+
+	protected static final String	DEFAULT_MOUNTED_WORD		= CMLib.lang().L("mounted");
+	protected static final String	DEFAULT_MOUNTED_SUBPHRASE	= CMLib.lang().L("is mounted here.");
+
+	protected String	mountWord		= DEFAULT_MOUNTED_WORD;
+	protected String	mountedPhrase	= "@x1 "+DEFAULT_MOUNTED_SUBPHRASE;
+	protected Item		mountingI		= null;
+	protected Room		mountingR		= null;
+	protected boolean	messedUp		= false;
+	protected boolean	blended			= true;
+	protected boolean	hips			= false;
+
+	@Override
+	public List<List<String>> fetchRecipes()
+	{
+		return loadRecipes(getRecipeFilename());
+	}
+
+	@Override
+	public String getRecipeFormat()
+	{
+		return
+		"ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\t"
+		+ "ACTIVE_VERB\tDISPLAY_MASK\tXLEVEL\tDECORATION_FLAG";
+	}
+
+	@Override
+	public String getRecipeFilename()
+	{
+		return "decorations.txt";
+	}
+
+	@Override
+	public List<String> matchingRecipeNames(final String recipeName, final boolean beLoose)
+	{
+		final List<String> matches = new Vector<String>();
+		for(final List<String> list : fetchRecipes())
+		{
+			final String name=list.get(RecipeDriven.RCP_FINALNAME);
+			if(name.equalsIgnoreCase(recipeName)
+			||(beLoose && (name.toUpperCase().indexOf(recipeName.toUpperCase())>=0)))
+				matches.add(name);
+		}
+		return matches;
+	}
+
+	@Override
+	public Pair<String, Integer> getDecodedItemNameAndLevel(final List<String> recipe)
+	{
+		return new Pair<String,Integer>(recipe.get( RecipeDriven.RCP_FINALNAME ),
+				Integer.valueOf(CMath.s_int(recipe.get( RecipeDriven.RCP_LEVEL ))));
+	}
 
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
@@ -151,26 +206,31 @@ public class Decorating extends CommonSkill
 				{
 					final Item I=mountingI;
 					if((messedUp)||(I==null))
-						commonTell(mob,L("You've failed to "+mountWord+"!"));
+						commonTelL(mob,"You've failed to @x1!",mountWord);
 					else
 					{
 						final Room room=CMLib.map().roomLocation(I);
-						final String ownerName=CMLib.law().getLandOwnerName(room);
-						if((messedUp)||(room==null)||(ownerName.length()==0))
-							commonTell(mob,L("You've messed up "+mountWord+"ing @x1!",I.name()));
+						final String ownerName=CMLib.law().getPropertyOwnerName(room);
+						if((messedUp)
+						||(room==null)
+						||(ownerName.length()==0))
+							commonTelL(mob,"You've messed up @x1!",verb);
 						else
 						{
 							I.delEffect(I.fetchEffect("Decorating"));
 							final Decorating mount=(Decorating)this.copyOf();
-							mount.setMiscText(I.displayText());
+							final StringBuilder str = new StringBuilder(";");
+							str.append(" BLENDED=").append(blended);
+							str.append(" HIPS=").append(hips);
+							str.append(" ;").append(I.displayText());
+							mount.setMiscText(str.toString());
 							mount.canBeUninvoked = false;
 							I.addNonUninvokableEffect(mount);
-							if(mountWord.equals("mount"))
-								I.setDisplayText(I.name()+" is mounted here.");
-							else
-								I.setDisplayText(I.name()+" is hanging here.");
+							if(mountedPhrase.trim().length()>0)
+								I.setDisplayText(CMStrings.replaceVariables(mountedPhrase,new String[] {I.name()}));
 							room.moveItemTo(I, Expire.Never);
-							room.show(mob,null,getActivityMessageType(),L("<S-NAME> manage(s) to "+mountWord+" @x1.",I.name()));
+							room.show(mob,null,getActivityMessageType(),L("<S-NAME> manage(s) to @x2 @x1.",I.name(),mountWord));
+							room.recoverRoomStats();
 						}
 					}
 				}
@@ -210,6 +270,38 @@ public class Decorating extends CommonSkill
 	}
 
 	@Override
+	public void setMiscText(final String text)
+	{
+		super.setMiscText(text);
+		blended = true;
+		hips = false;
+		if((text!=null)&&(text.startsWith(";")))
+		{
+			blended = false;
+			final int x = text.indexOf(';',1);
+			if(x>1)
+			{
+				final String parms = text.substring(1,x);
+				blended = CMParms.getParmBool(parms, "BLENDED", false);
+				hips = CMParms.getParmBool(parms, "HIPS", false);
+			}
+		}
+	}
+
+	protected String getOldDisplayText()
+	{
+		if(text().startsWith(";"))
+		{
+			final int x = text().indexOf(';',1);
+			if(x<0)
+				return text();
+			return text().substring(x+1);
+		}
+		else
+			return text();
+	}
+
+	@Override
 	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
 		if((!super.canBeUninvoked)
@@ -220,12 +312,15 @@ public class Decorating extends CommonSkill
 			{
 			case CMMsg.TYP_GET:
 			{
-				final Room R=CMLib.map().roomLocation(affected);
-				R.show(msg.source(), affected, CMMsg.MSG_DELICATE_HANDS_ACT, L("<S-NAME> remove(s) <T-NAME> from the wall."));
-				if(text().length()>0)
-					affected.setDisplayText(text());
-				affected.delEffect(this);
-				this.destroy();
+				if(msg.tool() == null)
+				{
+					final Room R=CMLib.map().roomLocation(affected);
+					R.show(msg.source(), affected, CMMsg.MSG_DELICATE_HANDS_ACT, L("<S-NAME> remove(s) <T-NAME> from the wall."));
+					if(text().length()>0)
+						affected.setDisplayText(this.getOldDisplayText());
+					affected.delEffect(this);
+					this.destroy();
+				}
 				break;
 			}
 			default:
@@ -241,8 +336,11 @@ public class Decorating extends CommonSkill
 		super.affectPhyStats(affected, affectableStats);
 		if(affected instanceof Item)
 		{
-			affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.SENSE_ALWAYSCOMPRESSED);
-			affectableStats.setName(affected.name());
+			if(blended)
+				affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.SENSE_ALWAYSCOMPRESSED);
+			if(hips)
+				affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.SENSE_HIDDENINPLAINSIGHT);
+			affectableStats.setName(affected.name()); //??
 		}
 	}
 
@@ -251,33 +349,71 @@ public class Decorating extends CommonSkill
 	{
 		if(super.checkStop(mob, commands))
 			return true;
-		if((auto)&&(commands.size()==0))
+		if((auto)
+		&&(commands.size()==0))
 			commands.add("hang");
-		if((commands.size()==0)
-		||((!commands.get(0).equalsIgnoreCase("hang"))
-			&&(!commands.get(0).equalsIgnoreCase("mount"))
-			&&(!commands.get(0).equalsIgnoreCase("stick"))))
+		if(commands.size()==0)
 		{
-			mob.tell(L("Decorate what, how?  Try decorate HANG [item name], or decorate MOUNT [item name], or decorate STICK [item name]."));
+			commonTelL(mob,"Decorate what, how?  Try DECORATE LIST.");
 			return false;
 		}
+		final List<List<String>> recipes = CMLib.utensils().addExtRecipes(mob,ID(),fetchRecipes());
 		final String word = commands.remove(0).toLowerCase();
+		if(word.equals("list"))
+		{
+			final StringBuilder words=new StringBuilder(L("^NDecoration terms: "));
+			for(final List<String> list : recipes)
+			{
+				final String name=list.get(RCP_FINALNAME);
+				final int level=CMath.s_int(list.get(RCP_LEVEL));
+				final int xlevel=CMath.s_int(list.get(RCP_XLEVEL));
+				if((level <= adjustedLevel(mob,asLevel))
+				&&(super.getXLEVELLevel(mob) >= xlevel))
+					words.append(name).append(", ");
+			}
+			commonTell(mob,words.substring(0,words.length()-2)+".\n\r");
+			return false;
+		}
+		List<String> matche = null;
+		for(final List<String> list : fetchRecipes())
+		{
+			final String name=list.get(RecipeDriven.RCP_FINALNAME);
+			final int level=CMath.s_int(list.get(RCP_LEVEL));
+			final int xlevel=CMath.s_int(list.get(RCP_XLEVEL));
+			if((level <= adjustedLevel(mob,asLevel))
+			&&(super.getXLEVELLevel(mob) >= xlevel)
+			&&(name.equalsIgnoreCase(word)))
+				matche = list;
+		}
+		if(matche == null)
+		{
+			commonTelL(mob,"Decorate what? '@x1' is unknown. Try DECORATE LIST.",word);
+			return false;
+		}
+		if(commands.size()==0)
+		{
+			commonTelL(mob,"Decorate what, how?  Try DECORATE LIST.");
+			return false;
+		}
 		final Item I=super.getTarget(mob, null, givenTarget, commands, Wearable.FILTER_UNWORNONLY);
 		if(I==null)
 			return false;
 		mountingI = I;
 		this.mountWord = word;
-		if(word.equals("hang"))
-			verb=L("hanging @x1",I.name());
-		else
-		if(word.equals("mount"))
-			verb=L("mounting @x1",I.name());
-		else
-			verb=L("stickup @x1 up",I.name());
+		this.mountedPhrase=matche.get(RCP_DISPLAY);
+		this.verb=L(matche.get(RCP_VERB),I.name());
+		this.blended = true;
+		this.hips = false;
+		if(matche.size()>RCP_MISC)
+		{
+			final String misc=matche.get(RCP_MISC);
+			blended = (misc.toUpperCase().indexOf("BLENDED")>=0);
+			hips = (misc.toUpperCase().indexOf("HIPS")>=0);
+		}
 
 		if(!CMLib.law().doesHavePriviledgesHere(mob, mob.location()))
 		{
-			commonTell(mob,L("You can't decorate here."));
+			commonTelL(mob,"You can't decorate here.");
 			return false;
 		}
 
@@ -289,18 +425,16 @@ public class Decorating extends CommonSkill
 		case Room.DOMAIN_INDOORS_WOOD:
 			break;
 		default:
-		{
-			commonTell(mob,L("You can't mount anything here."));
+			commonTelL(mob,"You can't mount anything here.");
 			return false;
-		}
 		}
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
 
 		messedUp=!proficiencyCheck(mob,0,auto);
-		final int duration=getDuration(15,mob,I.phyStats().level(),2);
-		final CMMsg msg=CMClass.getMsg(mob,null,this,getActivityMessageType(),L("<S-NAME> start(s) "+verb+".",I.name()));
+		final int duration=getDuration(CMath.s_int(matche.get(RCP_TICKS)),mob,I.phyStats().level(),2);
+		final CMMsg msg=CMClass.getMsg(mob,null,this,getActivityMessageType(),L("<S-NAME> start(s) @x1.",verb));
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);

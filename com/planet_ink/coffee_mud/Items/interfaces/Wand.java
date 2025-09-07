@@ -17,7 +17,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -38,13 +38,13 @@ import java.util.*;
  * @author Bo Zimmerman
  *
  */
-public interface Wand extends MiscMagic
+public interface Wand extends MiscMagic, Dischargeable
 {
 	/**
 	 * A type of ability, via interface, that allows a Wand to actually
 	 * be used.
 	 *
-	 * @author BZ
+	 * @author Bo Zimmerman
 	 *
 	 */
 	public static interface WandUsage extends Ability
@@ -55,10 +55,10 @@ public interface Wand extends MiscMagic
 		 */
 		final String[][] WAND_OPTIONS=new String[][] {
 		 	{"ANY", "Any"},
-		 	{Ability.ACODE_DESCS_[Ability.ACODE_SPELL], CMStrings.capitalizeAllFirstLettersAndLower(Ability.ACODE_DESCS[Ability.ACODE_SPELL])},
-		 	{Ability.ACODE_DESCS_[Ability.ACODE_PRAYER], CMStrings.capitalizeAllFirstLettersAndLower(Ability.ACODE_DESCS[Ability.ACODE_PRAYER])},
-		 	{Ability.ACODE_DESCS_[Ability.ACODE_CHANT], CMStrings.capitalizeAllFirstLettersAndLower(Ability.ACODE_DESCS[Ability.ACODE_CHANT])},
-		 	{Ability.ACODE_DESCS_[Ability.ACODE_SKILL], CMStrings.capitalizeAllFirstLettersAndLower(Ability.ACODE_DESCS[Ability.ACODE_SKILL])},
+		 	{Ability.ACODE.DESCS_.get(Ability.ACODE_SPELL), CMStrings.capitalizeAllFirstLettersAndLower(Ability.ACODE.DESCS.get(Ability.ACODE_SPELL))},
+		 	{Ability.ACODE.DESCS_.get(Ability.ACODE_PRAYER), CMStrings.capitalizeAllFirstLettersAndLower(Ability.ACODE.DESCS.get(Ability.ACODE_PRAYER))},
+		 	{Ability.ACODE.DESCS_.get(Ability.ACODE_CHANT), CMStrings.capitalizeAllFirstLettersAndLower(Ability.ACODE.DESCS.get(Ability.ACODE_CHANT))},
+		 	{Ability.ACODE.DESCS_.get(Ability.ACODE_SKILL), CMStrings.capitalizeAllFirstLettersAndLower(Ability.ACODE.DESCS.get(Ability.ACODE_SKILL))},
 		};
 
 		/**
@@ -106,22 +106,6 @@ public interface Wand extends MiscMagic
 	 * @return the magic word that invokes this wand
 	 */
 	public String magicWord();
-
-	/**
-	 * Gets the number of times this wand can be invoked before
-	 * being drained and empty useless stick.
-	 * @see Wand#setMaxUses(int)
-	 * @return the number of times this wand can be invoked
-	 */
-	public int maxUses();
-
-	/**
-	 * Sets the number of times this wand can be invoked before
-	 * being drained and empty useless stick.
-	 * @see Wand#maxUses()
-	 * @param maxUses the number of times this wand can be invoked
-	 */
-	public void setMaxUses(int maxUses);
 
 	/**
 	 * Returns the type of magic that can be enchanted onto

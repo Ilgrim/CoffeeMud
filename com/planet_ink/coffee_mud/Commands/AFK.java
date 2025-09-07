@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -55,10 +55,13 @@ public class AFK extends StdCommand
 			mob.session().setAfkFlag(false);
 		else
 		{
-			mob.session().setAFKMessage(CMParms.combine(commands,1));
+			final String str = CMParms.combine(commands,1);
+			mob.session().setAFKMessage(str);
+			if(str.trim().length()>0)
+				mob.session().setAFKMessage(L("AFK: @x1",CMParms.combine(commands,1)));
 			mob.session().setAfkFlag(true);
 			if((mob.isPlayer())&&(CMProps.getIntVar(CMProps.Int.RP_GOAFK)!=0))
-				CMLib.leveler().postRPExperience(mob, null, "", CMProps.getIntVar(CMProps.Int.RP_GOAFK), false);
+				CMLib.leveler().postRPExperience(mob, "COMMAND:"+ID(), null, "", CMProps.getIntVar(CMProps.Int.RP_GOAFK), false);
 		}
 		return false;
 	}

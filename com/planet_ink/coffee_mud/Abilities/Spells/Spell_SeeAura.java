@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,6 +62,12 @@ public class Spell_SeeAura extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	public int classificationCode()
 	{
 		return Ability.ACODE_SPELL|Ability.DOMAIN_DIVINATION;
@@ -75,7 +81,7 @@ public class Spell_SeeAura extends Spell
 			return false;
 		if(target==mob)
 		{
-			mob.tell(L("Um, you could just enter SCORE."));
+			commonTelL(mob,"Um, you could just enter SCORE.");
 			return false;
 		}
 
@@ -84,7 +90,7 @@ public class Spell_SeeAura extends Spell
 
 		final boolean success=proficiencyCheck(mob,0,auto);
 
-		final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^SYou draw out <T-NAME>s aura, seeing <T-HIM-HER> from the inside out...^?"),verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> draw(s) out your aura.^?"),verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> draws out <T-NAME>s aura.^?"));
+		final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^SYou draw out <T-NAME>s aura, seeing <T-HIM-HER> from the inside out...^?"),verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> draw(s) out your aura.^?"),verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> draws out <T-YOUPOSS> aura.^?"));
 		if(success)
 		{
 			if(mob.location().okMessage(mob,msg))
@@ -93,6 +99,8 @@ public class Spell_SeeAura extends Spell
 				final StringBuilder str=CMLib.commands().getScore(target);
 				if(!mob.isMonster())
 					mob.session().wraplessPrintln(str.toString());
+				else
+					commonTell(mob,str.toString());
 			}
 		}
 		else

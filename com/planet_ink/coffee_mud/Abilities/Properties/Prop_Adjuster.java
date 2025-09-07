@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,6 +70,7 @@ public class Prop_Adjuster extends Prop_HaveAdjuster
 		if((affected!=null)
 		&&((mask==null)||(CMLib.masking().maskCheck(mask,mob,true))))
 			return true;
+		// sets can't really work with this.
 		return false;
 	}
 
@@ -79,6 +80,7 @@ public class Prop_Adjuster extends Prop_HaveAdjuster
 		if((affected!=null)
 		&&((mask==null)||(CMLib.masking().maskCheck(mask,E,true))))
 			return true;
+		// sets can't really work with this.
 		return false;
 	}
 

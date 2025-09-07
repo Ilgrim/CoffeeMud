@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ public class Skeleton extends Undead
 	{
 
 		super();
-		username="a skeleton";
+		_name="a skeleton";
 		setDescription("A walking pile of bones...");
 		setDisplayText("a skeleton rattles as it walks.");
 		setMoney(0);
@@ -71,5 +71,4 @@ public class Skeleton extends Undead
 		recoverPhyStats();
 		recoverCharStats();
 	}
-
 }

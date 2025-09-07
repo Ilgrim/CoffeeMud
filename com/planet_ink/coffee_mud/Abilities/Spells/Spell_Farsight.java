@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,6 +53,12 @@ public class Spell_Farsight extends Spell
 	protected int canTargetCode()
 	{
 		return 0;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -118,14 +124,14 @@ public class Spell_Farsight extends Spell
 					final int dirCode=CMLib.directions().getGoodDirectionCode(whatToOpen);
 					if(limit<=0)
 					{
-						mob.tell(L("Your sight has reached its limit."));
+						commonTelL(mob,"Your sight has reached its limit.");
 						success=true;
 						break;
 					}
 					else
 					if(dirCode<0)
 					{
-						mob.tell(L("\n\r'@x1' is not a valid direction.",whatToOpen));
+						commonTelL(mob,"\n\r'@x1' is not a valid direction.",whatToOpen);
 						commands.clear();
 						success=false;
 					}
@@ -136,7 +142,7 @@ public class Spell_Farsight extends Spell
 
 						if((exit==null)||(room==null)||(!CMLib.flags().canBeSeenBy(exit,mob))||(!exit.isOpen()))
 						{
-							mob.tell(L("\n\rSomething has obstructed your vision."));
+							commonTelL(mob,"\n\rSomething has obstructed your vision.");
 							success=false;
 							commands.clear();
 						}
@@ -145,7 +151,7 @@ public class Spell_Farsight extends Spell
 							commands.remove(0);
 							thatRoom=room;
 							limit--;
-							mob.tell(L("\n\r"));
+							mob.tell(("\n\r"));
 							final CMMsg msg2=CMClass.getMsg(mob,thatRoom,CMMsg.MSG_LOOK,null);
 							thatRoom.executeMsg(mob,msg2);
 						}

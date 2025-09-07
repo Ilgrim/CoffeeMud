@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,6 +70,8 @@ public class Spell_DispelDivination extends Spell
 	public List<Ability> returnOffensiveAffects(final MOB caster, final Physical fromMe)
 	{
 		final List<Ability> offenders=new Vector<Ability>();
+		if(fromMe==null)
+			return offenders;
 		final boolean admin=CMSecurity.isASysOp(caster);
 		Ability A=null;
 		for(int e=0;e<fromMe.numEffects();e++) // personal
@@ -105,6 +107,8 @@ public class Spell_DispelDivination extends Spell
 		final List<Ability> allDivinations=CMLib.flags().domainAffects(target,Ability.DOMAIN_DIVINATION);
 		final boolean foundSomethingAtLeast=((allDivinations!=null)&&(allDivinations.size()>0));
 		final List<Ability> affects=returnOffensiveAffects(mob,target);
+		affects.addAll(returnOffensiveAffects(mob,CMLib.map().roomLocation(target)));
+		affects.addAll(returnOffensiveAffects(mob,CMLib.map().areaLocation(target)));
 		if(affects.size()>0)
 			revokeThis=affects.get(CMLib.dice().roll(1,affects.size(),-1));
 

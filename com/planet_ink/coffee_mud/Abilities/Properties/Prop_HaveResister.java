@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -87,15 +87,9 @@ public class Prop_HaveResister extends Property implements TriggeredAffect
 		super.setMiscText(newText);
 		adjCharStats=(CharStats)CMClass.getCommon("DefaultCharStats");
 		ignoreCharStats=true;
-		String parmString=newText;
-		final int maskindex=newText.toUpperCase().indexOf("MASK=");
-		if(maskindex>0)
-		{
-			maskString=newText.substring(maskindex+5).trim();
-			parmString=newText.substring(0,maskindex).trim();
-		}
-
-		parmString = parmString.toUpperCase();
+		final String[] sepParms = CMLib.masking().separateMaskStrs(newText);
+		final String parmString=sepParms[0].toUpperCase();
+		maskString=sepParms[1];
 		final List<String> parmParts = CMParms.parseSpaces(parmString.toUpperCase(), true);
 		final List<String> previousSet = new LinkedList<String>();
 		this.prots.clear();
@@ -450,10 +444,10 @@ public class Prop_HaveResister extends Property implements TriggeredAffect
 					levelChange += 2*getProtection("POISON");
 				if(checkProtection("TELEPORT"))
 					levelChange += 2*getProtection("TELEPORT");
-				for(final String acode : Ability.ACODE_DESCS_)
+				for(final String acode : Ability.ACODE.DESCS_)
 					if(checkProtection(acode))
 						levelChange += 5*getProtection(acode);
-				for(final String domain : Ability.DOMAIN_DESCS)
+				for(final String domain : Ability.DOMAIN.DESCS)
 					if(checkProtection(domain))
 						levelChange += getProtection(domain);
 
@@ -490,10 +484,10 @@ public class Prop_HaveResister extends Property implements TriggeredAffect
 							levelChange+= adjCharStats.getStat(i)*5;
 							break;
 						case CharStats.STAT_SAVE_GENERAL:
-							levelChange+= adjCharStats.getStat(i)*50;
+							levelChange+= adjCharStats.getStat(i)*30;
 							break;
 						case CharStats.STAT_SAVE_MAGIC:
-							levelChange+= adjCharStats.getStat(i)*10;
+							levelChange+= adjCharStats.getStat(i)*5;
 							break;
 						case CharStats.STAT_CRIT_CHANCE_PCT_WEAPON:
 						case CharStats.STAT_CRIT_CHANCE_PCT_MAGIC:

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -185,6 +185,31 @@ public class Dryad extends StdRace
 	}
 
 	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
+	{
+		if((msg.source()==myHost)
+		&&(msg.target() instanceof Food)
+		&&((((Food)msg.target()).material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_FLESH)
+		&&(((Food)msg.target()).material()!=RawMaterial.RESOURCE_WAX))
+		{
+			if(msg.targetMinor()==CMMsg.TYP_EAT)
+			{
+				final Ability A=CMClass.getAbility("Poison_Heartstopper");
+				if(A!=null)
+					A.invoke(msg.source(),msg.source(),true,0);
+			}
+			else
+			if((msg.targetMinor()==CMMsg.TYP_GET)||(msg.targetMinor()==CMMsg.TYP_PUSH)||(msg.targetMinor()==CMMsg.TYP_PULL))
+			{
+				final Ability A=CMClass.getAbility("Poison_Hives");
+				if(A!=null)
+					A.invoke(msg.source(),msg.source(),true,0);
+			}
+		}
+		super.executeMsg(myHost, msg);
+	}
+
+	@Override
 	public List<Item> outfit(final MOB myChar)
 	{
 		if(outfitChoices==null)
@@ -216,14 +241,17 @@ public class Dryad extends StdRace
 
 			final Armor s3=CMClass.getArmor("GenBelt");
 			outfitChoices.add(s3);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public Weapon[] getNaturalWeapons()
 	{
-		return funHumanoidWeapon();
+		if(naturalWeaponChoices.length==0)
+			naturalWeaponChoices = getHumanoidWeapons();
+		return super.getNaturalWeapons();
 	}
 
 	@Override

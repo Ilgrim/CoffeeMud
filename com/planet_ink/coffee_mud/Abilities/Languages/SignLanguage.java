@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -67,6 +67,40 @@ public class SignLanguage extends StdLanguage
 	}
 
 	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if((affected instanceof MOB)
+		&&(beingSpoken(ID()))
+		&&(msg.source()==affected)
+		&&(msg.sourceMessage()!=null)
+		&&(msg.tool()==null)
+		&&((msg.sourceMinor()==CMMsg.TYP_SPEAK)
+		   ||(msg.sourceMinor()==CMMsg.TYP_TELL)
+		   ||(CMath.bset(msg.sourceMajor(),CMMsg.MASK_CHANNEL))))
+		{
+
+			if(!super.okMessage(myHost, msg))
+				return false;
+			if(msg.tool()==this)
+			{
+				final int mask=(Integer.MAX_VALUE-CMMsg.MASK_SOUND)-CMMsg.MASK_MOUTH;
+				msg.modify(msg.source(),
+						   msg.target(),
+						   msg.tool(),
+						   msg.sourceCode() & mask,
+						   msg.sourceMessage(),
+						   msg.targetCode() & mask,
+						   msg.targetMessage(),
+						   msg.othersCode() & mask,
+						   msg.othersMessage());
+			}
+			return true;
+		}
+		else
+			return super.okMessage(myHost, msg);
+	}
+
+	@Override
 	protected boolean processSourceMessage(final CMMsg msg, final String str, final int numToMess)
 	{
 		if(msg.sourceMessage()==null)
@@ -88,9 +122,9 @@ public class SignLanguage extends StdLanguage
 			return false;
 		}
 		final String oldStartFullMsg = startFullMsg;
-		startFullMsg = CMStrings.replaceFirstWord(startFullMsg, "say(s)", "sign(s)");
-		startFullMsg = CMStrings.replaceFirstWord(startFullMsg, "ask(s)", "sign(s) askingly");
-		startFullMsg = CMStrings.replaceFirstWord(startFullMsg, "exclaim(s)", "sign(s) excitedly");
+		startFullMsg = CMStrings.replaceFirstWord(startFullMsg, L("say(s)"), L("sign(s)"));
+		startFullMsg = CMStrings.replaceFirstWord(startFullMsg, L("ask(s)"), L("sign(s) askingly"));
+		startFullMsg = CMStrings.replaceFirstWord(startFullMsg, L("exclaim(s)"), L("sign(s) excitedly"));
 		if(oldStartFullMsg.equals(startFullMsg))
 		{
 			int x=startFullMsg.toLowerCase().lastIndexOf("(s)");
@@ -155,10 +189,10 @@ public class SignLanguage extends StdLanguage
 			break;
 		}
 		final String oldStartFullMsg = startFullMsg;
-		startFullMsg = CMStrings.replaceFirstWord(startFullMsg, "tell(s)", verb);
-		startFullMsg = CMStrings.replaceFirstWord(startFullMsg, "say(s)", verb);
-		startFullMsg = CMStrings.replaceFirstWord(startFullMsg, "ask(s)", verb+" askingly");
-		startFullMsg = CMStrings.replaceFirstWord(startFullMsg, "exclaim(s)", verb+" excitedly");
+		startFullMsg = CMStrings.replaceFirstWord(startFullMsg, L("tell(s)"), verb);
+		startFullMsg = CMStrings.replaceFirstWord(startFullMsg, L("say(s)"), verb);
+		startFullMsg = CMStrings.replaceFirstWord(startFullMsg, L("ask(s)"), verb+L(" askingly"));
+		startFullMsg = CMStrings.replaceFirstWord(startFullMsg, L("exclaim(s)"), verb+L(" excitedly"));
 		if(oldStartFullMsg.equals(startFullMsg))
 		{
 			int x=startFullMsg.toLowerCase().lastIndexOf("(s)");
@@ -190,7 +224,8 @@ public class SignLanguage extends StdLanguage
 				otherMes=otherMes.replace('.', ' ')+'\''+sourceWords+'\'';
 			if(msg.target()!=null)
 				otherMes=CMLib.coffeeFilter().fullOutFilter(null,(MOB)affected,msg.source(),msg.target(),msg.tool(),otherMes,false);
-			msg.addTrailerMsg(CMClass.getMsg(msg.source(),affected,null,CMMsg.NO_EFFECT,null,msg.othersCode(),L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(otherMes,sourceWords),name()),CMMsg.NO_EFFECT,null));
+			msg.addTrailerMsg(CMClass.getMsg(msg.source(),affected,null,CMMsg.NO_EFFECT,null,msg.othersCode(),
+					L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(otherMes,sourceWords),name()),CMMsg.NO_EFFECT,null));
 			return true;
 		}
 		return false;
@@ -206,7 +241,8 @@ public class SignLanguage extends StdLanguage
 				otherMes=otherMes.replace('.', ' ')+'\''+sourceWords+'\'';
 			if(msg.target()!=null)
 				otherMes=CMLib.coffeeFilter().fullOutFilter(null,(MOB)affected,msg.source(),msg.target(),msg.tool(),otherMes,false);
-			msg.addTrailerMsg(CMClass.getMsg(msg.source(),affected,null,CMMsg.NO_EFFECT,null,msg.targetCode(),L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(otherMes,sourceWords),name()),CMMsg.NO_EFFECT,null));
+			msg.addTrailerMsg(CMClass.getMsg(msg.source(),affected,null,CMMsg.NO_EFFECT,null,msg.targetCode(),
+					L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(otherMes,sourceWords),name()),CMMsg.NO_EFFECT,null));
 			return true;
 		}
 		return false;
@@ -217,11 +253,16 @@ public class SignLanguage extends StdLanguage
 	{
 		if(CMath.bset(msg.sourceMajor(),CMMsg.MASK_CHANNEL)&&(msg.othersMessage()!=null))
 		{
-			String otherMes=msg.othersMessage();
-			if((otherMes.lastIndexOf('\'')==otherMes.indexOf('\'')))
-				otherMes=otherMes.replace('.', ' ')+'\''+sourceWords+'\'';
-			msg.addTrailerMsg(CMClass.getMsg(msg.source(),null,null,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,msg.othersCode(),L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(otherMes,sourceWords),name())));
-			return true;
+			final ChannelsLibrary.CMChannel C = CMLib.channels().getChannelFromMsg(msg);
+			if((C==null)||(!C.flags().contains(ChannelsLibrary.ChannelFlag.NOLANGUAGE)))
+			{
+				String otherMes=msg.othersMessage();
+				if((otherMes.lastIndexOf('\'')==otherMes.indexOf('\'')))
+					otherMes=otherMes.replace('.', ' ')+'\''+sourceWords+'\'';
+				msg.addTrailerMsg(CMClass.getMsg(msg.source(),null,null,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,msg.othersCode(),
+						L("@x1 (translated from @x2)",CMStrings.substituteSayInMessage(otherMes,sourceWords),name())));
+				return true;
+			}
 		}
 		return false;
 	}

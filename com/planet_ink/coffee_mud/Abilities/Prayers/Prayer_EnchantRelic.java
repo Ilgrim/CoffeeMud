@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2020-2020 Bo Zimmerman
+   Copyright 2020-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ public class Prayer_EnchantRelic extends Prayer
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_NOORDERING|Ability.FLAG_HOLY|Ability.FLAG_UNHOLY;
+		return Ability.FLAG_NOORDERING|Ability.FLAG_NEUTRAL;
 	}
 
 	@Override
@@ -117,19 +117,19 @@ public class Prayer_EnchantRelic extends Prayer
 		commands.remove(commands.size()-1);
 		final Wand wand=(Wand)target;
 
-		final String spellName=CMParms.combine(commands,0).trim();
-		Ability wandThis=null;
+		final String prayerName=CMParms.combine(commands,0).trim();
+		Ability prayerA=null;
 		for(final Enumeration<Ability> a=mob.allAbilities();a.hasMoreElements();)
 		{
 			final Ability A=a.nextElement();
 			if((A!=null)
 			&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_PRAYER)
 			&&((!A.isSavable())||(CMLib.ableMapper().qualifiesByLevel(mob,A)))
-			&&(A.name().equalsIgnoreCase(spellName))
+			&&(A.name().equalsIgnoreCase(prayerName))
 			&&(!A.ID().equals(this.ID())))
-				wandThis=A;
+				prayerA=A;
 		}
-		if(wandThis==null)
+		if(prayerA==null)
 		{
 			for(final Enumeration<Ability> a=mob.allAbilities();a.hasMoreElements();)
 			{
@@ -137,20 +137,18 @@ public class Prayer_EnchantRelic extends Prayer
 				if((A!=null)
 				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_PRAYER)
 				&&((!A.isSavable())||(CMLib.ableMapper().qualifiesByLevel(mob,A)))
-				&&(CMLib.english().containsString(A.name(),spellName))
+				&&(CMLib.english().containsString(A.name(),prayerName))
 				&&(!A.ID().equals(this.ID())))
-					wandThis=A;
+					prayerA=A;
 			}
 		}
-		if(wandThis==null)
+		if(prayerA==null)
 		{
-			mob.tell(L("You don't know how to enchant anything with '@x1'.",spellName));
+			mob.tell(L("You don't know how to enchant anything with '@x1'.",prayerName));
 			return false;
 		}
 
-		if((CMLib.ableMapper().lowestQualifyingLevel(wandThis.ID())>24)
-		||(((StdAbility)wandThis).usageCost(null,true)[0]>45)
-		||(CMath.bset(wandThis.flags(), Ability.FLAG_CLANMAGIC)))
+		if(!prayerA.mayBeEnchanted())
 		{
 			mob.tell(L("That is too powerful to enchant into anything."));
 			return false;
@@ -162,7 +160,13 @@ public class Prayer_EnchantRelic extends Prayer
 			return false;
 		}
 
-		int experienceToLose=10*CMLib.ableMapper().lowestQualifyingLevel(wandThis.ID());
+		if(!Prayer.checkInfusionMismatch(mob, target))
+		{
+			mob.tell(L("You can not enchant that repulsive relic."));
+			return false;
+		}
+
+		int experienceToLose=10*CMLib.ableMapper().lowestQualifyingLevel(prayerA.ID());
 		if((mob.getExperience()-experienceToLose)<0)
 		{
 			mob.tell(L("You don't have enough experience to pray for that."));
@@ -173,27 +177,30 @@ public class Prayer_EnchantRelic extends Prayer
 			return false;
 
 		experienceToLose=getXPCOSTAdjustment(mob,experienceToLose);
-		experienceToLose=-CMLib.leveler().postExperience(mob,null,null,-experienceToLose,false);
+		experienceToLose=-CMLib.leveler().postExperience(mob,"ABILITY:"+ID(),null,null,-experienceToLose, false);
 		mob.tell(L("You lose @x1 experience points for the effort.",""+experienceToLose));
 
 		final boolean success=proficiencyCheck(mob,0,auto);
 
 		if(success)
 		{
-			setMiscText(wandThis.ID());
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L(auto?"<T-NAME> appear(s) enchanted!":"^S<S-NAME> enchant(s) <T-NAMESELF>"+inTheNameOf(mob)+".^?"));
+			setMiscText(prayerA.ID()); // for informational purposes
+			final String msgStr = auto?L("<T-NAME> appear(s) enchanted!")
+					: L("^S<S-NAME> enchant(s) <T-NAMESELF>@x1.^?",inTheNameOf(mob));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),msgStr);
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				wand.setSpell((Ability)wandThis.copyOf());
+				wand.setSpell((Ability)prayerA.copyOf());
 				if((wand.usesRemaining()==Integer.MAX_VALUE)||(wand.usesRemaining()<0))
 					wand.setUsesRemaining(0);
-				final int newLevel=wandThis.adjustedLevel(mob, asLevel);
+				final int newLevel=prayerA.adjustedLevel(mob, asLevel);
 				if(newLevel > wand.basePhyStats().level())
 					wand.basePhyStats().setLevel(newLevel);
 				wand.setUsesRemaining(wand.usesRemaining()+5);
 				wand.text();
 				wand.recoverPhyStats();
+				Prayer.infusePhysicalByAlignment(mob,target);
 			}
 
 		}

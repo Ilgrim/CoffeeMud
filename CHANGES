@@ -1,14 +1,492 @@
-# Build 5.9.10 Release ?/?/2020
+# Build 5.10.6 Release ??/??/2025
+  1. CoffeeMud now has an optional Proxy server.  See installation guide.
+  2. CoffeeMud now integrates with LLMs via LangChain4J.  See installation guide.
+  3. New admin command: LLM, for chatting with your AI, and Scriptable has MPLLM
+  4. Immunities and TemporaryImmunity can now include effects/behaviors.
+  5. NOCHANNEL can now be given an ellapsed time.
+  6. ! command can now match previous history.
+  7. Siplet can now do, as Sip does: have a input-boxless screen.
+  8. FLEE now prefers the previous room direction.
+  9. TRAINing now prompts the user to confirm.
+ 10. AWARDS/AutoProperties can now be modified from the CL.
+ 11. STAT command can be limited with FULSTATS disable flag and lists.ini file.
+ 12. Predict Tides gives a bit more information to Mer.
+ 13. RELOAD is now a synonym for the player LOAD command, as it should always have been.
+ 14. New fighter/ranger skills: Pistolwhip, AutoPistolwhip, Rapid Reload
+ 15. GMCP: new room.exits command, expanded char.effects and skills: see Protocols guide.
+ 16. FoodPrep now supports slicing all foods, and MasterFoodPrep lets you chop them up.
+ 17. AFFECT can now both filter and sort its results for you.
+ 18. New Locale type: AutoGrid, gets its rooms from the random areas files.
+ 19. New common skill: Embellishing
+ 20. New MOODs: passive, horny, queer, submissive, and lusty
+ 21. Tons of localization enhancements: see Installation Guide for details.
+ 22. New GenPoison for making your own global poisons, and UniPoison for unique ones.
+ 23. New prayers: Bolster Poison, Addicting Curse
+ 24. FasterRecovery can now slow recovery, including %.  See AHELP
+ 25. Prop_*Adjusters now support bumping casting costs.  See AHELP.
+ 26. CoffeeMud now supports the Grapevine network: see Installation Guide
+ 27. ICHANNELS ini entry is now deprecated, and its purpose folded into CHANNELS
+ 28. Lamp oil-filled bathtubs can now be set on fire, for what that's worth.
+ 29. The MUD will now validate the database version on boot, and auto-upgrade if needed.
+ 30. FakeDB: new v1.1 format that stores ver, schema hashes, and validates data files.
+ 31. FakeDB now supports ALTER, DROP, and CREATE TABLE commands.
+ 32. You can now LIST DEBUGS or LIST DISABLES to see active flags.
+ 33. Prop_ItemBinder can now bind to noone, but can mark an item as preserved over death.
+ 34. Smoke Rings is now recipe driven, and players can select their ring style. 
+ 35. *Emoters props and behaviors now support PUFF emotes and some other features.
+ 36. New Scriptable triggers: WEARING_PROG, RIDE_PROG, RIDING_PROG
+ 37. Room varies now supports varying the room description by entry direction.
+ 38. New Archon skill: LLMIFY, for making LLM-powered mobs, if you can.
+
+# Build 5.10.5 Release 07/12/2025
+  *  DATABASE CHANGED! (new CMCDAC table)
+  1. New Generic Commands!, see GameBuildersGuide for more information.
+  2. BodyPiercing is now recipe driven, and recipes are now split off by level.
+  3. New Skill: Diary
+  4. ColorSet now supports Exits, as well as explored/unexplored doors.
+  5. Mudborn kids get Prop_SafePet with auto-leiging and auto-follow
+  6. New prompt features: %h% %m% and %v% for percentages .. breaks MXP bars
+  7. New disable flags: CHARCRSTAT, CHARCRRACE, CHARCRCLASS, CHARCRGENDER
+  8. New archon LISTs: DEBUGFLAGS, DISABLEFLAGS
+  9. Three new WebSocket macros (WebSock, WebSockASCII, and WebSockJSON).  See WebServer.html
+ 10. Log viewer in the MUDGrinder now shows the log by pages, starting at the last one.
+ 11. Undead-based races are now immune to Bleeding.
+ 12. New property: Prop_AffectReTick for changing the tick time of effects
+ 13. Siplet has been replaced with a new ph@-client version.
+ 14. MudChat now supports switching/adding dbs based on responses.
+ 15. New Percolator layouts: mesh, spotted mesh, and branch
+ 16. Ignore now supports ignoring players by limited categories.
+ 17. CoffeeMud now supports MTTS, and will skip ANSI prompts at CC if set.
+ 18. CoffeeMud now supports True color ansi codes, see HELP TRUECOLORS
+ 19. GMCP now supports more auto-logins.
+ 20. Sprinking of new CM1 commands: MUDINFO who, port, hosts, and WHOIS -name-
+ 21. Prop_ReqEntry and Prop_*Zapper support accusing someone of a crime.
+ 22. New WebMacros: TellMessageNext, and TellFunction.
+ 23. Scriptable/MOBPROG: new CNCLMSG_PROG and EXECMSG_PROG filtering.
+ 24. CHARCREATIONSCRIPTS codes now includes CHARLOGIN, ALLCHARLOGIN
+ 
+# Build 5.10.4 Release 12/05/2024
+  *  DATABASE CHANGED! (Bitmap field in CMCHAR table is now larger)
+  1. Races/GenRaces support parameters for cultural abilities.
+  2. Better MSSP/MSDP support.  New INI entry: MSXPVARS.
+  3. Ability CODES & DOMAINS can now be added to via the INI file/control panel.
+  4. Deity powers, curses, blessings all now support arguments
+  5. New skills: Improved Revoke, Hard to Starboard, Staff Sweep, Staff Block
+  6. GenAbilities: better argument parsing (see Game Builders Guide)
+  7. New command: NOSPAM
+  8. AutoGenInstances will now respect multiple entrances.  See RandomAreas guide.
+  9. Two new Pride/TOP Stat config settings, PRIDECATS and PRIDECOUNT in INI file
+ 10. TOP command now only displays text files in resources/text/topplayers.txt, etc
+ 11. TOP pride stats are retained for deleted players & accounts, until they fall off.
+ 12. New Zappermask: +-DOMAIN
+ 13. Thin Areas will now develop their correct area stats eventually
+ 14. Can now modify GenAbility IDs, and create new ones based on existing ones.
+ 15. Regeneration property now has many finer controls
+ 16. GMCP now supports char.effects.get
+ 17. New chants: breath color, know animal, enhance potion, spark runes, inspect shard
+ 18. All Qualifies list now supports secret flag
+ 19. New formula: proficiency gain; see ini file
+ 20. Note:  Due to InterMud 3 changes, some will see a harmless one-time error at startup.
+ 21. New Prayer: Pacify -- a targeted Calm with duration
+ 22. Proficiency cap from practicing now in INI file (see PRACMAXPCT)
+ 23. Unit Tests (TEST command) are now friendlier and more accessible
+ 24. Wish/Limited Wish now has a configuration file in resources/skills/wish.txt
+ 25. Unleveling and Unleveling from XP loss can be disabled in the INI file
+ 26. Unleveling no longer removes a level 0 class, but still takes from other classes
+ 27. SCORE command has more arguments for narrowing the results.
+ 28. Prop_ItemNoRuin can now be used to Always ruin an item.
+ 29. Class Skills, including All Qualifys, now support expertises as requirements.
+ 30. New Command "AutoAttack" for toggling auto attack.   Also available in Config.
+ 31. Players can now drop, get, etc all weapons, armor, items, or money.
+ 32. TOP/Pride stats now preserves previous-period stats.
+ 33. CRON jobs now support new intervals and better formula support (HELP CRON)
+ 34. New example script playerBackups.js for making player backups as cmare xml.
+ 35. New example script topMonthlyRpt.js for making TOP player reports every month.
+ 36. New example script topMonthlyAwards.js for giving TOP player awards every month.
+ 37. New thief skills: Runecasting, Kidnapping, Urchinize, Tarot Reading, Find Runaway
+ 38. Prophecy prayer will now also use new random predictions file
+ 39. New property: ScriptLater for, well, scripting later
+ 40. Generate command now supports object type SCRIPTS
+ 41. StdPlanarAbility, etc now works on exits and portals
+ 42. Spell_Teleport can now generate random areas when places on exits and portals.
+ 43. The XML files feature from quest scripts can now be used in mobprog scripts also.
+ 44. New prayer: Divine Quest, mostly to use in blessings or curses.
+ 45. New spell: Tap Scroll, Mystic Task, mostly for use in scripts
+ 46. Achievements now supports LEVELUP, LEVELDOWN, CLASSLEVELUP, CLASSLEVELDOWN, EFFECTSHAD events.
+ 47. POSE command now supports HERE argument.
+ 48. New Achievement award types: ITEM, and MOB
+ 49. New chants: Release Magic, Tasseography, Curse Mood, Enhance Jewelry, Extend Fortune
+ 50. Areas now track several more stats and most common race, see LIST AREAS for more info.
+ 51. New thief skills: My Urchins, Astrology, Name Urchin, Promote Urchin, Call Urchins
+ 52. New chants: Suppress Fortune, Enhance Shard, Bountiful Womb, Curse Fortune, Palm Reading
+ 53. New common skill: Shard Making, Improved Herbalism
+ 54. New skills: Staff Spin, Scroll Familiarity, Trade Charting, Staff Thrust, Caravan Travel
+ 55. New chants: Steal Fortune, Strengthen Seed, Endow Club, Reverse Fortune, Endow Gemstones
+ 56. New thief skills: Conceal Pathway, Urchin Spy, Fortune Telling
+ 57. New chants: Curse Seed, Endow Jewelry, Endow Ioun Stone, Stabilize Form
+ 58. New rideable type: furniture-hook
+ 59. HELP can now match on common recipes to tell you which skill produces them.
+ 60. Many resource files can be 'extended' by adding versions with .1, .2, etc after the extension.
+ 61. Std/Gen Journals now support post and msg size limits, and post expiration.
+ 62. CONSIDER and GCONSIDER now support the "all" syntax.
+ 63. ACCOUNT now supports a sort field.
+ 64. Corpses can now be generated with some cause-of-death blurbs, see CORPSE_BLURBS in LISTS.INI.
+ 65. New MOB class: StdCraftBroker, allows players to craft for each other async. See Archons Guide
+ 66. Magical Ability code on armor now applies only to non-multiwear armor.
+ 67. Game Channels can now be tied to Discord channels via Discord Apps and Bots.
+ 68. New shopkeeper type: children seller (for an orphanage).
+ 69. New RP/MUSH-like command 'DIEROLL'.
+ 70. User selection masking now supports "LAST.", like GET LAST.SWORD
+ 71. FTELL will now invoke GTELL, but only for your followers.
+ 72. GROUP now supports LEADER keyword to change your group leader.
+ 73. FORMATION can now put anyone in front row, and attacks initiated by formation make front row tank.
+ 74. New item type: GenBurnOven -- an oven that requires burning fuel inside.
+ 75. New Property: TriggeredAffects, for having effects that are triggered :)
+ 76. New race: Rust Monster
+ 77. ORDER now works with animal followers for specific commands in LISTS.INI file
+ 78. Can now LIST DBCONNECTIONS to check database status
+ 79. New character class: Gypsy - thief subclass with druid highlights
+ 80. New command: AUTOTELLNOTIFY, with CONFIG support also, for account-based muds.
+# Build 5.10.3 Release 01/01/2024
+  *. CoffeeMud now officially requires jdk 1.8.  ATM, it will still compile in 1.6 tho.
+  1. New Paladin skills: Unholy Strike, Chaos Rage, Paladin's Fear, Paladin's Corruption
+  2. New Paladin skills: Incite Fight, Dark Hammer, Paladin's Wickedness, Crushing Aura
+  3. New Paladin skills: Craft Unholy Reaver, Righteous Defense, Exploiting Aura
+  4. Paladin's can now be Anti-Paladins if they maintain chaotic evil.
+  5. New Items: CubicGate, GenGiftContainer, GenTent, GenStove, Spear (polearm)
+  6. New Achievement stuff: Tattoo reward type, ENTITLED achieve type
+  7. Tattoos like 'RACE_*" or "CHARCLASS_*" now open up otherwise skill-restricted options.
+  8. Liege xp bonus can no longer be gained from non-combat or role-playing xp vassel gains.
+  9. New CharStat XPADJPCT - for adding bonus % xp (or loss if negative)
+ 10. Prop_NoPurge now supports an expiration date/timestamp
+ 11. New StdMob type: CombatDummy, for testing.
+ 12. New spells: Wizard's Mark, Suppress Aroma, Store Aromas
+ 13. New prayers: Undeath Guard, Animate Shadow, Animate Limb
+ 14. GOTITEM Achievement type now supports multiple item masks.
+ 15. New standard races: Ghast, Ghoul, Ghost, Mummy, Spectre, Vampire, and Zombie
+ 16. Undead race mixing now has its own special rules, which Prayer_Animate* will use
+ 17. WaterCurrents messaging can now be customized.
+ 18. Default days/month is now 24, default months/yr now 7.  Postmen retain mail for 40 months.
+ 19. GenRaces now support multiple natural weapon choices, better reflecting StdRaces.
+ 20. AFK status produced from the AFK command is now sticky until explicitly toggled.
+ 21. Prop_RoomForSale now allows disabling the robbery laws on a property-by-property basis.
+ 22. SAVE= rooms will properly rejuv before saving, Thin areas now allow property taxes
+ 23. Prop_NoTeleport now supports redirection, and custom messages
+ 24. Mirrors now act like LOOK SELF
+ 25. STAT commands supports new POBJECT (player objects) arg.
+ 26. New command: MEND, for invoking the proper common skill.  Mend spell renamed to Lesser Mend.
+ 27. Gaoler can now wear leather.
+ 28. Temporary skills now show up in the SKILLS/SPELLS/etc command as dark grey.
+ 29. You can no longer cast speak or cast verbal spells unless you can breathe where you are.
+ 30. ALIAS now supports a copy command.
+ 31. New skill: Stoicism
+ 32. Pregnant people now get food addictions, and Addictions can now include resource name
+ 33. Amputation now works on corpses.
+ 34. Prop_*Adjusters now support ambiance+- arguments.
+ 35. New property: Prop_PropSetter, for potentially permanent object changes.
+ 36. Rituals now support TIMEOUT, INCLUDE and ASSIST tasks for cooperative magic!
+ 37. PROMPT now supports group size / max group members, and CONFIG/Attribute blocks
+ 38. MG Journal browser now supports Journal Limit / pages.
+ 39. Decoration now supports hiding items in plain sight/semi-hidden.
+ 40. Quests can now suppress local laws while they are running. 
+ 41. Prop_ClosedDayNight can now generate near-closing greetings.
+ 42. MudChat now how syntax for adding marginal entries over the chat.dat entries.
+ 43. Loyalty will report itself when the leader looks at the loyal follower.
+ 45. EXAMINE/LONGLOOK at mobs will now show wear positions like EQ LONG
+ 46. CATALOG now supports spawn caps, random (masked) room spawns, and mob spawns.
+ 47. SERVEing another player now requires that their NOFOLLOW flag be off.
+ 48. ACHIEVEMENTS command now always supports including awards in lists.
+ 49. Channels now support SEARCH:
+ 50. Subscribe now supports channels and their backlogs
+ 51. Titles now support random selection lists.
+ 52. Prop_UseEmoter* and Prop_Sounder support trigger mob masks now.
+ 53. Generic Abilities can now be COPYed, and Standard ones badly. CREATE will now convert.
+ 54. New standard races: GiantBear, GiantBoar, DireBear, DireBoar, DireCat
+ 55. New skills: Racial Mount, Call Steed, Rope Tricks, Awe Mounts, Bronco Busting
+ 56. The racial skill "Buck" will now invoke automatically for certain races of mobs
+ 57. New skills: Set Polearm, Dismounting Blow, Herding, Shepherding, Long Reach
+ 58. New skills: Soothe Mount, Tend Mount, Favored Mount 1...4, Forceback, Rearguard
+ 59. New skills: Indoor Riding, Command Mount, Unwavering Mark, Graceful Dismount
+ 60. New skills: Mount Taming, Mounted Tactics, Ridethrough, Vanguard, Mounted Retreat
+ 61. New skills: Confident Vanity, Lassoing, Jousting, Rope Trip, Fierce Mount
+ 62. (Power) LEVEL expertises now grant points to proficiency on all skills/spells/etc.
+ 63. New skills: Holy Mount, Unholy Mount, Rope Disarm, Armored Vanity, Mounted Leap
+ 64. TEAR/DESTROY can now be used to tear cloth into strips for bandaging or whatever
+ 65. New skills: Companion Mount, Hold The Line, Faithful Mount, Break Mount, Caravan Tactics
+ 66. New skills: Lucky Vanity, Sweeping Trip, Ride to the Rescue, Rope Dismount, Runover
+ 67. Command FOLLOW can now be used with sailing ships and caravans.
+ 68. New skills: Riding Fight, Hog Tie, Stable Mount, Caravan Commander, Planar Mount
+ 69. New skills: Protected Mount, Trample, Combat Recall
+ 70. New Achevement type: SCRIPTED, and new Scriptable command: MPACHIEVE
+ 71. Layer info added to VIEW and slightly more apparently in LONGLOOK.
+ 72. Conquest now requires dead mob lvl diff <= EXPRATEx2 (from ini file) HELP CONQUERABLE
+ 73. GenTraps now support custom reset ticks for builder-set traps.
+ 74. New common skills: Mycology, and Master Mycology. (Herbology now also Recipe Driven/Editable)
+ 75. New poison: Sickening (for mushrooms that aren't rotten, but aren't good for you either).
+ 76. Languages now support special 'say' verbs.  Std languages updated, especially animal-speaks.
+ 77. Instanced areas can now be reset/flushed and timed-out from Scripts.  See Archons Guide.
+# Build 5.10.2 Release 4/28/2023
+  *  DATABASE CHANGED! (Enlarged CMDATE, and new expiration date added to CMJRNL table)
+  1. GMODIFY can now affect Areas.
+  2. New Races; Mustalids, Badger, Otter, Wolverine, Giant Otter, Dire Otter, Mustie
+  3. Genders are now defined in lists.ini
+  4. Socials update
+  5. New Deviations features: mob power levels, sorting
+  6. New Deviations button in the MUDGrinder map and room editors
+  7. New Chants: Summon Squall
+  8. Looking UP into a generated sky now gives some basic info.
+  9. New Exit type: Skyway -- for supporting the above.
+ 10. New Achievement type: CHARITY
+ 11. New Disable flag: FATIGUE
+ 12. New skill: Await Clan Ship
+ 13. The "Know Plants" skill will now report on edible-ness.
+ 14. Some divination spells are now more mob-follower-friendly. (e.g. Find Directions)
+ 15. New Spell "Majesty", the effects of which can only be wished for.
+ 16. Prop_ShortEffects expanded to include remotely-cast effects also.
+ 17. ACCOUNT command can now show chars with waiting mail, or missed tells.
+ 18. Prop_WearAdjuster allows dressing and content manipulation, from outside (saddlebags).
+ 19. New item: GenBagOfHolding
+ 20. REMOVE command can now target a wear location.
+ 21. Warrants skill can now accept a filter argument
+ 22. Shopkeepers listing their own inventory can see amount of stock.
+ 23. WillQualify and Qualify commands now have UNIQUE argument.
+ 24. New INI entry: XPMOD, and changes to Prop_ModExperience also.
+ 25. Common Account menu now configurable (help/acctmenu.txt)
+ 26. New forum posts now support attachments.
+ 27. WeatherAffects behavior can now be more independent of the actual weather.
+ 28. New language: FoxSpeak
+ 29. New Spell "Know Province"
+ 30. Duelers can now engage in unfair fights.
+ 31. New command: Calendar, plus auto-notifications for the start of Holidays in channels.
+ 32. Painting skill now has recipes file.
+ 33. GenAbility affect adjustments and tick override now support variables.
+ 34. Messing up a crafting skill results in a Ruined item instead of nothing.
+ 35. NastyAbilities now has CHECKLEVEL argument.
+ 36. Can now SLEEP UNTIL RESTED to remove fatigue
+ 37. MOB armor suggested values now balance player attack values. *ness Behaviors modified.
+ 38. StdMOBS will now auto-scale by their set levels, making them much more useful. 
+# Build 5.10.1 Release 1/01/2023
+  1. FasterRecovery expanded and new char stat REJUVRATE for Prop*Adjuster
+  2. Ability Components now support their own private socials list.
+  3. Deity and Component rituals and triggers now have their own MUDGrinder editor.
+  4. PLAYERDEATH now supports PURGE X for a "lives remaining" type effect.
+  5. New chant: Summon Animals
+  6. Stat and train costs can now be specified in terms of a local currency
+  7. WHERE Archon command now supports MQL updates via WHERE UPDATE: ...
+  8. Disease_Vampirism greatly expanded, and its features argument-controllable
+  9. New INI entry DEFAULTABILITYARGS for setting default property/skill arguments.
+ 10. LOGOUTMASK now supports a tick argument for how long to keep the mob in game.
+ 11. Decorating is now recipe driven, and has numerous new options
+ 12. Commands now support copying other player settings: 
+     CONFIG COPY [playername] /CHANNELS COPY [playername]/COLORSET COPY [playername]
+ 13. New archon LIST option: Orphans, for rooms without incoming exits
+ 14. MODIFY command supports MQL with MODIFY UPDATE:...
+ 15. DESTROY command supports MQL with DESTROY DELETE: from ...
+ 16. Clan Government role 'CLAN_MOTD' changed to 'READ_MOTD'. 'CREATE_MOTD' added.
+ 17. New Zappermask: +-CLANLEVEL, for filtering a members clan's level
+ 18. New Bombs: Bomb_SpellBlast
+ 19. New Spell: Spell_DetonateBombs
+ 20. Prop_Closed* properties now support a zappermask for the object.
+ 21. New common skill: Black Marketeering, for Thieves, Burglars, and Gaolers
+ 22. New poisons: anesthesia, and hallucinogen, hazia, and new Drug Cutting recipes
+ 23. Gaolers now get Drug Cutting, Slave Marketeering, Pimping, and new Thief Skill: Roofie
+ 24. BUY/SELL/VALUE/BID/BORROW/etc... now supports with/to/from to designate shopkeepers
+ 25. New Disease: Hatred
+ 26. New Thief skill: Smuggle.  Also, laws.ini has example banned item laws.
+ 27. Gaolers now affect conquered area loyalty via their torture techniques.
+ 28. New expertise: torturing
+ 29. New Gaoler skills: Child Labor, Track Criminal, Spread Apathy, Spread Hatred
+ 30. Quest SPAWNABLE now supports ANY, ONCE, ALLONCE, and ANYONCE.  You should update your holiday.quest file if necc.
+# Build 5.10.0 Release 9/23/2022
+  1. New Scriptable functions: ROOMPC and AREAPC
+  2. Caravans now have their own internal Directions (fore, back, right, left, up, down)
+  3. Crafting INFO feature will now give the approx. time to craft
+  4. New common skill: Shrooming, for growing mushrooms/fungus
+  5. Newly crafted Clan Journals now writeable only by clan role power (journal). INI updated.
+  6. New clan govt roles: CREATE_LAW (for law books), and JOURNAL (for writing to journals)
+  7. Clans now support mud-yearly dues
+  8. New weather type: FOG, with weatheraffects support
+  9. New chant: Summon Fog
+ 10. MUDGrinder Player Manager now links to a WhiteList editor.
+ 11. New spells: Greater Claireaudience, Greater Clairevoyance, Greater Scry
+ 12. Smelting, Wainwright, Papermaking, and Siegecrafting recipes updated
+ 13. New account flag: NOCHARPURGE to protect all account players
+ 14. New base materials/raw env resources: NICKEL, PALLADIUM, VEGETABLE
+ 15. New thief skills: silent wear, silent hold, silent wield
+ 16. ResourceOverride now has more options and applications
+ 17. New Zappermask flags: +-RIDE, +-FOLLOW
+ 18. Prop_LangTranslator now has a ridiculously expanded functionality
+ 19. AnimalTraining now supports mundane things like sit, kill, etc.
+ 20. AREAS now supports EXPLORED argument
+ 21. New command: ASSIST 
+ 22. PUSH and PULL now take a tick, and can fail from weight, but supports assist
+ 23. New Prayer: Eternal Item
+ 24. Players can now rush thier crafting, as per the new expertise, w/o learning it
+ 25. New Generic ability type: GenWrightSkill - for making large construction skills
+ 26. ShipWright, Caravan Building, and Clan Caravan Building now have editable recipes
+ 27. Prop_NoCraftability can now be applies to recipes, and has a zappermask.
+ 28. Caravan Building now has a full complete recipe set.
+ 29. CHANNELS command can now be used to turn all on/off at once.
+ 30. Suffix and Prefix Titles will automatically combine.  See help. 
+ 31. New property: Prop_Fumble, to cause skill failures
+ 32. Addictions now supports multiple additions, and sniffing magic dust
+ 33. New Clan Item: StdClanConcierge (and Gen*) for clans getting around
+ 34. MOB max items, max carry weight, and max followers are now in INI file/grinder.
+ 35. Statistics for accounts/ips online will now be tracked and shown.
+ 36. Reaction Factions can now be permanently saved from the MUDGrinder also.
+ 37. AutoTitles now support Max players -- use sparingly, causes DB scans.
+ 38. New Generic Trap type, for many new traps for damage, from skills or scripts
+ 39. The recipes for lacquering, dying, and similar paint skills are now editable
+ 40. The recipes for Lay Traps and Lay Minor Traps are now editable
+ 41. New bombs: sonic, heat, sticky, shaped
+ 42. Make Bombs can now make their products obviously bombs instead of obsfucated
+ 43. New thief skills: Set Timer, Detect Bombs, Heretical Faith
+ 44. Updates to several language vocabularies
+ 45. Help now shows "see also help on..." that is auto-magically generated.
+ 46. Can now create/modify/destroy HELP entries.
+ 47. Hirelings now report their time remaining, and can be queried on that subject.
+ 48. MPAFFECT Scriptable command can now have number of ticks specified.
+ 49. New command: HISTORY, for showing command history to players
+ 50. New archon command(s): basically do scriptable commands from the cl (MPCOMMAND)
+ 51. ALIAS command now supports TEST argument
+ 52. New races: Shrimp, Tuna, Half Ogre, Drider, Birdman, Tiefling
+ 53. New common skill: Animal Trapping, requires a cage, for trapping small game
+ 54. New Scriptable command: MPHIT, for forcing an immediate weapon attack
+ 55. Tents and other ENTER-IN type rideables now protect against some weather affects
+ 56. Archons can now create/list/mod/del periodic script runs (cron jobs)
+ 57. New skill: Skill_Math.  It's a calculator.  woohoo.
+ 58. Player Prompt now supports % visited area and world
+ 59. Journals now support message COPY option for admins
+ 60. New optional player date-based bonuses system called AutoAwards (or just Awards)
+ 61. REPORT commands can now filter by domain
+ 62. Lanterns, like drinkables, have liquid type and capacity that determines duration now.
+ 63. Ability Components now support deity-like trigger rituals for invoking skills/spells/etc
+ 64. New Fighter Skills: Bear Hug, Clinch Hold, Choke Hold, Sleeper Hold, Headlock, Arm Hold
+ 65. New Fighter Skills: Double Arm Hold, Leg Hold, Finger Lock, Ankle Lock, Wrist Lock
+ 66. New Fighter Skills: Elbow Lock, Bulldog, Gutbuster, Knee, Elbow Jab, Earbox
+ 67. Deities should be given weapons to influence craft holy avenger and other holy magic.
+ 68. New Fighter Skills: Forearm Block, Breakout
+ 69. New INI entry TRAINCOSTS for setting (or removing) costs for various things.
+ 70. Shutdown-restart has been removed.  It never really worked right anyway.
+# Build 5.9.12 Release 1/17/2022
+  *. DB Changes: CMCOLR field in CMCHAR increased in size to 255 chars, CMSNAM field added to CMBKLG
+  1. Prop_Have/WearAdjuster supports item sets now
+  2. MANACOST and MANAMINCOST entries in coffeemud.ini allows more flexible skill costs
+  3. Skill use will now attempt to check range before consuming mana/resources
+  4. New locale types: undergroundcitystreet and underwatercitystreet
+  5. New command: abilities
+  6. Default MINMANACOST is now skill level or 10, whichever is greater.
+  7. Many crafting skills now support FROM syntax to specify specific resources.
+  8. Metacraft will select random resource by weight.  New value filter for metacraft in Random Generator.
+  9. All achievements now support PLAYERMASK, even if it makes no sense.
+ 10. Lots of new achievements -- mostly skill proficiency related
+ 11. Prop_InstantDeath can now kill you less instantly.
+ 12. STARTMANA, STARTMOVE, and STARTHP in ini file can append to class changes/level.
+ 13. New INI entry: BONUSACT -- for global action bonus tweeking
+ 14. Crafting skill INFO command now supports expertises and specific resources
+ 15. CLASSSYSTEM has new class limit boundary options, and new GAIN and SWITCH for train cost.
+ 16. New achievement flag: REMORT, for forcing remorting players to re-acquire player achievements.
+ 17. Alchemy now supports powders/dusts
+ 18. New prayer: sense chants
+ 19. Weaponsmith/Fletching/leatherworking now supports min/max range data
+ 20. New achievement type GROUPKILL
+ 21. Socials now support flags.  Initial flags for confirming, target confirming.
+ 22. New Property: Prop_MultiEffects, for stacking the same prop multiple times.
+ 23. Import, Export now support class, race, ability as specific object.
+ 24. New Mood: Silly
+ 35. Nwe items: GenCaravan, a land-based sailing ship, and GenGangline, for making mob follower teams
+ 36. New common skill: CaravanBuilding, for, well, building caravans.
+ 37. Magic Powders can now be sniffed to self-enchant
+ 38. New common skill: Improved Alchemy
+ 39. New prompt flags: combat-only sections, non-combat-only sections
+ 40. Expertises now support .2 files like achievements, and MODIFY EXPERTISE now works.
+ 41. Prop_RoomView has new parms, LONGLOOK, and ATTACK to give ship-like abilities, and dirs.
+ 42. New misc property: AmbianceAdder, for adding random ambiances to things.
+ 43. New Items: GenCastle, GenClanCastle -- stationary boardables.
+ 44. Clans can now make GenClanCastles using ClanCrafting.
+ 45. AREAVISIT achievement type now supports CONFLICT argument.
+ 46. Refusing to create a new character no longer counts against login attempts.
+ 47. New spells: Greater Levitate, Greater Mend, Deflection, Harden, Improved Harden
+ 48. Rodsmithing, Staffmaking, Wandmaking, Fletching, Gunsmithing, Siegecraft all support X handed items
+ 49. New misc property: Carnivorous, for particular races, such as cats, orcs, and goblins
+ 50. Thrown weapons are now cheaper for crafters to make 
+ 51. Clan Who now uses list members instead of clan benefits
+ 52. Clan members who can order conquered are also above the law.
+# Build 5.9.11.1 Release 02/26/2021
+  Bug Fix Release:
+  1. Fixed experience gains when EFFECTCXL is 0.
+  2. Changed EFFECTCXL default back to 0.
+  3. Fixed Enchanted Item mana-checks.
+# Build 5.9.11 Release 02/20/2021
+  1. a(n) is now official filter syntax for a/an
+  2. Shutdown command now supports AT syntax to set a RL time certain.
+  3. Languages now support a translation ID to assist shopkeepers with slang languages.
+  4. New Locale: ShoreGrid
+  5. Amputation can be done to player followers, with their permission.
+  6. Look can now target items in open containers
+  7. Prop_*Adjuster now supports ABLEPROFS and ABLELVLS, and will give log errors in arguments
+  8. Socials now support qualifying zappermasks to use the social
+  9. WILLQUALIFY now supports NOx syntax to filter OUT things.
+ 10. Building skills: exits now support exit descriptions, with @x1 to substitute next room display.
+ 11. GenAbility now supports customizable Target Fail message
+ 12. Player visitation is now tracked in the most recent instanced area, but still not saved to db.
+ 13. New faction change events: DYING, AREAEXPLORE, AREAASS, AREAKILL, and flag: RESTIME, and parm: WITHIN
+ 14. New misc ability: InstanceArea, for creating modified instances out of existing areas
+ 15. New achievement type: INSTANCEEXPIRE - for tying an achievement to having been in an instance
+ 16. ShopKeepers, et al can each of their own unique currency setting
+ 17. Scriptable MPGSET, STAT, etc.. now supports MAX char states (MAXHITS, etc)
+ 18. Achievements now support expiration/duration.
+ 19. More new faction change events: all coffeemud message (CMMsg) types.
+ 20. New Thief Skills: Mask Faith, False Faith, Graverobbing, Repurpose Text, Whiplash
+ 21. New Prayers: Deplete Scroll, Attune Scroll, Empower Scroll, Tongues, Fluency, Sense Devotion
+ 22. Zappermasks now support +-WEEK, +-DAYOFYEAR, +-YEAR, +-WEEKOFYEAR, and X or Y or Xnd Y syntax
+ 23. New injury system: Scarring
+ 24. New Prayers: Empower Shield, Read Language, Store Prayer, Lesser Warding Glyph, Deflect Prayer
+ 25. New Thief skills: Borrow Boon, Unearth Demography, Digsite, False Service, Blend In, Sense Digs
+ 26. Zappermasks now support +-OR to introduce separate conditions
+ 27. Deities can now be picked at char creation, see DEITYPOLICY in ini file or M.G. control panel
+ 28. Many GREET style Scriptable triggers now support zapper masks instead of pct chance
+ 29. Scriptable has new GROUP_GREET_PROG for greetings that trigger at most once per tick.
+ 30. New Prayers: Deplete Relic, Attune Relic, Empower Relic, Transfer Bane, Release Prayer, Transfer Boon
+ 31. New Skills: Whiplash, Research Item, Research Region Map, AutoHammerRing, Befoul Shrine
+ 32. New Prayers: Improved Warning Glyph, Sense Parish, Reflect Prayer, Amplify Unholy Weapon
+ 33. New Prayers: Empower Holy Weapon, Empower Sacred Weapon, Imbue Shield, Share Boon, Empower Just Weapon
+ 34. New Thief skills: Heroic Reflexes, Condemn Mark, Steal Boon, Whip Strip, Incite Divine Feud
+ 35. New Prayers: Empower Unjust Weapon, Empower Modest Weapon, Greater Warding Glyph, Find Sacred Item
+ 36. New Prayers: Empower Holy Weapon, Empower Unholy Weapon, Empower Sacred Weapon, Protect Sacred Item
+ 37. New Prayers: Imbue Holy Weapon, Imbue Unholy Weapon, Umbue Sacred Weapon, Imbue Just Weapon
+ 38. New Prayers: Imbue Foul Weapon, Imbue Modest Weapon, Protect Item, Sacred Imbuing Quest
+ 39. The AS and AT commands now support PLAYERS to do things as or at all the players online.
+ 40. GMODIFY now has PLAYERS option to alter/scan all players.  Dang, this command is dangerous.
+ 41. MOTD command can now be used to set motd.txt file, which is also now deleted every day.
+ 41. New random quest template category: auto, for making quests w/o quest givers.
+ 42. New mood: reflective
+ 43. Factions can now be set as being non-inheritable by children
+ 44. New prayers: Planar Pilgrimage, Sense Resistances, Protection from Bless
+ 45. New Thief skills: Use Potion, Case Joint
+ 46. New class: Reliquist
+ 47. Builder version of OUTFIT can now be targeted, and give metacrafted gear
+ 48. Std/Gen Languages can now be marked as natural to differentiate human from encryption/animal sounds
+ 49. New user config: NOREPROMPT -- for getting new prompts only when user input received
+ 50. New fighter skill: Stance.
+ 51. Fighters lose wand use, Rangers swap wands for shards, Paladins wands for relics.
+ 52. Several exotic (elemental/golem) races were balanced a bit, for transmutation purposes.
+ 53. Racial transformations via magic will undo previous char stat changes and apply new ones correctly.
+ 54. Two new INI entries: EFFECTCAP (cap effects), and EFFECTCXL (which is complicated, related to XP).
+ 55. New Clan Item type: GenClanSailorsCap, allowing clans to assign ship captains at will.
+ 56. New achievement type: SKILLPROF for becoming proficient, DECONSTRUCTING for learning recipes
+ 57. Wealth now shows bank balances
+# Build 5.9.10 Release 6/16/2020
   1. Wands/etc have enchant type as a restriction, WandMaking/StaffMaking/Rodsmithing support.
   2. New PLAYERDEATH option: RETAIN -- to allow player mobs to keep their items on death.
   3. Scriptable GSTAT now supports BASESTRENGTH, BASEDEXTERITY, etc.. and BASEDAMAGE, etc..
-  4. New skills: Shard Use, Relic Use
-  5. New prayers: enchant relic, recharge relic, read prayer, clarify prayer
-  6. New chants: Enchant Shards, Recharge Shards, Read Runes, Refresh Runes
-  7. New songs: Restore Music, Enchant Instrument, Recharge Instrument, Read Music
+  4. New skills: Shard Use, Relic Use, Light Placebo, Placebo, Krakenform, Planar Tactics
+  5. New prayers: enchant relic, recharge relic, read prayer, clarify prayer, planar plague
+  6. New chants: Enchant Shards, Recharge Shards, Read Runes, Refresh Runes, Fishy Fecundity
+  7. New songs: Restore Music, Enchant Instrument, Recharge Instrument, Read Music, Saudade
   8. New questmaker templates: competitive/normal_collect5, competitive/normal_delivery4, normal/travel4
   9. Crafting skills can now list recipes by level range, eg list 5-, list -5, list 10-20
- 10. New disable flags: AUTOMOODS
+ 10. New disable flags: AUTOMOODS, DIS955RULE
  11. New Scriptable triggers: CAST_PROG and CASTING_PROG
  12. New questmaker templates: normal_dispel1
  13. New achievement field: VISIBLEMASK
@@ -18,7 +496,29 @@
  17. New locales: Void, CaveSeaPort, WoodSeaPort
  18. New generic skill type: GenGatheringSkill, with CL and MudGrinder support
  19. Quest engine now supports saved generic abilities, ability groups, etc
- 
+ 20. Game Builders Guide updated for writing MOBPROG for quests, and new quest fields
+ 21. New item StdQuestBoard/GenQuestBoard for a new way to accept quests.
+ 22. New property: Prop_QuestGiver for quests from rooms, items, areas, etc.
+ 23. New expertise: Energist, replaces old Airelist.  New Airelist is for gas attacks.
+ 24. Added crime tracking to statistics, and support in stats and mudgrinder
+ 25. ShopKeepers (of all stripes) now have a View Types/Flags field to control VIEW cmd.
+ 26. Grinder Area editor now includes Mobs and Items editors.
+ 26. Grinder area editor now includes a Tree selector for Areas
+ 27. New Planar reactions/faction, new eliteing system for planes.  See planesofexistence.txt
+ 28. New achievement type: AREAVISIT
+ 29. Planes of Existence have categories, opposed plans, and can now be edited from CL and MudGrinder.
+ 30. New spells: Imprisonment, Planarmorph Self, Planarmorph, Improved Planarmorph, Planar Block
+ 31. The hit point/mana/move colors will now go yellow < 50% and red < 25%.
+ 32. When coming off AFK, the system will now mention any missed Tells.
+ 33. New spells: Planar Bubble, Planar Timer, Planar Extension, Planar Banish, Planar Burst
+ 34. Siplet and MUDGrinder and fakedb now supports UTF-8
+ 35. Crafting recipes can now include behaviors as well as effects.
+ 36. New spells: Planar Distortion, Improved Planar Distortion, Find Planar Familiar, Planar Ward
+ 37. EXAMINE can now see clothing layers with sufficient level and int.
+ 38. New spells: True Name, Planar Enthrall
+ 39. New prayers: maligned portal, benigned portal, elemental portal
+ 40. New chants: planar link, planar adaptation
+ 41. New skills: Cosmic Adaptation, Planar Enemy, Planar Veteran
 # Build 5.9.9 Release 12/18/2019
   * Minor database change: CMQUESID in CMQUESTS, CMRCID in CMGRAC, CMPKEY in CMPDAT enlarged.  Mostly optional.
   1. New prayers: empower unholy weapon, morph unholy weapon, faithful hellhound, discipline
@@ -151,7 +651,6 @@
   63. New Archon skill CRECORD -- a developer tool for auto-snooping combat logs.
   64. New spells: Improved Repairing Aura, Mass Repairing Aura
   65. Prop_Doppleganger can now apply to areas and has new args
-
 # Build 5.9.7 Release 08/29/2018
    1. Scholars gain XP from visiting bookstores, and can study dissertations.
    2. A lot of the old static strings in rideables are now customizable by editors, Shipwright/Wainwright
@@ -1414,48 +1913,70 @@
   The only real new feature is the implementation of Educations. In this case, for the common skills.
   And, of course, assorted other fixes.
 # Build 5.1.0 - Released Mar 23, 2006
-  Here it is, and every bit as late as I promised. Hopefully something in there yall will like. As always, there are INI changes to watch out for, and another library JAR file has been added which needs to be included in your startup script (mud.bat or whatever).
-   1. New Area types. These include grid type areas, uncached (thin) areas, and combinations of both. (see Archons Guide) 2. MUDGrinder support for "grid" area types -- supports "painting"
-   huge swabs of rooms at once.
+  Here it is, and every bit as late as I promised. Hopefully something in there yall will like. As always, there are 
+  INI changes to watch out for, and another library JAR file has been added which needs to be included in your startup 
+  script (mud.bat or whatever).
+   1. New Area types. These include grid type areas, uncached (thin) areas, and combinations of both. 
+     (see Archons Guide) 
+   2. MUDGrinder support for "grid" area types -- supports "painting" huge swabs of rooms at once.
    3. Languages being spoken can now cause problems for ORDERing, and Shopkeeper/Banker/Postman interactions.
    4. Serious optomizations in all tracking-related behaviors and skills.
-   5. New command: Replay (sort of a command-line scrollbar) 6. Many common skills now have attribute and other skill and proficiency requirements. This is the stick -- the next version will have tons of enhancements to them through Education flags.
+   5. New command: Replay (sort of a command-line scrollbar) 
+   6. Many common skills now have attribute and other skill and proficiency requirements. This is the stick -- 
+      the next version will have tons of enhancements to them through Education flags.
    7. Default non-combat commands & skills/round changed from 4 to 10 and 4 to 6 respectively (in INI file).
    8. A first in the history of CoffeeMud! An INI entry has been REMOVED (MINMOVETIME). It's redundant now with the round timing code.
    9. New INI entry: AUTOAREAPROPS for automatically adding properties or behaviors to new/old Areas.
   10. Disease Obesity has been toned down slightly. No pun intended.
   11. Some networking issues with the HTTP/web server have been worked out. Pretty important bug fix.
-  12. Prop_ReqCapacity has a new parameter: indoor 13. Skills/Spells/etc can now have requirements that include: other skills, proficiency in other skills, and ANY other Zapper masks.
-  These requirements can be built on a class-by-class basis instead of being global to a skill.
-  14. ItemGenerator behavior now weighs its random selections by value (more valuable == less likely) 15. MudChat behavior can now have combat-only message/response handling.
+  12. Prop_ReqCapacity has a new parameter: indoor 
+  13. Skills/Spells/etc can now have requirements that include: other skills, proficiency in other skills, 
+      and ANY other Zapper masks.  These requirements can be built on a class-by-class basis instead of 
+      being global to a skill.
+  14. ItemGenerator behavior now weighs its random selections by value (more valuable == less likely) 
+  15. MudChat behavior can now have combat-only message/response handling.
   16. You can now export and import areas from the MUDGrinder.
   17. RUNning is now faster than walking around, though its more expensive of movement.
   18. Player Records now have a "notes" field you can jot misc stuff into about them.
   19. Quests (the automated of course) can now have a priority/run level set to prevent them from overlapping.
   20. Quests can also have minimum players online, which can be narrowly defined using a player zappermask if you like.
-  21. CoffeeMud now supports MCCP (text compression), and it supports it reliably and well. There is another jar file in the LIB directory to make sure is in the classpath, however.
+  21. CoffeeMud now supports MCCP (text compression), and it supports it reliably and well. There is another jar file 
+      in the LIB directory to make sure is in the classpath, however.
   22. DEFAULT PROMPT now includes the combat opponents health text.
      It was removed from its previous place. Old players will have to update their prompts.
-  23. Due to the mudmagic.com coding context, CoffeeMud now has a configurable and expandable Extended English Parsing system. You can enter all kinds of complex things like: get the third axe ; get the axe and the sword ; get the sword and wield it ; get sword, axe, and helmet and put all in the bag 24. Zapper mask now includes SKILLS (including optional proficiency checks), EDUCATIONS, SECURITY flags (but only if they are defined in your ini file) 25. (Internal) CoffeeMud is now FAR stingier with threads, and has been drastically optimized for speed without costing another byte in memory (heck, perhaps using even less in the process).
-  26. If your muds been up long enough, you can actually start reviewing your players leveling-dates from the MUDGrinder Player List.
+  23. Due to the mudmagic.com coding context, CoffeeMud now has a configurable and expandable Extended English Parsing 
+      system. You can enter all kinds of complex things like: get the third axe ; get the axe and the sword ; get the 
+      sword and wield it ; get sword, axe, and helmet and put all in the bag 
+  24. Zapper mask now includes SKILLS (including optional proficiency checks), EDUCATIONS, SECURITY flags (but only 
+      if they are defined in your ini file) 
+  25. (Internal) CoffeeMud is now FAR stingier with threads, and has been drastically optimized for speed without costing another byte in memory (heck, perhaps using even less in the process).
+  26. If your muds been up long enough, you can actually start reviewing your players leveling-dates from the 
+      MUDGrinder Player List.
   27. Siplet also supports MCCP now, and has had a few Firefox/Browser related issues addressed.
-  28. The MUDGrinder main menu has been shuffled a tiny bit. A minor change to the Threads listing makes it a bit more useful.
+  28. The MUDGrinder main menu has been shuffled a tiny bit. A minor change to the Threads listing makes it a bit 
+      more useful.
   29. A whole circus of bugs tamed, and hopefully as few new ones introduced as possible.
 # Build 5.0.1 - Released Jan 18, 2006
    A few bug fixes as 5. 0 is preped for public announcement.
 # Build 5.0.0 - Released Jan 14, 2006
    This is mostly just from memory. ..
-   1. Packages have been moved around, fakedb files are now in a different place, and there have been INI file changes -- follow the Installation Guide upgrade instructions closely!
+   1. Packages have been moved around, fakedb files are now in a different place, and there have been INI file 
+      changes -- follow the Installation Guide upgrade instructions closely!
    2. Some speed and memory usage enhancements.
    3. Smoking can give you cancer now.
-   4. New CoffeeMud file system, with new command SHELL and new MUDGrinder File Browser to support it. Remember that "." is a shortcut for the SHELL command. Also remember that all your files must be in the coffeemud installed directory now! Also, new security flags, VFS: and FS: implemented to allow you to give file level or directory level access to builders. Do Help CMFS for more info.
+   4. New CoffeeMud file system, with new command SHELL and new MUDGrinder File Browser to support it. 
+      Remember that "." is a shortcut for the SHELL command. Also remember that all your files must be in the 
+      coffeemud installed directory now! Also, new security flags, VFS: and FS: implemented to allow you to give 
+      file level or directory level access to builders. Do Help CMFS for more info.
    5. Better builder reporting in the log.
    6. CoffeeMud classloader will now load JavaScript ".js" classes also.
       See the Programmer's Guide for more information.
    7. Many, but not all, interfaces have been commented. Generating javadocs might actually be useful!
    8. New Behaviors: ItemGenerator, and RandomItems
    9. Metacraft has some more parameters to extend its usefulness
-  10. New actions/time-based commands support. INI entries DEFCOMCMDTIME and DEFCMDTIME and DEFCOMABLETIME and DEFABLETIME to support it. My own players preferred a lower DEFABLETIME -- you might want to tinker with that setting to taste (I set mine from .25 to .1)
+  10. New actions/time-based commands support. INI entries DEFCOMCMDTIME and DEFCMDTIME and DEFCOMABLETIME and 
+      DEFABLETIME to support it. My own players preferred a lower DEFABLETIME -- you might want to tinker with that 
+      setting to taste (I set mine from .25 to .1)
   11. Trailto command has more options now.
   12. New INI entries: LIBRARY, COMMON to support extended engine library classpaths
   13. INI entry change: COMBATSYSTEM now has new entry: MANUAL.
@@ -2896,7 +3417,8 @@
   16. New Skill: Map Making (Bard)
   17. Grid rooms can now have customized dimensions, this includes any StdGrid derived locale type (StdMaze, WoodsGrid, WoodsMaze, etc..)
   18. Grinder and command-line support for #17 added.
-  19. ** Scriptable Behavior has been debugged and (90%) tested. Documentation for this behavior has been added to the Archon Help files. Sample scripts provided! Your mobs are now scriptable!
+  19. ** Scriptable Behavior has been debugged and (90%) tested. Documentation for this behavior has been added to the Archon Help files. 
+      Sample scripts provided! Your mobs are now scriptable!
   20. Certain races can now be designated as illegal in your Arrest areas (trespassers). See the default laws.ini for more info.
   21. ResetWhole behavior created -- allows you to make an Area or Room reset entirely on certain intervals, instead of on a mob-by-mob basis.
 # Build 3.8.6.6 - Released Apr 07, 2003
@@ -2906,7 +3428,9 @@
    4. You now sit AT a table, not ON one (duh...)
    5. Bugs fixed in Arrest/Handcuff
    6. New common skill: FARMING
-   7. ** Internationalization of CoffeeMud has gone through a proof of concept phaze. New Scripts utility to handle translation. New INI file entries specify which of a set of scripts files locates in your resources directory to use. So far, only the Movement.java class has been done. That might be all I'll ever do, hoping on help from others to do the rest. :)
+   7. ** Internationalization of CoffeeMud has gone through a proof of concept phaze. New Scripts utility to handle translation. 
+      New INI file entries specify which of a set of scripts files locates in your resources directory to use. So far, 
+      only the Movement.java class has been done. That might be all I'll ever do, hoping on help from others to do the rest. :)
    8. New/old command: BEACON. Allows you to change your start room, or to change the start room of someone else.
    9. The DESTROY command now understands ALL all. and .1, .2, .3 ..etc
   10. You can EXPORT room, area, or world items, mobs, weapons, or armor into SPECIAL CMARE files.
@@ -2929,7 +3453,8 @@
   12. SaveThread now watches TelnetSessions for inactivity! How did I miss that?!
 # Build 3.8.6.3 - Released Mar 25, 2003
    1. Fixed some bugs in the new LADDER Rideable type.
-   2. New THROW command to get ladder-types (ropes, etc) into pits to help comrads. The THROW command can also be used with THROWN weapons, as well as grenades at some point in the future.
+   2. New THROW command to get ladder-types (ropes, etc) into pits to help comrads. The THROW command 
+      can also be used with THROWN weapons, as well as grenades at some point in the future.
    3. Ability to AUTODRAW the second weapon if you have Two Weapon Fighting
    4. Created MAXSTAT INI entry to allow more easily changing the starting state distribution for players.
    5. Created SKYSIZE INI entry to allow more easily changing the default dimension of EndlessSkys
@@ -2943,7 +3468,8 @@
   13. Against my better judgement, Remove Curse now actually removes non-droppability and non-removability from items.
   14. Spell lists updated for the Import of ROM/CircleMUD/etc area files.
   15. RoomForSale will now update room MOBs on shutdown of system, provided the MOB is 1. not rejuvinating, and 2. has the room as a starting room.
-  16. Prop_Retainable property added to make MOBs 1. not rejuvinating, 2. to make their current room the starting room, and 3. Cost more/less when purchased by shopkeepers. Recommend this be applied to MOBs sold by shopkeepers.
+  16. Prop_Retainable property added to make MOBs 1. not rejuvinating, 2. to make their current room the starting room, 
+      and 3. Cost more/less when purchased by shopkeepers. Recommend this be applied to MOBs sold by shopkeepers.
   17. Proficiency leak plugged in detect/remove traps.
   18. Bug fixed in grantAbilities of Mage class.
   19. LOTS more done on the Scriptable Behavior. Still havn't had a chance to test/debug it, but presumably it is done now (or, at least hacked).
@@ -2999,10 +3525,16 @@
   18. Bugs in I3 fixed.
   19. New I3 command replaces MUDLIST and I3CHANNELS, and adds others.
 # Build 3.8.5.8 - Released Mar 10, 2003
-   1. StdShopKeepers (in their misc text field) and GenShopKeepers (in a special prejudice field) will be able to modify the prices, up or down, of the goods they offer based on racial category or alignment, or just for everybody if you don't like the stock formula.
+   1. StdShopKeepers (in their misc text field) and GenShopKeepers (in a special prejudice field) will be able to modify the 
+      prices, up or down, of the goods they offer based on racial category or alignment, or just for everybody if you don't 
+      like the stock formula.
    2. Separate start and death rooms will be specified in the INI file based on alignment or racial category.
-   3. GateGuard and DoorwayGuardian can now modify their behavior based on the same criteria as the Prop_HaveZapper property (based on racial category, class, base class, or alignment). You'll be able to use these separately or in combination to make gate guards more friendly, or outright mean.
-   4. A new Behavior FasterRoom will be able to increase the number of rejuvinating ticks for mobs in the room or area affected by it. In addition, you can also set it up to increase the number of times the mobs in the rooms tick, which will affect spell effects, combat, and everything else that ticks. Either one or both of these can be set using the FasterRoom behavior.
+   3. GateGuard and DoorwayGuardian can now modify their behavior based on the same criteria as the Prop_HaveZapper property 
+      (based on racial category, class, base class, or alignment). You'll be able to use these separately or in combination to 
+      make gate guards more friendly, or outright mean.
+   4. A new Behavior FasterRoom will be able to increase the number of rejuvinating ticks for mobs in the room or area affected 
+      by it. In addition, you can also set it up to increase the number of times the mobs in the rooms tick, which will affect 
+      spell effects, combat, and everything else that ticks. Either one or both of these can be set using the FasterRoom behavior.
    5. And lastly (I think), the mud will support listening on any number of specified ports.
 # Build 3.8.5.7 - Released Mar 07, 2003
    1. New bubbleAffects boolean on the Ability interface to make Affects passed on by Items much more elegant.
@@ -3023,10 +3555,12 @@
   16. Animal Frenzy now 30th level Ranger skill.
   17. GoodGuardian Behavior now a little more good
   18. Experience requirement now grows by only 25exp after 25th.
-  19. Monk skills: Atemi Strike, Ax Kick, Body Flip, Cartwheel, Catch Projectile, Circle Parry, Circle Trip, Deflect Projectile, Flying Kick, Ki Strike, Knife Hand, Monkey Punch, Lightning Strike, Pin, Return Projectile created.
+  19. Monk skills: Atemi Strike, Ax Kick, Body Flip, Cartwheel, Catch Projectile, Circle Parry, Circle Trip, Deflect Projectile, 
+      Flying Kick, Ki Strike, Knife Hand, Monkey Punch, Lightning Strike, Pin, Return Projectile created.
   20. Barbarian skills: War Cry, Battle Cry, Rally Cry, Charge, Shrug, Stone Body, Spring created.
   21. Bugs in Wind Gust and Repulsion fixed.
-  22. ** Players with AUTOMELEE Off will now spend 25 movement and as many Attacks as required to retreat to the range of their wielded weapon. Very Cool! Archers are now much more viable!
+  22. ** Players with AUTOMELEE Off will now spend 25 movement and as many Attacks as required to retreat to 
+      the range of their wielded weapon. Very Cool! Archers are now much more viable!
   23. CHARGEN changed to GENCHAR to avoid confusion with CHARGE skill.
   24. Bard's may now use Non-Metal armors instead of Leather or worse.
   25. Massive bug fixed! Damage adjusted by skills/spells will now actually change the message to reflect new damage!
@@ -3036,105 +3570,450 @@
   29. Programmer's Guide has a section on Character Classes now!
   30. Journal date bug fixed?
 # Build 3.8.5.4 - Released Mar 03, 2003
-  The only new features are the addition of the Amputation Ability, a few new Cleric Prayers (one of which restores Amuputated limbs), and the updated Programming Guide.
+  The only new features are the addition of the Amputation Ability, a few new Cleric Prayers (one of which restores Amuputated limbs), 
+  and the updated Programming Guide.
 # Build 3.8.5.0 - Released Feb 24, 2003
    1. Added I3STATE INI file entry to get a more accurate display of your muds status on the I3 mud list.
    2. Added VIEW command for shopkeepers.
-   3. ShopKeepers, Money Changers, and Bankers will give change as change bags. They will now consolodate their change bags with any you already have in your inventory. ShopKeepers will now also accept money directly from change bags for purchases!!!
+   3. ShopKeepers, Money Changers, and Bankers will give change as change bags. They will now consolodate their change bags 
+       with any you already have in your inventory. ShopKeepers will now also accept money directly from change bags for purchases!!!
    4. Changed the ^^ color code (stop reverse) to ^.
    5. Made ^^ a code for inserting a "^" into text
    6. About a gazillion bug fixes, including the shopkeeper translation bug.
-   7. Implemented the SubClass notions mentioned previously. Two Database changes, both in CMCHAR: CMLEVL is now a string (50) and CMCLAS is now a longer string (200).
-   8. Extended the TRAIN command to gain new classes. When a new class is gained, the user will start off level 0 of that class. They must level to become level 1 in their new class. They retain all previous skills, and qualification access to all previous class skills.
-   9. Added some new INI entries: CLASSSYSTEM (to choose between a multi-class, subclass, or a straight one-class system), PLAYERKILL (to make playerkilling always on, never on, or optional), PLAYERDEATH (to make the death of a user cost a level, experience, or their players very soul), and EXPRATE - to change Poet's experience bonus/penalty rate.
+   7. Implemented the SubClass notions mentioned previously. Two Database changes, both in CMCHAR: CMLEVL is now a string (50) 
+      and CMCLAS is now a longer string (200).
+   8. Extended the TRAIN command to gain new classes. When a new class is gained, the user will start off level 0 of that class. 
+      They must level to become level 1 in their new class. They retain all previous skills, and qualification access to all 
+      previous class skills.
+   9. Added some new INI entries: CLASSSYSTEM (to choose between a multi-class, subclass, or a straight one-class system), 
+      PLAYERKILL (to make playerkilling always on, never on, or optional), PLAYERDEATH (to make the death of a user cost a 
+      level, experience, or their players very soul), and EXPRATE - to change Poet's experience bonus/penalty rate.
 # Build 3.8.0.0 - Released Feb 20, 2003
    1. Memory optomization of the classes (especially Abilities). CoffeeMud memory usage cut almost in half!
-   2. A global News feature was added. Need to add instructions about that though -- basically, you just create a Journal (GenJournal item) and name it "CoffeeMud News". Writing on it will cause new messages
-      to appear automatically for the players.
+   2. A global News feature was added. Need to add instructions about that though -- basically, you just create a Journal 
+      (GenJournal item) and name it "CoffeeMud News". Writing on it will cause new messages to appear automatically for the players.
    3. InterMud3 support is pretty new, though that might have made 3.0...
-   4. Player homes are now supported, through a new ShopKeeper type called LANDSELLER. Rooms in the same area as the shopkeeper with the Prop_RoomForSale or Prop_LotsForSale property will be available for
-      purchase.
+   4. Player homes are now supported, through a new ShopKeeper type called LANDSELLER. Rooms in the same area as the shopkeeper 
+      with the Prop_RoomForSale or Prop_LotsForSale property will be available for purchase.
    5. Construction, Masonry, and LockSmith common skills were created to support player homes.
    6. Hireling Behavior created to support hiring people to follow you and obey ORDERs. HIRE and FIRE commands created to support this.
-   7. PROMPT and COLORSET commands created to allow players to change their prompts and to personalize the color scheme! Beware! This added two new fields to the CMCHAR table!
-   8. SHEATH and DRAW commands created to support a new property of containers: contain type. Containers may contain anything that will fit in them by default, but with this new property, containers can
+   7. PROMPT and COLORSET commands created to allow players to change their prompts and to personalize the color scheme! Beware! 
+      This added two new fields to the CMCHAR table!
+   8. SHEATH and DRAW commands created to support a new property of containers: contain type. Containers may contain 
+      anything that will fit in them by default, but with this new property, containers can
       restrict what they can contain.
    9. AUTODRAW command created to support the above.
    10. Armor now extends Container, allowing armor to be a sheath.
-   11. Numerous unremembered bug fixes. :)
-# Build 3.0.0.0 - Released Nov 23, 2002
-   1. ANSI support is new
-   2. CoffeeMud now has a web server! Yipee!
-   3. Add Area objects and Tables and Affect/Properties!
-   4. Allow classes and directories to be assigned in the INI file in addition to the default path.
-   5. Create a custom command ability, include ability to override existing commands!
-   6. Add Notes abilities -- really need for bug fix reporting! Done this way: a Journal can be read, it will list the posts for a given Journal.
-   7. Druid : a good new base class
-   8. hit and miss strings in the Weapon. Natural Weapons can also be retreived from MOBs, or from Races by default.
-   9. From Maree: (Game/Heath Texts), the descriptions for the health of a MOB should be moved to a text file (A resource?), that is loaded. The descriptions would be assigned to the MOB at build time, and should be assignable to GENMOBS via a new tag.
-  10. ranged combat?!Yes!And thrown weapons
-  11. And ranged pole-arms!
-  12. Add CoffeeMud area files!can import and export rooms or areas
-  13. Languages! Affects says and replies if you don't know a language spoken by the speaker.
-  14. Make mountable MOBS, and mountable Items. Mounted animals will take half of all combat damage, will add to attack ability, and increase movement and will act as a container for the purposes of cargo. Mounted Items will not appear in inventory, and be restrained to a terrain type (air, water, etc). More than one person can mount an item (a boat).
-  15. Armor damage/repair, especially cloth from fire, and metal armor from bludgeoning/leather armor from slashing.
-  16. banks!(Well, the moneychanger behavior is good enough).
-  17. exp from sac/des also based on level of the body. Set body levels based on char level.
-  18. Serve and Rebuke commands. Any character may take on a leige. A Leige receives 10% of all experience gained by the vassels, providing incentive to assist the vassel.
-  19. Weapon condition, sharpness, and bluntness Weapon repair and sharpening/blunting.
-  20. Crawl command, and crawlspace property for rooms and exits
-  21. Furniture.. chairs to sit in, beds to lie in, tables to put things on? It's all riding...
-  22. Convert some properties to work with the new areas. Prop_NOMOB, etc..
-  23. make room properties also work for exits
-  24. Multi-Room Item Transporter. Have a TeleportingContainer that, whenever anything is inside it, it will send the items to the appropriate GateObject. The GateObject can be either a container or not. If not, the GateObject will drop its cargo on the floor. The TeleportingContainer and the GateObject will have identical MiscText fields to establish the Keys between them.
-  25. Forget spell to make someone forget a skill they try, at random!
-  26. Predict Weather spell
-  27. Multi-Room Gate would work the same way. An Entry, Exit, and TwoWay type would be constructed. The Entry type would accept "ENTER" commands from MOBs, and drag all followers along, of course. The Following thing would be automatic, if an Exit and Direction extensions are used.
-  28. genbed, gentable
-  29. ranger skills: find water
-  30. kill commmand to switch among targets fighting you
-  31. Two-handed fighting
-  32. NonVagrant behavior to wake up those sleeping on the streets
-  33. Meditation for Mage should be like Endurance for Fighter.
-  34. Add last-call date/time string to the "list users" command
-  35. be able to drink or fill waterskin from freshwater locales
-  36. PlayerKill flag, properties for nopkill areas, rooms, etc.. (and pkill ONLY areas, room, etc..)
-  37. vassels command to list the ones who serve you (even those which are online)
-  38. Distract ability (can't fight during) to make an enemies scores worse...
-  39. Finish implementing height -- make armor that doesn't fit! Armor can init at height 0, and adjust to the very first wearer.
-  40. make sure you can create pills that generate experience points
-  41. thieves skills -- silent autoloot, silent autogold (thief will autoloot and autogold "off the top")
-  42. die of hunger, thirst
-  43. appraise skill to give weight, base value, and material of an item
-  44. Lore skill for Bards.. allows an identify for them.
-  45. Exit/Area/Room property to only let in mobs with certain tatoos (a property that keeps track of one or more tatoos). A property to grant a tatoo when a mob is killed, or an item picked up.
-  46. add parameter to spells command to list by school
-  47. More stuff for Fighters, especially Paladins and Rangers, who must use their trains for spells. Sweep would make a good Fighter ability, as would cleave!
-  48. iron grip spell to thwart disarm
-  49. Buy command for standard mobs, to facilitate trades.
-  50. race based wearing restrictions, and a "become" method to enforce them (and clothing size);
-  51. resources property for rooms
-  52. HuntableAnimals that produce pieces of raw meat in inventory when killed. (Resources implemented instead)
-  53. Hunt ability for rangers to find them.
-  54. QUAL should only list what you DON'T have -- it's too long.
-  55. 0-level abilities. Trade skills to produce mundane items. One would go to a "factory", where one could buy raw materials. Facilities available there would be used, along with your skill, to produce a finished product..e.g. a shirt, pants, minor weapons and armor, etc. Mining, Fishing, Woodcutting, etc.. to get raw materials. Cooking to improve the nourishment of Food objects (and remove rawness from Meat). The LeatherWorker ability can mend leather items, Tailor cloth items, etc..
-  56. Sap skill for thieves to knock someone out who can't see them.
-  57. Binding skill for thieves to bind someone who is asleep (knocked out).
-  58. MUDGrinder web service
-# Build 1.25(2.5) - Released Feb 21, 2002
-# Build 1.1.0.0 - Released October, 2001
-  ! AFFECT ANSI ARCHELP ARCTOPICS AREAS AUTOASSIST AUTOEXITS AUTOGOLD AUTOLOOT BACKSTAB BASH
-  BERZERK BREAK BRIBE BUG BUY CAST CHANNELS CHECK CLIMB CLOSE COMMANDS COMPARE
-  CONSIDER COPY CREATE CREDITS DESCRIPTION DESTROY DETRAP DIRT DISARM DOWN DRAIN DRINK
-  DROP DUMPFILE EAST EAT EMOTE EQUIPMENT EXAMINE EXITS FILL FLEE FOLLOW GET
-  GIVE GO GROUP GTELL HANDS HELP HIDE HOLD IMPORT INVENTORY KICK KILL
-  LINK LIST LISTEN LOCK LOOK MODIFY NOANSI NOFOLLOW NORTH OBSERVE OPEN ORDER
-  OUTFIT PASSWORD PEEK PICK POISON PRACTICE PRAY PRAYERS PULL PUSH PUT QUALIFY
-  QUIET QUIT READ RECALL REMOVE REPLY REPORT RESCUE RESET REST REVOKE SAVE
-  SAY SCORE SCROLLCOPY SEARCH SELL SING SKILLS SLEEP SNEAK SOCIALS SONGS SOUTH
-  SPELLS SPLIT STAND STEAL SWIM SWIPE SYSMSGS TAKE TEACH TELL TOPICS TRACK
-  TRAIN TRAP TRIP TURN UNLINK UNLOADHELP UNLOCK UP VALUE WAKE WEAR WEST
-  WHO WHOIS WHOMP WIELD WIMPY WRITE XML YELL
+   11. Diku CMARE files finally dropped from the damn distribution
+   12. Numerous unremembered bug fixes. :)
+# Build 3.0.7.6 (3.7.6) - Released Jan 28, 2003
+   1. Filling out trap help entries
+   2. MUDGrinder support for bankers
+   3. Raw Telnet codes from users are filtered out.
+   4. Non-letter chars no longer allowed in player names
+# Build 3.0.7.5 (3.7.5) - Released Jan 28, 2003
+   1. Internal: Can now delete an entire journal
+   2. StdBanker added, as well as GenBanker!
+# Build 3.0.7.4 (3.7.4) - Released Jan 27, 2003
+   1. LOOK at/to syntax added
+   2. Internal: Lots of shopkeeper refactoring in preparation for bankers
+   3. StdBanker prototyped, and interface defined 
+   4. MOBTeacher now responds to politeness
+   5. New shopkeeper types: jeweller, banker, alchemist
+   6. DOT syntax added for picking out specific items in a pile: sword.2 sword.3, etc..
+# Build 3.0.7.3 (3.7.3) - Released Jan 26, 2003
+   1. New commands: CHANWHO, DEPOSIT, WITHDRAW
+   2. WHOIS now supports I3
+   3. CHANWHO packets now supported by I3
+# Build 3.0.7.2 (3.7.2) - Released Jan 24, 2003
+   1. I3 messages have color codes converted to ansi
+   2. Color off code added in lots of places
+   3. New spell color codes used in spells, skills
+   4. New ini setting: I3PORT
+# Build 3.0.7.1 (3.7.1) - Released Jan 23, 2003
+   1. New traps: Trap_GetGas, Trap_EnterSpell, Trap_OpenNeedle, Trap_GetSpell, Trap_UnlockGas, Trap_OpenBlade
+   2. New traps: Trap_EnterNeedle, Trap_EnterPit, Trap_UnlockSpell, Trap_GetNeedle, Trap_OpenGas, Trap_OpenSpell
+   3. New traps: Trap_EnterBlade, Trap_GetBlade, Trap_EnterGas, Trap_UnlockNeedle, Trap_UnlockBlade
+# Build 3.0.7.0 (3.7) - Released Jan 23, 2003
+   1. Intermud3 (I3) system added
+   2. Underline, flash, italic color codes added, as well as all colors off: ^^
+   3. CoffeeMud now has login NEWS
+   4. New commands: LOCATE, MUDLIST, I3CHANNELS
+   5. New properties: Prop_NoPurge
+   6. New ini settings: RUNI3SERVER, ICHANNELS
+# Build 3.0.6.1 (3.6.1) - Released Jan 19, 2003
+   1. Arrest bug fixes, and more aggressive cops
+   2. Social action code tweeks
+   3. More memory-efficient exit links added in grids
+   4. New pronoun codes -HIMERSELF, HISHERSELF
+# Build 3.0.6.0 (3.6) - Released Jan 17, 2003
+   1. resources/laws.ini added to make Arrest configurable
+   2. New property: Prisoner
+   3. Arrest can now send players to jail, and has a trial
+   4. New skills: Skill_HandCuff
+# Build 3.0.5.9 (3.5.9) - Released Jan 14, 2003
+   1. Added AutoWeather
+   2. Find water, Track causes mobs to automatically walk
+   3. MUDGrinder colors rooms by type now
+# Build 3.0.5.8 (3.5.8) - Released Jan 12, 2003
+   1. Can now copy a room in mudgrinder
+   2. New locales: GreatLake, MountainsGrid, EndlessOcean, DesertGrid, 
+   3. Skys now try to link to each other!
+   4. Re-importing an area will re-link the room exits lost thereby
+   5. Prop_EnlargeRoom now supports formula-ish syntax
+# Build 3.0.5.7 (3.5.7) - Released Jan 10, 2003
+   1. WaterSurface type rooms auto-add underwater grids
+   2. Internal: room "weight" now holds base move point cost
+   3. Lots of color-related enhancements to game text
+   4. Can now wear/wield all or groups of things
+   5. New properties: Prop_EnlargeRoom
+   6. Several .cmare files updated.  When will this stop?!
+# Build 3.0.5.6 (3.5.6) - Released Jan 05, 2003
+   1. Trying to re-wield will remove the old wielded item
+   2. Trying to re-wear will remove the old worn item
+   3. Enforce race and level restrictions on wieldables
+   4. Unseen items can't be removed.
+# Build 3.0.5.5 (3.5.5) - Released Jan 04, 2003
+   1. Better SQL Error logging
+   2. Disallow renaming a player as another existing player
+# Build 3.0.5.4 (3.5.4) - Released Jan 03, 2003
+   1. Internal: lots of refacting in the DB loader classes
+   2. Players can be modified from command line
+   3. New NOFOLLOW flag for mobs/players
+   4. Spells that create mobs clean them up properly now
+   5. midgaard.cmare updated?! omg why was I doing that?
+# Build 3.0.5.2 (3.5.2) - Released Dec 31, 2002
+   1. A bunch of wording tweeks and fixes in skills, esp removing the word 'chant' from spells.
+   2. Wish gets more expensive, xp-wise
+   3. Good lord, but I checked in .cmare files of ALL the base diku areas
+# Build 3.0.5.1 (3.5.1) - Released Dec 20, 2002
+   1. Carpentry can now make barrells and other Drinkables
+   2. Leatherworking can now make Drinkables
+   3. Glassblowing can now make Drinkables
+   4. Burning items in rooms catch their next avail fuel
+   5. New Property: Prop_PracticeDummy
+   6. GlowingMageArmor is destroyed on removal
+# Build 3.0.5.0 (3.5) - Released Dec 19, 2002
+   1. Grinder exits can be duplicated both ways
+   2. Changing the level of a mob in MUDGrinder will change stats
+   3. Neuter genders are called "it"
+# Build 3.0.4.9 (3.4.9) - Released Dec 18, 2002
+   1. New Behaviors: Decay, FightFlee
+   2. New damage types:  FROSTING, GASSING, MELTING, STRIKING
+   3. New archon command: BEACON
+# Build 3.0.4.8 (3.4.8) - Released Dec 16, 2002
+   1. New locales: UnderSaltWaterGrid, UnderSaltWaterMaze
+   2. LIST REPORT added
+# Build 3.0.4.7 (3.4.7) - Released Dec 15, 2002
+   1. Updates to Programming Guide
+   2. Many socials updated with action mask codes
+   3. Fix to sculpting
+# Build 3.0.4.6 (3.4.6) - Released Dec 14, 2002
+   1. Can't get things from ground while riding
+   2. GET * IN * syntax added
+   3. Tweeks to discovery chance on some thief skills
+   4. MUDGrinder room save bugfix
+# Build 3.0.4.5 (3.4.5) - Released Dec 13, 2002
+   1. Crafting skill opening action string properly tensed now
+   2. Bug fix in help file, and numerous behaviors
+   3. MOBTeacher now teaches w/ higher int & wis
+# Build 3.0.4.4 (3.4.4) - Released Dec 13, 2002
+   1. COLOR is now a synonym for ANSI
+   2. New commands: BRIEF, WHERE, PULL, PUSH
+   3. New Archon command: SNOOP
+   4. Socials can now be edited by Archons
+   5. New behaviors: ItemRefitter
+   6. Internal: room mobility can now be turned on/off
+# Build 3.0.4.3 (3.4.3) - Released Dec 10, 2002
+   1. Internal: auto-invoking skills now skips most user invoke checks
+   2. Exits now have configurable door names
+   3. New behaviors: Druidness, Bardness
+   4. Worn items are now displayed in a defined particular order instead of enum order   
+# Build 3.0.4.2 (3.4.2) - Released Dec 08, 2002
+   1. Internal: Items can now be flagged non-locatable
+   2. New Archon Command: TICKTOCK
+   3. New command: ENTER
+   4. Crafting skills can now be used to refit/resize
+   5. New spells: Spell_Shrink, Spell_Refit
+   6. New properties: Prop_ClosedDayNight, 
+# Build 3.0.4.1 (3.4.1) - Released Dec 07, 2002
+   1. New races: Ogre, Frog
+   2. Incorporeality now displayed in Score
+   3. Internal: Affects can now be made non-uninvokable
+   4. Internal: Ticks can now be suspended/resumed
+# Build 3.0.4.0 (3.4) - Released Dec 05, 2002
+   1. New races: WaterElemental, MindFlayer, Githyanki, ElectricityElemental, FireElemental, EarthElemental
+   2. New races: AirElemental, Humanoid, GiantInsect, GiantScorpion, Insect, GiantWorm, GiantSpider, Spider
+   3. New races: Scorpion, Worm, StoneGolem, WoodGolem, MetalGolem
+# Build 3.0.3.9 (3.3.9) - Released Dec 03, 2002
+   1. New commands: IDEA, TYPO, GAIN
+   2. Skills can now cost practices, if desired
+   3. New behavior: ItemIdentifier
+# Build 3.0.3.8 (3.3.8) - Released Dev 03, 2002
+   1. New Behavior: Arrest, DelayedTransporter, 
+   2. Prototyping: ItemIdentifier
+   3. New races: Smurf, Chicken
+   4. New properties: Prop_EnterAdjuster, Prop_Transporter
+   5. Lots of new socials
+# Build 3.0.3.6 (3.3.6) - Released Nov 26, 2002
+   1. Renamed Prop_RoomTransporter to just Prop_Transporter
+   2. Added Behavior DelayedTransporter prototype 
+# Build 3.0.3.5 (3.3.5) - Released Nov 26, 2002
+   1. Programming Guide filled out more
+   2. Prototyping: Arrest, Prop_RoomTransporter, Prop_EnterAdjuster
+   3. Internal Session state debug info added, prob to help hunt down some race condition
+# Build 3.0.3.4 (3.3.4) - Released Nov 24, 2002
+   1. Weakness spells are now impacted by weather
+   2. New chants: Chant_FeelElectricity, Chant_Plague, Chant_Poison, Chant_FeelCold, Chant_FeelHeat
+# Build 3.0.3.3 (3.3.3) - Released Nov 24, 2002
+   1. Items in rooms can now be temporary drops
+   2. Rings, and itmes on ears, eyes, neck don't affect class armor restrictions
+   3. New command: retire
+   4. Light source and glowing are different things
+   5. Sleeping prevents thirst
+   6. New Programming Guide
+   7. New MUDGrinder Guide
+   8. New generic table creation sql script
+   9. New archon command: SHUTDOWN
+# Build 3.0.3.1 (3.3.1) - Released Nov 19, 2002
+   1. There is now an InstallationGuide
+   2. Internal: Properties/Behaviors now have "canaffect" to help guide mudgrinder drop-downs
+   3. Internal: Spells/Prayers now have "cantarget" to help combatabilities
+   4. New web macros: GrinderMobs, MobData
+   5. Fakedb Added, so you don't need a real-db to try things out!
+   6. MUDGrinder can now edit mobs, and more item properties
+# Build 3.0.3.0 (3.3) - Released Nov 15, 2002
+   1. The original java-based MUDGrinder is officially no-more. Long live the MUDGrinder
+   2. The Web-based MUDGrinder area editor is online.
+   3. New web macros: ExitData, RoomData, ItemData, RequestParameterEncoded
+# Build 3.0.2.0 (3.2) - Released Nov 04, 2002
+   1. The Web-based MUDGrinder area editor is almost done.
+   2. New material type: PRECIOUS
+   3. Can now wear things on ears, eyes, and about body
+   4. New skills: Fighter_RapidShot
+   5. New items: StdBow, GenSpear, GenBow, StdSling, GenSling, StdSpear
+   6. Many crafting skills from 3.1.5 now finally have recipes
+# Build 3.0.1.5 (3.1.5) - Released Nov 01, 2002
+   1. New items: GenMirror, Ingrediants,  
+   2. New locales: IndoorWaterSurface, IndoorUnderWater, IndoorInTheAir,
+   3. New raw resources: coal, lamp oil
+   4. Raw resources now have a strength code
+   5. Cows can now be milked
+   6. New mobs: Chimp, Rabbit, Raven, Duck, Monkey, Ape, Rat, Puppy, Turtle, Kitten, Mouse
+   7. New common skills: Smelting, Pottery, Embroidering, Carpentry, Blacksmithing, Dyeing,
+   8. New common skills: Engraving, Leatherworking, Tailoring, GlassBlowing, Apothecary, Fletching
+   9. New common skills: Chemistry, Sculpting, Alchemy, Armorsmithing, Weaponsmithing, JewelMaking
+  10. New common skills: Hunting, Chopping, Cooking, 
+  11. Many spell/skill effects now scale up according to class level
+  12. New chants: Chant_Treemorph, Druid_MyPlants, Chant_ControlFire, Chant_Goodberry, Chant_Tangle, Chant_SummonElemental
+  13. New chants: Chant_Shillelagh, Chant_Bury, Chant_FortifyFood, Chant_WhisperWard, Chant_WarpWood, Chant_SummonMount
+  14. New chants: Chant_Earthquake, Chant_SummonFire, Chant_Moonbeam, Chant_AnimalSpy, Chant_Hibernation, Chant_CharmAnimal
+  15. New chants: Chant_SenseLife, Chant_Hunger, Chant_SummonAnimal, Chant_PlantPass, Chant_SummonPlants, Chant_SummonWater
+  16. New chants: Chant_SummonFood, Chant_CharmArea, Chant_IllusionaryForest, Chant_DistantGrowth, Chant_Farsight
+  17. New chants: Chant_AnimalFriendship, Chant_Treeform, Chant_WaterWalking, Chant_PlantSnare, Chant_SummonInsects
+  18. New chants: Chant_SpeedTime, Chant_SummonLightning, Chant_LocatePlants, Chant_Barkskin, Chant_HoldAnimal
+  19. New chants: Chant_NeutralizePoison, Chant_SummonPeace, Chant_SummonFear, Chant_LocateAnimals, Chant_ResistLightning
+  20. New chants: Chant_SummonCold, Chant_SummonHeat, Druid_DruidicPass, Chant_SummonRain, Chant_SummonWind, Chant_WindGust
+  21. New chants: Chant_WaterBreathing, Chant_Treemind, Chant_PredictWeather, Chant_Sunray, Chant_CalmWeather, Chant_CalmWind
+  22. New chants: Chant_CalmAnimal, Chant_ResistCold, Chant_ResistPoison, Chant_ResistGas, Chant_ResistFire
+  23. New songs:  Song_Thanks, Song_Flight, Song_Mercy, Song_Disgust, Song_Distraction, Song_Comprehension, Song_Knowledge
+  24. New songs: Song_Babble
+  25. New properties: Burning
+  26. New skills: Thief_Lore, Thief_Snatch, Thief_Sap, Thief_Shadow, Thief_Bind, Thief_Appraise, Thief_Distract
+  27. New skills: Ranger_TrackAnimal, Fighter_Tumble
+  28. New races: Puppy, Bull
+  29. Multiple same items in a room now "stack" visually.
+  30. New web macros: CrossClassAbilities, GrinderArea, GrinderMap, GrinderRoom, GrinderDir, RequestParameter, MUDGrinder
+  31. New web macros: Authenticate, CheckReqParm, AddFile
+# Build 3.0.1.4 (3.1.4) - Released Apr 04, 2002
+   1. New common skills: Mine(ing), FireBuilding, Butcher(ing), Digging, Chop(ping), Fish(ing), Hunt(ing), 
+   2. New raw resources: blood, and bone
+   3. New locales: IndoorShallowWater, 
+   4. New web macros: AreaNameEncoded, RequestParametersEncoded, 
+   5. New races: Deer, Sheep, 
+   6. Races now have raw resources that they drop, for Butchering
+   7. New mobs: Sheep, Doe, Buck, Chicken, Python, Cobra, Buffalo, Pig, Parakeet, Rattlesnake, Deer
+   8. New mobs: GardenSnake, Lizard, Cow, Bull
+   9. New items: GenLiquidResource 
+# Build 3.0.1.3 (3.1.3) - Released Mar 30, 2002
+   1. Web server now supports redirects, and "admin" mode macros
+   2. New WebMacros: AreaData, BehaviorNext, BehaviorData, AreaNext, AreaName, AbilityAffectNext, AbilityData, AbilityNext
+   3. New WebMacros: BehaviorID, AbilityDomainNext, AbilityTypeNext, RaceClassNext, ClassRaceNext, CharClassNext, RaceData
+   4. New WebMacros: CharClassName, LevelNext, RaceNext, AbilityID, RaceName, LevelNumber, CharClassID, RaceID, CharClassData
+   5. New WebMacros: AbilityName
+   6. New Raw Resources: beef, pork, poultry, mutton, hide, milk, eggs, hops, coffeebeans, coffee, opal, topaz, amethyst, garnet
+   7. New Raw Resources: amber, aquamarine, crysoberyl, ironwood, silk, cocoa
+   8. Raw Resources now have value and frequency
+   9. New skill types: chant, common skill
+  11. New common skill: Forage
+  12. New skills: Druid_ShapeShift, Skill_UndeadInvisibility, Thief_Surrender, 
+  13. New prayers: Prayer_Contagion, Prayer_Nullification, Prayer_Poison, Prayer_MassMobility, Prayer_LinkedHealth, Prayer_Disenchant
+  14. New prayers: Prayer_RestoreSmell, Prayer_Blindsight, Prayer_ProtUndead, Prayer_ProtPoison, Prayer_ProtDisease
+  15. New prayers: Prayer_RestoreVoice, Prayer_ProtParalyzation, Prayer_Regeneration, Prayer_Deafness, Prayer_BloodMoon,
+  16. New prayers: Prayer_CureDeafness, Prayer_Bury
+  17. Added string filters?! <?-HIS-HER>, <?-HIM-HER>, <?-NAME>, <?-NAMESELF>, <?-HE-SHE>, <?-IS-ARE>, <?-HAS-HAVE>
+  18. New commands: Chants
+  19. New char class: Druid
+  20. New races: ManScorpion, Griffon, Chimp, Lion, GiantRat, Robin, DireWolf, Raven, Gorilla, Hawk, WereWolf
+  21. New races: Monkey, Calf, Ape, Python, Cobra, Rat, GiantWolf, DireRat, Scarab, Naga, Cub, Eagle, Buffalo
+  22. New races: WereBat, Sasquatch, Grasshopper, Kitten, Puma, WereRat, Manticore, GardenSnake, Lizard, 
+  23. New races: Mouse, Cow, Tarantula, WereBear, Minotaur, 
+# Build 3.0.1.2 (3.1.2) - Released Mar 25, 2002
+   1. New items: HolyAvenger, GenFoodResource, GenResource, GenWallpaper
+   2. HUnger/Thirst can now result in death.
+   3. New Skills: Paladin_Breakup, Paladin_DiseaseImmunity, Paladin_SummonMount, Paladin_HealingHands, 
+   4. New Skills: Paladin_PoisonImmunity, Paladin_Goodness, Paladin_Courage, Paladin_ImprovedResists,
+   5. New Skills: Paladin_Defend, Paladin_Aura, Skill_MountedCombat, Skill_Appraise, Skill_Lore, Skill_TurnUndead
+   6. New Spells: Spell_IronGrip
+   7. New Skills: Fighter_Sweep, Fighter_Cleave, Thief_SilentLoot, Thief_SilentGold, 
+   8. New Properties: Prop_TattooAdder, Prop_Tattoo, Prop_ReqTattoo,
+   9. New Locales: Jungle, Swamp, JungleGrid, SwampGrid, Hills, HillsGrid
+  10. Locales all have their own unique resource choices now!
+  11. EnvResource created (would later become RawMaterial to avoid confusion over Environmental)
+  12. New local domains: jungle, swamp, desert, hills, mountains
+  13. Races now generate their own corpses, and confirm wearability
+  14. Ability text parameters now saved with player abilities
+# Build 3.0.1.1 (3.1.1) - Released Mar 22, 2002
+   1. Item Height is new, and Armor height now affects wearability
+   2. Drinkable Items now distinguish Material from Liquid Type
+   3. New items: GenBed, Bed, GenChair, Chair
+   4. Rideable items have configurable UI (state string, etc)
+   5. New commands: vassals, enter, playerkill
+   6. Can now switch targets during combat
+   7. New Spells: Meteor Storm, Demon Gate, Summon Flyer, Awe, Confusion, Mana Burn, Enthrall, Forget, Frailty
+   8. The Portal spell now creates a gate instead of teleporting
+   9. New Spells: Lighten Item, Lower Resists, Permanency, Mind Fog, Tourettes, Laughter, Hunger, Summon Enemy
+  10. New Spells: Dismissal, Wall of Darkness, Wall of Force, Wall of Ice, Blink, Wall of Fire, Wall of Air
+  11. New Spells: Ice Sheet, Stinking Cloud, 
+  12. New Properties: Prop_ItemTransporter, Prop_NoPKill, Prop_ReqPKill, Prop_Invisibility, Prop_Hidden
+  13. New Properties: Prop_ReqLevels, Prop_ReqRaces, Prop_ReqCapacity, Prop_ReqClasses, Prop_ReqAlignments
+  14. New Properties: Prop_ReqNoMOB, Prop_StatTrainer, Prop_ItemTransReceiver
+  15. New Skills: Skill_TwoWeaponFighting, Skill_Distract, Skill_Trip, Ranger_FindWater 
+  16. New Behaviors: ROMPatrolman, Vagrant, ROMGangMember, AntiVagrant, Beggar, GateGuard, 
+  17. Rideable items can now be sat on, slept on, or sat At
+  18. Races now have ranges of weights, and heights by race
+  19. New Locales: UnderSaltWater, SaltWaterSurface
+  20. Watery Locales are now Drinkables
+# Build 3.0.0.6 (3.0.6) - Released Mar 18, 2002
+   1. New Races: Raven, Turtle, Owl, Bird, Rodent, Horse, Undead
+   2. New Spells: Wall of Stone, Find Familiar, Summon Steed, Acid Arrow, Delay, Acid Fog, Repulsion, Nightmare, Gust of Wind
+   3. New Spells: Delirium, Immunity, Spell Turning, Resist Disease, Phantom Hound, Ghost Sound, Fake Weapon, Fake Food
+   4. New Spells: Fake Spring, Fake Armor, Dream, Anchor, Mirage, Fools Gold, Illusory Wall, Free Movement, Mind Block
+   5. Abilities can now temporarily change the names of things, and their height.
+   6. New Spells: Major Globe, Minor Globe, Nondetection
+   7. New Properties: Prop_Familiar (govern Familiar attributes)
+   8. New disease resistance added
+   9. MUD Date/Time now saved to disk
+  10. First global sun-rising/falling message added
+  11. Losing experience can now cause a loss of level
+  12. Locales now track the mount of move points and thirst expended to cross them
+  13. New TIME command
+  14. Weather is more descriptive
+# Build 3.0.0.5 (3.0.5) - Released Mar 15, 2002
+   1. Spell Domains are no longer classes, but simple enum field values
+   2. Weapon & Armor Condition is now a thing via uses remaining
+   3. Armor material now subtly affects saving throws
+   4. No uses remaining on wands and stuff reduces their value to 0
+   5. Thrown weapons exist now!
+   6. Ranged weapons with Ammunition now exist.
+   7. New Item type: StdRideable, for boats, cars, and airplanes
+   8. New Item type: StdJournal, for message bases and such
+   9. New Item types: StdCoins, GenRideable, GenJournal, 
+  10. New behaviors: ItemMender, MoneyChanger, 
+  11. Internal: mob senses masks and disposition are added, and room domains added
+  12. Internal: weapon types and classifications are now a thing
+  13. mob attributes now exist: autogold, autoloot, autoexits, autoassist, ansi, sysopmsgs, automelee
+  14. Web Macros now exist
+  15. .CMARE files are invented, and can now be Imported
+  16. Saving Throws now exist
+  17. Players can now have Leiges to share XP with
+  18. Internal: commands are their own package, w/ StdCommand as the base
+  19. New Skills: Skill_Meditation, 
+  20. New Spells: Spell_DetectGold, Spell_DetectWater, Spell_Augury, Spell_Wish, Spell_LightSensitivity
+  21. New Spells: Spell_WeaknessGas, Spell_WeaknessFire, Spell_WeaknessElectricity, Spell_WeaknessCold, Spell_WeaknessAcid
+  22. New Spells: Spell_ResistMagicMissiles, Spell_ReverseGravity, Spell_TimeStop, Spell_Reinforce, Spell_MassHaste
+  23. New Spells: Spell_Ensnare, Spell_Mend, Spell_Shatter, Spell_SeeAura, Spell_CombatPrecognition, Spell_DetectMetal
+  24. New Spells: Spell_Clairevoyance, Spell_Claireaudience, Spell_Scry, Spell_ComprehendLangs, Spell_KnowValue
+  25. New Spells: Spell_PredictWeather, Spell_DetectUndead
+  26. New Prayers: Prayer_SenseLife, Prayer_AnimateDead, Prayer_SenseEvil, Prayer_SenseGood, Prayer_Drain
+  28. New Properties: Prop_Crawlspace, 
+  29. Languages are now a thing! New Langs: Common, Draconic, Gnomish, Dwarven, Orcish, Elvish, ThievesCant
+  30. New MOB types: StdRideable (for horses mostly), GenRideable
+  31. Diff Races now have their own health descriptions
+  32. Natural Racial weapons added, so unarmed mobs can, on a race-by-race basis, have a special attack weapon
+  33. New Web Server added, with ability to show mud variables via macros.
+  34. New Web Macros: StdWebMacro, HTTPstatusInfo, NumPlayers, MUDServerStatus, MUDServerPort, MUDServerVersion
+  35. New Web Macros: HTTPstatus, WebServerName, HTTPclientIP, PlayerList, WebServerPort, AreaTbl, WebServerVersion
+  36. MUDGrinder app updated again, but its days are numbered.  Did this really still work at this time?
+# Build 3.0.0.0 - Released Feb 25th, 2002
+   1. MUDGrinder updated to support new Behavables and Affectables
+   2. New items: WandArchon
+   3. Max level goes from 25 to 30
+   4. New Archon commands: WIZINV, DISPOSSES, POSSESS, GOTO, CHARGEN
+   5. More things have been colored for your viewing pleasure
+   6. Areas are now actual objects instead of just strings, and stored in own DB table
+   7. New Skills:Skill_AttackHalf
+   8. Abilities no longer qualify for classes per se, but now classes qualify for abilities.
+   9. New Properties: Prop_WizInvis
+# Build 1.25(2.5) - Released Jan 27, 2002
+   1. More new mudchat animal sounds
+   2. Archon help is now in its own file: arc_help.ini
+   3. New Archon commands: AHELP, ARCHELP, ARCTOPICS, DUMPFILE, UNLOADHELP
+   4. New commands: ANSI, NOANSI
+   5. Item targeting now has a "smurfy well" exception
+   6. CoffeeMud now supports ansi color, and color codes
+# Build 1.2.1 (2.1) - Released Jan 6, 2002
+   1. GoodGuardian respects "brother"hood (a mob from the same room).
+   2. Ability now affects armor bonus when worn
+   3. Lots of tiny tweeks to the detailed behavior of various specific skills/spells
+   4. New Songs: Mana, Armor
+   5. Several little bug fixes
+# Build 1.2 (2.0) - Released Dec 17, 2001
+   1. Added support for IBM DB2
+   2. New help file "misc_help.ini", for help that fits nowhere else
+   3. Several new animal chat.dat categories
+   4. New Prayers: Detect Life, 
+   5. New Abilities: Dragonbreath, Gasbreath, Inebriation, Undead_ColdTouch, Firebreath, Undead_LifeDrain
+   6. New Abilities: Lighteningbreath, Regeneration, Frostbreath, Acidbreath, 
+   7. New Skills: Skill_WandUse, Skill_Swim, Skill_Regeneration, Skill_Resistance, Fighter_Kick, 
+   8. New Spells: Spell_FaerieFire, 
+   9. New Properties: Prop_WearAdjuster, Prop_HaveZapper, Prop_HaveAdjuster, Prop_NoChannel, Prop_NoRecall, Prop_Resistance
+  10. New Properties: Prop_Trainer, Prop_HaveResister, Prop_RoomNoMOB, Prop_WearSpellCast, Prop_FightSpellCast, Prop_RoomDark
+  11. New Properties: Prop_WearResister, Prop_SpellAdder, Prop_WearZapper, Prop_MagicFreedom, Prop_RestrictSpells, Prop_RoomLevels
+  12. New Properties: Prop_SafePet, Prop_RoomClasses, Prop_RoomCapacity, Prop_RoomRaces, Prop_PeaceMaker, Prop_RoomAlignments
+  13. New Properties: Prop_HaveSpellCast
+  14. New Trap effects: Trap_Trap
+  15. New Archon commands: Import (most important feature ever added), Reset, XMLIO, Link, Unlink, XML, Shutdown
+  16. Mobs, rooms, items, and areas have more editable fields now, and can now be Affected
+  17. New commands: AUTOEXITS, OUTFIT, AUTOLOOT, AUTOGOLD, AUTOASSIST, CHANNELS, GAIN, QUALITY, VALUE, YELL
+  18. New commands: TOPIC
+  19. Lots of mobs updated with equipment, new races, skills, behaviors, etc.
+  20. New mob types: StdShopKeeper
+  21. New item types: StdFood, StdScroll, GenSuperPill, GenPotion, StdWand, StdPill, GenMultiPotion, GenShoes, GenPants
+  22. New item types: StdPotion, GenWand, GenScroll, GenPill, StdDrink, StdMap, GenLantern, GenMap, Shoes, StdArmor
+  23. New item types: Waterskin, GenLightSource, StdContainer, GenShield, GenShirt, StdShield, GenCoins, StdInnKey, GenBoat
+  24. New item types: GenKey, GenCorpse, Corpse, Staff, ShieldWeapon, SmallDagger, StdWeapon, GenStaff, ArchonStaff
+  25. New item types: SmallMace, Healer, Drowness
+  26. New Behaviors: Scriptable, Scavenger, Mageness, Guard, BrotherHelper, CorpseEater, MOBHelper, ClanHelper, WimpyAggressive
+  27. New Behaviors: Thiefness, Emoter, MobileGoodGuardian, PlayerHelper, MOBEater, GoodExecutioner, NiceAbilities
+  28. New Behaviors: MOBTeacher, ActiveTicker, Fighterness, GetsAllEquipped, AlignHelper, Clericness, 
+  29. New Locales: DarkIceRoom, DarkCityStreet, FrozenMountains, DarkUnderWater, HotRoom, FrozenPlains, ShallowWater
+  30. New Locales: Desert, WaterSurface, IceRoom
+  31. An empty database will have a single default room created
+  32. CoffeeMud can now be cleanly shut down.
+  33. CoffeeMud has a sessions manager, and its own classloader
+  34. New Races: SchoolMonster, Giant, Rabbit, Hobgoblin, Unique, SongBird, Cat, Wolf, Dog, Dragon, Goblin, Pig, Fido
+  35. New Races: Wyvern, GreatCat, Centipede, Snake, GreatBird, Bat, Bear, WaterFowl, Kobold, Orc, Lizard, Doll
+  36. Races now have their own leave/arrive strings, equipment, and special stats/features
+  37. New Races: Troll, Fox, Undead
+  38. Char Classes can now have their own outfit/equipment
+  39. New Exit types: ClimbableExit, Impassable, FlyingExit
+  40. Changes internal messages to use a mask/code (major/minor) structure
+  41. Adding more specific interfaces to lots of different object types 
+  42. New makemud.bat file for building the mud from src
+  43. Channels are now dynamically defined in the ini file, as is the START room.
+# Build 1.1.0.0 - Released Oct 25, 2001
+   1. Added the MUDGrinder, an AWT/Swing Java application for editing rooms and areas
 # Build 1.0.0.0 - Released Mar 23, 2001
   ! AFFECT AREAS BACKSTAB BASH BERZERK BREAK BRIBE BUG BUY CAST CHECK
   CLIMB CLOSE COMMANDS COMPARE CONSIDER COPY CREATE CREDITS DESCRIPTION DESTROY DETRAP DIRT

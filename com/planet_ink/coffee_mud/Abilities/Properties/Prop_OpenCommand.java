@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -62,6 +62,7 @@ public class Prop_OpenCommand extends Property
 			{
 				if(p.equalsIgnoreCase("noopen"))
 					noopen=true;
+				else
 				if(p.toLowerCase().startsWith("message")
 				&&(p.substring(7).trim().startsWith("=")))
 					overMsg=p.substring(7).trim().substring(1);
@@ -116,7 +117,8 @@ public class Prop_OpenCommand extends Property
 			boolean match=false;
 			for(final String[] cmd : commandPhrases)
 			{
-				if(cmd[0].equals(word))
+				if((cmd[0].equals(word))
+				&&(cmds.size()>=cmd.length))
 				{
 					for(int i=1;i<cmd.length;i++)
 					{
@@ -162,7 +164,7 @@ public class Prop_OpenCommand extends Property
 							}
 							if(dirCode>=0)
 							{
-								final String msgStr = (this.overMsg!=null) ? this.overMsg : L("<T-NAME> "+CMLib.english().makePlural(E.openWord())+".");
+								final String msgStr = (this.overMsg!=null) ? this.overMsg : "<T-NAME> "+CMLib.english().makePlural(E.openWord())+".";
 								CMMsg msg2=CMClass.getMsg(mob,E,null,CMMsg.MSG_UNLOCK,null);
 								CMLib.utensils().roomAffectFully(msg2,R,dirCode);
 								msg2=CMClass.getMsg(mob,E,null,CMMsg.MSG_OPEN,msgStr);

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -69,6 +69,12 @@ public class Chant_SummonFear extends Chant
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags()|Ability.FLAG_FEARING;
+	}
+
+	@Override
 	public int maxRange()
 	{
 		return adjustedMaxInvokerRange(1);
@@ -80,7 +86,7 @@ public class Chant_SummonFear extends Chant
 		if(mob!=null)
 		{
 			final Set<MOB> h=properTargets(mob,target,false);
-			if(h==null)
+			if((h==null)||(h.size()==0))
 				return Ability.QUALITY_INDIFFERENT;
 		}
 		return super.castingQuality(mob,target);
@@ -90,7 +96,7 @@ public class Chant_SummonFear extends Chant
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		final Set<MOB> h=properTargets(mob,givenTarget,auto);
-		if(h==null)
+		if((h==null)||(h.size()==0))
 		{
 			mob.tell(L("There doesn't appear to be anyone here worth scaring."));
 			return false;

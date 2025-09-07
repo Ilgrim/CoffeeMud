@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -63,8 +63,11 @@ public class GatheringSkill extends CommonSkill
 	}
 
 	protected static final Map<String, List<Integer>>	supportedResources	= new Hashtable<String, List<Integer>>();
+	protected static final Map<String, int[]>			supportedMaterials	= new Hashtable<String, int[]>();
+	protected static final Map<String, int[]>			supportedUseRscs	= new Hashtable<String, int[]>();
 
-	protected static TreeMap<Room,Quad<Room,Integer,short[],Long>> roomSpamCounter = new TreeMap<Room,Quad<Room,Integer,short[],Long>>();
+	protected static final long EXPIRE_DURATION = (30 * 60 * 1000);
+	protected static Map<Room,Quad<Room,Integer,short[],Long>> roomSpamCounter = new ExpireHashMap<Room,Quad<Room,Integer,short[],Long>>(EXPIRE_DURATION);
 
 	public GatheringSkill()
 	{
@@ -73,7 +76,7 @@ public class GatheringSkill extends CommonSkill
 
 	protected double getRoomSpamDropRate()
 	{
-		return 0.25;
+		return 0.20;
 	}
 
 	protected boolean checkIfAnyYield(Room R)
@@ -130,7 +133,7 @@ public class GatheringSkill extends CommonSkill
 			final Quad<Room,Integer,short[],Long> curRecord = roomSpamCounter.get(R);
 			if(curRecord == null)
 			{
-				final Long expirationTime = new Long(now + (30 * 60 * 1000)); // intentional
+				final Long expirationTime = Long.valueOf(now + EXPIRE_DURATION); // intentional
 				final short[] first = new short[] {1};
 				final Quad<Room,Integer,short[],Long> record = new Quad<Room,Integer,short[],Long>(R,Integer.valueOf(R.myResource()),first,expirationTime);
 				roomSpamCounter.put(R, record);
@@ -179,12 +182,101 @@ public class GatheringSkill extends CommonSkill
 		return amt;
 	}
 
+	public List<Integer> myWeightedResources()
+	{
+		if(supportedResources.containsKey(ID()+"_WEIGHTED_RESOURCES"))
+			return supportedResources.get(ID()+"_WEIGHTED_RESOURCES");
+		final List<Integer> enumResources = myResources();
+		if(enumResources == null)
+			return null;
+		final List<Integer> weightedRscs=new Vector<Integer>();
+		for(final Integer rsc : enumResources)
+		{
+			final int weight = RawMaterial.CODES.FREQUENCY(rsc.intValue());
+			for(int i=0;i<weight;i++)
+				weightedRscs.add(rsc);
+		}
+		supportedResources.put(ID()+"_WEIGHTED_RESOURCES", weightedRscs);
+		return weightedRscs;
+	}
+
+	public int[] allSupportedResources()
+	{
+		if(supportedUseRscs.containsKey(ID()))
+			return supportedUseRscs.get(ID());
+		final List<Integer> realRscs = myResources();
+		final int[] mats = new int[realRscs.size()];
+		for(int i=0;i<realRscs.size();i++)
+			mats[i] = realRscs.get(i).intValue();
+		supportedUseRscs.put(ID(), mats);
+		return mats;
+	}
+
+	public int[] myMaterials()
+	{
+		if(supportedMaterials.containsKey(ID()))
+			return supportedMaterials.get(ID());
+		final String mask=supportedResourceString();
+		if(mask.equalsIgnoreCase("MISC"))
+		{
+			final int[] empty = new int[0];
+			supportedMaterials.put(ID(), empty);
+			return empty;
+		}
+		final List<Integer> maskV=new Vector<Integer>();
+		for(String str : CMParms.parseAny(mask,"|",true))
+		{
+			if(str.trim().length()>0)
+			{
+				boolean found=false;
+				if(str.startsWith("_"))
+				{
+					final int rsc=RawMaterial.CODES.FIND_IgnoreCase(str.substring(1));
+					if(rsc>=0)
+					{
+						maskV.add(Integer.valueOf(rsc));
+						found=true;
+					}
+				}
+				if(!found)
+				{
+					final int y=str.indexOf('-');
+					if(y>0)
+						str=str.substring(0,y);
+					final RawMaterial.Material m=RawMaterial.Material.findIgnoreCase(str);
+					if(m!=null)
+					{
+						maskV.add(Integer.valueOf(m.mask()));
+						found=true;
+					}
+				}
+				if(!found)
+				{
+					final int rsc=RawMaterial.CODES.FIND_IgnoreCase(str);
+					if(rsc>=0)
+						maskV.add(Integer.valueOf(rsc));
+				}
+			}
+		}
+		final int[] set=new int[maskV.size()];
+		for(int i=0;i<maskV.size();i++)
+			set[i]=maskV.get(i).intValue();
+		supportedMaterials.put(ID(),set);
+		return set;
+	}
+
 	public List<Integer> myResources()
 	{
 		if(supportedResources.containsKey(ID()))
 			return supportedResources.get(ID());
 		String mask=supportedResourceString();
-		final List<Integer> maskV=new Vector<Integer>();
+		if(mask.equalsIgnoreCase("MISC"))
+		{
+			final List<Integer> empty = new ReadOnlyVector<Integer>(1);
+			supportedResources.put(ID(), empty);
+			return empty;
+		}
+		final List<Integer> finalListV=new Vector<Integer>();
 		String str=mask;
 		while(mask.length()>0)
 		{
@@ -205,7 +297,7 @@ public class GatheringSkill extends CommonSkill
 					final int rsc=RawMaterial.CODES.FIND_IgnoreCase(str.substring(1));
 					if(rsc>=0)
 					{
-						maskV.add(Integer.valueOf(rsc));
+						finalListV.add(Integer.valueOf(rsc));
 						found=true;
 					}
 				}
@@ -227,9 +319,9 @@ public class GatheringSkill extends CommonSkill
 					final RawMaterial.Material m=RawMaterial.Material.findIgnoreCase(str);
 					if(m!=null)
 					{
-						final List<Integer> rscs=new XVector<Integer>(RawMaterial.CODES.COMPOSE_RESOURCES(m.mask()));
-						maskV.addAll(rscs);
-						maskV.removeAll(notResources);
+						final List<Integer> rscs=new XArrayList<Integer>(RawMaterial.CODES.COMPOSE_RESOURCES(m.mask()));
+						finalListV.addAll(rscs);
+						finalListV.removeAll(notResources);
 						found=rscs.size()>0;
 					}
 				}
@@ -237,12 +329,37 @@ public class GatheringSkill extends CommonSkill
 				{
 					final int rsc=RawMaterial.CODES.FIND_IgnoreCase(str);
 					if(rsc>=0)
-						maskV.add(Integer.valueOf(rsc));
+						finalListV.add(Integer.valueOf(rsc));
 				}
 			}
 		}
-		supportedResources.put(ID(),maskV);
-		return maskV;
+		// sort, reverse, so most freq->least
+		Collections.sort(finalListV,new Comparator<Integer>()
+		{
+			@Override
+			public int compare(final Integer o1, final Integer o2)
+			{
+				if(o1 == o2)
+					return 0;
+				final int f1=RawMaterial.CODES.FREQUENCY(o1.intValue());
+				final int f2=RawMaterial.CODES.FREQUENCY(o2.intValue());
+				if(f1==f2)
+				{
+					final int v1=RawMaterial.CODES.VALUE(o1.intValue());
+					final int v2=RawMaterial.CODES.VALUE(o2.intValue());
+					if(v1 == v2)
+						return 0;
+					if(v1>v2)
+						return 1;
+					return -1;
+				}
+				if(f1>f2)
+					return -1;
+				return 1;
+			}
+		});
+		supportedResources.put(ID(),finalListV);
+		return finalListV;
 	}
 
 	public boolean bundle(final MOB mob, final List<String> what)
@@ -250,7 +367,7 @@ public class GatheringSkill extends CommonSkill
 		if((what.size()<3)
 		||((!CMath.isNumber(what.get(1)))&&(!what.get(1).equalsIgnoreCase("ALL"))))
 		{
-			commonTell(mob,L("You must specify an amount to bundle, followed by what resource to bundle."));
+			commonTelL(mob,"You must specify an amount to bundle, followed by what resource to bundle.");
 			return false;
 		}
 		int amount=CMath.s_int(what.get(1));
@@ -258,9 +375,10 @@ public class GatheringSkill extends CommonSkill
 			amount=Integer.MAX_VALUE;
 		if(amount<=0)
 		{
-			commonTell(mob,L("@x1 is not an appropriate amount.",""+amount));
+			commonTelL(mob,"@x1 is not an appropriate amount.",""+amount);
 			return false;
 		}
+		int weightHere=0;
 		int numHere=0;
 		final Room R=mob.location();
 		if(R==null)
@@ -272,7 +390,7 @@ public class GatheringSkill extends CommonSkill
 		Item foundAnyway=null;
 		final List<RawMaterial> allFound=new ArrayList<RawMaterial>();
 		final List<Integer> maskV=myResources();
-		final Hashtable<String,Ability> foundAblesH=new Hashtable<String,Ability>();
+		final Map<String,Ability> foundAblesH=new TreeMap<String,Ability>();
 		Ability A=null;
 		long lowestNonZeroFoodNumber=Long.MAX_VALUE;
 		int count=name.lastIndexOf('.');
@@ -315,39 +433,44 @@ public class GatheringSkill extends CommonSkill
 							foundAblesH.put(A.ID(),A);
 					}
 					foundResource=I.material();
-					numHere+=I.phyStats().weight();
+					weightHere+=I.phyStats().weight();
+					numHere++;
 					foundSubType=((RawMaterial)I).getSubType();
 					foundSecret=I.rawSecretIdentity();
 					allFound.add((RawMaterial)I);
 				}
 			}
 		}
-		if((numHere==0)||(foundResource<0))
+		if((weightHere==0)||(foundResource<0))
 		{
-			if(foundAnyway!=null)
-				commonTell(mob,L("You can't bundle @x1 with this skill.",foundAnyway.name()));
+			if((numHere > 0)&&(foundAnyway!=null))
+				commonTelL(mob,"You can't bundle weightless @x1 with this skill.",foundAnyway.name());
 			else
-				commonTell(mob,L("You don't see any @x1 on the ground here.",name));
+			if(foundAnyway!=null)
+				commonTelL(mob,"You can't bundle @x1 with this skill.",foundAnyway.name());
+			else
+				commonTelL(mob,"You don't see any @x1 on the ground here.",name);
 			return false;
 		}
 		if(amount==Integer.MAX_VALUE)
-			amount=numHere;
-		if(numHere<amount)
+			amount=weightHere;
+		if(weightHere<amount)
 		{
-			commonTell(mob,L("You only see @x1 pounds of @x2 on the ground here.",""+numHere,name));
+			commonTelL(mob,"You only see @x1 pounds of @x2 on the ground here.",""+weightHere,name);
 			return false;
 		}
 		if(allFound.size()==1)
 		{
-			commonTell(mob,L("It appears that @x1 is already bundled as much as it can be.",allFound.get(0).Name()));
+			commonTelL(mob,"It appears that @x1 is already bundled as much as it can be.",allFound.get(0).Name());
 			return false;
 		}
 		if(lowestNonZeroFoodNumber==Long.MAX_VALUE)
 			lowestNonZeroFoodNumber=0;
-		final Item I=(Item)CMLib.materials().makeResource(foundResource,Integer.toString(mob.location().domainType()),true,foundSecret,foundSubType);
+		final Item I=(Item)CMLib.materials().makeResource(foundResource,
+				Integer.toString(mob.location().domainType()),true,foundSecret,foundSubType);
 		if(I==null)
 		{
-			commonTell(mob,L("You could not bundle @x1 due to @x2 being an invalid resource code.  Bug it!",name,""+foundResource));
+			commonTelL(mob,"You could not bundle @x1 due to @x2 being an invalid resource code.  Bug it!",name,""+foundResource);
 			return false;
 		}
 		I.basePhyStats().setWeight(amount);
@@ -377,8 +500,13 @@ public class GatheringSkill extends CommonSkill
 		}
 		if(I instanceof Decayable)
 			((Decayable)I).setDecayTime(lowestNonZeroFoodNumber);
-		for(final Enumeration<String> e=foundAblesH.keys();e.hasMoreElements();)
-			I.addNonUninvokableEffect((Ability)((Environmental)foundAblesH.get(e.nextElement())).copyOf());
+		for(final String key : foundAblesH.keySet())
+		{
+			final Ability oldA = foundAblesH.get(key);
+			final Ability newA = (Ability)oldA.copyOf();
+			newA.setMiscText(oldA.text());
+			I.addNonUninvokableEffect(newA);
+		}
 		R.recoverRoomStats();
 		return true;
 	}

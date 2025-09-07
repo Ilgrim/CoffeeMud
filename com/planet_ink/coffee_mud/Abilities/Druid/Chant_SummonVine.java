@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -109,8 +109,11 @@ public class Chant_SummonVine extends Chant
 				||(mob.location()!=invoker.location())))
 					unInvoke();
 				else
-				if((!mob.isInCombat())&&((++peaceTicks)>5))
-					unInvoke();
+				if(!mob.isInCombat())
+				{
+					if((++peaceTicks)>5)
+						unInvoke();
+				}
 				else
 					peaceTicks=0;
 			}
@@ -174,9 +177,9 @@ public class Chant_SummonVine extends Chant
 			{
 				if((R.domainType()&Room.INDOORS)>0)
 					return Ability.QUALITY_INDIFFERENT;
-				if((R.domainType()==Room.DOMAIN_OUTDOORS_CITY)
-				||(R.domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT)
-				||(CMLib.flags().isWateryRoom(R))
+				if(CMLib.flags().isACityRoom(R))
+					return Ability.QUALITY_INDIFFERENT;
+				if((CMLib.flags().isWateryRoom(R))
 				||(R.domainType()==Room.DOMAIN_OUTDOORS_AIR))
 					return Ability.QUALITY_INDIFFERENT;
 				if(!mob.isInCombat())
@@ -195,8 +198,7 @@ public class Chant_SummonVine extends Chant
 			mob.tell(L("You must be outdoors for this chant to work."));
 			return false;
 		}
-		if((mob.location().domainType()==Room.DOMAIN_OUTDOORS_CITY)
-		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT)
+		if((CMLib.flags().isACityRoom(mob.location()))
 		   ||(CMLib.flags().isWateryRoom(mob.location()))
 		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_AIR))
 		{
@@ -244,10 +246,13 @@ public class Chant_SummonVine extends Chant
 		final MOB victim=caster.getVictim();
 		final MOB newMOB=CMClass.getMOB("GenMOB");
 		int level=adjustedLevel(caster,0);
+		final int altLevel = (caster.phyStats().level()-5)+(super.getXLEVELLevel(caster)/2);
+		if(altLevel > level)
+			level = altLevel;
 		if(level<1)
 			level=1;
 		newMOB.basePhyStats().setLevel(level);
-		newMOB.basePhyStats().setAbility(13);
+		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase()+2);
 		newMOB.baseCharStats().setMyRace(CMClass.getRace("Vine"));
 		final String name="a vine";
 		newMOB.setName(name);
@@ -266,7 +271,9 @@ public class Chant_SummonVine extends Chant
 		newMOB.basePhyStats().setAttackAdjustment(10);
 		newMOB.basePhyStats().setArmor(100-(30+(level/2)));
 		newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'N');
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		newMOB.setMiscText(newMOB.text());
 		newMOB.recoverCharStats();
 		newMOB.recoverPhyStats();

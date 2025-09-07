@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -102,8 +102,12 @@ public class Skill_Revoke extends StdSkill
 		&&(mob.location().numEffects()>0))
 			target=mob.location();
 		else
-		if(whatToRevoke.equalsIgnoreCase("room"))
+		if(whatToRevoke.equalsIgnoreCase("room")
+		||whatToRevoke.equalsIgnoreCase(CMLib.english().removeArticleLead(mob.location().Name())))
 			target=mob.location();
+		else
+		if(whatToRevoke.equalsIgnoreCase("area"))
+			target=mob.location().getArea();
 		else
 		if(whatToRevoke.equalsIgnoreCase("self"))
 			target=mob;

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -100,14 +100,13 @@ public class Thief_AvoidTraps extends ThiefSkill
 	@Override
 	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
-		if(!(affected instanceof MOB))
-			return super.okMessage(myHost,msg);
-		final MOB mob=(MOB)affected;
-		if(msg.amITarget(mob)
-		&&(!msg.amISource(mob))
-		&&(msg.tool() instanceof Trap)
-		&&(CMLib.dice().rollPercentage()>90))
-			helpProficiency(mob, 0);
+		if((msg.tool() instanceof Trap)
+		&&(msg.target()==affected)
+		&&(msg.source()!=affected)
+		&&(msg.target() instanceof MOB)
+		&&(CMLib.dice().rollPercentage()>90)
+		)
+			helpProficiency((MOB)msg.target(), 0);
 		return super.okMessage(myHost,msg);
 	}
 }

@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -95,12 +95,12 @@ public class Skill_SeaNavigation extends StdSkill
 		if(R==null)
 			return false;
 		Room currentR=null;
-		if(R.getArea() instanceof BoardableShip)
+		if(R.getArea() instanceof Boardable)
 		{
-			currentR=CMLib.map().roomLocation(((BoardableShip)R.getArea()).getShipItem());
+			currentR=CMLib.map().roomLocation(((Boardable)R.getArea()).getBoardableItem());
 		}
 		else
-		if((mob.riding() !=null) && (mob.riding().rideBasis() == Rideable.RIDEABLE_WATER))
+		if((mob.riding() !=null) && (mob.riding().rideBasis() == Rideable.Basis.WATER_BASED))
 		{
 			if(CMLib.flags().isWaterySurfaceRoom(mob.location()))
 				currentR=mob.location();
@@ -166,6 +166,7 @@ public class Skill_SeaNavigation extends StdSkill
 			}
 			chartPointIndex--;
 			final TrackingFlags flags=CMLib.tracking().newFlags().plus(TrackingFlag.NOAIR)
+															.plus(TrackingFlag.PASSABLE)
 															.plus(TrackingFlag.WATERSURFACEORSHOREONLY);
 			targetR=CMLib.map().getRoom(rooms.get(chartPointIndex));
 			if(targetR!=null)
@@ -174,7 +175,9 @@ public class Skill_SeaNavigation extends StdSkill
 		else
 		if(fullNav)
 		{
-			final TrackingFlags flags=CMLib.tracking().newFlags().plus(TrackingFlag.NOAIR)
+			final TrackingFlags flags=CMLib.tracking().newFlags()
+					.plus(TrackingFlag.NOAIR)
+					.plus(TrackingFlag.PASSABLE)
 					.plus(TrackingFlag.NOHOMES);
 			final TrackingLibrary.RFilter destFilter = new TrackingLibrary.RFilter()
 			{
@@ -209,6 +212,12 @@ public class Skill_SeaNavigation extends StdSkill
 				mob.tell(L("You must learn Sea Charting to use this skill this way."));
 			else
 				mob.tell(L("'@x1' is not a valid chart point number to get the distance to. Try SEACHART LIST.",parm));
+			return false;
+		}
+
+		if(currentR == targetR)
+		{
+			mob.tell(L("You are already there!"));
 			return false;
 		}
 
@@ -250,7 +259,7 @@ public class Skill_SeaNavigation extends StdSkill
 					room=nextRoom;
 				}
 				final String msgStr=L("Your charts say the way there is: @x1",dirs.toString());
-				if(R.getArea() instanceof BoardableShip)
+				if(R.getArea() instanceof Boardable)
 				{
 					final String courseMsgStr="COURSE "+courseStr.toString();
 					final CMMsg huhMsg=CMClass.getMsg(mob,null,null,CMMsg.MSG_HUH,msgStr,courseMsgStr,null);
@@ -258,7 +267,7 @@ public class Skill_SeaNavigation extends StdSkill
 						R.send(mob,huhMsg);
 				}
 				else
-				if((mob.riding() !=null) && (mob.riding().rideBasis() == Rideable.RIDEABLE_WATER))
+				if((mob.riding() !=null) && (mob.riding().rideBasis() == Rideable.Basis.WATER_BASED))
 				{
 					mob.tell(msgStr);
 				}

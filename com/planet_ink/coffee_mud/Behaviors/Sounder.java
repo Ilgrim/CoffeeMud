@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -504,16 +504,37 @@ public class Sounder extends StdBehavior
 				if(((triggers[v]&UNDER_MASK)==lookFor)
 				&&(!CMath.bset(triggers[v],TICK_MASK)))
 				{
+					final CMMsg msg2;
 					if(CMath.bset(triggers[v],ROOM_MASK))
+						msg2=CMClass.getMsg(msg.source(),null,null,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,CMMsg.MSG_EMOTE,CMStrings.replaceAll(strings[v],"$p",host.name()));
+					else
+						msg2=CMClass.getMsg(msg.source(),null,null,CMMsg.MSG_EMOTE,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,CMStrings.replaceAll(strings[v],"$p",host.name()));
+					if(lookFor==CMMsg.TYP_ENTER)
 					{
-						final CMMsg msg2=CMClass.getMsg(msg.source(),null,null,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,CMMsg.MSG_EMOTE,CMStrings.replaceAll(strings[v],"$p",host.name()));
-						msg.addTrailerMsg(msg2);
+						msg.addTrailerRunnable(new Runnable()
+						{
+							final Room R=room;
+							final CMMsg msg = msg2;
+							@Override
+							public void run()
+							{
+								CMLib.threads().scheduleRunnable(new Runnable()
+								{
+									@Override
+									public void run()
+									{
+										if(R.isInhabitant(msg.source()))
+										{
+											if(R.okMessage(msg.source(),msg))
+												R.send(msg.source(), msg);
+										}
+									}
+								}, 500);
+							}
+						});
 					}
 					else
-					{
-						final CMMsg msg2=CMClass.getMsg(msg.source(),null,null,CMMsg.MSG_EMOTE,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT,CMStrings.replaceAll(strings[v],"$p",host.name()));
 						msg.addTrailerMsg(msg2);
-					}
 				}
 			}
 		}

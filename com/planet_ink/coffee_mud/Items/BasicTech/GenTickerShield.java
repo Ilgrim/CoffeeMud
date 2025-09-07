@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -42,8 +42,8 @@ public class GenTickerShield extends StdElecItem implements Armor
 		return "GenTickerShield";
 	}
 
-	protected short	layer				= 0;
-	protected short	layerAttributes		= 0;
+	protected short		layer			= 0;
+	protected short		layerAttributes	= 0;
 	protected String	readableText	= "";
 
 	public GenTickerShield()
@@ -150,12 +150,10 @@ public class GenTickerShield extends StdElecItem implements Armor
 		{
 			switch(msg.targetMinor())
 			{
-			case CMMsg.TYP_LOOK:
+			case CMMsg.TYP_EXAMINE:
 				super.executeMsg(host, msg);
 				if(CMLib.flags().canBeSeenBy(this, msg.source()))
-				{
 					msg.source().tell(L("@x1 is currently @x2 and is at @x3% power.",name(),(activated()?"activated":"deactivated"),""+Math.round(CMath.div(powerRemaining(),powerCapacity())*100.0)));
-				}
 				return;
 			case CMMsg.TYP_ACTIVATE:
 			{
@@ -251,7 +249,7 @@ public class GenTickerShield extends StdElecItem implements Armor
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this, false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this, false);
 	}
 
 	@Override
@@ -270,7 +268,7 @@ public class GenTickerShield extends StdElecItem implements Armor
 	public void setMiscText(final String newText)
 	{
 		miscText="";
-		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this,newText,false);
 		recoverPhyStats();
 	}
 
@@ -280,7 +278,7 @@ public class GenTickerShield extends StdElecItem implements Armor
 	{
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			return CMLib.coffeeMaker().getGenItemStat(this,code);
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return "" + powerCapacity();
@@ -307,7 +305,7 @@ public class GenTickerShield extends StdElecItem implements Armor
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			CMLib.coffeeMaker().setGenItemStat(this,code,val);
 		else
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			setPowerCapacity(CMath.s_parseLongExpression(val));
@@ -336,8 +334,7 @@ public class GenTickerShield extends StdElecItem implements Armor
 		}
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<MYCODES.length;i++)
 		{

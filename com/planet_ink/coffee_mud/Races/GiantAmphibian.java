@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ public class GiantAmphibian extends GreatAmphibian
 			{
 				for(int i=0;i<25;i++)
 				resources.addElement(makeResource
-				(L("some @x1",name().toLowerCase()),RawMaterial.RESOURCE_FISH));
+				(L("some @x1 meat",name().toLowerCase()),RawMaterial.RESOURCE_FISH));
 				for(int i=0;i<15;i++)
 				resources.addElement(makeResource
 				(L("a @x1 hide",name().toLowerCase()),RawMaterial.RESOURCE_HIDE));

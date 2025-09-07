@@ -9,15 +9,17 @@ import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
+import com.planet_ink.coffee_mud.Common.DefaultCharStats;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
+import com.planet_ink.coffee_mud.MOBS.interfaces.Deity.DeityWorshipper;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -37,7 +39,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
  * @author Bo Zimmerman
  *
  */
-public interface CharStats extends CMCommon, Modifiable
+public interface CharStats extends CMCommon, Modifiable, DeityWorshipper
 {
 	/** stat constant for strength */
 	public static final int VALUE_ALLSTATS_DEFAULT=10;
@@ -104,8 +106,8 @@ public interface CharStats extends CMCommon, Modifiable
 	public static final int STAT_SAVE_DETECTION=29;
 	/** stat constant for save vs overlooking hidden things */
 	public static final int STAT_SAVE_OVERLOOKING=30;
-	/** stat constant for amount of faith? */
-	public static final int STAT_FAITH=31;
+	/** stat constant for amount of doubt? */
+	public static final int STAT_SAVE_DOUBT=31;
 	/** stat constant for additions/subtractions from base weight */
 	public static final int STAT_WEIGHTADJ=32;
 	/** stat constant for  save vs bludgeoning*/
@@ -130,8 +132,14 @@ public interface CharStats extends CMCommon, Modifiable
 	public static final int STAT_CRIT_DAMAGE_PCT_WEAPON=42;
 	/** stat constant for  bonus damage % to critical hits with magic */
 	public static final int STAT_CRIT_DAMAGE_PCT_MAGIC=43;
+	/** stat constant for amount of faith? */
+	public static final int STAT_FAITH=44;
+	/** stat constant for recovery rate */
+	public static final int STAT_RECOVERRATE5_ADJ=45;
+	/** stat constant for xp adjustment % */
+	public static final int STAT_XP_ADJ_PCT=46;
 	/** constant for total number of stat codes */
-	public final static int DEFAULT_NUM_STATS=42;
+	public final static int DEFAULT_NUM_STATS=47;
 
 	/**
 	 * Copies the internal data of this object into another of kind.
@@ -168,6 +176,8 @@ public interface CharStats extends CMCommon, Modifiable
 	/**
 	 * Adjusts the value of one of the STAT_ constants, representing attributes,
 	 * saving throws, and max attributes, from the CharStats interface.
+	 * Using this method will also update the STAT_MAX_* attributes to make
+	 * sure that they are not able to be trained upwards.
 	 * @see CharStats
 	 * @param statNum which STAT_ constant to adjust
 	 * @param value the amount + or -, to adjust by
@@ -210,10 +220,10 @@ public interface CharStats extends CMCommon, Modifiable
 	 * string list in the CharStats interface to return the STAT_ constant which
 	 * the given string represents.
 	 * @see CharStats
-	 * @param abilityName name of which constant to determine the STAT_ constant for
+	 * @param statName name of which constant to determine the STAT_ constant for
 	 * @return the STAT_ constant value from CharStats interface
 	 */
-	public int getCode(String abilityName);
+	public int getStatCode(String statName);
 
 	/**
 	 * Uses the saving throw stats stored here the mob, modified by basic attributes,
@@ -315,7 +325,7 @@ public interface CharStats extends CMCommon, Modifiable
 	 * @see com.planet_ink.coffee_mud.CharClasses.interfaces.CharClass
 	 * @return the Collection of CharClass objects
 	 */
-	public Collection<CharClass> getCharClasses();
+	public Iterable<CharClass> getCharClasses();
 
 	/**
 	 * Returns the number of levels that this mob has in the CharClass
@@ -328,32 +338,19 @@ public interface CharStats extends CMCommon, Modifiable
 	public int getCurrentClassLevel();
 
 	/**
-	 * Creates the enumerated set of character class objects stored here
-	 * from a semicolon list of string names
+	 * Unpacks the set of character class objects stored here
+	 * from a semicolon list of string names and level amounts
 	 * @param classes the semicolon list of character class names
-	 */
-	public void setMyClasses(String classes);
-
-	/**
-	 * Creates the enumerated set of character class levels stored here
-	 * from a semicolon list of levels.
 	 * @param levels the semicolon list of levels
 	 */
-	public void setMyLevels(String levels);
+	public void setAllClassInfo(String classes, String levels);
 
 	/**
 	 * Returns the enumerated set of character class names stored here
-	 * as a semicolon list of string names
-	 * @return the semicolon list of character class names
+	 * as a semicolon list of string names and level amounts.
+	 * @return the semicolon list of character class names and levels respectively
 	 */
-	public String getMyClassesStr();
-
-	/**
-	 * Returns the enumerated set of character class levels stored here
-	 * as a semicolon list of levels.
-	 * @return levels the semicolon list of levels
-	 */
-	public String getMyLevelsStr();
+	public Pair<String,String> getAllClassInfo();
 
 	/**
 	 * Adds the character class to the mob to the given class, automatically
@@ -606,6 +603,7 @@ public interface CharStats extends CMCommon, Modifiable
 	 * and the mobs real gender name will be displayed through the genderName method
 	 * instead of the one set here.
 	 * @see #genderName()
+	 * @see #realGenderName()
 	 * @param gname the name of the mobs gender to display
 	 */
 	public void setGenderName(String gname);
@@ -622,6 +620,21 @@ public interface CharStats extends CMCommon, Modifiable
 	public String genderName();
 
 	/**
+	 * Returns the gender of the mob.
+	 * @see #setGenderName(String)
+	 * @return the apparent gender of the mob
+	 */
+	public String realGenderName();
+
+	/**
+	 * Based on the gender of the mob, returns M, N, or F, reflective
+	 * of reproductive role.
+	 *
+	 * @return M, N, or F
+	 */
+	public char reproductiveCode();
+
+	/**
 	 * Based on the apparent gender of the mob, return the appropriate word "him", "her", or "it".
 	 * @return the gender-correct pronoun for this mob
 	 */
@@ -632,6 +645,18 @@ public interface CharStats extends CMCommon, Modifiable
 	 * @return the gender-correct pronoun for this mob
 	 */
 	public String hisher();
+
+	/**
+	 * Based on the apparent gender of the mob, return the appropriate word "himself", "herself", or "itself".
+	 * @return the gender-correct pronoun for this mob
+	 */
+	public String himherself();
+
+	/**
+	 * Based on the apparent gender of the mob, return the appropriate word "hisself", "herself", or "itself".
+	 * @return the gender-correct pronoun for this mob
+	 */
+	public String hisherself();
 
 	/**
 	 * Based on the apparent gender of the mob, return the appropriate word "he", "she", or "it".
@@ -656,6 +681,24 @@ public interface CharStats extends CMCommon, Modifiable
 	 * @return the gender-correct title for this mob
 	 */
 	public String SirMadam();
+
+	/**
+	 * Based on the apparent gender of the mob, return the appropriate word "Man", "Woman", or "Man".
+	 * @return the gender-correct term for this mob
+	 */
+	public String manwoman();
+
+	/**
+	 * Based on the apparent gender of the mob, return the appropriate word "Son", "Daughter", or "Child".
+	 * @return the gender-correct term for this young mob
+	 */
+	public String sondaughter();
+
+	/**
+	 * Based on the apparent gender of the mob, return the appropriate word "Boy", "Girl", or "Child".
+	 * @return the gender-correct term for this young mob
+	 */
+	public String boygirl();
 
 	/**
 	 * Based on the apparent gender of the mob, return the appropriate word "Mr.", or "Ms.".
@@ -691,22 +734,43 @@ public interface CharStats extends CMCommon, Modifiable
 	 * something else numeric.
 	 * Ability adjustments begin with "prof+" to adjust proficiency.
 	 * They begin with "level+" to adjust the adjusted level.
+	 * They begin with "X"+expertise code name + "+" for expertise level
 	 * The are followed by the exact ID() of the ability, or * for All, or
 	 * the skill classification name in uppercase, or the domain name in
 	 * uppercase.
+	 *
+	 * @see CharStats#isAbilityAdjustment(String)
+	 * @see CharStats#adjustAbilityAdjustment(String, int)
+	 *
 	 * @param ableID the ability ID, with an appropriate prefix
 	 * @return the numeric value associated with the adjustment.
 	 */
 	public int getAbilityAdjustment(String ableID);
 
 	/**
+	 * Returns whether the mob has an ability adjustment.
+	 *
+	 * @see CharStats#getAbilityAdjustment(String)
+	 * @see CharStats#adjustAbilityAdjustment(String, int)
+	 *
+	 * @param prefix the prefix, like PROF
+	 * @return true if the adjustment is there.
+	 */
+	public boolean isAbilityAdjustment(final String prefix);
+
+	/**
 	 * Sets the adjustments to mob abilities, whether proficiency or
 	 * something else numeric.
 	 * Ability adjustments begin with "prof+" to adjust proficiency.
 	 * They begin with "level+" to adjust the adjusted level.
+	 * They begin with "X"+expertise code name + "+" for expertise level
 	 * The are followed by the exact ID() of the ability, or * for All, or
 	 * the skill classification name in uppercase, or the domain name in
 	 * uppercase.
+	 *
+	 * @see CharStats#isAbilityAdjustment(String)
+	 * @see CharStats#getAbilityAdjustment(String)
+	 *
 	 * @param ableID the ability ID, with an appropriate prefix
 	 * @param newValue the numeric value associated with the adjustment.
 	 */
@@ -808,7 +872,10 @@ public interface CharStats extends CMCommon, Modifiable
 		"cRW",
 		"cRM",
 		"cDW",
-		"cDM"
+		"cDM",
+		"F",
+		"R",
+		"XP"
 	};
 
 	/** string array of descriptions of each stat code, ordered by numeric value */
@@ -857,7 +924,10 @@ public interface CharStats extends CMCommon, Modifiable
 		"CRIT WEAPON CHANCE PCT",
 		"CRIT MAGIC CHANCE PCT",
 		"CRIT WEAPON DAMAGE PCT",
-		"CRIT MAGIC DAMAGE PCT"
+		"CRIT MAGIC DAMAGE PCT",
+		"FAITH",
+		"REJUVENATION RATE ADJ",
+		"XP ADJUSTMENT PCT"
 	};
 
 	/** string array of descriptions of each stat code, ordered by numeric value */
@@ -894,7 +964,7 @@ public interface CharStats extends CMCommon, Modifiable
 		"AGE",
 		"DETECTION",
 		"OVERLOOKING",
-		"CONVERSION",
+		"DOUBT",
 		"WEIGHTADJ",
 		"SAVEBLUNT",
 		"SAVEPIERCE",
@@ -906,7 +976,10 @@ public interface CharStats extends CMCommon, Modifiable
 		"CRITPCTWEAPONS",
 		"CRITPCTMAGIC",
 		"CRITDMGWEAPONS",
-		"CRITDMGMAGIC"
+		"CRITDMGMAGIC",
+		"FAITH",
+		"REJUVRATE",
+		"XPADJPCT"
 	};
 
 	/** string array of attributable descriptions of each stat code, ordered by numeric value */
@@ -956,6 +1029,9 @@ public interface CharStats extends CMCommon, Modifiable
 		"BONUS TO MAGIC CRIT CHANCE",
 		"BONUS TO WEAPON CRIT DAMAGE",
 		"BONUS TO MAGIC CRIT DAMAGE",
+		"FAITHFUL",
+		"REJUVENATINGLY DIFFERENT",
+		"EXPERIENTIAL"
 	};
 
 	/** an appropriate CMMsg MSG type to correspond to the given saving throw, indexed as STAT_SAVE_ constant */
@@ -993,7 +1069,7 @@ public interface CharStats extends CMCommon, Modifiable
 		-1, // age
 		-1, // save conceilment
 		-1, // save overlooking
-		-1, // save conversion
+		-1, // doubt
 		-1, // weight adjustment
 		-1, // save blunt
 		-1, // save pierce
@@ -1006,6 +1082,9 @@ public interface CharStats extends CMCommon, Modifiable
 		-1, // bonus magic crit chance
 		-1, // bonus weapon crit damage
 		-1, // bonus magic crit damage
+		-1, // faith
+		-1, // rejuv rate
+		-1, // xp rate
 	};
 
 	/**
@@ -1054,9 +1133,13 @@ public interface CharStats extends CMCommon, Modifiable
 				addMaxStat(baseStatCodes[baseCtr++],DEFAULT_STAT_ABBR[i],DEFAULT_STAT_DESCS[i],DEFAULT_STAT_NAMES[i],DEFAULT_STAT_DESC_ATTS[i],DEFAULT_STAT_MSG_MAP[i]);
 			addAllStat(DEFAULT_STAT_ABBR[STAT_AGE],DEFAULT_STAT_DESCS[STAT_AGE],DEFAULT_STAT_NAMES[STAT_AGE],
 						DEFAULT_STAT_DESC_ATTS[STAT_AGE],DEFAULT_STAT_MSG_MAP[STAT_AGE],false);
-			for(int i=STAT_SAVE_DETECTION;i<STAT_FAITH;i++)
+			for(int i=STAT_SAVE_DETECTION;i<=STAT_SAVE_DOUBT;i++)
 				addSavingThrow(DEFAULT_STAT_ABBR[i],DEFAULT_STAT_DESCS[i],DEFAULT_STAT_NAMES[i],DEFAULT_STAT_DESC_ATTS[i],DEFAULT_STAT_MSG_MAP[i]);
-			for(int i=STAT_FAITH;i<DEFAULT_NUM_STATS;i++)
+			for(int i=STAT_WEIGHTADJ;i<=STAT_WEIGHTADJ;i++)
+				addAllStat(DEFAULT_STAT_ABBR[i],DEFAULT_STAT_DESCS[i],DEFAULT_STAT_NAMES[i],DEFAULT_STAT_DESC_ATTS[i],DEFAULT_STAT_MSG_MAP[i],false);
+			for(int i=STAT_SAVE_BLUNT;i<=STAT_SAVE_CHANTS;i++)
+				addSavingThrow(DEFAULT_STAT_ABBR[i],DEFAULT_STAT_DESCS[i],DEFAULT_STAT_NAMES[i],DEFAULT_STAT_DESC_ATTS[i],DEFAULT_STAT_MSG_MAP[i]);
+			for(int i=STAT_CRIT_CHANCE_PCT_WEAPON;i<DEFAULT_NUM_STATS;i++)
 				addAllStat(DEFAULT_STAT_ABBR[i],DEFAULT_STAT_DESCS[i],DEFAULT_STAT_NAMES[i],DEFAULT_STAT_DESC_ATTS[i],DEFAULT_STAT_MSG_MAP[i],false);
 			for(int i=0;i<addExtra.length+repExtra.length;i++)
 			{
@@ -1198,7 +1281,7 @@ public interface CharStats extends CMCommon, Modifiable
 		 */
 		public static boolean isBASE(final int code)
 		{
-			return c().isBaseStatCode[code];
+			return c().isBase(code);
 		}
 
 		/**
@@ -1209,7 +1292,9 @@ public interface CharStats extends CMCommon, Modifiable
 		 */
 		public boolean isBase(final int code)
 		{
-			return isBaseStatCode[code];
+			if(code<isBaseStatCode.length)
+				return isBaseStatCode[code];
+			return false;
 		}
 
 		/**
@@ -1221,10 +1306,7 @@ public interface CharStats extends CMCommon, Modifiable
 		 */
 		public static int toMAXBASE(final int max)
 		{
-			final CODES c = c();
-			if(max<c.MaxBaseCrossCodes.length)
-				return c.MaxBaseCrossCodes[max];
-			return -1;
+			return c().toMaxBase(max);
 		}
 
 		/**
@@ -1337,7 +1419,7 @@ public interface CharStats extends CMCommon, Modifiable
 		 */
 		public static String NAME(final int code)
 		{
-			return c().statNames[code];
+			return c().name(code);
 		}
 
 		/**
@@ -1348,7 +1430,7 @@ public interface CharStats extends CMCommon, Modifiable
 		 */
 		public static String SHORTNAME(final int code)
 		{
-			return c().shortNames[code];
+			return c().shortName(code);
 		}
 
 		/**
@@ -1359,7 +1441,9 @@ public interface CharStats extends CMCommon, Modifiable
 		 */
 		public String name(final int code)
 		{
-			return statNames[code];
+			if(code < statNames.length)
+				return statNames[code];
+			return "";
 		}
 
 		/**
@@ -1370,7 +1454,9 @@ public interface CharStats extends CMCommon, Modifiable
 		 */
 		public String shortName(final int code)
 		{
-			return shortNames[code];
+			if(code < shortNames.length)
+				return shortNames[code];
+			return "";
 		}
 
 		/**
@@ -1391,7 +1477,7 @@ public interface CharStats extends CMCommon, Modifiable
 		 */
 		public static String DESC(final int code)
 		{
-			return c().statDescriptions[code];
+			return c().desc(code);
 		}
 
 		/**
@@ -1402,7 +1488,9 @@ public interface CharStats extends CMCommon, Modifiable
 		 */
 		public String desc(final int code)
 		{
-			return statDescriptions[code];
+			if(code < statDescriptions.length)
+				return statDescriptions[code];
+			return "";
 		}
 
 		/**
@@ -1423,7 +1511,7 @@ public interface CharStats extends CMCommon, Modifiable
 		 */
 		public static String ABBR(final int code)
 		{
-			return c().statAbbreviations[code];
+			return c().abbr(code);
 		}
 
 		/**
@@ -1434,7 +1522,9 @@ public interface CharStats extends CMCommon, Modifiable
 		 */
 		public String abbr(final int code)
 		{
-			return statAbbreviations[code];
+			if(code < statAbbreviations.length)
+				return statAbbreviations[code];
+			return "";
 		}
 
 		/**

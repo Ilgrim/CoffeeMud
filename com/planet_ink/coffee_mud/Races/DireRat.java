@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.List;
 import java.util.Vector;
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -56,6 +56,36 @@ public class DireRat extends GiantRat
 	public String racialCategory()
 	{
 		return localizedStaticRacialCat;
+	}
+
+	@Override
+	public int shortestMale()
+	{
+		return 24;
+	}
+
+	@Override
+	public int shortestFemale()
+	{
+		return 24;
+	}
+
+	@Override
+	public int heightVariance()
+	{
+		return 12;
+	}
+
+	@Override
+	public int lightestWeight()
+	{
+		return 450;
+	}
+
+	@Override
+	public int weightVariance()
+	{
+		return 50;
 	}
 
 	private final String[]	racialAbilityNames			= { "RodentSpeak", "Skill_Swim", "Thief_AvoidTraps" };

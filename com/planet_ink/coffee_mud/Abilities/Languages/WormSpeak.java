@@ -3,7 +3,7 @@ package com.planet_ink.coffee_mud.Abilities.Languages;
 import com.planet_ink.coffee_mud.core.CMLib;
 
 /*
-Copyright 2014-2020 Bo Zimmerman
+Copyright 2014-2025 Bo Zimmerman
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,6 +31,12 @@ public class WormSpeak extends AnimalSpeak
 	public String name()
 	{
 		return localizedName;
+	}
+
+	@Override
+	public String getTranslationVerb()
+	{
+		return "squirm(s)";
 	}
 
 	private final static String[] animalSounds=

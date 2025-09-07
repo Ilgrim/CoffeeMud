@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -94,9 +94,28 @@ public class Paladin_HolyStrike extends StdAbility
 	}
 
 	@Override
+	public long flags()
+	{
+		return Ability.FLAG_HOLY|Ability.FLAG_LAW;
+	}
+
+	@Override
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
-		affectableStats.setArmor(affectableStats.armor()-200);
+		affectableStats.setArmor(affectableStats.armor()+200);
+	}
+
+	@Override
+	public boolean canBeTaughtBy(final MOB teacher, final MOB student)
+	{
+		if(!super.canBeTaughtBy(teacher, student))
+			return false;
+		if(!this.appropriateToMyFactions(student))
+		{
+			teacher.tell(L("@x1 lacks the moral disposition to learn '@x2'.",student.name(), name()));
+			student.tell(L("You lack the moral disposition to learn '@x1'.",name()));
+		}
+		return true;
 	}
 
 	@Override
@@ -113,9 +132,9 @@ public class Paladin_HolyStrike extends StdAbility
 		{
 			if(mob.location()!=null)
 			{
-				final MOB deity=msg.source().getMyDeity();
-				if(deity != null)
-					mob.location().show(msg.source(),msg.target(),this,CMMsg.MSG_OK_VISUAL, L("A blinding holy light from @x1 comes down upon <T-NAME>!",deity.Name()));
+				final String deityName=msg.source().charStats().getWorshipCharID();
+				if(deityName.length()>0)
+					mob.location().show(msg.source(),msg.target(),this,CMMsg.MSG_OK_VISUAL, L("A blinding holy light from @x1 comes down upon <T-NAME>!",deityName));
 				else
 					mob.location().show(msg.source(),msg.target(),this,CMMsg.MSG_OK_VISUAL, L("A blinding holy light comes down upon <T-NAME>!"));
 			}
@@ -137,10 +156,13 @@ public class Paladin_HolyStrike extends StdAbility
 			return false;
 
 		final Item w=mob.fetchWieldedItem();
-		if((w==null)||(!(w instanceof Weapon))||(((Weapon)w).weaponClassification()!=Weapon.CLASS_SWORD))
+		if((w==null)
+		||(!(w instanceof Weapon))
+		||(((Weapon)w).weaponClassification()==Weapon.CLASS_RANGED)
+		||(((Weapon)w).weaponClassification()==Weapon.CLASS_THROWN))
 		{
 			if(!quiet)
-				mob.tell(L("You need a sword to perform a holy strike!"));
+				mob.tell(L("You need a melee weapon to perform a holy strike!"));
 			return false;
 		}
 		return true;
@@ -173,9 +195,12 @@ public class Paladin_HolyStrike extends StdAbility
 			mob.tell(L("@x1 already has a holy strike charged against @x2.",target.name(mob),target.charStats().himher()));
 			return false;
 		}
-		if(!CMLib.flags().isEvil(target))
+		if((!CMLib.flags().isEvil(target))&&(!CMLib.flags().isChaotic(target)))
 		{
-			mob.tell(L("But @x1 is not evil!",target.name(mob)));
+			if(CMLib.factions().isAlignmentLoaded(Faction.Align.GOOD))
+				mob.tell(L("But @x1 is not evil!",target.name(mob)));
+			else
+				mob.tell(L("But @x1 is not chaotic!",target.name(mob)));
 			return false;
 		}
 
@@ -186,7 +211,8 @@ public class Paladin_HolyStrike extends StdAbility
 		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,(auto?CMMsg.MASK_ALWAYS:0)|CMMsg.MASK_MALICIOUS|CMMsg.MSG_NOISYMOVEMENT,L("^F^<FIGHT^><S-NAME> call(s) down a holy strike against <T-NAME>!^</FIGHT^>^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,(auto?CMMsg.MASK_ALWAYS:0)|CMMsg.MASK_MALICIOUS|CMMsg.MSG_NOISYMOVEMENT,
+					L("^F^<FIGHT^><S-NAME> call(s) down a holy strike against <T-NAME>!^</FIGHT^>^?"));
 			CMLib.color().fixSourceFightColor(msg);
 			if(mob.location().okMessage(mob,msg))
 			{
@@ -201,7 +227,7 @@ public class Paladin_HolyStrike extends StdAbility
 			}
 		}
 		else
-			return maliciousFizzle(mob,null,L("<S-NAME> call(s) a holy strike against , but fail(s) <S-HIS-HER> attack."));
+			return maliciousFizzle(mob,target,L("<S-NAME> call(s) a holy strike against <T-NAME>, but fail(s) <S-HIS-HER> attack."));
 
 		// return whether it worked
 		return success;

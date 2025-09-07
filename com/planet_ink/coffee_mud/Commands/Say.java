@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -69,22 +69,44 @@ public class Say extends StdCommand
 
 	protected void gmcpSaySend(final String sayName, final MOB mob, final Environmental target, final CMMsg msg)
 	{
-		if((mob.session()!=null)&&(mob.session().getClientTelnetMode(Session.TELNET_GMCP)))
+		final String player=CMStrings.removeAllButLettersAndDigits(CMStrings.removeColors(mob.name()));
+		if((mob.session()!=null)
+		&&(mob.session().getClientTelnetMode(Session.TELNET_GMCP)))
 		{
 			mob.session().sendGMCPEvent("comm.channel", "{\"chan\":\""+sayName+"\",\"msg\":\""+
-					MiniJSON.toJSONString(CMLib.coffeeFilter().fullOutFilter(null, mob, mob, target, null, CMStrings.removeColors(msg.sourceMessage()), false))
-					+"\",\"player\":\""+mob.name()+"\"}");
+					MiniJSON.toJSONString(CMStrings.unWWrap(CMLib.coffeeFilter().fullOutFilter(null, mob, mob, target, null,
+							CMStrings.removeColors(msg.sourceMessage()), false)).trim())
+					+"\",\"player\":\""+player+"\"}");
 		}
 		final Room R=mob.location();
-		if(R!=null)
-		for(int i=0;i<R.numInhabitants();i++)
+		if((R!=null)
+		&&(msg.othersMessage()!=null))
 		{
-			final MOB M=R.fetchInhabitant(i);
-			if((M!=null)&&(M!=msg.source())&&(M.session()!=null)&&(M.session().getClientTelnetMode(Session.TELNET_GMCP)))
+			for(int i=0;i<R.numInhabitants();i++)
 			{
-				M.session().sendGMCPEvent("comm.channel", "{\"chan\":\""+sayName+"\",\"msg\":\""+
-						MiniJSON.toJSONString(CMLib.coffeeFilter().fullOutFilter(null, M, mob, target, null, CMStrings.removeColors(msg.othersMessage()), false))
-						+"\",\"player\":\""+mob.name()+"\"}");
+				final MOB M=R.fetchInhabitant(i);
+				if((M!=null)
+				&&(M!=msg.source())
+				&&(M.session()!=null)
+				&&(M.session().getClientTelnetMode(Session.TELNET_GMCP)))
+				{
+					if((M == target)
+					&&(msg.targetMessage()!=null))
+					{
+						M.session().sendGMCPEvent("comm.channel", "{\"chan\":\""+sayName+"\",\"msg\":\""+
+								MiniJSON.toJSONString(CMStrings.unWWrap(CMLib.coffeeFilter().fullOutFilter(null, M, mob, target, null,
+										CMStrings.removeColors(msg.targetMessage()), false)).trim())
+								+"\",\"player\":\""+player+"\"}");
+					}
+					else
+					if(msg.othersMessage()!=null)
+					{
+						M.session().sendGMCPEvent("comm.channel", "{\"chan\":\""+sayName+"\",\"msg\":\""+
+								MiniJSON.toJSONString(CMStrings.unWWrap(CMLib.coffeeFilter().fullOutFilter(null, M, mob, target, null,
+										CMStrings.removeColors(msg.othersMessage()), false)).trim())
+								+"\",\"player\":\""+player+"\"}");
+					}
+				}
 			}
 		}
 	}
@@ -94,30 +116,45 @@ public class Say extends StdCommand
 		throws java.io.IOException
 	{
 		final Vector<String> origCmds=new XVector<String>(commands);
-		String theWord="Say";
+		String verb=L("Say");
+		String averb=L("say(s)");
+		String tverb=L("say(s) to");
 		boolean toFlag=false;
 		final String theCommand=commands.get(0).toUpperCase();
 		if(theCommand.equals("ASK"))
-			theWord="Ask";
-		else
-		if(theCommand.equals("YELL"))
-			theWord="Yell";
+		{
+			verb=L("Ask");
+			averb=L("ask(s)");
+			tverb=averb;
+		}
 		else
 		if(theCommand.equals("SAYTO")
 		||theCommand.equals("SAYT"))
-		{
-			theWord="Say";
 			toFlag=true;
+		else
+		if(theCommand.startsWith("YELL"))
+		{
+			verb=L("Yell");
+			averb=L("yell(s)");
+			tverb=L("yell(s) to");
+			if(theCommand.equals("YELLTO"))
+				toFlag=true;
+			else
+			if(theCommand.equals("YELLAT"))
+			{
+				tverb=L("yell(s) at");
+				toFlag=true;
+			}
 		}
 
 		final Room R=mob.location();
 		if((commands.size()==1)||(R==null))
 		{
-			CMLib.commands().postCommandFail(mob,origCmds,L("@x1 what?",theWord));
+			CMLib.commands().postCommandFail(mob,origCmds,L("@x1 what?",verb));
 			return false;
 		}
 
-		Vector<Room> yellRooms=new Vector<Room>();
+		List<Room> yellRooms=new ArrayList<Room>();
 		if(theCommand.equals("YELL"))
 		{
 			for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
@@ -130,7 +167,7 @@ public class Say extends StdCommand
 		}
 
 		String whom="";
-		String theWordSuffix="";
+		String dirSuffix="";
 		Environmental target=null;
 		Physical langTarget=null;
 		if(commands.size()>2)
@@ -171,10 +208,12 @@ public class Say extends StdCommand
 			if(whom.length()>0)
 			{
 				target=R.fetchFromRoomFavorMOBs(null,whom);
-				if((toFlag)&&(target==null))
+				if((toFlag)
+				&&(target==null))
 					target=mob.findItem(null,whom);
 
-				if((!toFlag)&&(target!=null))
+				if((!toFlag)
+				&&(target!=null))
 				{
 					if(!(target instanceof MOB))
 						target=null;
@@ -221,22 +260,25 @@ public class Say extends StdCommand
 						if(dir >=0)
 						{
 							commands.remove(1);
-							yellRooms=new Vector<Room>();
+							yellRooms=new ArrayList<Room>();
 							if(theCommand.equals("YELL"))
 							{
 								final Room R2=R.getRoomInDir(dir);
 								final Exit E2=R.getExitInDir(dir);
 								if(R2!=null)
 								{
-									theWordSuffix=" "+CMLib.directions().getDirectionName(dir);
+									dirSuffix=" "+CMLib.directions().getDirectionName(dir);
 									yellRooms.add(R2);
-									if((E2!=null)&&(E2.isOpen()))
+									if((E2!=null)
+									&&(E2.isOpen()))
 									{
 										for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 										{
 											final Room R3=R2.getRoomInDir(d);
 											final Exit E3=R2.getExitInDir(d);
-											if((R3!=null)&&(E3!=null)&&(E3.isOpen()))
+											if((R3!=null)
+											&&(E3!=null)
+											&&(E3.isOpen()))
 												yellRooms.add(R3);
 										}
 									}
@@ -285,10 +327,18 @@ public class Say extends StdCommand
 			{
 				final Language hisL=CMLib.utensils().getLanguageSpoken(langTarget);
 				final Language myL=CMLib.utensils().getLanguageSpoken(mob);
-				if((hisL==null)&&(myL!=null)&&(mob.fetchAbility("Common")!=null))
+				if((hisL==null)
+				&&(myL!=null)
+				&&(mob.fetchAbility("Common")!=null)
+				&&((!(langTarget instanceof MOB))
+					||(langTarget.fetchEffect(myL.ID())==null)
+					||(!(((MOB)langTarget).isPlayer()))))
+				{
 					langSwap=new Language[]{null,myL};
+				}
 				else
-				if((hisL!=null)&&((myL==null)||(!hisL.ID().equals(myL.ID()))))
+				if((hisL!=null)
+				&&((myL==null)||(!hisL.ID().equals(myL.ID()))))
 				{
 					final Language myTargetL = (Language)mob.fetchEffect(hisL.ID());
 					if(myTargetL!=null)
@@ -304,7 +354,7 @@ public class Say extends StdCommand
 			combinedCommands=CMParms.combineQuoted(commands,1);
 		if(combinedCommands.equals(""))
 		{
-			CMLib.commands().postCommandFail(mob,origCmds,L("@x1  what?",theWord));
+			CMLib.commands().postCommandFail(mob,origCmds,L("@x1  what?",verb));
 			return false;
 		}
 		combinedCommands=CMProps.applyINIFilter(combinedCommands,CMProps.Str.SAYFILTER);
@@ -313,19 +363,13 @@ public class Say extends StdCommand
 		|| CMath.bset(metaFlags, MUDCmdProcessor.METAFLAG_ORDER))
 			combinedCommands=CMLib.coffeeFilter().secondaryUserInputFilter(combinedCommands);
 		CMMsg msg=null;
-		if((!theCommand.equals("ASK"))&&(target!=null))
-			theWord=L(theWord+"(s) to");
-		else
-			theWord=L(theWord+"(s)");
-		if(CMLib.flags().isAnimalIntelligence(mob))
-			msg=CMClass.getMsg(mob,null,null,CMMsg.MSG_SPEAK,"^T^<SAY \""+CMStrings.removeColors(mob.name())+"\"^><S-NAME> "+L("go(es)")+theWordSuffix+" '"+combinedCommands+"'^</SAY^>^?");
-		else
+		final String finalVerb = (target!=null)?tverb:averb;
 		if(target==null)
-			msg=CMClass.getMsg(mob,null,null,CMMsg.MSG_SPEAK,"^T^<SAY \""+CMStrings.removeColors(mob.name())+"\"^><S-NAME> "+theWord.toLowerCase()+theWordSuffix+" '"+combinedCommands+"'^</SAY^>^?");
+			msg=CMClass.getMsg(mob,null,null,CMMsg.MSG_SPEAK,"^T^<SAY \""+CMStrings.removeColors(mob.name())+"\"^><S-NAME> "+finalVerb+dirSuffix+" '"+combinedCommands+"'^</SAY^>^?");
 		else
 		{
-			final String fromSelf="^T^<SAY \""+CMStrings.removeColors(target.name())+"\"^><S-NAME> "+theWord.toLowerCase()+theWordSuffix+" <T-NAMESELF> '"+combinedCommands+"'^</SAY^>^?";
-			final String toTarget="^T^<SAY \""+CMStrings.removeColors(mob.name())+"\"^><S-NAME> "+theWord.toLowerCase()+theWordSuffix+" <T-NAMESELF> '"+combinedCommands+"'^</SAY^>^?";
+			final String fromSelf="^T^<SAY \""+CMStrings.removeColors(target.name())+"\"^><S-NAME> "+finalVerb+dirSuffix+" <T-NAMESELF> '"+combinedCommands+"'^</SAY^>^?";
+			final String toTarget="^T^<SAY \""+CMStrings.removeColors(mob.name())+"\"^><S-NAME> "+finalVerb+dirSuffix+" <T-NAMESELF> '"+combinedCommands+"'^</SAY^>^?";
 			msg=CMClass.getMsg(mob,target,null,CMMsg.MSG_SPEAK,fromSelf,toTarget,fromSelf);
 		}
 
@@ -338,7 +382,7 @@ public class Say extends StdCommand
 			if(langSwap[0]!=null)
 				langSwap[0].setBeingSpoken(langSwap[0].ID(), true);
 		}
-		final boolean useShipDirs=(R instanceof BoardableShip)||(R.getArea() instanceof BoardableShip);
+		final Directions.DirType dirType=CMLib.flags().getDirType(R);
 		if(R.okMessage(mob,msg))
 		{
 			R.send(mob,msg);
@@ -363,8 +407,8 @@ public class Say extends StdCommand
 						if(opDirCode<0)
 							opDirCode=Directions.getOpDirectionCode(dirCode);
 					}
-					final String inDirName=(dirCode<0)?"":(useShipDirs?CMLib.directions().getShipInDirectionName(opDirCode):CMLib.directions().getInDirectionName(opDirCode));
-					msg=CMClass.getMsg(mob,null,null,CMMsg.MSG_SPEAK,L("^TYou hear someone yell ")+"'"+combinedCommands+"' "+inDirName+"^?");
+					final String inDirName=(dirCode<0)?"":(CMLib.directions().getInDirectionName(opDirCode, dirType));
+					msg=CMClass.getMsg(mob,null,null,CMMsg.MSG_SPEAK,L("^TYou hear someone yell ")+"'"+combinedCommands+"' "+inDirName+".^?");
 					if((R2.okMessage(mob,msg))
 					&&((tool==null)||(tool.okMessage(mob,msg))))
 					{
@@ -373,6 +417,8 @@ public class Say extends StdCommand
 				}
 			}
 		}
+		else
+			CMLib.commands().postCommandRejection(msg.source(),msg.target(),msg.tool(),origCmds);
 		if(langSwap!=null)
 		{
 			if(langSwap[0]!=null)

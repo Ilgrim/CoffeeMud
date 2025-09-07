@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -56,6 +56,12 @@ public class Spell_DistantVision extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	public int classificationCode()
 	{
 		return Ability.ACODE_SPELL|Ability.DOMAIN_DIVINATION;
@@ -72,14 +78,14 @@ public class Spell_DistantVision extends Spell
 	{
 		if(commands.size()<1)
 		{
-			mob.tell(L("Divine a vision of where?"));
+			commonTelL(mob,"Divine a vision of where?");
 			return false;
 		}
 		final String areaName=CMParms.combine(commands,0).trim().toUpperCase();
 		Room thisRoom=null;
 		try
 		{
-			final List<Room> rooms=CMLib.map().findRooms(CMLib.map().rooms(), mob, areaName, true, 10);
+			final List<Room> rooms=CMLib.hunt().findRooms(CMLib.map().rooms(), mob, areaName, true, 10);
 			if(rooms.size()>0)
 				thisRoom=rooms.get(CMLib.dice().roll(1,rooms.size(),-1));
 		}
@@ -89,7 +95,7 @@ public class Spell_DistantVision extends Spell
 
 		if(thisRoom==null)
 		{
-			mob.tell(L("You can't seem to fixate on a place called '@x1'.",CMParms.combine(commands,0)));
+			commonTelL(mob,"You can't seem to fixate on a place called '@x1'.",CMParms.combine(commands,0));
 			return false;
 		}
 

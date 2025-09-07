@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ public class Ogre extends StdMOB
 	{
 
 		super();
-		username="an Ogre";
+		_name="an Ogre";
 		setDescription("Nine foot tall and with skin that is a covered in bumps and dead yellow in color..");
 		setDisplayText("An ogre stares at you while he clenches his fists.");
 		CMLib.factions().setAlignment(this,Faction.Align.EVIL);
@@ -59,7 +59,7 @@ public class Ogre extends StdMOB
 		baseCharStats().setMyRace(CMClass.getRace("Ogre"));
 		baseCharStats().getMyRace().startRacing(this,false);
 
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(4);
 		basePhyStats().setArmor(80);
 		basePhyStats().setSpeed(3.0);

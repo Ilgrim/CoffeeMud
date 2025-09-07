@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class WildEagle extends StdMOB
 		super();
 		final Random randomizer = new Random(System.currentTimeMillis());
 
-		username="an eagle";
+		_name="an eagle";
 		setDescription("a majestic and very patriotic bird.");
 		setDisplayText("An eagle gracefully glides upon the wind currents.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -62,7 +62,7 @@ public class WildEagle extends StdMOB
 
 		basePhyStats().setDamage(2);
 		basePhyStats().setSpeed(3.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(2);
 		basePhyStats().setArmor(90);
 		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_FLYING);

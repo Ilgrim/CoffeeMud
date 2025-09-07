@@ -1,19 +1,15 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml"><head>
-  
   <meta name="generator" content="HTML Tidy, see www.w3.org" />
   
-
-  
-  
-  <title>Scripting in CoffeeMud 5.9</title><link rel="StyleSheet" href="style.css" type="text/css" media="screen" /><!-- Modified by Josh Mueller, 2006-05-05, fix validation problems, add index, and fix spelling errors --><!-- Modified by Josh Mueller, 2006-05-06, add close_prog, lock_prog, unlock_prog, open_prog --></head>
+  <title>Random Generation in CoffeeMud 5.10</title><link rel="StyleSheet" href="style.css" type="text/css" media="screen" /><!-- Modified by Josh Mueller, 2006-05-05, fix validation problems, add index, and fix spelling errors --><!-- Modified by Josh Mueller, 2006-05-06, add close_prog, lock_prog, unlock_prog, open_prog --></head>
 <body>
 <center>
 <table style="width: 90%;" border="1" cellpadding="10" cellspacing="0">
   <tbody>
     <tr>
       <td colspan="2" align="left" bgcolor="#dfdfdf" width="100%">
-      <h1>Random Generation in CoffeeMud 5.9</h1>
+      <h1>Random Generation in CoffeeMud 5.10</h1>
       </td>
     </tr>
     <tr>
@@ -38,11 +34,12 @@ Tags</a>
             <li><a href="#contenttag">Content</a></li>
             <li><a href="exittag">Exit</a></li>
             <li><a href="#racetag">Race</a></li>
-            <li><a href="#factiontag">Faction</a></li><li><a href="#questtag">Quest</a></li><li><a href="#objecttag">Object</a></li>
+            <li><a href="#factiontag">Faction</a></li>
+            <li><a href="#questtag">Quest</a></li>
+            <li><a href="#objecttag">Object</a></li>
           </ul>
         </li>
-        <li> <a href="#mql">Notes on MQL</a>
-        </li>
+        <li> <a href="#mql">Notes on MQL</a> </li>
       </ul>
       </td>
       <td style="text-align: left;">
@@ -156,7 +153,12 @@ or to the "insert"&nbsp;or "like" attributes.</td>
             <td>the xml inside the file named is inserted into
 the tag</td>
           </tr>
-          <tr><td>from</td><td>similar to from, except only the tag in the file with the same id is merged with the tag</td></tr><tr>
+          <tr>
+            <td>from</td>
+            <td>similar to from, except only the tag in the file with
+the same id is merged with the tag</td>
+          </tr>
+          <tr>
             <td>content_load</td>
             <td>the text inside the file names is returned as the
 value of the tag. &nbsp;Variables in the content are handled.</td>
@@ -213,7 +215,11 @@ that in XML, a &lt; and &gt; characters can not&nbsp;appear
 in attribute values, which is why they must be written as &amp;lt;
 and&nbsp;&amp;gt; in your xml.</td>
           </tr>
-          <tr>
+          <tr><td>llm</td><td>if
+the value is 'true', then the tag is included in its parent only if
+LLM/AI integration is included in your mud. &nbsp;It also signifies
+that the value of the tag should be sent to the LLM as a prompt,
+replacing its value with the AI response.</td></tr><tr>
             <td>define</td>
             <td>this attribute is only used if its "condition" is
 met, and it is "selected" by its parent tag, if applicable.&nbsp;
@@ -248,7 +254,12 @@ variables defined using this command will persist only for one room.</li>
             <td>identical to "define", but always evaluated when
 encountered.</td>
           </tr>
-          <tr><td>tagdefine</td><td>identical to "predefine", but the value will be the post-processed (SELECT, INSERT, etc) tag itself</td></tr><tr>
+          <tr>
+            <td>tagdefine</td>
+            <td>identical to "predefine", but the value will be the
+post-processed (SELECT, INSERT, etc) tag itself</td>
+          </tr>
+          <tr>
             <td>select</td>
             <td>used mostly by container tags, this attribute
 allows you to specify how multiple choices are resolved by this
@@ -294,7 +305,9 @@ included in the same xml document.&nbsp; It permits some of the tag
 parameters, and all of the content tags, to be merged together into a
 single referenced tag. &nbsp;In this circumstance, child tags of
 parent tags which are being merged may optionally include "merge=false"
-to prevent duplicates from being formed. &nbsp;<br /><br />Merge
+to prevent duplicates from being formed. &nbsp;<br />
+            <br />
+Merge
 can also be set to "over" to cause one tag with an ID to always
 overwrite another with the same id. If more than one tag is set to
 merge="over", a number can be added after the word "over" to give
@@ -359,7 +372,9 @@ preceeded by:<br />
         <li>"u:" to force to
 all-uppercase</li>
         <li>"l:" to force all-lowercase</li>
-        <li>"p:" to force plural</li><li>"j:" to force javascript and mobprog-safe</li><li>"1:" to encourage&nbsp;to one line (remove tabs and cr/lf)</li>
+        <li>"p:" to force plural</li>
+        <li>"j:" to force javascript and mobprog-safe</li>
+        <li>"1:" to encourage&nbsp;to one line (remove tabs and cr/lf)</li>
         <li>"c:" to force to be capitalized (first letter upper,
 rest lower).</li>
         <li>"_:" to remove punctuation and replace spaces with
@@ -388,15 +403,15 @@ example a string such as: "To the east is the residence of
 ${STAT:ROOM:EAST:MOB:NAME}" would embed the name of a mob in a room to
 the east of the current room. This command may internally cause
 post-processing if necessary, and so is almost guaranteed to always
-work unlike some of the special ROOM_ tags.</li>
+work unlike some of the special ROOM_ tags.</li><li>$[FORMULA] to generate a number. &nbsp;For example, $[10 + 5?10]</li>
         <li>(a(n)) will remove any indefinite or definite
 articles from the string immediately following it and replace it (or
 insert) either "a" or "an" depending on the first letter of the word.</li>
       </ul>
       <h2><a name="using">Using the Random Generator</a></h2>
-There are currently two ways to use the Random Generator, one is the
-Archon GENERATE command, and the other is the Area type
-"StdAutoGenInstance".<br />
+There are currently three ways to use the Random Generator to generate areas and rooms, one is the
+Archon GENERATE command, another is the Area type
+"StdAutoGenInstance", and the last is the Locale type "AutoGrid"<br />
       <br />
       <span style="font-weight: bold;">Generate Command</span>:<br />
       <br />
@@ -498,8 +513,23 @@ groups, and will persist until the group gets tired of playing it
 This area type also permits the path and name of the top-level random
 generation xml file to be specified, where the /resource directory is
 considered the default path root.<br />
-      <br />
-Lastly, any required or optional variables. Many tags will have a
+      <br /><span style="font-weight: bold;">AutoGrid Locale Type</span><br /><br />The
+autogrid type is a type of grid locale, which means it has an x and y
+size, although the only purpose of of those numbers is to determine the
+total amount of rooms by multiplying them together. &nbsp;The *actual*
+x and
+y size of the grid will be determined by the LAYOUT used when the rooms
+are generated. &nbsp;There are other aspects of the AutoGrid that break
+it's "griddiness". &nbsp;For example, the AutoGrid does not generate
+its rooms until after the area is loaded, and if an AutoGrid locale is
+embedded in another instance, it won't generate until a player gets
+nearby; either of which may cause strange reactions from spells.
+&nbsp;Also, unlike normal grid locales, AutoGrids take just as long to
+generate as any other random generated room set, so it's best to keep
+the dimensions as small as possible.<br /><br />The
+autogrid type otherwise behaves similar to the StdAutoGenInstance, in
+that it can be fed the random generation xml file, and a series of
+variables to help define the nature of the auto-generated rooms.<br /><br /><br /><br />For both StdAutoGenInstance and AutoGrid, any tags will have a
 specific set of required&nbsp;variables which must be defined in
 order for
 the content to be generated.&nbsp; Failing to specify&nbsp;one
@@ -513,7 +543,10 @@ on MATH EXPRESSION for more information on this.&nbsp; In addition
 to
 required variables, you&nbsp;may also use the space to enter one or
 more
-"override" values for existing defined things. &nbsp;One special variable is <span style="font-style: italic;">passivemins</span> which can be set to the number of minutes an instance will remain passive before being deleted, with a default of 30 minutes.
+"override" values for existing defined things. &nbsp;One special
+variable is <span style="font-style: italic;">passivemins</span> which
+can be set to the number of minutes an instance will remain passive
+before being deleted, with a default of 30 minutes. &nbsp;Another is <span style="font-style: italic;">noreset</span>, which, when set to "true", prevents players from using the special "reset instance" trick.
       <h2><a name="glossary">Glossary of XML Tags</a></h2>
       <p><a name="areatag"><span style="font-weight: bold;">AREA tags</span></a>:
       <br />
@@ -555,13 +588,15 @@ intersection, tee, offleaf </li>
 from
 a room</li>
         <li>$ROOMTAG_NODEGATEEXIT: if this room is a "gate"
-rooms,
+room,
 which direction
-is the gate in.</li>
+is the gate in.</li><li>$ROOMTAG_GATEEXITROOM: if this room is a "gate"
+room, which room object does it link to.</li><li>$ROOMTAG_GATEEXITCLASS: if this room is a "gate"
+room, which exit object should it use.</li><li>$ROOMTAG_NODEGATEEXIT&lt;dir&gt;: as above, but denoting a gate for direction number &lt;dir&gt;.</li><li>$ROOMTAG_GATEEXITROOM&lt;dir&gt;:&nbsp;as above, but denoting a gate for direction number &lt;dir&gt;.</li><li>$ROOMTAG_GATEEXITCLASS&lt;dir&gt;:&nbsp;as above, but denoting a gate for direction number &lt;dir&gt;.</li>
         <li>$ROOMLINK_N, $ROOMLINK_S, $ROOMLINK_E, $ROOMLINK_W,
 etc:
 "true" if an exit
-exists that way.</li>
+exists that way.</li><li>$ROOMLINK_DIR, $ROOMLINK_REQUIRED: the directon of an exit being built, and whether layout requires it.</li>
         <li>$ROOMTITLE_N, $ROOMTITLE_S, $ROOMTITLE_E,
 $ROOMTITLE_W,
 etc: if already
@@ -696,7 +731,7 @@ catalog, in which case
         <li>"EXPS"</li>
         <li>"IMG"</li>
         <li>"FACTIONS"</li>
-        <li>"VARMONEY"</li>
+        <li>"VARMONEY"</li><li>"MOB_POWERBONUS", "POWERBONUS" - when specified, makes the mob effectively this many levels more powerful</li>
       </ul>
       <p>(plus or minus others depending upon class)</p>
       <p>The "RACE" detail can be the name of a race, or resolve
@@ -720,7 +755,9 @@ be made
 from,
 though it may also be the word catalog in order to select an item from
 your catalog, in which
-case "name" also becomes a required detail.&nbsp; <br /><br />This value may also
+case "name" also becomes a required detail.&nbsp; <br />
+          <br />
+This value may also
 start
 with the string
 "metacraft:", in which case the remainder of the "class" value becomes
@@ -733,8 +770,10 @@ characters "&lt;"
 followed by a math expression &nbsp;evaluating to an upper level
 limit
 for the item to craft, "&gt;"
-for a lower limit, or "=" followed by a the base class ID to to filter
-in. &nbsp;If the ID of the common skill is "resources" or "farmables", then raw resource items will be generated instead.</li>
+for a lower level limit,"{" for an upper value limit, "}" for a lower
+value limit, or "=" followed by a the base class ID to to filter
+in. &nbsp;If the ID of the common skill is "resources" or "farmables",
+then raw resource items will be generated instead.</li>
       </ul>
       <p>Optional Objects: <br />
       </p>
@@ -772,7 +811,7 @@ in. &nbsp;If the ID of the common skill is "resources" or "farmables", then raw 
         <li>"READABLETEXT"</li>
         <li>"IMG"</li>
         <li>"NOWEAR" (set to true to prevent the item from being
-automatically worn by mobs)</li>
+automatically worn by mobs)</li><li>"ITEM_POWERBONUS", "POWERBONUS" - when specified, makes the item effectively this many levels more powerful</li>
       </ul>
       <p>(plus or minus many many others depending upon class)<br />
       <br />
@@ -785,11 +824,11 @@ or
 NUMBER attributes.<br />
       <br />
       <br />
-      <a name="affecttag"><span style="font-weight: bold;">AFFECT tags</span></a>:&nbsp;</p>
+      <a name="affecttag"><span style="font-weight: bold;">AFFECT tags</span></a>:&nbsp;</p><p>(see below under BEHAVIOR)</p>
       <p><a name="abilitytag"><span style="font-weight: bold;">ABILITY
-tags</span></a>:</p>
+tags</span></a>:</p><p>(see below under BEHAVIOR)</p>
       <p><a name="culturalabilitytag"><span style="font-weight: bold;">CULTURALABILITY
-tags</span></a>:&nbsp;</p>
+tags</span></a>:&nbsp;</p><p>(see below under BEHAVIOR)</p>
       <p><a name="behaviortag"><span style="font-weight: bold;">BEHAVIOR
 tags</span></a>:&nbsp;</p>
       <p>Required detail:&nbsp;</p>
@@ -821,8 +860,7 @@ Required detail:&nbsp;</p>
       <p>Optional Objects:&nbsp;</p>
       <ul>
         <li>"AFFECT"</li>
-        <li>"BEHAVIOR"</li>
-      </ul>
+        <li>"BEHAVIOR"</li></ul>
 Optional Details:
       <ul>
         <li>"NAME"</li>
@@ -841,7 +879,9 @@ Optional Details:
         <li>"KEYNAME",</li>
         <li>"CLOSEWORD",</li>
         <li>"OPENWORD",</li>
-        <li>"CLOSEDTEXT"</li>
+        <li>"CLOSEDTEXT"</li><li>"DIRECTION": limits the exit use to a particular direction. &nbsp;If the
+layout did not call for it ($ROOMLINK_REQUIRED = 'false'), then one of
+the following parmeters is required:</li><ul><li>"ROOMLINK": overrides any intended use by linking to the given Room ID, for non-layout DIRECTIONs</li><li>"ROOM" a type of tag that describes a new room to generate in this DIRECTION..</li></ul>
       </ul>
       <p><a name="raceag"><span style="font-weight: bold;">RACE tags</span></a>:</p>
       <p>Required detail:&nbsp;</p>
@@ -908,7 +948,11 @@ Required details:&nbsp;</p>
       <a name="questtag"><span style="font-weight: bold;">QUEST tags</span></a>:
       <br />
 Optional parameter:&nbsp;</p>
-      <ul><li>"QUEST_TEMPLATE_ID"</li></ul><dl><dd>The
+      <ul>
+        <li>"QUEST_TEMPLATE_ID"</li>
+      </ul>
+      <dl>
+        <dd>The
 QUEST tag is supremely unique in that it does not represent an object
 in your world, or a property of some object in your world, but instead
 represents a relationship between players and your world by giving them
@@ -917,17 +961,23 @@ complete&nbsp;Quest Script document/string, which is then submitted to
 CoffeeMud's Quest Manager for execution, monitoring, and cleanup.
 &nbsp;I won't go into the complete details of what goes into a Quest
 Script here, however. &nbsp;Instead, you should check the Game
-Builder's Guide for a complete breakdown of a Quest Script.</dd><dd></dd><dd>Quest
+Builder's Guide for a complete breakdown of a Quest Script.</dd>
+        <dd></dd>
+        <dd>Quest
 Scripts can be built from the ground up by assembling a String
 consisting of each line of the quest script, separated by %0D
-characters.<br /><br />Scripts can also be built, however, by utilizing
+characters.<br />
+          <br />
+Scripts can also be built, however, by utilizing
 one of the existing Quest Maker templates. &nbsp;These are the
 templates found in the <span style="font-family: monospace;">/resources/quests/templates</span>
 directory. &nbsp; They are partially built Quest Scripts which, when
 run through the Quest Maker Wizard, can be filled out manually by a
 builder. &nbsp;However, those templates can also be run through the
 Random Generator to generate randomly what the builder would normally
-have to type in manually. &nbsp;<br /><br />To create a quest script by
+have to type in manually. &nbsp;<br />
+          <br />
+To create a quest script by
 running a Template through the random generator, you would specify the
 full path or ordinary name (e.g. normal_capture1) of the Template in a
 tag parameter on the QUEST tag called QUEST_TEMPLATE_ID. &nbsp; When
@@ -935,24 +985,37 @@ this is done, the quest script and its variables are extracted from the
 template. &nbsp;The variables in the template then become required
 details for the QUEST tag. &nbsp;When those details are resolved into
 STRINGs, the values are substituted into the template's quest script
-and then returned by the tag.<br /><br />To discover the required details for a particular template, you should open up that template <span style="font-family: monospace;">*.quest</span>
+and then returned by the tag.<br />
+          <br />
+To discover the required details for a particular template, you should
+open up that template <span style="font-family: monospace;">*.quest</span>
 file and scan down the top part of the file whose lines begin with #.
 &nbsp;When you see a line that begins with #$, you know you are looking
 at a variable definition whose variable name is a required detail for
-the QUEST tag using that template.</dd><dd></dd><dd>To save you some
+the QUEST tag using that template.</dd>
+        <dd></dd>
+        <dd>To save you some
 time, numerous existing quest templates have already had associated
 snippets of Random Generator XML written to demonstrate the above.
-&nbsp;These are found in the <span style="font-family: monospace;">/resources/quests/random</span> directory, and can be indirectly accessed from the same <span style="font-family: monospace;">/resources/randareas/example.xml</span>
+&nbsp;These are found in the <span style="font-family: monospace;">/resources/quests/random</span>
+directory, and can be indirectly accessed from the same <span style="font-family: monospace;">/resources/randareas/example.xml</span>
 that is used to generate random areas, rooms, mobs, etc. &nbsp;This
 means that you can use the GENERATE command to generate a random quest
-of any type anywhere in your entire world by entering:<br /><br /><span style="font-family: monospace;">generate quest all_quests template=random "expiration=20 minutes"</span><br /><br />The
+of any type anywhere in your entire world by entering:<br />
+          <br />
+          <span style="font-family: monospace;">generate quest
+all_quests template=normal "expiration=20 minutes"</span><br />
+          <br />
+The
 "template" variable specifies that you want any available quest
 template. &nbsp;The "expiration" variable definition ensures that the
 quest is not saved to your database, and will in fact be destroyed
 after running for 20 minutes. &nbsp;If you leave it off, or replace it
 with a "duration" definition (see the Game Builders Guide), then the
 quest will be writte to the database and become a persistant feature of
-your world.<br /><br />If you look through the examples in <span style="font-family: monospace;">/resources/quests/random</span>
+your world.<br />
+          <br />
+If you look through the examples in <span style="font-family: monospace;">/resources/quests/random</span>
 , you will see much that is similar to Random Area documents. Strings
 and other selections are being chosen from, conditions are set for some
 values over others, etc. &nbsp;However, since many of the quest
@@ -961,17 +1024,25 @@ even set of mobs in your world be selected as subjects for the quest,
 the Random Generator engine had to be extended to support not only the
 creation of new mobs, items, rooms, and areas, but the selection of
 existing ones inside the world. &nbsp;To do this, see the next section
-on the OBJECT tag.</dd></dl><a name="objecttag"><span style="font-weight: bold;">OBJECT tags</span></a>:
-      <br /><dl><dd>This
+on the OBJECT tag.</dd>
+      </dl>
+      <a name="objecttag"><span style="font-weight: bold;">OBJECT tags</span></a>:
+      <br />
+      <dl>
+        <dd>This
 tag type is unique in the sense that it can contain any MOB, ITEM,
 AREA, ROOM, or other main object types, intermingled. &nbsp;It is also
 unique in that it need not resolve to the creation of any new object at
 all, but can instead be used to select from an existing object in your
-already existing world.<br /><br />To do the later, the OBJECT tag
+already existing world.<br />
+          <br />
+To do the later, the OBJECT tag
 value mnust begin with SELECT: and be followed by an MQL query string.
 &nbsp;When this is done, the OBJECT tag will take on the properties of
 whatever was selected by the query. &nbsp;See the next section on MQL
-for how these queries work.</dd></dl><h2><a name="mql">Notes on MQL</a></h2>
+for how these queries work.</dd>
+      </dl>
+      <h2><a name="mql">Notes on MQL</a></h2>
       <p>MQL Stands for MUD Query Language. &nbsp;It's purpose is to
 allow
 the Archon, or a random quest xml document, to select existing objects
@@ -1000,6 +1071,8 @@ the following:<br />
 the set of all world areas</li>
         <li><span style="font-family: monospace;">ROOMS</span> to use
 the set of all existing world rooms</li>
+        <li><span style="font-family: monospace;">NPROOMS</span> to use
+the set of all existing world non-property rooms</li>
         <li><span style="font-family: monospace;">MOBS</span> to use
 the set of all existing world mobs</li>
         <li><span style="font-family: monospace;">ITEMS</span> to use
@@ -1027,19 +1100,38 @@ The following are useful narrowing terms:<br />
 the unique set of areas in which the prior term is located</li>
         <li><span style="font-family: monospace;">ROOMS</span> to use
 the unique set of rooms in which the prior term is located, or which
-the prior term contains</li><li><span style="font-family: monospace;">EXITS</span> to use the unique set of exits in which the prior term is located, or which the prior term contains</li>
-        <li><span style="font-family: monospace;">MOBS&nbsp;</span>to use mobs in a room or area, or nearby mobs for others</li><li><span style="font-family: monospace;">MOB</span> to
-use the set of all mob&nbsp;contained in the prior term, or ensure the simple Mob result of a query</li>
+the prior term contains</li>
+        <li><span style="font-family: monospace;">NPROOMS</span> to use
+the unique set of rooms in which the prior term is located, or which
+the prior term contains, excepting any private property rooms</li>
+        <li><span style="font-family: monospace;">EXITS</span> to use
+the unique set of exits in which the prior term is located, or which
+the prior term contains</li>
+        <li><span style="font-family: monospace;">MOBS&nbsp;</span>to
+use mobs in a room or area, or nearby mobs for others</li>
+        <li><span style="font-family: monospace;">MOB</span> to
+use the set of all mob&nbsp;contained in the prior term, or ensure the
+simple Mob result of a query</li>
         <li><span style="font-family: monospace;">ITEMS</span> to
-use all items in a roow or area, or nearby items for others</li><li><span style="font-family: monospace;">ITEM</span> to
-use the set of all items contained in the prior term, or ensure the simple Item result of a query</li>
+use all items in a roow or area, or nearby items for others</li>
+        <li><span style="font-family: monospace;">ITEM</span> to
+use the set of all items contained in the prior term, or ensure the
+simple Item result of a query</li>
         <li><span style="font-family: monospace;">OWNER</span> to use
-the set of all item owners of the prior term, if it was items</li><li><span style="font-family: monospace;">FACTIONS</span> to use a set of all mob factions, where ID is the faction id, and VALUE is the numeric value</li>
+the set of all item owners of the prior term, if it was items</li>
+        <li><span style="font-family: monospace;">FACTIONS</span> to
+use a set of all mob factions, where ID is the faction id, and VALUE is
+the numeric value</li>
         <li><span style="font-family: monospace;">PLAYERS, PLAYER</span>
-to use the set of all players contained in the prior term</li><li><span style="font-family: monospace;">RESOURCES</span> to use the racial or material components of a mob or item</li>
+to use the set of all players contained in the prior term</li>
+        <li><span style="font-family: monospace;">RESOURCES</span> to
+use the racial or material components of a mob or item</li>
         <li><span style="font-family: monospace;">NPCS&nbsp;</span>to
-use the set of all non-player mobs in a room or area, or nearby npcs for others</li><li><span style="font-family: monospace;">NPC</span> to
-use the set of all non-player mobs contained in the prior term, or ensure the simple Mob result of a query<br />
+use the set of all non-player mobs in a room or area, or nearby npcs
+for others</li>
+        <li><span style="font-family: monospace;">NPC</span> to
+use the set of all non-player mobs contained in the prior term, or
+ensure the simple Mob result of a query<br />
         </li>
         <li><span style="font-family: monospace;">EQUIPMENT</span> to
 use the set of all &nbsp;worn items of the prior term</li>
@@ -1048,7 +1140,8 @@ use the set of all &nbsp;abilities of the prior term</li>
         <li><span style="font-family: monospace;">PROPERTIES</span> to
 use the set of all &nbsp;uninvokable effects of the prior term</li>
         <li><span style="font-family: monospace;">EFFECTS</span> to
-use the set of all &nbsp;permanent or temporary effects on the prior term</li>
+use the set of all &nbsp;permanent or temporary effects on the prior
+term</li>
         <li><span style="font-family: monospace;">BEHAVIORS</span> to
 use the set of all &nbsp;behaviors of the prior term</li>
       </ul>
@@ -1163,9 +1256,12 @@ name="JOE" would expand the number of possible results by one name.
       <br />
       </td>
     </tr>
-  <tr><td align="left" valign="top" width="20%"></td><td style="text-align: left;"></td></tr></tbody>
+    <tr>
+      <td align="left" valign="top" width="20%"></td>
+      <td style="text-align: left;"></td>
+    </tr>
+  </tbody>
 </table>
 <br />
 </center>
-
 </body></html>

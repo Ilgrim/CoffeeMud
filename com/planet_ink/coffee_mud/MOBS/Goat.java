@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Goat extends StdMOB
 	public Goat()
 	{
 		super();
-		username="a goat";
+		_name="a goat";
 		setDescription("Nimble and lively, it has short hair and dangeous looking hooves and horns.");
 		setDisplayText("A goat makes his way nimbly.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -52,7 +52,7 @@ public class Goat extends StdMOB
 
 		basePhyStats().setDamage(1);
 		basePhyStats().setSpeed(1.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(1);
 		basePhyStats().setArmor(90);
 		baseCharStats().setMyRace(CMClass.getRace("Goat"));

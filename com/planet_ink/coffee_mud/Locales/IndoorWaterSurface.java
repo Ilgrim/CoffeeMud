@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@ public class IndoorWaterSurface extends WaterSurface implements Drink
 	{
 		super();
 		name="the water";
+		setRoomSize(5);
 		recoverPhyStats();
 		climask=Places.CLIMASK_WET;
 	}
@@ -52,12 +53,6 @@ public class IndoorWaterSurface extends WaterSurface implements Drink
 	public int domainType()
 	{
 		return Room.DOMAIN_INDOORS_WATERSURFACE;
-	}
-
-	@Override
-	public int maxRange()
-	{
-		return 5;
 	}
 
 	@Override

@@ -6,6 +6,8 @@ import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftParms;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftingActivity;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftedItem;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftorType;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
@@ -25,7 +27,7 @@ import java.util.*;
 import java.util.regex.Pattern;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -78,7 +80,7 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 	//
 
 	@Override
-	public String parametersFormat()
+	public String getRecipeFormat()
 	{
 		return
 		"ITEM_NAME\tI"
@@ -97,7 +99,7 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 
 	//protected static final int RCP_FINALNAME=0;
 	//protected static final int RCP_LEVEL=1;
-	//protected static final int RCP_TICKS=2;
+	protected static final int	RCP_TICKS		= 2;
 	protected static final int	RCP_AMOUNTMATS	= 3;
 	protected static final int	RCP_VALUE		= 4;
 	protected static final int	RCP_CLASSTYPE	= 5;
@@ -146,7 +148,7 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 	}
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return (String) V(ID, V_FNAM);
 	}
@@ -188,7 +190,7 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 	{
 		try
 		{
-			final GenCraftSkill A=this.getClass().newInstance();
+			final GenCraftSkill A=this.getClass().getDeclaredConstructor().newInstance();
 			A.ID=ID;
 			return A;
 		}
@@ -297,9 +299,8 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 			else
 			if(code.equalsIgnoreCase("allxml"))
 				return getAllXML();
-			break;
+			return super.getStat(code);
 		}
-		return "";
 	}
 
 	@Override
@@ -371,6 +372,8 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 		default:
 			if(code.equalsIgnoreCase("allxml")&&ID.equalsIgnoreCase("GenCraftSkill"))
 				parseAllXML(val);
+			else
+				super.setStat(code, val);
 			break;
 		}
 	}
@@ -418,9 +421,15 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 	}
 
 	@Override
+	public CraftorType getCraftorType()
+	{
+		return CraftorType.General;
+	}
+
+	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			if(buildingI==null)
 				unInvoke();
@@ -431,9 +440,9 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 	@Override
 	protected List<List<String>> loadRecipes()
 	{
-		if(parametersFile().length()==0)
+		if(getRecipeFilename().length()==0)
 			return new Vector<List<String>>();
-		return super.loadRecipes(parametersFile());
+		return super.loadRecipes(getRecipeFilename());
 	}
 
 	@Override
@@ -454,14 +463,17 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 						if(activity == CraftingActivity.REFITTING)
 							commonEmote(mob,L("<S-NAME> mess(es) up refitting @x1.",buildingI.name()));
 						else
+						{
 							commonEmote(mob,L("<S-NAME> mess(es) up @x1 @x2.",((String)V(ID,V_VERB)),buildingI.name()));
+							dropALoser(mob,buildingI);
+						}
 					}
 					else
 					{
 						if(activity == CraftingActivity.MENDING)
 						{
 							buildingI.setUsesRemaining(100);
-							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.MENDER, 1, this);
+							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.MENDER, 1, this, buildingI);
 						}
 						else
 						if(activity == CraftingActivity.REFITTING)
@@ -472,7 +484,7 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 						else
 						{
 							dropAWinner(mob,buildingI);
-							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this);
+							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this, buildingI);
 							if(key!=null)
 							{
 								dropAWinner(mob,key);
@@ -536,7 +548,7 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 		{
 			if(!quiet)
 			{
-				commonTell(mob,L("That can't be mended with this skill."));
+				commonTelL(mob,"That can't be mended with this skill.");
 			}
 			return false;
 		}
@@ -552,12 +564,32 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new Vector<Item>(0));
+		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new ArrayList<CraftedItem>(0));
+	}
+
+	protected boolean checkRecipeRace(final MOB mob, final List<String> recipe)
+	{
+		if(recipe.size()>RCP_KEYVALUE)
+		{
+			final String keyValueParmStr=recipe.get(RCP_KEYVALUE);
+			if(keyValueParmStr.length()>0)
+			{
+				final Map<String,String> kvMap=CMParms.parseEQParms(keyValueParmStr);
+				final String race = kvMap.get("RACEREQUIREMENT");
+				if((race!=null)
+				&&(race.length()>0)
+				&&(!mob.charStats().getMyRace().ID().equalsIgnoreCase(race))
+				&&(!mob.charStats().getMyRace().name().equalsIgnoreCase(race))
+				&&(!mob.charStats().getMyRace().racialCategory().equalsIgnoreCase(race)))
+					return false;
+			}
+		}
+		return true;
 	}
 
 	@Override
 	protected boolean autoGenInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto,
-								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<Item> crafted)
+								 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<CraftedItem> crafted)
 	{
 		if(super.checkStop(mob, commands))
 			return true;
@@ -576,7 +608,7 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 		if(commands.size()==0)
 		{
 			final StringBuilder features=new StringBuilder(noun+" what? Enter \""+noun.toLowerCase()+" list\" for a list");
-			features.append(", \""+noun.toLowerCase()+" info\" to details");
+			features.append(", \""+noun.toLowerCase()+" info\" for details");
 			if(canMendB.booleanValue())
 				features.append(", \""+noun.toLowerCase()+" mend <item>\" to mend broken items, \""+noun.toLowerCase()+" scan\" to scan for mendable items");
 			if(canRefitB.booleanValue())
@@ -584,7 +616,7 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 			if(canBundleB.booleanValue())
 				features.append(", \""+noun.toLowerCase()+" bundle\" to make bundles");
 			features.append(", or \""+noun.toLowerCase()+" stop\" to cancel.");
-			commonTell(mob,features.toString());
+			commonTelL(mob,features.toString());
 			return false;
 		}
 		if((!auto)
@@ -602,7 +634,7 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 		String startStr=null;
 		int duration=4;
 		bundling=false;
-		if(str.equalsIgnoreCase("list"))
+		if(str.equalsIgnoreCase("list") && (autoGenerate <= 0))
 		{
 			String mask=CMParms.combine(commands,1);
 			boolean allFlag=false;
@@ -615,14 +647,14 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 			int toggler=1;
 			final int toggleTop=2;
 			final int[] cols={
-				CMLib.lister().fixColWidth(29,mob.session()),
+				CMLib.lister().fixColWidth(28,mob.session()),
 				CMLib.lister().fixColWidth(3,mob.session()),
 				CMLib.lister().fixColWidth(4,mob.session())
 			};
 			for(int r=0;r<toggleTop;r++)
-				buf.append((r>0?" ":"")+CMStrings.padRight(L("Item"),cols[0])+" "+CMStrings.padRight(L("Lvl"),cols[1])+" "+CMStrings.padRight(L("Mats"),cols[2]));
-			buf.append("\n\r");
-			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipeNames(recipes, mask, true);
+				buf.append("^H"+(r>0?" ":"")+CMStrings.padRight(L("Item"),cols[0])+" "+CMStrings.padRight(L("Lvl"),cols[1])+" "+CMStrings.padRight(L("Mats"),cols[2]));
+			buf.append("^N\n\r");
+			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipes(recipes, mask, true);
 			for(int r=0;r<listRecipes.size();r++)
 			{
 				final List<String> V=listRecipes.get(r);
@@ -631,15 +663,16 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 					final String item=replacePercent(V.get(RCP_FINALNAME),"");
 					final int level=CMath.s_int(V.get(RCP_LEVEL));
 					final String mats=getComponentDescription(mob,V,RCP_AMOUNTMATS);
-					if(mats.length()>5)
+					if(((level<=xlevel(mob))||allFlag)
+					&&(checkRecipeRace(mob, V)))
 					{
-						if(toggler>1)
-							buf.append("\n\r");
-						toggler=toggleTop;
-					}
-					if((level<=xlevel(mob))||allFlag)
-					{
-						buf.append(CMStrings.padRight(item,cols[0])+" "+CMStrings.padRight(""+level,cols[1])+" "+CMStrings.padRightPreserve(""+mats,cols[2])+((toggler!=toggleTop)?" ":"\n\r"));
+						if(mats.length()>5)
+						{
+							if(toggler>1)
+								buf.append("\n\r");
+							toggler=toggleTop;
+						}
+						buf.append("^w"+CMStrings.padRight(item,cols[0])+"^N "+CMStrings.padRight(""+level,cols[1])+" "+CMStrings.padRightPreserve(""+mats,cols[2])+((toggler!=toggleTop)?" ":"\n\r"));
 						if(++toggler>toggleTop)
 							toggler=1;
 					}
@@ -683,17 +716,17 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 				return false;
 			if((!this.mayICraft(mob, buildingI))&&(!super.isMadeOfSupportedResource(buildingI)))
 			{
-				commonTell(mob,L("That's can't be refitted with this skill."));
+				commonTelL(mob,"That's can't be refitted with this skill.");
 				return false;
 			}
 			if(!(buildingI instanceof Armor))
 			{
-				commonTell(mob,L("You don't know how to refit that sort of thing."));
+				commonTelL(mob,"You don't know how to refit that sort of thing.");
 				return false;
 			}
 			if(buildingI.phyStats().height()==0)
 			{
-				commonTell(mob,L("@x1 is already the right size.",buildingI.name(mob)));
+				commonTelL(mob,"@x1 is already the right size.",buildingI.name(mob));
 				return false;
 			}
 			activity = CraftingActivity.REFITTING;
@@ -718,14 +751,17 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 			}
 			final String recipeName=CMParms.combine(commands,0);
 			List<String> foundRecipe=null;
-			final List<List<String>> matches=matchingRecipeNames(recipes,recipeName,true);
+			final List<List<String>> matches=matchingRecipes(recipes,recipeName,false);
+			if(matches.size()==0)
+				matches.addAll(matchingRecipes(recipes,recipeName,true));
 			for(int r=0;r<matches.size();r++)
 			{
 				final List<String> V=matches.get(r);
 				if(V.size()>0)
 				{
 					final int level=CMath.s_int(V.get(RCP_LEVEL));
-					if((autoGenerate>0)||(level<=xlevel(mob)))
+					if((autoGenerate>0)
+					||((level<=xlevel(mob))&&(checkRecipeRace(mob, V))))
 					{
 						foundRecipe=V;
 						recipeLevel=level;
@@ -735,7 +771,7 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 			}
 			if(foundRecipe==null)
 			{
-				commonTell(mob,L("You don't know how to @x1 a '@x2'.  Try \"@x3 list\" for a list.",noun.toLowerCase(),recipeName,noun.toLowerCase()));
+				commonTelL(mob,"You don't know how to @x1 a '@x2'.  Try \"@x3 list\" for a list.",noun.toLowerCase(),recipeName,noun.toLowerCase());
 				return false;
 			}
 
@@ -753,7 +789,8 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 			final String misctype=foundRecipe.get(RCP_MISCTYPE);
 			final Integer[] ipm=super.supportedResourcesMap();
 			final int[] pm=new int[ipm.length];
-			for(int i=0;i<ipm.length;i++) pm[i]=ipm[i].intValue();
+			for(int i=0;i<ipm.length;i++)
+				pm[i]=ipm[i].intValue();
 			bundling=misctype.equalsIgnoreCase("BUNDLE");
 			final int[][] data=fetchFoundResourceData(mob,
 													numRequired,"material",pm,
@@ -769,19 +806,19 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 				return false;
 			final MaterialLibrary.DeadResourceRecord deadMats;
 			if((componentsFoundList.size() > 0)||(autoGenerate>0))
-				deadMats = new MaterialLibrary.DeadResourceRecord();
+				deadMats = deadRecord;
 			else
 			{
 				deadMats = CMLib.materials().destroyResources(mob.location(),numRequired,
 						data[0][FOUND_CODE],data[0][FOUND_SUB],data[1][FOUND_CODE],data[1][FOUND_SUB]);
 			}
 			final MaterialLibrary.DeadResourceRecord deadComps = CMLib.ableComponents().destroyAbilityComponents(componentsFoundList);
-			final int lostValue=autoGenerate>0?0:(deadMats.lostValue + deadComps.lostValue);
+			final int lostValue=autoGenerate>0?0:(deadMats.getLostValue() + deadComps.getLostValue());
 			buildingI=CMClass.getItem(foundRecipe.get(RCP_CLASSTYPE));
 			final Item buildingI=this.buildingI;
 			if(buildingI==null)
 			{
-				commonTell(mob,L("There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE)));
+				commonTelL(mob,"There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE));
 				return false;
 			}
 			duration=getDuration(CMath.s_int(foundRecipe.get(RCP_TICKS)),mob,CMath.s_int(foundRecipe.get(RCP_LEVEL)),4);
@@ -811,20 +848,21 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 			if(bundling)
 				buildingI.setBaseValue(lostValue);
 			final String spell=(foundRecipe.size()>RCP_SPELL)?foundRecipe.get(RCP_SPELL).trim():"";
-			addSpells(buildingI,spell,deadMats.lostProps,deadComps.lostProps);
+			addSpellsOrBehaviors(buildingI,spell,deadMats.getLostProps(),deadComps.getLostProps());
 			key=null;
 			if((buildingI instanceof Container)
 			&&(!(buildingI instanceof Armor)))
 			{
+				final String[] allTypes=CMParms.parseAny(misctype, "|", true).toArray(new String[0]);
 				if(capacity>0)
 				{
 					((Container)buildingI).setCapacity(capacity+numRequired);
 					((Container)buildingI).setContainTypes(canContain);
 				}
-				if(misctype.equalsIgnoreCase("LID"))
+				if(CMParms.contains(allTypes, "LID"))
 					((Container)buildingI).setDoorsNLocks(true,false,true,false,false,false);
 				else
-				if(misctype.equalsIgnoreCase("LOCK"))
+				if(CMParms.contains(allTypes, "LOCK"))
 				{
 					((Container)buildingI).setDoorsNLocks(true,false,true,true,false,true);
 					((Container)buildingI).setKeyName(Double.toString(Math.random()));
@@ -856,7 +894,7 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 			if(buildingI instanceof Wand)
 			{
 				if(foundRecipe.get(RCP_CAPACITY).trim().length()>0)
-					((Wand)buildingI).setMaxUses(capacity);
+					((Wand)buildingI).setMaxCharges(capacity);
 			}
 			else
 			if(buildingI instanceof Weapon)
@@ -900,6 +938,7 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 				if(keyValueParmStr.length()>0)
 				{
 					final Map<String,String> kvMap=CMParms.parseEQParms(keyValueParmStr);
+					kvMap.remove("RACEREQUIREMENT");
 					for(final String key : kvMap.keySet())
 						buildingI.setStat(key, kvMap.get(key));
 				}
@@ -922,9 +961,7 @@ public class GenCraftSkill extends EnhancedCraftingSkill implements ItemCraftor
 
 		if(autoGenerate>0)
 		{
-			if(key!=null)
-				crafted.add(key);
-			crafted.add(buildingI);
+			crafted.add(new CraftedItem(buildingI,key,duration));
 			return true;
 		}
 

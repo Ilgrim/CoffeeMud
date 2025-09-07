@@ -1,11 +1,13 @@
 package com.planet_ink.coffee_mud.core.interfaces;
 
+import com.planet_ink.coffee_mud.Common.interfaces.Clan;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.Achievement;
 import com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.Tracker;
 import com.planet_ink.coffee_mud.MOBS.interfaces.MOB;
+import com.planet_ink.coffee_mud.core.collections.Pair;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -64,5 +66,4 @@ public interface Achievable
 	 * @see Achievable#getAchievementTracker(com.planet_ink.coffee_mud.Libraries.interfaces.AchievementLibrary.Achievement, Tattooable, MOB)
 	 */
 	public void rebuildAchievementTracker(Tattooable tracked, final MOB mob, String achievementTattoo);
-
 }

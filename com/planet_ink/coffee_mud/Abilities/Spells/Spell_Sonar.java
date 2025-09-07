@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@ public class Spell_Sonar extends Spell
 			if((victim==null)||(CMLib.flags().canBeHeardMovingBy(victim,mob)))
 				affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_SEE_VICTIM);
 			if(CMLib.flags().canHear(mob))
-				affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_SEE_DARK & (~PhyStats.CAN_NOT_SEE));
+				affectableStats.setSensesMask((affectableStats.sensesMask()|PhyStats.CAN_SEE_DARK) & (~PhyStats.CAN_NOT_SEE));
 		}
 	}
 
@@ -146,7 +146,7 @@ public class Spell_Sonar extends Spell
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> already <S-HAS-HAVE> sonar."));
+			failureTell(mob,target,auto,L("<S-NAME> already <S-HAS-HAVE> sonar."));
 			return false;
 		}
 

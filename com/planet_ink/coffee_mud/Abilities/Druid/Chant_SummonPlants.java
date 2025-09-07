@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ public class Chant_SummonPlants extends Chant
 	public Item buildPlant(final MOB mob, final Room room)
 	{
 		final Item newItem=CMClass.getItem("GenItem");
-		newItem.setMaterial(RawMaterial.RESOURCE_GREENS);
+		newItem.setMaterial(RawMaterial.RESOURCE_FLOWERS);
 		switch(CMLib.dice().roll(1,5,0))
 		{
 		case 1:
@@ -127,11 +127,13 @@ public class Chant_SummonPlants extends Chant
 			break;
 		case 2:
 			newItem.setName(L("some happy weeds"));
+			newItem.setMaterial(RawMaterial.RESOURCE_GREENS);
 			newItem.setDisplayText(L("some happy weeds are growing here."));
 			newItem.setDescription(L("Long stalked little plants with tiny bulbs on top."));
 			break;
 		case 3:
 			newItem.setName(L("a pretty fern"));
+			newItem.setMaterial(RawMaterial.RESOURCE_GREENS);
 			newItem.setDisplayText(L("a pretty fern is growing here."));
 			newItem.setDescription(L("Like a tiny bush, this dark green plant is lovely."));
 			break;
@@ -179,8 +181,8 @@ public class Chant_SummonPlants extends Chant
 
 		final List<Room> V=Druid_MyPlants.myAreaPlantRooms(mob,room.getArea());
 		int pct=0;
-		if(A.getAreaIStats()[Area.Stats.VISITABLE_ROOMS.ordinal()]>10)
-			pct=(int)Math.round(100.0*CMath.div(V.size(),A.getAreaIStats()[Area.Stats.VISITABLE_ROOMS.ordinal()]));
+		if(A.getIStat(Area.Stats.VISITABLE_ROOMS)>10)
+			pct=(int)Math.round(100.0*CMath.div(V.size(),A.getIStat(Area.Stats.VISITABLE_ROOMS)));
 		final Item I=buildMyPlant(mob,room);
 		if((I!=null)
 		&&((mob.charStats().getCurrentClass().baseClass().equalsIgnoreCase("Druid"))||(CMSecurity.isASysOp(mob))))
@@ -189,7 +191,7 @@ public class Chant_SummonPlants extends Chant
 			{
 				if(pct>0)
 				{
-					final int newPct=(int)Math.round(100.0*CMath.div(V.size(),A.getAreaIStats()[Area.Stats.VISITABLE_ROOMS.ordinal()]));
+					final int newPct=(int)Math.round(100.0*CMath.div(V.size(),A.getIStat(Area.Stats.VISITABLE_ROOMS)));
 					if((newPct>=50)&&(A.fetchEffect("Chant_DruidicConnection")==null))
 					{
 						final Ability A2=CMClass.getAbility("Chant_DruidicConnection");
@@ -215,7 +217,7 @@ public class Chant_SummonPlants extends Chant
 					if(num[0]<19)
 					{
 						mob.tell(L("You have made this city greener."));
-						CMLib.leveler().postExperience(mob,null,null,(int)num[0],false);
+						CMLib.leveler().postExperience(mob,"ABILITY:"+ID(),null,null,(int)num[0], false);
 					}
 				}
 			}
@@ -240,8 +242,7 @@ public class Chant_SummonPlants extends Chant
 			return false;
 		}
 
-		if((R.domainType()==Room.DOMAIN_OUTDOORS_CITY)
-		   ||(R.domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT)
+		if((CMLib.flags().isACityRoom(R))
 		   ||(R.domainType()==Room.DOMAIN_OUTDOORS_UNDERWATER)
 		   ||(R.domainType()==Room.DOMAIN_OUTDOORS_AIR)
 		   ||(R.domainType()==Room.DOMAIN_OUTDOORS_WATERSURFACE))

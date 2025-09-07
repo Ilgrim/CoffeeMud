@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ public class WandArchon extends StdWand implements ArchonOnly
 		return "WandArchon";
 	}
 
-	protected final static String[]	MAGIC_WORDS	= { "LEVEL", "RESTORE", "REFRESH", "BLAST", "BURN", "GAIN" };
+	protected final static String[]	MAGIC_WORDS	= { "LEVEL", "RESTORE", "REFRESH", "BLAST", "BURN", "GAIN", "REWIND", "PRAC" };
 
 	public WandArchon()
 	{
@@ -54,9 +54,10 @@ public class WandArchon extends StdWand implements ArchonOnly
 		this.setUsesRemaining(99999);
 		baseGoldValue=20000;
 		material=RawMaterial.RESOURCE_OAK;
+		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_BONUS);
 		recoverPhyStats();
 		secretWord="REFRESH";
-		secretIdentity="The Wand of the Archons! Commands: REFRESH, BLAST, LEVEL X UP, LEVEL X DOWN, BURN, GAIN X/All UP.";
+		secretIdentity="The Wand of the Archons! Commands: REFRESH, REWIND, RESTORE, BLAST, LEVEL X UP, LEVEL X DOWN, BURN, GAIN X/ALL UP, PRAC X/ALL UP.";
 	}
 
 	@Override
@@ -129,10 +130,15 @@ public class WandArchon extends StdWand implements ArchonOnly
 
 	public boolean safetyCheck(final MOB mob, final String message)
 	{
-		if((!mob.isMonster())
+		final Session S= mob.session();
+		if((S!=null)
 		&&(message.length()>0)
-		&&(mob.session().getPreviousCMD()!=null)
-		&&(CMParms.combine(mob.session().getPreviousCMD(),0).toUpperCase().indexOf(message)<0))
+		&&(S.getHistory().size()>0)
+		&&(S.getHistory().getLast().size()>0)
+		&&(CMParms.combine(S.getHistory().getLast(),0).toUpperCase().indexOf(message)<0)
+		&&((!mob.isPlayer())
+			||(mob.isMonster())
+			||(mob.playerStats().getAlias(S.getHistory().getLast().get(0))==null)))
 		{
 			mob.tell(L("The wand fizzles in an irritating way."));
 			return false;
@@ -181,15 +187,18 @@ public class WandArchon extends StdWand implements ArchonOnly
 					||(CMSecurity.isDisabled(CMSecurity.DisFlag.LEVELS)))
 						mob.tell(L("The wand will not work on such as @x1.",target.name(mob)));
 					else
-					while(target.basePhyStats().level()<destLevel)
 					{
-						if((target.getExpNeededLevel()==Integer.MAX_VALUE)
-						||(target.charStats().getCurrentClass().expless())
-						||(target.charStats().getMyRace().expless())
-						||(CMProps.getIntVar(CMProps.Int.EXPDEFER_PCT)>0))
-							CMLib.leveler().level(target);
-						else
-							CMLib.leveler().postExperience(target,null,null,target.getExpNeededLevel()+1,false);
+						int tries = destLevel*100;
+						while((target.basePhyStats().level()<destLevel)&&(--tries>0))
+						{
+							if((target.getExpNeededLevel()==Integer.MAX_VALUE)
+							||(target.charStats().getCurrentClass().expless())
+							||(target.charStats().getMyRace().expless())
+							||(CMProps.getIntVar(CMProps.Int.EXPDEFER_PCT)>0))
+								CMLib.leveler().level(target);
+							else
+								CMLib.leveler().postExperience(target,"MISC:"+ID(),null,null,target.getExpNeededLevel()+1, false);
+						}
 					}
 				}
 				else
@@ -211,13 +220,18 @@ public class WandArchon extends StdWand implements ArchonOnly
 					else
 					for(int i=0;i<num;i++)
 					{
-						if((target.getExpNeededLevel()==Integer.MAX_VALUE)
-						||(target.charStats().getCurrentClass().expless())
-						||(target.charStats().getMyRace().expless())
-						||(CMProps.getIntVar(CMProps.Int.EXPDEFER_PCT)>0))
-							CMLib.leveler().level(target);
-						else
-							CMLib.leveler().postExperience(target,null,null,target.getExpNeededLevel()+1,false);
+						final int nextLevel = target.phyStats().level()+1;
+						int tries = 100;
+						while((target.phyStats().level()<nextLevel)&&(--tries>0))
+						{
+							if((target.getExpNeededLevel()==Integer.MAX_VALUE)
+							||(target.charStats().getCurrentClass().expless())
+							||(target.charStats().getMyRace().expless())
+							||(CMProps.getIntVar(CMProps.Int.EXPDEFER_PCT)>0))
+								CMLib.leveler().level(target);
+							else
+								CMLib.leveler().postExperience(target,"MISC:"+ID(),null,null,target.getExpNeededLevel()+1, false);
+						}
 					}
 					return;
 				}
@@ -228,7 +242,8 @@ public class WandArchon extends StdWand implements ArchonOnly
 						return;
 					message=message.substring(5).trim();
 					message=message.substring(0,message.length()-2).trim();
-					if((message.length()>0)&&(!message.equalsIgnoreCase("ALL")))
+					if((message.length()>0)
+					&&(!message.equalsIgnoreCase("ALL")))
 					{
 						Ability A=CMClass.getAbility(message);
 						if(A==null)
@@ -241,17 +256,31 @@ public class WandArchon extends StdWand implements ArchonOnly
 						else
 						{
 							mob.location().show(mob,target,CMMsg.MSG_OK_VISUAL,L("@x1 glows brightly at <T-NAME>.",this.name()));
-							if(target.fetchAbility(A.ID())!=null)
+							final Ability existA=target.fetchAbility(A.ID());
+							if(existA!=null)
 							{
-								target.fetchAbility(A.ID()).setProficiency(100);
-								if(target.fetchEffect(A.ID())!=null)
+								if(existA.proficiency()<100)
 								{
-									target.fetchEffect(A.ID()).setProficiency(100);
+									existA.setProficiency(99);
+									for(int i=0;i<100 && existA.proficiency()<100;i++)
+									{
+										final int oldInt=target.charStats().getStat(CharStats.STAT_INTELLIGENCE);
+										target.charStats().setStat(CharStats.STAT_INTELLIGENCE,99);
+										existA.helpProficiency(target, 1);
+										target.charStats().setStat(CharStats.STAT_INTELLIGENCE,oldInt);
+									}
+									existA.setProficiency(100);
+									mob.recoverCharStats();
+									final Ability effA=target.fetchEffect(A.ID());
+									if(effA!=null)
+										effA.setProficiency(100);
 								}
+
 							}
 							else
 							{
 								A.setProficiency(100);
+								A.helpProficiency(mob, 1);
 								target.addAbility(A);
 								A.setSavable(true);
 								A.autoInvocation(target, false);
@@ -270,20 +299,114 @@ public class WandArchon extends StdWand implements ArchonOnly
 								final Ability A=target.fetchAbility(map.abilityID());
 								if(A.proficiency()<100)
 								{
+									A.setProficiency(99);
+									for(int i=0;i<100 && A.proficiency()<100;i++)
+									{
+										final int oldInt=target.charStats().getStat(CharStats.STAT_INTELLIGENCE);
+										target.charStats().setStat(CharStats.STAT_INTELLIGENCE,99);
+										A.helpProficiency(target, 1);
+										target.charStats().setStat(CharStats.STAT_INTELLIGENCE,oldInt);
+									}
 									A.setProficiency(100);
+									mob.recoverCharStats();
 									didSomething = true;
 								}
+								if(target.fetchEffect(A.ID())!=null)
+									target.fetchEffect(A.ID()).setProficiency(100);
+							}
+							else
+							if(message.length()>0)
+							{
+								final Ability A=CMClass.getAbility(map.abilityID());
+								if(A!=null)
+								{
+									A.setSavable(true);
+									A.setProficiency(100);
+									A.setMiscText(map.defaultParm());
+									target.addAbility(A);
+									A.autoInvocation(target, false);
+									didSomething = true;
+								}
+								else
+									mob.tell(L("Unknown ability: @x1",map.abilityID()));
+							}
+						}
+						if(didSomething)
+							mob.location().show(mob,target,CMMsg.MSG_OK_VISUAL,L("@x1 glows brightly at <T-NAME>.",this.name()));
+
+					}
+					return;
+				}
+				else
+				if(message.startsWith("PRAC ")&&message.endsWith(" UP"))
+				{
+					if(!safetyCheck(mob,message))
+						return;
+					message=message.substring(5).trim();
+					message=message.substring(0,message.length()-2).trim();
+					if((message.length()>0)
+					&&(!message.equalsIgnoreCase("ALL")))
+					{
+						Ability A=CMClass.getAbility(message);
+						if(A==null)
+							A=CMClass.findAbility(message);
+						if(A==null)
+							mob.tell(L("There is no such skill as @x1.",message.toLowerCase()));
+						else
+						if((target.fetchAbility(A.ID())!=null)&&(target.fetchAbility(A.ID()).proficiency()>=100))
+							mob.tell(L("@x1 is already proficient in @x2.",target.Name(),message.toLowerCase()));
+						else
+						{
+							mob.location().show(mob,target,CMMsg.MSG_OK_VISUAL,L("@x1 glows brightly at <T-NAME>.",this.name()));
+							final Ability existA=target.fetchAbility(A.ID());
+							if(existA!=null)
+							{
+								if(existA.proficiency()<100)
+								{
+									existA.setProficiency(99);
+									for(int i=0;i<100 && existA.proficiency()<100;i++)
+									{
+										final int oldInt=target.charStats().getStat(CharStats.STAT_INTELLIGENCE);
+										target.charStats().setStat(CharStats.STAT_INTELLIGENCE,99);
+										existA.helpProficiency(target, 1);
+										target.charStats().setStat(CharStats.STAT_INTELLIGENCE,oldInt);
+									}
+									existA.setProficiency(100);
+									mob.recoverCharStats();
+									final Ability effA=target.fetchEffect(A.ID());
+									if(effA!=null)
+										effA.setProficiency(100);
+								}
+
 							}
 							else
 							{
-								final Ability A=CMClass.getAbility(map.abilityID());
-								A.setSavable(true);
+								mob.tell(L("@x2 has no such skill as @x1.",message.toLowerCase(),target.name()));
+							}
+						}
+					}
+					else
+					{
+						boolean didSomething = false;
+						for(final Enumeration<Ability> a = target.abilities();a.hasMoreElements();)
+						{
+							final Ability A=a.nextElement();
+							if(A.proficiency()<100)
+							{
+								A.setProficiency(99);
+								for(int i=0;i<100 && A.proficiency()<100;i++)
+								{
+									final int oldInt=target.charStats().getStat(CharStats.STAT_INTELLIGENCE);
+									target.charStats().setStat(CharStats.STAT_INTELLIGENCE,99);
+									A.helpProficiency(target, 1);
+									target.charStats().setStat(CharStats.STAT_INTELLIGENCE,oldInt);
+								}
 								A.setProficiency(100);
-								A.setMiscText(map.defaultParm());
-								target.addAbility(A);
-								A.autoInvocation(target, false);
+								mob.recoverCharStats();
 								didSomething = true;
 							}
+							if(target.fetchEffect(A.ID())!=null)
+								target.fetchEffect(A.ID()).setProficiency(100);
 						}
 						if(didSomething)
 							mob.location().show(mob,target,CMMsg.MSG_OK_VISUAL,L("@x1 glows brightly at <T-NAME>.",this.name()));
@@ -305,6 +428,7 @@ public class WandArchon extends StdWand implements ArchonOnly
 					if((target.charStats().getCurrentClass().leveless())
 					||(target.charStats().isLevelCapped(target.charStats().getCurrentClass()))
 					||(target.charStats().getMyRace().leveless())
+					||(CMSecurity.isDisabled(CMSecurity.DisFlag.UNLEVEL))
 					||(CMSecurity.isDisabled(CMSecurity.DisFlag.LEVELS)))
 						mob.tell(L("The wand will not work on such as @x1.",target.name(mob)));
 					else
@@ -314,12 +438,18 @@ public class WandArchon extends StdWand implements ArchonOnly
 						||(target.charStats().getCurrentClass().expless())
 						||(target.charStats().getMyRace().expless())
 						||(CMProps.getIntVar(CMProps.Int.EXPDEFER_PCT)>0))
-							CMLib.leveler().unLevel(target);
+							CMLib.leveler().unLevel(target, true);
 						else
 						{
-							final int xpLevelBelow=CMLib.leveler().getLevelExperience(mob, target.basePhyStats().level()-2);
-							final int levelDown=(target.getExperience()-xpLevelBelow)+1;
-							CMLib.leveler().postExperience(target,null,null,-levelDown,false);
+							final int oldLevel = target.basePhyStats().level();
+							for(int x=0;(x<10) && (oldLevel == target.basePhyStats().level());x++)
+							{
+								final int xpLevelBelow=CMLib.leveler().getLevelExperience(mob, oldLevel-2);
+								int levelDown=(target.getExperience()-xpLevelBelow)+1;
+								if(levelDown > target.getExperience())
+									levelDown = target.getExperience();
+								CMLib.leveler().postExperience(target,"MISC:"+ID(),null,null,-levelDown, false);
+							}
 						}
 					}
 					return;
@@ -388,6 +518,29 @@ public class WandArchon extends StdWand implements ArchonOnly
 					target.recoverMaxState();
 					target.resetToMaxState();
 					target.tell(L("You feel refreshed!"));
+					return;
+				}
+				else
+				if(message.equals("REWIND"))
+				{
+					if(!safetyCheck(mob,message))
+						return;
+					mob.location().show(mob,target,CMMsg.MSG_OK_VISUAL,L("@x1 glows brightly at <T-NAME>.",this.name()));
+					boolean didsomething=false;
+					for(final Enumeration<Ability> a=target.abilities();a.hasMoreElements();)
+					{
+						final Ability A=a.nextElement();
+						if((A!=null)
+						&&(CMath.s_long(A.getStat("NEXTCAST"))>0))
+						{
+							A.setStat("NEXTCAST", "0");
+							didsomething=true;
+						}
+					}
+					if(didsomething)
+						target.tell(L("You feel refreshed!"));
+					else
+						mob.tell(L("Nothing happened."));
 					return;
 				}
 				else

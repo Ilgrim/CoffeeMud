@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,6 +59,14 @@ public class StdDissertation extends StdItem implements Scroll
 		baseGoldValue=200;
 		setUsesRemaining(0);
 		recoverPhyStats();
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a dissertation");
 	}
 
 	@Override
@@ -219,7 +227,7 @@ public class StdDissertation extends StdItem implements Scroll
 					if((thisOne!=null)&&(useTheScroll(thisOne,mob)))
 					{
 						final Ability learnThisAbility=(Ability)thisOne.copyOf();
-						final String name = this.name;
+						final String name = this._name;
 						final Item item = this;
 						final Runnable learnIt = new Runnable()
 						{
@@ -386,14 +394,14 @@ public class StdDissertation extends StdItem implements Scroll
 	@Override
 	public String getStat(final String code)
 	{
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return ID();
 		case 1:
-			return "" + basePhyStats().ability();
-		case 2:
 			return "" + basePhyStats().level();
+		case 2:
+			return "" + basePhyStats().ability();
 		case 3:
 			return text();
 		}
@@ -403,7 +411,7 @@ public class StdDissertation extends StdItem implements Scroll
 	@Override
 	public void setStat(final String code, final String val)
 	{
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return;
@@ -425,8 +433,7 @@ public class StdDissertation extends StdItem implements Scroll
 		return CODES;
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<CODES.length;i++)
 		{

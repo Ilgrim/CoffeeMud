@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,8 +53,7 @@ public class StdLasso extends StdWeapon
 		basePhyStats().setDamage(0);
 		baseGoldValue=10;
 		recoverPhyStats();
-		minRange=1;
-		maxRange=1;
+		setRanges(1, 1);
 		weaponDamageType=Weapon.TYPE_NATURAL;
 		material=RawMaterial.RESOURCE_HEMP;
 		weaponClassification=Weapon.CLASS_THROWN;
@@ -62,6 +61,14 @@ public class StdLasso extends StdWeapon
 	}
 
 	protected MOB lastBinder = null;
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a lasso");
+	}
 
 	protected void untieIfPoss(final MOB binder, final MOB boundM)
 	{
@@ -150,14 +157,16 @@ public class StdLasso extends StdWeapon
 		&&(msg.targetMessage().length()>0)
 		&&(CMLib.flags().isBound(owner())))
 		{
-			String tmsg=msg.targetMessage().toLowerCase();
-			if(tmsg.startsWith("get ")||tmsg.startsWith("take "))
+			String tmsg=msg.targetMessage().toLowerCase().trim();
+			final int wdx=tmsg.indexOf(' ');
+			final String wd = (wdx<0)?"":tmsg.substring(0,wdx);
+			if("get".startsWith(wd)||"take".startsWith(wd))
 			{
 				final MOB boundM=(MOB)owner();
 				final Room R=boundM.location();
 				if(R!=null)
 				{
-					tmsg=tmsg.substring(4).trim();
+					tmsg=tmsg.substring(wdx+1).trim();
 					final List<String> rest=CMParms.parse(tmsg);
 					String itemName=tmsg;
 					final int x=rest.indexOf("from");
@@ -186,10 +195,10 @@ public class StdLasso extends StdWeapon
 					lastBinder=null;
 			}
 			else
-			if(tmsg.startsWith("untie "))
+			if("untie".startsWith(wd))
 			{
 				final MOB boundM=(MOB)owner();
-				tmsg=tmsg.substring(6).trim();
+				tmsg=tmsg.substring(wdx+1).trim();
 				final Room R=boundM.location();
 				if(R!=null)
 				{
@@ -248,6 +257,24 @@ public class StdLasso extends StdWeapon
 					if(lastBinder==null)
 						lastBinder=msg.source();
 				}
+			}
+		}
+		else
+		if((msg.targetMinor()==CMMsg.TYP_DAMAGE)
+		&&(msg.target()==owner())
+		&&(msg.value()>0)
+		&&(owner() != null)
+		&&(msg.tool()!=this)
+		&&(CMLib.flags().isBound(owner()))
+		&&(msg.target() instanceof MOB)
+		&&(lastBinder!=null))
+		{
+			final Ability A=((MOB)owner()).fetchEffect("Thief_Bind");
+			if((A!=null)&&(A.invoker()==lastBinder))
+			{
+				A.unInvoke();
+				msg.addTrailerMsg(CMClass.getMsg((MOB)owner(),this,CMMsg.MASK_ALWAYS|CMMsg.MSG_DROP,null));
+				msg.addTrailerMsg(CMClass.getMsg(lastBinder,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_GET,null));
 			}
 		}
 		else

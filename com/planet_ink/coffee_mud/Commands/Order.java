@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -130,6 +130,7 @@ public class Order extends StdCommand
 
 		CMObject O=CMLib.english().findCommand(mob,commands);
 		final String order=CMParms.combine(commands,0);
+		final String qorder=CMParms.combineQuoted(commands,0);
 		if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.ORDER))
 		{
 			if((O instanceof Command)
@@ -146,7 +147,6 @@ public class Order extends StdCommand
 			}
 		}
 
-		final List<MOB> doV=new ArrayList<MOB>();
 		for(int v=0;v<V.size();v++)
 		{
 			target=V.get(v);
@@ -179,19 +179,13 @@ public class Order extends StdCommand
 				CMLib.commands().postCommandFail(mob,origCmds,L("You can't order '@x1' around.",target.name(mob)));
 			else
 			{
-				final CMMsg msg=CMClass.getMsg(mob,target,null,CMMsg.MSG_SPEAK,CMMsg.MSG_ORDER,CMMsg.MSG_SPEAK,L("^T<S-NAME> order(s) <T-NAMESELF> to '@x1'^?.",order));
+				final CMMsg msg=CMClass.getMsg(mob,target,null,CMMsg.MSG_SPEAK,CMMsg.MSG_ORDER,CMMsg.MSG_SPEAK,
+						L("^T<S-NAME> order(s) <T-NAMESELF> to '@x1'^?.",qorder));
 				if((mob.location().okMessage(mob,msg)))
-				{
 					mob.location().send(mob,msg);
-					if((msg.targetMinor()==CMMsg.TYP_ORDER)&&(msg.target()==target))
-						doV.add(target);
-				}
+				else
+					CMLib.commands().postCommandRejection(mob,target, null,origCmds);
 			}
-		}
-		for(int v=0;v<doV.size();v++)
-		{
-			target=doV.get(v);
-			target.enqueCommand(new XVector<String>(commands),metaFlags|MUDCmdProcessor.METAFLAG_ORDER,0);
 		}
 		return false;
 	}

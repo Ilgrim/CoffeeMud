@@ -167,11 +167,16 @@
 #mobs to the designated room.  You may leave this blank if you like.
 #$ESCORTED_RESPONSE=($LONG_STRING)=The escort is complete.
 #
+#$CATEGORY=($HIDDEN)=
+#
 #!QUESTMAKER_END_SCRIPT Competitive Escort #1
 
 set name $QUEST_ID
 set display $QUEST_NAME
 set author $#AUTHOR
+set questtype competitive_escort1
+set category $CATEGORY
+set instructions $QUEST_INSTRUCTIONSSTRING
 
 set wait $FREQUENCY
 set interval 1
@@ -201,6 +206,7 @@ set duration $DURATION
 <FILE><NAME>$QUEST_ID_announcer.script</NAME>
 <DATA>
 ONCE_PROG 100
+	MPQSET * INSTRUCTIONS $i in $a wants you to '$QUEST_INSTRUCTIONSSTRING'
 	MPSETVAR * $QUEST_ID_ALREADY_TOLD ''
 	MPSETVAR * $QUEST_ID_REWARDED ''
 	MPSETVAR * $QUEST_ID_WARNED ''
@@ -228,6 +234,19 @@ QUEST_TIME_PROG * -1
 	MPSETVAR * $QUEST_ID_ATTACKED ''
 ~
 
+SPEECH_PROG quest quests quest? quests?
+	if ISLIKE($n '$QUEST_CRITERIA') and ISPC($n) and ( EVAL('$MULTIPLE' != 'PREV') or QUESTWINNER($n previous) )
+		if EVAL('$MULTIPLE' == 'YES') OR !QUESTWINNER($n *)
+			if !STRIN('$<$i $QUEST_ID_ALREADY_TOLD>' '$n')
+				if VAR($n $QUEST_ID_ACCEPTED == '')
+					sayto "$n" $QUEST_NOTIFYSTRING -- just say 'i accept' to take on this quest.
+					MPSETVAR $i $QUEST_ID_ALREADY_TOLD '$<$i $QUEST_ID_ALREADY_TOLD> "$n"'
+				endif
+			endif
+		endif
+	endif
+~
+
 GREET_PROG 100
 	if ISLIKE($n '$QUEST_CRITERIA') and ISPC($n) and ( EVAL('$MULTIPLE' != 'PREV') or QUESTWINNER($n previous) )
 		if EVAL('$MULTIPLE' == 'YES') OR !QUESTWINNER($n *)
@@ -241,36 +260,52 @@ GREET_PROG 100
 	endif
 ~
 
-SPEECH_PROG p i accept
+FUNCTION_PROG CAN_ACCEPT
 	if ISLIKE($n '$QUEST_CRITERIA') and ISPC($n) and ( EVAL('$MULTIPLE' != 'PREV') or QUESTWINNER($n previous) )
-		if  EVAL('$MULTIPLE' == 'YES') OR !QUESTWINNER($n *)
+		if EVAL('$MULTIPLE' == 'YES') OR !QUESTWINNER($n *)
 			if VAR($n $QUEST_ID_ACCEPTED == '')
-				sayto "$n" $QUEST_INSTRUCTIONSSTRING
-				mpqset * REMAINING $DURATION
-				MPSETVAR $i $QUEST_ID_ACCEPTED '$<$i $QUEST_ID_ACCEPTED> $n'
-				mpsetvar $n $QUEST_ID_ACCEPTED 'YES'
-				mpqset * STATISTICS ACCEPTED
-                mpscript $n INDIVIDUAL LOAD=$QUEST_ID_playertrack.script
-				for $0 = 1 to '$%NUMMOBSROOM(*)%'
-				   mpargset $1 $%ROOMMOB($0)%
-				   if QUESTMOB($1 *) AND EVAL($1 != $i) AND EVAL('${1 *}' != $1)
-				   		mpforce $1 follow $n
-				   		if !isfollow($1)
-				   			mpforce $1 say I can't follow $n
-				   		else
-							mpsetvar $i $QUEST_ID_ACCEPTED $n
-				   		endif
-				   endif
-				next
-			else
-				sayto "$n" Yes, yes, I know .. now off with you.
+				RETURN TRUE
 			endif
 		endif
+	endif
+	RETURN CANCEL
+~
+
+FUNCTION_PROG DO_ACCEPT
+	mpat $n mpechoat $n You need to go see $i in $a in order to accept this quest.
+~
+
+SPEECH_PROG p i accept
+	if CALLFUNC(CAN_ACCEPT)
+		sayto "$n" $QUEST_INSTRUCTIONSSTRING
+		mpqset * REMAINING $DURATION
+		MPSETVAR $i $QUEST_ID_ACCEPTED '$<$i $QUEST_ID_ACCEPTED> $n'
+		mpsetvar $n $QUEST_ID_ACCEPTED 'YES'
+		mpqset * STATISTICS ACCEPTED
+        mpscript $n INDIVIDUAL LOAD=$QUEST_ID_playertrack.script
+		for $0 = 1 to '$%NUMMOBSROOM(*)%'
+		   mpargset $1 $%ROOMMOB($0)%
+		   if QUESTMOB($1 *) AND EVAL($1 != $i) AND EVAL('${1 *}' != $1)
+		   		mpforce $1 follow $n
+		   		if !isfollow($1)
+		   			mpforce $1 say I can't follow $n
+		   		else
+					mpsetvar $i $QUEST_ID_ACCEPTED $n
+		   		endif
+		   endif
+		next
+	else
+		sayto "$n" Yes, yes, I know .. now off with you.
 	endif
 ~
 </DATA></FILE>
 <FILE><NAME>$QUEST_ID_escorted.script</NAME>
 <DATA>
+ONCE_PROG
+	MPSETINTERNAL PASSIVE false
+	MPSETINTERNAL NEEDPC false
+~
+
 QUEST_TIME_PROG * 1
 	if EVAL('$f' != '') AND VAR ($f $QUEST_ID_WARNED == '')
 		mpsetvar $f $QUEST_ID_WARNED 'WARNED'
@@ -327,6 +362,7 @@ RAND_PROG 99
 				if EVAL('$QUEST_POINT' == 'YES') AND !QUESTWINNER($f *)
 					mpoloadroom QuestPoint
 					mpforce $f GET "a quest point"
+					mpjunk a quest point
 				endif
 				if EVAL('$GOLD' != '') AND EVAL('$GOLD' > 0)
 					mpoloadroom $GOLD
@@ -355,7 +391,7 @@ RAND_PROG 99
 <FILE><NAME>$QUEST_ID_playertrack.script</NAME>
 <DATA>
 ONCE_PROG 100
-    mpsetvar $i INSTRUCTIONS $QUEST_INSTRUCTIONSSTRING
+	mpsetvar $i INSTRUCTIONS $QUEST_INSTRUCTIONSSTRING
 ~
 
 QUEST_TIME_PROG * -1

@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -148,6 +149,7 @@ public class Bard extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Song_Armor",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Song_Babble",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Song_Clumsiness",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Skill_CombatRecall",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Skill_Dodge",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),7,"Song_Rage",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),8,"Song_Mute",true);
@@ -176,6 +178,7 @@ public class Bard extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Song_Lethargy",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),18,"Song_Flight",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Song_Knowledge",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Skill_TradeCharting",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),19,"Thief_Swipe",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),20,"Song_Blasting",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),21,"Song_Strength",true);
@@ -186,8 +189,12 @@ public class Bard extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),23,"Thief_Steal",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Song_Death",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Song_Disgust",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),24,"Skill_CaravanTravel",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Song_Rebirth",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Song_Ode",true);
+
+		CMLib.ableMapper().addCharAbilityMapping(ID(),35,"Song_Saudade", 0, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
 	}
 
 	@Override
@@ -199,7 +206,9 @@ public class Bard extends StdCharClass
 	public static int bardAdjustExperienceGain(final MOB host, final MOB mob, final MOB victim, final int amount, final double rate)
 	{
 		double theAmount=amount;
-		if((mob!=null)&&(victim!=null)&&(theAmount>10.0))
+		if((mob!=null)
+		&&(victim!=null)
+		&&(theAmount>10.0))
 		{
 			if(host == mob)
 			{
@@ -297,22 +306,23 @@ public class Bard extends StdCharClass
 						}
 					}
 				}
+				final CharClass C=((MOB)host).charStats().getCurrentClass();
 				if(pub)
 				{
 					int xpGain=50;
-					if((xpGain=CMLib.leveler().postExperience((MOB)host,null,null,xpGain,true))>0)
+					if((xpGain=CMLib.leveler().postExperience((MOB)host,"CLASS:"+C.ID(),null,null,xpGain, true))>0)
 						msg.addTrailerMsg(CMClass.getMsg((MOB)host,null,null,CMMsg.MSG_OK_VISUAL,CMLib.lang().L("^HYou have discovered a new pub, you gain @x1 experience.^?",""+xpGain),CMMsg.NO_EFFECT,null,CMMsg.NO_EFFECT,null));
 				}
 				if((!mob.playerStats().hasVisited(A))&&(mob.soulMate()==null))
 				{
 					if(mob.playerStats().addRoomVisit(R))
 					{
-						CMLib.players().bumpPrideStat(mob,AccountStats.PrideStat.ROOMS_EXPLORED,1);
-						int xp=(int)Math.round(100.0*CMath.div(A.getAreaIStats()[Area.Stats.AVG_LEVEL.ordinal()],hostP.phyStats().level()));
+						CMLib.players().bumpPrideStat(mob,PrideStats.PrideStat.ROOMS_EXPLORED,1);
+						int xp=(int)Math.round(100.0*CMath.div(A.getIStat(Area.Stats.AVG_LEVEL),hostP.phyStats().level()));
 						if(xp>250)
 							xp=250;
 						if((xp>0)
-						&&((xp=CMLib.leveler().postExperience((MOB)host,null,null,xp,true))>0))
+						&&((xp=CMLib.leveler().postExperience((MOB)host,"CLASS:"+C.ID(),null,null,xp, true))>0))
 							msg.addTrailerMsg(CMClass.getMsg((MOB)host,null,null,CMMsg.MSG_OK_VISUAL,CMLib.lang().L("^HYou have discovered '@x1', you gain @x2 experience.^?",A.name(),""+xp),CMMsg.NO_EFFECT,null,CMMsg.NO_EFFECT,null));
 					}
 				}
@@ -321,25 +331,25 @@ public class Bard extends StdCharClass
 					final int pctBefore=mob.playerStats().percentVisited((MOB)host,A);
 					if(mob.playerStats().addRoomVisit(R))
 					{
-						CMLib.players().bumpPrideStat(mob,AccountStats.PrideStat.ROOMS_EXPLORED,1);
+						CMLib.players().bumpPrideStat(mob,PrideStats.PrideStat.ROOMS_EXPLORED,1);
 						final int pctAfter=mob.playerStats().percentVisited((MOB)host,A);
 						if((pctBefore<50)&&(pctAfter>=50))
 						{
-							int xp=(int)Math.round(50.0*CMath.div(A.getAreaIStats()[Area.Stats.AVG_LEVEL.ordinal()],hostP.phyStats().level()));
+							int xp=(int)Math.round(50.0*CMath.div(A.getIStat(Area.Stats.AVG_LEVEL),hostP.phyStats().level()));
 							if(xp>125)
 								xp=125;
 							if((xp>0)
-							&&((xp=CMLib.leveler().postExperience((MOB)host,null,null,xp,true))>0))
+							&&((xp=CMLib.leveler().postExperience((MOB)host,"CLASS:"+C.ID(),null,null,xp, true))>0))
 								msg.addTrailerMsg(CMClass.getMsg((MOB)host,null,null,CMMsg.MSG_OK_VISUAL,CMLib.lang().L("^HYou have familiarized yourself with '@x1', you gain @x2 experience.^?",A.name(),""+xp),CMMsg.NO_EFFECT,null,CMMsg.NO_EFFECT,null));
 						}
 						else
 						if((pctBefore<90)&&(pctAfter>=90))
 						{
-							int xp=(int)Math.round(100.0*CMath.div(A.getAreaIStats()[Area.Stats.AVG_LEVEL.ordinal()],hostP.phyStats().level()));
+							int xp=(int)Math.round(100.0*CMath.div(A.getIStat(Area.Stats.AVG_LEVEL),hostP.phyStats().level()));
 							if(xp>250)
 								xp=250;
 							if((xp>0)
-							&&((xp=CMLib.leveler().postExperience((MOB)host,null,null,xp,true))>0))
+							&&((xp=CMLib.leveler().postExperience((MOB)host,"CLASS:"+C.ID(),null,null,xp, true))>0))
 								msg.addTrailerMsg(CMClass.getMsg((MOB)host,null,null,CMMsg.MSG_OK_VISUAL,CMLib.lang().L("^HYou have explored '@x1', you gain @x2 experience.^?",A.name(),""+xp),CMMsg.NO_EFFECT,null,CMMsg.NO_EFFECT,null));
 						}
 					}
@@ -364,7 +374,12 @@ public class Bard extends StdCharClass
 				if((A!=null)
 				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SONG)
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
-					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+				{
+					giveMobAbility(mob,A,
+								  CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),
+								  CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),
+								  isBorrowedClass);
+				}
 			}
 		}
 	}
@@ -422,6 +437,7 @@ public class Bard extends StdCharClass
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

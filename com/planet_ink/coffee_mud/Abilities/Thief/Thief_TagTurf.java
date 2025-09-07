@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -160,9 +160,9 @@ public class Thief_TagTurf extends ThiefSkill
 			mob.tell(L("This place has already been tagged by @x1.",A.text()));
 			return false;
 		}
-		if((mob.location().domainType()!=Room.DOMAIN_OUTDOORS_CITY)
-		   &&(mob.location().domainType()!=Room.DOMAIN_INDOORS_WOOD)
-		   &&(mob.location().domainType()!=Room.DOMAIN_INDOORS_STONE))
+		if((!CMLib.flags().isACityRoom(mob.location()))
+		&&(mob.location().domainType()!=Room.DOMAIN_INDOORS_WOOD)
+		&&(mob.location().domainType()!=Room.DOMAIN_INDOORS_STONE))
 		{
 			mob.tell(L("A place like this can't get your turf."));
 			return false;

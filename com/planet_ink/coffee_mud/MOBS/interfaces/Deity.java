@@ -1,4 +1,8 @@
 package com.planet_ink.coffee_mud.MOBS.interfaces;
+import java.util.Enumeration;
+import java.util.List;
+import java.util.Vector;
+
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
@@ -16,7 +20,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,87 +49,107 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 public interface Deity extends MOB
 {
 	/**
-	 * The definition of the key words in the ritual definitions.
-	 * Most of these require a parameter of one sort or another,
-	 * depending on the deity class.  The command phrases
-	 * are separated by &amp; (for and) or | for or.
+	 * Helper interface for the deity to identify worshippers and
+	 * other things associated with a specific deity.
+	 *
 	 * @author Bo Zimmerman
 	 *
 	 */
-	public enum RitualTrigger
+	public static interface DeityWorshipper extends CMObject
 	{
-		SAY(CMMsg.TYP_SPEAK),
-		TIME(),
-		PUTTHING(CMMsg.TYP_PUT,"PUT"),
-		BURNTHING(CMMsg.TYP_FIRE),
-		EAT(CMMsg.TYP_EAT),
-		DRINK(CMMsg.TYP_DRINK),
-		INROOM(CMMsg.TYP_LOOK),
-		RIDING(),
-		CAST(CMMsg.TYP_CAST_SPELL),
-		EMOTE(CMMsg.TYP_EMOTE),
-		PUTVALUE(CMMsg.TYP_PUT),
-		PUTMATERIAL(CMMsg.TYP_PUT),
-		BURNMATERIAL(CMMsg.TYP_FIRE,"BURN"),
-		BURNVALUE(CMMsg.TYP_FIRE),
-		SITTING("SIT"),
-		STANDING("STAND"),
-		SLEEPING("SLEEP"),
-		READING(CMMsg.TYP_READ,"READ"),
-		RANDOM(),
-		CHECK(),
-		WAIT(),
-		YOUSAY(),
-		OTHERSAY(),
-		ALLSAY(),
-		;
-		private final int msgCode;
-		private final String shortName;
+		/**
+		 * Returns the name of the Deity mob that this player/mob worships.
+		 * Empty string means they are an atheist. :) The name here should
+		 * always be the same as a Deity type mob in the game in order for
+		 * the religion system to work correctly.  For Clerics, this field
+		 * has particular importance.
+		 * @see DeityWorshipper#setWorshipCharID(String)
+		 * @see DeityWorshipper#getMyDeity()
+		 * @see DeityWorshipper#setDeityName(String)
+		 * @see DeityWorshipper#deityName()
+		 * @return the name of the Deity mob that this player/mob worships.
+		 */
+		public String getWorshipCharID();
 
-		private RitualTrigger(final int msgCode, final String shortName)
-		{
-			this.msgCode = msgCode;
-			this.shortName = shortName;
-		}
+		/**
+		 * Sets the name of the Deity mob that this player/mob worships.
+		 * Empty string means they are an atheist. :) The name here should
+		 * always be the same as a Deity type mob in the game in order for
+		 * the religion system to work correctly.  For Clerics, this field
+		 * has particular importance.
+		 * @see DeityWorshipper#setWorshipCharID(String)
+		 * @see DeityWorshipper#getMyDeity()
+		 * @see DeityWorshipper#deityName()
+		 * @param newVal the name of the Deity mob that this player/mob worships.
+		 */
+		public void setWorshipCharID(String newVal);
 
-		private RitualTrigger(final int msgCode)
-		{
-			this.msgCode = msgCode;
-			this.shortName = name();
-		}
+		/**
+		 * Returns the Deity object of the mob that this player/mob worships.
+		 * A null return means they are an atheist.  Very important for Clerics.
+		 * @see DeityWorshipper#getWorshipCharID()
+		 * @see DeityWorshipper#setWorshipCharID(String)
+		 * @see DeityWorshipper#deityName()
+		 * @return the Deity object of the mob that this player/mob worships
+		 */
+		public Deity getMyDeity();
 
-		private RitualTrigger(final String shortName)
-		{
-			this.msgCode = -999;
-			this.shortName = name();
-		}
+		/**
+		 * Returns the displayable name of this mobs current deity.  If this method
+		 * is called on the mobs charStats() object, as opposed to baseCharStats(), it
+		 * may return something different than charStats().getMyDeity().name().  For this
+		 * reason, you should ONLY use this method when you want to display the mobs
+		 * current deity.
+		 * @see DeityWorshipper#getWorshipCharID()
+		 * @see DeityWorshipper#setWorshipCharID(String)
+		 * @see DeityWorshipper#getMyDeity()
+		 * @return the name of this mobs current deity, or empty string.
+		 */
+		public String deityName();
 
-		private RitualTrigger()
-		{
-			this.msgCode = -999;
-			this.shortName = name();
-		}
-
-		public int getCMMsgCode()
-		{
-			return msgCode;
-		}
-
-		public String getShortName()
-		{
-			return shortName;
-		}
+		/**
+		 * Changes the apparent deity of ths mob by setting a new name.  A value of null will
+		 * reset this setting, allowing the mobs TRUE deity to be displayed through the
+		 * deityName method instead of the string set through this one.
+		 * @see #deityName()
+		 * @param newDeityName the name of the mobs apparent deity
+		 */
+		public void setDeityName(String newDeityName);
 	}
 
 	/**
-	 * Separator enum constants for ritual definitions.
+	 * Enum for different categories of holy events that can occur.
+	 * These are encoded in the othersMessage of a CMMSg.TYP_HOLYEVENT type
+	 * message, usually with the deity itself as the target.
 	 * @author Bo Zimmerman
 	 *
 	 */
-	public enum RitualConnector
+	public enum HolyEvent
 	{
-		AND,
-		OR
+		SERVICE_BEGIN,	/* sent when service beginning detected */
+		SERVICE,		/* sent when service has successfully ended */
+		SERVICE_CANCEL,	/* sent when a service is being cancelled */
+		CURSING,		/* sent when a deity sends a curse */
+		BLESSING,		/* sent when a deity sends a blessing */
+		REBUKE,			/* sent when a deity rebukes a worshipper */
+		DISAPPOINTED	/* sent when a deity is disappointed in a worshipper */
+	}
+
+	/**
+	 * The types of rituals that deities will watch for from their
+	 * worshippers and clerics.
+	 *
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public enum RitualType
+	{
+		WORSHIP_BLESSING, /* how worshippers receive blessings */
+		WORSHIP_CURSE,    /* how worshippers receive curses */
+		CLERIC_BLESSING,  /* how clerics receive blessings */
+		CLERIC_CURSE,     /* how clerics receive curses */
+		SERVICE,		  /* cleric services */
+		POWER   		  /* cleric power ritual */
 	}
 
 	/**
@@ -310,8 +334,7 @@ public interface Deity extends MOB
 	 * @see Deity#fetchBlessing(String)
 	 * @see Deity#setClericRitual(String)
 	 * @see Deity#getClericTriggerDesc()
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @return the coded ritual command string
 	 */
 	public String getClericRitual();
@@ -327,8 +350,7 @@ public interface Deity extends MOB
 	 * @see Deity#fetchBlessing(String)
 	 * @see Deity#getClericRitual()
 	 * @see Deity#getClericTriggerDesc()
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @param ritual the coded ritual command string
 	 */
 	public void setClericRitual(String ritual);
@@ -340,8 +362,7 @@ public interface Deity extends MOB
 	 * @see Deity#fetchBlessing(String)
 	 * @see Deity#getClericRitual()
 	 * @see Deity#setClericRitual(String)
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @return a description of the blessing ritual for clerics
 	 */
 	public String getClericTriggerDesc();
@@ -356,8 +377,7 @@ public interface Deity extends MOB
 	 * @see Deity#fetchBlessing(String)
 	 * @see Deity#setServiceRitual(String)
 	 * @see Deity#getServiceTriggerDesc()
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @return the coded ritual command string
 	 */
 	public String getServiceRitual();
@@ -372,8 +392,7 @@ public interface Deity extends MOB
 	 * @see Deity#fetchBlessing(String)
 	 * @see Deity#getServiceRitual()
 	 * @see Deity#getServiceTriggerDesc()
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @param ritual the coded ritual command string
 	 */
 	public void setServiceRitual(String ritual);
@@ -385,8 +404,7 @@ public interface Deity extends MOB
 	 * @see Deity#fetchBlessing(String)
 	 * @see Deity#getServiceRitual()
 	 * @see Deity#setServiceRitual(String)
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @return a description of the service ritual for clerics
 	 */
 	public String getServiceTriggerDesc();
@@ -402,8 +420,7 @@ public interface Deity extends MOB
 	 * @see Deity#fetchBlessing(String)
 	 * @see Deity#setWorshipRitual(String)
 	 * @see Deity#getWorshipTriggerDesc()
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @return the coded ritual command string
 	 */
 	public String getWorshipRitual();
@@ -419,8 +436,7 @@ public interface Deity extends MOB
 	 * @see Deity#fetchBlessing(String)
 	 * @see Deity#getWorshipRitual()
 	 * @see Deity#getWorshipTriggerDesc()
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @param ritual the coded ritual command string
 	 */
 	public void setWorshipRitual(String ritual);
@@ -432,8 +448,7 @@ public interface Deity extends MOB
 	 * @see Deity#fetchBlessing(String)
 	 * @see Deity#getWorshipRitual()
 	 * @see Deity#setWorshipRitual(String)
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @return a description of the blessing ritual for worshippers
 	 */
 	public String getWorshipTriggerDesc();
@@ -562,8 +577,7 @@ public interface Deity extends MOB
 	 * @see Deity#fetchCurse(String)
 	 * @see Deity#setClericSin(String)
 	 * @see Deity#getClericSinDesc()
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @return the coded ritual command string
 	 */
 	public String getClericSin();
@@ -579,8 +593,7 @@ public interface Deity extends MOB
 	 * @see Deity#fetchCurse(String)
 	 * @see Deity#getClericSin()
 	 * @see Deity#getClericSinDesc()
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @param ritual the coded ritual command string
 	 */
 	public void setClericSin(String ritual);
@@ -592,8 +605,7 @@ public interface Deity extends MOB
 	 * @see Deity#fetchCurse(String)
 	 * @see Deity#getClericSin()
 	 * @see Deity#setClericSin(String)
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @return a description of the cursing ritual for clerics
 	 */
 	public String getClericSinDesc();
@@ -609,8 +621,7 @@ public interface Deity extends MOB
 	 * @see Deity#fetchCurse(String)
 	 * @see Deity#setWorshipSin(String)
 	 * @see Deity#getWorshipSinDesc()
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @return the coded ritual command string
 	 */
 	public String getWorshipSin();
@@ -626,8 +637,7 @@ public interface Deity extends MOB
 	 * @see Deity#fetchCurse(String)
 	 * @see Deity#getWorshipSin()
 	 * @see Deity#getWorshipSinDesc()
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @param ritual the coded ritual command string
 	 */
 	public void setWorshipSin(String ritual);
@@ -639,8 +649,7 @@ public interface Deity extends MOB
 	 * @see Deity#fetchCurse(String)
 	 * @see Deity#getWorshipSin()
 	 * @see Deity#setWorshipSin(String)
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @return a description of the cursing ritual for worshippers
 	 */
 	public String getWorshipSinDesc();
@@ -723,8 +732,7 @@ public interface Deity extends MOB
 	 * @see Deity#fetchPower(String)
 	 * @see Deity#setClericPowerup(String)
 	 * @see Deity#getClericPowerupDesc()
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @return the coded ritual command string
 	 */
 	public String getClericPowerup();
@@ -740,8 +748,7 @@ public interface Deity extends MOB
 	 * @see Deity#fetchPower(String)
 	 * @see Deity#getClericPowerup()
 	 * @see Deity#getClericPowerupDesc()
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @param ritual the coded ritual command string
 	 */
 	public void setClericPowerup(String ritual);
@@ -753,10 +760,8 @@ public interface Deity extends MOB
 	 * @see Deity#fetchPower(String)
 	 * @see Deity#getClericPowerup()
 	 * @see Deity#setClericPowerup(String)
-	 * @see Deity.RitualTrigger
-	 * @see Deity.RitualConnector
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.Triggerer
 	 * @return a description of the power up ritual for clerics
 	 */
 	public String getClericPowerupDesc();
-
 }

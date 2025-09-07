@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -99,6 +99,8 @@ public class Prop_Socials extends Property
 			final String targetSee=CMParms.getParmStr(social, "TARGSEE", CMParms.getParmStr(social, "TARGETSEE", CMParms.getParmStr(social, "TGTSEE", "")));
 			final String seeNoTargetSee=CMParms.getParmStr(social, "NOTARGSEE", CMParms.getParmStr(social, "NOTARGETSEE", CMParms.getParmStr(social, "NOTGTSEE", "")));
 			final String mspFile=CMParms.getParmStr(social, "MSPFILE", "");
+			final String zapMask=CMParms.getParmStr(social, "ZAPMASK", "");
+			final String flagStr=CMParms.getParmStr(social, "FLAGSTR", "");
 			if(name.length()==0)
 			{
 				if(!forgive)
@@ -134,7 +136,9 @@ public class Prop_Socials extends Property
 				tabLine.append(othersSee).append("\t");
 				tabLine.append(targetSee).append("\t");
 				tabLine.append(seeNoTargetSee).append("\t");
-				tabLine.append(mspFile);
+				tabLine.append(mspFile).append("\t");
+				tabLine.append(zapMask).append("\t");
+				tabLine.append(flagStr).append("\t");
 				lines.add(tabLine.toString());
 			}
 		}

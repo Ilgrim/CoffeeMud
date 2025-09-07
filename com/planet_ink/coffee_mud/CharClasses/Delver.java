@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -144,6 +144,7 @@ public class Delver extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Skill_WildernessLore",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Chant_SummonFungus",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Chant_SummonPool",50,true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Mycology",0,false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Druidic",50,true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Chant_ReadRunes",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"ScrollScribing",0,false);
@@ -160,6 +161,7 @@ public class Delver extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Skill_ShardUse",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Chant_StrikeBarren",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Chant_DeepDarkness",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),5,"Chant_InspectShard",0,false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Chant_Mold",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),6,"Chant_MagneticField",false);
@@ -178,6 +180,7 @@ public class Delver extends StdCharClass
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Chant_CrystalGrowth",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),10,"Druid_GolemForm",false);
 
+		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Shrooming",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Chant_CaveIn",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Chant_PlantPass",true);
 
@@ -321,6 +324,7 @@ public class Delver extends StdCharClass
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}
@@ -348,7 +352,11 @@ public class Delver extends StdCharClass
 				if((A!=null)
 				&&((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)
 				&&(!CMLib.ableMapper().getDefaultGain(ID(),true,A.ID())))
-					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),isBorrowedClass);
+				{
+					giveMobAbility(mob,A,CMLib.ableMapper().getDefaultProficiency(ID(),true,A.ID()),
+								   CMLib.ableMapper().getDefaultParm(ID(),true,A.ID()),
+								   isBorrowedClass);
+				}
 			}
 		}
 	}

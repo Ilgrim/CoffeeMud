@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ public class Thief_Bind extends ThiefSkill
 	@Override
 	public String displayText()
 	{
-		return L("(Bound by "+ropeName+")");
+		return L("(Bound by @x1)",ropeName);
 	}
 
 	@Override
@@ -117,10 +117,12 @@ public class Thief_Bind extends ThiefSkill
 		return affected instanceof Room;
 	}
 
-	public int			amountRemaining	= 500;
-	public String		ropeName		= "the ropes";
+	protected static final String DEFAULT_THE_ROPES = CMLib.lang().L("the ropes");
+
+	public int			amountRemaining	= 1000;
+	public String		ropeName		= DEFAULT_THE_ROPES;
 	protected boolean	sit				= false;
-	protected boolean	allowBreak		= false;
+	protected boolean	allowBreak		= true;
 
 	@Override
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
@@ -167,6 +169,20 @@ public class Thief_Bind extends ThiefSkill
 					msg.source().tell(L("You are constricted by @x1 and can't move!",ropeName.toLowerCase()));
 				return false;
 			}
+			else
+			if(affected instanceof MOB)
+			{
+				final MOB mob=(MOB)affected;
+				if((mob!=null)
+				&&(mob.isMonster())
+				&&(!mob.isInCombat())
+				&&(mob.amFollowing()==null)  // means they aren't naturally struggling
+				&&(CMLib.flags().isAliveAwakeMobile((MOB)affected, true))
+				&&((invoker()==null)||(invoker()==affected)||(invoker().location()!=mob.location()))
+				&&(mob!=null)
+				&&(mob.location().numPCInhabitants()==0))
+					unInvoke();
+			}
 		}
 		return super.okMessage(myHost,msg);
 	}
@@ -186,7 +202,7 @@ public class Thief_Bind extends ThiefSkill
 		super.setMiscText(newText);
 		if(newText.length()>0)
 		{
-			ropeName=CMParms.getParmStr(newText, "ROPENAME", "the ropes");
+			ropeName=CMParms.getParmStr(newText, "ROPENAME", DEFAULT_THE_ROPES);
 			amountRemaining=CMParms.getParmInt(newText, "AMOUNT", 500);
 			sit=CMParms.getParmBool(newText, "FORCESIT", false);
 			allowBreak=CMParms.getParmBool(newText, "ALLOWBREAK", true);
@@ -252,7 +268,7 @@ public class Thief_Bind extends ThiefSkill
 				}
 				return false;
 			}
-			mob.tell(L("@x1 doesn't appear to be bound with "+ropeName+".",target.name(mob)));
+			mob.tell(L("@x1 doesn't appear to be bound with @x2.",target.name(mob),ropeName));
 			return false;
 		}
 
@@ -287,11 +303,15 @@ public class Thief_Bind extends ThiefSkill
 						double prof=0.0;
 						final Ability A=mob.fetchAbility("Specialization_Ranged");
 						if(A!=null)
-							prof=CMath.div(A.proficiency(),20);
-						amountRemaining=(mob.charStats().getStat(CharStats.STAT_STRENGTH)+mob.phyStats().level()+(2*getXLEVELLevel(mob)))*((int)Math.round(5.0+prof));
+							prof=CMath.div(A.proficiency(),10);
+						amountRemaining=(mob.charStats().getStat(CharStats.STAT_STRENGTH)
+											+(mob.phyStats().level())
+											+(2*getXLEVELLevel(mob)))
+										*((int)Math.round(5.0+prof));
 					}
 					else
 						amountRemaining=(adjustedLevel(mob,asLevel))*25;
+					amountRemaining=(int)Math.round(CMath.mul(amountRemaining, target.basePhyStats().speed()));
 					if((target.location()==mob.location())||(auto))
 						success=maliciousAffect(mob,target,asLevel,Ability.TICKS_FOREVER,-1)!=null;
 				}

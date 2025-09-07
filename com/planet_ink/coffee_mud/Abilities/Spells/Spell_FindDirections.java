@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -68,6 +68,12 @@ public class Spell_FindDirections extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	public int classificationCode()
 	{
 		return Ability.ACODE_SPELL|Ability.DOMAIN_DIVINATION;
@@ -110,7 +116,7 @@ public class Spell_FindDirections extends Spell
 
 		if(A==null)
 		{
-			mob.tell(L("You know of nowhere called \"@x1\".",CMParms.combine(commands)));
+			commonTelL(mob,"You know of nowhere called \"@x1\".",CMParms.combine(commands));
 			return false;
 		}
 
@@ -120,11 +126,12 @@ public class Spell_FindDirections extends Spell
 		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,targetR,this,somanticCastCode(mob,targetR,auto),auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> hands around, pointing towards '@x1'.^?",A.name()));
+			final CMMsg msg=CMClass.getMsg(mob,targetR,this,somaticCastCode(mob,targetR,auto),auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> hands around, pointing towards '@x1'.^?",A.name()));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
-				mob.tell(L("The directions are taking shape in your mind: \n\r@x1",CMLib.tracking().getTrailToDescription(targetR, new Vector<Room>(), A.Name(), false, false, 100, null,1)));
+				commonTelL(mob,"The directions are taking shape in your mind: \n\r@x1",
+						CMLib.tracking().getTrailToDescription(targetR, new Vector<Room>(), A.Name(), null, 100, null,", ",1));
 			}
 		}
 		else

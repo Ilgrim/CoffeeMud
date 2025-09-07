@@ -2,7 +2,6 @@ package com.planet_ink.coffee_mud.Areas;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
-import com.planet_ink.coffee_mud.core.interfaces.Places;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.Area.State;
@@ -23,7 +22,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -37,7 +36,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
+public class StdBoardableShip implements Area, Boardable, PrivateProperty
 {
 	@Override
 	public String ID()
@@ -51,7 +50,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	protected String		currency		= "";
 	private long			expirationDate  = 0;
 	protected boolean   	amDestroyed 	= false;
-	protected String		name			= "a sailing ship";
+	protected String		_name			= "a sailing ship";
 	protected Room			savedDock   	= null;
 	protected String		displayText 	= "";
 	protected String		description 	= "";
@@ -63,11 +62,13 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	protected PhyStats  	phyStats		= (PhyStats)CMClass.getCommon("DefaultPhyStats");
 	protected PhyStats  	basePhyStats	= (PhyStats)CMClass.getCommon("DefaultPhyStats");
 	protected Area 			me			 	= this;
-	protected BoardableShip	shipItem		= null;
+	protected Boardable		shipItem		= null;
 
+	protected final AreaIStats 			istats 			= (AreaIStats)CMClass.getCommon("DefaultAreaIStats");
 	protected SVector<Ability>			affects			= new SVector<Ability>(1);
 	protected SVector<Behavior> 		behaviors		= new SVector<Behavior>(1);
 	protected SVector<ScriptingEngine>	scripts			= new SVector<ScriptingEngine>(1);
+	protected SVector<String>			subOps			= new SVector<String>(1);
 	protected SLinkedList<Area>			parents			= new SLinkedList<Area>();
 	protected STreeMap<String,String>	blurbFlags		= new STreeMap<String,String>();
 	protected List<Pair<Room,Integer>>	shipExitCache	= new SLinkedList<Pair<Room,Integer>>();
@@ -145,8 +146,8 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	@Override
 	public void setDockableItem(final Item dockableItem)
 	{
-		if(dockableItem instanceof BoardableShip)
-			shipItem=(BoardableShip)dockableItem;
+		if(dockableItem instanceof Boardable)
+			shipItem=(Boardable)dockableItem;
 	}
 
 	@Override
@@ -157,13 +158,36 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	@Override
 	public void setCurrency(final String newCurrency)
 	{
-		currency = newCurrency;
+		if ((currency != null) && (currency.length() > 0))
+		{
+			CMLib.beanCounter().unloadCurrencySet(currency);
+			currency = newCurrency;
+		}
+		else
+		{
+			currency = newCurrency;
+			CMLib.beanCounter().getCurrencySet(currency);
+		}
 	}
 
 	@Override
-	public String getCurrency()
+	public String genericName()
+	{
+		return L("the inside");
+	}
+
+	@Override
+	public String getRawCurrency()
 	{
 		return currency;
+	}
+
+	@Override
+	public String getFinalCurrency()
+	{
+		if((currency!=null)&&(currency.length()>0))
+			return currency;
+		return "";
 	}
 
 	@Override
@@ -193,7 +217,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	}
 
 	@Override
-	public Item getShipItem()
+	public Item getBoardableItem()
 	{
 		return (shipItem instanceof Item) ? (Item)shipItem : null;
 	}
@@ -217,6 +241,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	public void destroy()
 	{
 		CMLib.map().registerWorldObjectDestroyed(this,null,this);
+		CMLib.threads().deleteTick(this, -1);
 		phyStats=(PhyStats)CMClass.getCommon("DefaultPhyStats");
 		basePhyStats=phyStats;
 		miscText=null;
@@ -227,6 +252,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 		author=null;
 		currency=null;
 		parents=new SLinkedList<Area>();
+		subOps=new SVector<String>(1);
 		amDestroyed=true;
 	}
 
@@ -278,24 +304,24 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	{
 		if(phyStats().newName()!=null)
 			return phyStats().newName();
-		return name;
+		return _name;
 	}
 
 	@Override
 	public void setName(final String newName)
 	{
-		name=newName;
+		_name=newName;
 		CMLib.map().renamedArea(this);
 	}
 
 	@Override
 	public String Name()
 	{
-		return name;
+		return _name;
 	}
 
 	@Override
-	public void renameShip(final String newName)
+	public void rename(final String newName)
 	{
 		final String oldName=Name();
 		setName(newName);
@@ -331,13 +357,13 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	}
 
 	@Override
-	public Area getShipArea()
+	public Area getArea()
 	{
 		return this;
 	}
 
 	@Override
-	public void setShipArea(final String xml)
+	public void setArea(final String xml)
 	{
 	}
 
@@ -432,28 +458,48 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	@Override
 	public boolean amISubOp(final String username)
 	{
+		for (int s = subOps.size() - 1; s >= 0; s--)
+		{
+			if (subOps.elementAt(s).equalsIgnoreCase(username))
+				return true;
+		}
 		return false;
 	}
 
 	@Override
 	public String getSubOpList()
 	{
-		return "";
+		final StringBuffer list = new StringBuffer("");
+		for (int s = subOps.size() - 1; s >= 0; s--)
+		{
+			final String str = subOps.elementAt(s);
+			list.append(str);
+			list.append(";");
+		}
+		return list.toString();
 	}
 
 	@Override
 	public void setSubOpList(final String list)
 	{
+		subOps.clear();
+		subOps.addAll(CMParms.parseSemicolons(list, true));
 	}
 
 	@Override
 	public void addSubOp(final String username)
 	{
+		subOps.addElement(username);
 	}
 
 	@Override
 	public void delSubOp(final String username)
 	{
+		for (int s = subOps.size() - 1; s >= 0; s--)
+		{
+			if (subOps.elementAt(s).equalsIgnoreCase(username))
+				subOps.removeElementAt(s);
+		}
 	}
 
 	@Override
@@ -461,7 +507,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	{
 		try
 		{
-			return this.getClass().newInstance();
+			return this.getClass().getDeclaredConstructor().newInstance();
 		}
 		catch(final Exception e)
 		{
@@ -565,7 +611,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this,true);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,true);
 	}
 
 	@Override
@@ -573,7 +619,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	{
 		miscText="";
 		if(newMiscText.trim().length()>0)
-			CMLib.coffeeMaker().setPropertiesStr(this,newMiscText,true);
+			CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this,newMiscText,true);
 	}
 
 	@Override
@@ -640,7 +686,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 
 		if(!msg.source().isMonster())
 		{
-			final Item areaItem=getShipItem();
+			final Item areaItem=getBoardableItem();
 			if(areaItem != null)
 			{
 				final ItemPossessor possessor = areaItem.owner();
@@ -714,7 +760,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 		{
 			final Room R=msg.source().location();
 			if((R!=null)
-			&&(R.getArea()==this.getShipArea()))
+			&&(R.getArea()==this.getArea()))
 			{
 				if(!CMLib.law().robberyCheck(this,msg, false))
 					return false;
@@ -795,25 +841,6 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 		blurbFlags.remove(flagOnly);
 	}
 
-	protected void lookOverBow(final Room R, final CMMsg msg)
-	{
-		msg.addTrailerRunnable(new Runnable()
-		{
-			@Override
-			public void run()
-			{
-				if(CMLib.flags().canBeSeenBy(R, msg.source()) && (msg.source().session()!=null))
-					msg.source().session().print(L("^HOff the bow you see: ^N"));
-				final CMMsg msg2=CMClass.getMsg(msg.source(), R, msg.tool(), msg.sourceCode(), null, msg.targetCode(), null, msg.othersCode(), null);
-				if((msg.source().isAttributeSet(MOB.Attrib.AUTOEXITS))
-				&&(CMProps.getIntVar(CMProps.Int.EXVIEW)!=CMProps.Int.EXVIEW_PARAGRAPH))
-					msg2.addTrailerMsg(CMClass.getMsg(msg.source(),R,null,CMMsg.MSG_LOOK_EXITS,null));
-				if(R.okMessage(msg.source(), msg))
-					R.send(msg.source(),msg2);
-			}
-		});
-	}
-
 	@Override
 	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
@@ -857,6 +884,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 			case CMMsg.TYP_DROP:
 				if(msg.target() instanceof Item)
 				{
+					final StdBoardableShip me=this;
 					final Item I=(Item)msg.target();
 					msg.addTrailerRunnable(new Runnable()
 					{
@@ -864,37 +892,17 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 						public void run()
 						{
 							I.setExpirationDate(0);
+							if((I.phyStats().rejuv()!=PhyStats.NO_REJUV)
+							&&(I.phyStats().rejuv()!=0)
+							&&(me.getOwnerName().length()>0)
+							&&(msg.source().location()!=null)
+							&&(me == msg.source().location().getArea()))
+							{
+								I.basePhyStats().setRejuv(PhyStats.NO_REJUV);
+								I.phyStats().setRejuv(PhyStats.NO_REJUV);
+							}
 						}
 					});
-				}
-				break;
-			case CMMsg.TYP_LOOK:
-			case CMMsg.TYP_EXAMINE:
-				if((msg.target() instanceof Exit)&&(((Exit)msg.target()).isOpen()))
-				{
-					final Room hereR=msg.source().location();
-					if((hereR!=null)
-					&&((hereR.domainType()&Room.INDOORS)==0)
-					&&(hereR.getArea()==this.getShipArea()))
-					{
-						final Room lookingR=hereR.getRoomInDir(CMLib.map().getExitDir(hereR, (Exit)msg.target()));
-						final Room R=CMLib.map().roomLocation(this.shipItem);
-						if(lookingR==R)
-							lookOverBow(R,msg);
-					}
-				}
-				else
-				if((msg.target() instanceof Room)
-				&&((((Room)msg.target()).domainType()&Room.INDOORS)==0)
-				&&(((Room)msg.target()).getArea()==this))
-				{
-					if(msg.targetMinor()==CMMsg.TYP_EXAMINE)
-					{
-						final Room R=CMLib.map().roomLocation(this.shipItem);
-						if((R!=null)
-						&&(R.getArea()!=this.getShipArea()))
-							lookOverBow(R,msg);
-					}
 				}
 				break;
 			}
@@ -905,6 +913,22 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 			case CMMsg.TYP_COMMAND:
 				this.shipItem.executeMsg(myHost, msg);
 				break;
+			case CMMsg.TYP_LIFE:
+				if((msg.source()!=null)
+				&&(CMProps.isState(CMProps.HostState.RUNNING))
+				&&(!CMProps.isState(CMProps.HostState.SHUTTINGDOWN))
+				&&(msg.source().isMonster())
+				&&(msg.source().getStartRoom()!=null)
+				&&(msg.source().getStartRoom()==msg.source().location())
+				&&(msg.source().basePhyStats().rejuv()>0)
+				&&(msg.source().basePhyStats().rejuv()<PhyStats.NO_REJUV)
+				&&(this.shipItem instanceof SiegableItem)
+				&&((SiegableItem)this.shipItem).amDead())
+				{
+					// this might be a bad idea?
+					msg.source().destroy();
+				}
+				//$FALL-THROUGH$
 			default:
 			{
 				final Room R=msg.source().location();
@@ -1007,6 +1031,15 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 		if(disposition>0)
 			affectableStats.setDisposition(affectableStats.disposition()|disposition);
 		affectableStats.setWeight(affectableStats.weight()+phyStats().weight());
+		eachEffect(new EachApplicable<Ability>()
+		{
+			@Override
+			public final void apply(final Ability A)
+			{
+				if (A.bubbleAffect())
+					A.affectPhyStats(affected, affectableStats);
+			}
+		});
 	}
 
 	@Override
@@ -1108,7 +1141,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 		{
 			return affects.elementAt(index);
 		}
-		catch (final java.lang.ArrayIndexOutOfBoundsException x)
+		catch (final IndexOutOfBoundsException x)
 		{
 		}
 		return null;
@@ -1384,9 +1417,22 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	}
 
 	@Override
-	public int[] getAreaIStats()
+	public int getIStat(final Area.Stats stat)
 	{
-		return new int[Area.Stats.values().length];
+		return getAreaIStats().getStat(stat);
+	}
+
+	@Override
+	public boolean isAreaStatsLoaded()
+	{
+		return getAreaIStats().isFinished();
+	}
+
+	protected AreaIStats getAreaIStats()
+	{
+		if(!this.istats.isFinished())
+			istats.build(this);
+		return istats;
 	}
 
 	@Override
@@ -1413,7 +1459,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 		{
 			return behaviors.elementAt(index);
 		}
-		catch(final java.lang.ArrayIndexOutOfBoundsException x)
+		catch(final IndexOutOfBoundsException x)
 		{
 		}
 		return null;
@@ -1616,17 +1662,32 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 			while(start<=end)
 			{
 				final int mid=(end+start)/2;
-				final int comp=myRooms.elementAt(mid).roomID().compareToIgnoreCase(roomID);
-				if(comp==0)
-					return myRooms.elementAt(mid);
-				else
-				if(comp>0)
-					end=mid-1;
-				else
-					start=mid+1;
+				try
+				{
+					final int comp=myRooms.elementAt(mid).roomID().compareToIgnoreCase(roomID);
+					if(comp==0)
+						return myRooms.elementAt(mid);
+					else
+					if(comp>0)
+						end=mid-1;
+					else
+						start=mid+1;
+				}
+				catch(final IndexOutOfBoundsException e)
+				{
+					start=0;
+					end=myRooms.size()-1;
+				}
 			}
 		}
 		return null;
+	}
+
+	@Override
+	public boolean isRoomCached(final String roomID)
+	{
+		final Room R=getRoom(roomID); // *NOT* this.getRoom
+		return (((R!=null)&&(!R.amDestroyed()))&&(roomID!=null));
 	}
 
 	@Override
@@ -1768,6 +1829,12 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	}
 
 	@Override
+	public boolean isChildRecurse(final String named)
+	{
+		return false;
+	}
+
+	@Override
 	public boolean isChild(final String named)
 	{
 		return false;
@@ -1870,6 +1937,20 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	}
 
 	@Override
+	public boolean isParentRecurse(final String named)
+	{
+		for (final Iterator<Area> a = getParentsIterator(); a.hasNext();)
+		{
+			final Area A = a.next();
+			if (A.Name().equalsIgnoreCase(named)||A.name().equalsIgnoreCase(named))
+				return true;
+			if(A.isParentRecurse(named))
+				return true;
+		}
+		return false;
+	}
+
+	@Override
 	public void addParent(final Area area)
 	{
 		if(!canParent(area))
@@ -1900,7 +1981,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	}
 
 	@Override
-	public String prejudiceFactors()
+	public String getRawPrejudiceFactors()
 	{
 		return "";
 	}
@@ -1913,7 +1994,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	public final static String[]	empty	= new String[0];
 
 	@Override
-	public String[] itemPricingAdjustments()
+	public String[] getRawItemPricingAdjustments()
 	{
 		return empty;
 	}
@@ -1924,7 +2005,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	}
 
 	@Override
-	public String ignoreMask()
+	public String getRawIgnoreMask()
 	{
 		return "";
 	}
@@ -1935,7 +2016,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	}
 
 	@Override
-	public String budget()
+	public String getRawBbudget()
 	{
 		return "";
 	}
@@ -1946,7 +2027,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	}
 
 	@Override
-	public String devalueRate()
+	public String getRawDevalueRate()
 	{
 		return "";
 	}
@@ -1957,7 +2038,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	}
 
 	@Override
-	public int invResetRate()
+	public int getRawInvResetRate()
 	{
 		return 0;
 	}
@@ -1968,37 +2049,37 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	}
 
 	@Override
-	public int finalInvResetRate()
+	public int getFinalInvResetRate()
 	{
 		return 0;
 	}
 
 	@Override
-	public String finalPrejudiceFactors()
+	public String getFinalPrejudiceFactors()
 	{
 		return "";
 	}
 
 	@Override
-	public String finalIgnoreMask()
+	public String getFinalIgnoreMask()
 	{
 		return "";
 	}
 
 	@Override
-	public String[] finalItemPricingAdjustments()
+	public String[] getFinalItemPricingAdjustments()
 	{
 		return empty;
 	}
 
 	@Override
-	public Pair<Long, TimePeriod> finalBudget()
+	public Pair<Long, TimePeriod> getFinalBudget()
 	{
 		return null;
 	}
 
 	@Override
-	public double[] finalDevalueRate()
+	public double[] getFinalDevalueRate()
 	{
 		return null;
 	}
@@ -2006,7 +2087,7 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	@Override
 	public String L(final String str, final String... xs)
 	{
-		return CMLib.lang().fullSessionTranslation(str, xs);
+		return CMLib.lang().fullSessionTranslation(getClass(), str, xs);
 	}
 
 	@Override
@@ -2142,46 +2223,69 @@ public class StdBoardableShip implements Area, BoardableShip, PrivateProperty
 	@Override
 	public int getPrice()
 	{
-		if( getShipItem() instanceof PrivateProperty)
-			return ((PrivateProperty)getShipItem()).getPrice();
+		if( getBoardableItem() instanceof PrivateProperty)
+			return ((PrivateProperty)getBoardableItem()).getPrice();
 		return 0;
 	}
 
 	@Override
 	public void setPrice(final int price)
 	{
-		if( getShipItem() instanceof PrivateProperty)
-			((PrivateProperty)getShipItem()).setPrice(price);
+		if( getBoardableItem() instanceof PrivateProperty)
+			((PrivateProperty)getBoardableItem()).setPrice(price);
 	}
 
 	@Override
 	public String getOwnerName()
 	{
-		if( getShipItem() instanceof PrivateProperty)
-			return ((PrivateProperty)getShipItem()).getOwnerName();
+		if( getBoardableItem() instanceof PrivateProperty)
+			return ((PrivateProperty)getBoardableItem()).getOwnerName();
 		return "";
 	}
 
 	@Override
 	public void setOwnerName(final String owner)
 	{
-		if( getShipItem() instanceof PrivateProperty)
-			((PrivateProperty)getShipItem()).setOwnerName(owner);
+		if( getBoardableItem() instanceof PrivateProperty)
+			((PrivateProperty)getBoardableItem()).setOwnerName(owner);
 	}
 
 	@Override
-	public CMObject getOwnerObject()
+	public boolean isProperlyOwned()
 	{
-		if( getShipItem() instanceof PrivateProperty)
-			return ((PrivateProperty)getShipItem()).getOwnerObject();
-		return null;
+		if( getBoardableItem() instanceof PrivateProperty)
+			return ((PrivateProperty)getBoardableItem()).isProperlyOwned();
+		return false;
 	}
 
 	@Override
 	public String getTitleID()
 	{
-		if( getShipItem() instanceof PrivateProperty)
-			return ((PrivateProperty)getShipItem()).getTitleID();
+		if( getBoardableItem() instanceof PrivateProperty)
+			return ((PrivateProperty)getBoardableItem()).getTitleID();
 		return null;
+	}
+
+	@Override
+	public int getPiety(final String deityName)
+	{
+		return 0;
+	}
+
+	@Override
+	public Race getAreaRace()
+	{
+		final AreaIStats stats = this.getAreaIStats();
+		if(stats.isFinished())
+			return stats.getCommonRace();
+		return null;
+	}
+
+	@Override
+	public boolean securityCheck(final MOB mob)
+	{
+		if( getBoardableItem() instanceof Boardable)
+			return ((Boardable)getBoardableItem()).securityCheck(mob);
+		return true;
 	}
 }

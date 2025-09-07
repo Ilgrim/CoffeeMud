@@ -49,6 +49,21 @@
 #be started.
 #$ANNOUNCER_NAME=$NAME
 #
+#!QUESTMAKER_PAGE Announcer greetings/instructions
+#Here's where you specify any special text said by the announcer regarding
+#your quest
+#
+#Announcer greeting: 
+#Specify what the announcer says to people when they enter the room about their
+#quest.
+#$QUEST_NOTIFYSTRING=$LONG_STRING=I need someone to go protect someone.
+#
+#Announcer instructions: 
+#Specify what the announcer says to people who have accepted the quest.  This 
+#should give some details about what is to be done.  You can leave this blank
+#if you like.
+#$QUEST_INSTRUCTIONSSTRING=($LONG_STRING)=Go protect someone from someone else.
+#
 #!QUESTMAKER_PAGE Protected mob and location
 #Here's where you specify the mob to be protected, and where they should be.
 #
@@ -81,21 +96,6 @@
 #Protection success:
 #Select what the protected mob will say when a player defeats all attackers.
 #$QUEST_WINSPEECH_TEXT=($LONG_STRING)=Thanks!
-#
-#!QUESTMAKER_PAGE Announcer greetings/instructions
-#Here's where you specify any special text said by the announcer regarding
-#your quest
-#
-#Announcer greeting: 
-#Specify what the announcer says to people when they enter the room about their
-#quest.
-#$QUEST_NOTIFYSTRING=$LONG_STRING=I need someone to go protect someone.
-#
-#Announcer instructions: 
-#Specify what the announcer says to people who have accepted the quest.  This 
-#should give some details about what is to be done.  You can leave this blank
-#if you like.
-#$QUEST_INSTRUCTIONSSTRING=($LONG_STRING)=Go protect someone from someone else.
 #
 #!QUESTMAKER_PAGE Quest Dangers
 #You may optionally have mobs that appear during the quest in the same room as the
@@ -148,11 +148,16 @@
 #or 'prev' to require a previous quest, if multiple found.
 #$MULTIPLE=$CHOOSE=YES,NO,PREV
 #
+#$CATEGORY=($HIDDEN)=
+#
 #!QUESTMAKER_END_SCRIPT Normal Protect #2
 
 set name $QUEST_ID
 set display $QUEST_NAME
 set author $#AUTHOR
+set questtype normal_protect2
+set category $CATEGORY
+set instructions $QUEST_INSTRUCTIONSSTRING
 
 set wait 1
 set interval 1
@@ -178,10 +183,20 @@ set duration 0
 <FILE><NAME>$QUEST_ID_announcer.script</NAME>
 <DATA>
 ONCE_PROG 100
+	MPQSET * INSTRUCTIONS $i in $a wants you to '$QUEST_INSTRUCTIONSSTRING'
 	if EVAL('$QUEST_ANNOUNCECHANNEL' != '')
 		$QUEST_ANNOUNCECHANNEL $QUEST_NOTIFYSTRING -- Come see me for more information.
 	endif
 ~
+
+SPEECH_PROG quest quests quest? quests?
+	if ISLIKE($n '$QUEST_CRITERIA') and ISPC($n) and ( EVAL('$MULTIPLE' != 'PREV') or QUESTWINNER($n previous) ) and !QUESTSCRIPTED($n *)
+		if EVAL('$MULTIPLE' == 'YES') OR !QUESTWINNER($n *)
+			sayto "$n" $QUEST_NOTIFYSTRING -- say '^yi accept^?' or '^yi accept $QUEST_NAME^?' to take on this quest.
+		endif
+	endif
+~
+
 GREET_PROG 100
 	if ISLIKE($n '$QUEST_CRITERIA') and ISPC($n) and ( EVAL('$MULTIPLE' != 'PREV') or QUESTWINNER($n previous) ) and !QUESTSCRIPTED($n *)
 		if EVAL('$MULTIPLE' == 'YES') OR !QUESTWINNER($n *)
@@ -190,27 +205,36 @@ GREET_PROG 100
 	endif
 ~
 
-SPEECH_PROG p i accept $QUEST_NAME
-	if ISLIKE($n '$QUEST_CRITERIA') and ISPC($n) and ( EVAL('$MULTIPLE' != 'PREV') or QUESTWINNER($n previous) ) and !QUESTSCRIPTED($n *)
-		if  EVAL('$MULTIPLE' == 'YES') OR !QUESTWINNER($n *)
-			sayto "$n" $QUEST_INSTRUCTIONSSTRING
-			mpscript $n INDIVIDUAL SAVABLE STATIC=LOAD=$QUEST_ID_playertrack.script
-			mpqset * STATISTICS ACCEPTED
-			mptransfer $n $n
+FUNCTION_PROG CAN_ACCEPT
+	if ISLIKE($n '$QUEST_CRITERIA') and ISPC($n) and ( EVAL('$MULTIPLE' != 'PREV') or QUESTWINNER($n previous) )
+		if EVAL('$MULTIPLE' == 'YES') OR !QUESTWINNER($n *)
+			if !QUESTSCRIPTED($n *)
+				RETURN TRUE
+			endif
 		endif
+	endif
+	RETURN CANCEL
+~
+
+FUNCTION_PROG DO_ACCEPT
+	mpscript $n INDIVIDUAL SAVABLE STATIC=LOAD=$QUEST_ID_playertrack.script
+	mpqset * STATISTICS ACCEPTED
+	mptransfer $n $n
+~
+
+SPEECH_PROG p i accept $QUEST_NAME
+	if CALLFUNC(CAN_ACCEPT)
+		sayto "$n" $QUEST_INSTRUCTIONSSTRING
+		MPCALLFUNC DO_ACCEPT
+	endif
+~
+SPEECH_PROG p i accept
+	if CALLFUNC(CAN_ACCEPT)
+		sayto "$n" $QUEST_INSTRUCTIONSSTRING
+		MPCALLFUNC DO_ACCEPT
 	endif
 ~
 
-SPEECH_PROG p i accept
-	if ISLIKE($n '$QUEST_CRITERIA') and ISPC($n) and ( EVAL('$MULTIPLE' != 'PREV') or QUESTWINNER($n previous) ) and !QUESTSCRIPTED($n *)
-		if  EVAL('$MULTIPLE' == 'YES') OR !QUESTWINNER($n *)
-			sayto "$n" $QUEST_INSTRUCTIONSSTRING
-			mpscript $n INDIVIDUAL SAVABLE STATIC=LOAD=$QUEST_ID_playertrack.script
-			mpqset * STATISTICS ACCEPTED
-			mptransfer $n $n
-		endif
-	endif
-~
 </DATA></FILE>
 <FILE><NAME>$QUEST_ID_attacker.script</NAME>
 <DATA>
@@ -279,11 +303,13 @@ RAND_PROG 25
 	IF !isquestmobalive(1 '$QUEST_ID')
 		MPENDQUEST '$QUEST_ID'
 	else
-		if QVAR(* REMAINING == '')
-			MPENDQUEST $i
-		else
-			mpsetvar $i TIME_REMAINING $%QVAR(* REMAINING)%
-		endif
+		IF QVAR(* DURATION != '0')
+			if QVAR(* REMAINING == '')
+				MPENDQUEST $i
+			else
+				mpsetvar $i TIME_REMAINING $%QVAR(* REMAINING)%
+			endif
+		ENDIF
 	ENDIF
 ~
 

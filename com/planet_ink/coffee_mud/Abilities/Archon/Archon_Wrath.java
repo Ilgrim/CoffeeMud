@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -135,7 +135,7 @@ public class Archon_Wrath extends ArchonSkill
 					I.removeFromOwnerContainer();
 					target.location().addItem(I,ItemPossessor.Expire.Player_Drop);
 				}
-				Log.sysOut("Banish",mob.Name()+" wrathed "+target.name()+".");
+				Log.sysOut(mob.Name()+" wrathed "+target.name()+".");
 				if(announce)
 				{
 					final Command C=CMClass.getCommand("Announce");

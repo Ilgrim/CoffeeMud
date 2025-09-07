@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ public class HalfElf extends StdRace
 	}
 
 	private final String[]	culturalAbilityNames			= { "Elvish", "Fishing", "Skill_CulturalAdaptation" };
-	private final int[]		culturalAbilityProficiencies	= { 50, 50, 50 };
+	private final int[]		culturalAbilityProficiencies	= { 75, 50, 50 };
 
 	@Override
 	public String[] culturalAbilityNames()
@@ -148,6 +148,14 @@ public class HalfElf extends StdRace
 	}
 
 	@Override
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
+	{
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.setStat(CharStats.STAT_SAVE_MAGIC,affectableStats.getStat(CharStats.STAT_SAVE_MAGIC)-5);
+		affectableStats.setStat(CharStats.STAT_SAVE_JUSTICE,affectableStats.getStat(CharStats.STAT_SAVE_JUSTICE)-5);
+	}
+
+	@Override
 	public List<Item> outfit(final MOB myChar)
 	{
 		if(outfitChoices==null)
@@ -164,14 +172,17 @@ public class HalfElf extends StdRace
 			outfitChoices.add(p1);
 			final Armor s3=CMClass.getArmor("GenBelt");
 			outfitChoices.add(s3);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}
 
 	@Override
-	public Weapon myNaturalWeapon()
+	public Weapon[] getNaturalWeapons()
 	{
-		return funHumanoidWeapon();
+		if(naturalWeaponChoices.length==0)
+			naturalWeaponChoices = getHumanoidWeapons();
+		return super.getNaturalWeapons();
 	}
 
 	@Override

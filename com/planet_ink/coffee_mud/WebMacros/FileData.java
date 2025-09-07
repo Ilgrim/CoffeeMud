@@ -22,7 +22,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.core.exceptions.HTTPServerException;
 
 /*
-   Copyright 2007-2020 Bo Zimmerman
+   Copyright 2007-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -86,10 +86,23 @@ public class FileData extends StdWebMacro
 		final MOB M = Authenticate.getAuthenticatedMob(httpReq);
 		if(M==null)
 			return null;
-		final CMFile F=new CMFile(getFilename(httpReq,""),M);
-		if((!F.exists())||(!F.canRead()))
-			return null;
-		return F.raw();
+		if(httpReq.getUrlParameter("ATTACHMENT")!=null)
+		{
+			final CMFile.CMVFSFile F = CMLib.database().DBReadVFSFile(getFilename(httpReq,""));
+			if(F == null)
+				return null;
+			if(!CMath.bset(F.getMaskBits(null), CMFile.VFS_MASK_ATTACHMENT))
+				return null;
+			final Object o = F.readData();
+			return (byte[])o;
+		}
+		else
+		{
+			final CMFile F=new CMFile(getFilename(httpReq,""),M);
+			if((!F.exists())||(!F.canRead()))
+				return null;
+			return F.raw();
+		}
 	}
 
 	@Override

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ public class Hornet extends StdMOB
 	{
 		super();
 
-		username="a hornet";
+		_name="a hornet";
 		setDescription("It\\`s a small mean flying insect with a nasty stinger on its butt.");
 		setDisplayText("A hornet flits around here.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -58,7 +58,7 @@ public class Hornet extends StdMOB
 
 		baseCharStats().setStat(CharStats.STAT_INTELLIGENCE,1);
 		basePhyStats().setDisposition(PhyStats.IS_FLYING);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(1);
 		basePhyStats().setArmor(80);
 

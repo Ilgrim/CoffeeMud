@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -54,6 +54,14 @@ public class StdFood extends StdItem implements Food
 		baseGoldValue=5;
 		material=RawMaterial.RESOURCE_MEAT;
 		recoverPhyStats();
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("some food");
 	}
 
 	@Override
@@ -161,6 +169,25 @@ public class StdFood extends StdItem implements Food
 				break;
 			default:
 				break;
+			}
+		}
+		else
+		if((msg.tool()==this)
+		&&(msg.targetMinor()==CMMsg.TYP_GET)
+		&&(msg.target() instanceof Container)
+		&&(((Container)msg.target()).fetchEffect("Soiled")==null))
+		{
+			if(((!(this instanceof RawMaterial))
+				||((material()&RawMaterial.MATERIAL_MASK)==RawMaterial.MATERIAL_FLESH))
+					)
+			{
+				final Ability A=CMClass.getAbility("Soiled");
+				if(A!=null)
+				{
+					((Container)msg.target()).addEffect(A);
+					A.setMiscText("DIRTY=TRUE");
+					A.makeLongLasting();
+				}
 			}
 		}
 	}

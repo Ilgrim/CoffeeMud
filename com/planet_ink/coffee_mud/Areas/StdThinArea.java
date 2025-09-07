@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Areas;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMLib.Library;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -20,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -67,55 +68,78 @@ public class StdThinArea extends StdArea
 	}
 
 	@Override
-	public int getPercentRoomsCached()
-	{
-		final double totalRooms=getProperRoomnumbers().roomCountAllAreas();
-		if(totalRooms==0.0)
-			return 100;
-		final double currentRooms=getCachedRoomnumbers().roomCountAllAreas();
-		return (int)Math.round((currentRooms/totalRooms)*100.0);
-	}
-
-	@Override
-	public int[] getAreaIStats()
-	{
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
-			return emptyStats;
-		final int totalRooms=getProperRoomnumbers().roomCountAllAreas();
-		final int percent=getPercentRoomsCached();
-		if((totalRooms>15)&&(percent<90))
-			return emptyStats;
-		if((totalRooms>5)&&(percent<50))
-			return emptyStats;
-		if(percent<10)
-			return emptyStats;
-		return super.getAreaIStats();
-	}
-
-	@Override
 	public Room getRoom(String roomID)
 	{
+		final int grid=(roomID==null)?0:roomID.lastIndexOf("#(");
+		if((grid>1)&&(roomID!=null))
+			roomID = roomID.substring(0,grid);
 		if(!isRoom(roomID))
 			return null;
-		Room R=super.getRoom(roomID);
+		Room R=super.getRoomBase(roomID);
 		if(((R==null)||(R.amDestroyed()))&&(roomID!=null))
 		{
-			if(roomID.toUpperCase().startsWith(Name().toUpperCase()+"#"))
+			if((roomID.length()>Name().length())
+			&&(roomID.charAt(Name().length())=='#')
+			&&(!roomID.startsWith(Name()))
+			&&(roomID.toUpperCase().startsWith(Name().toUpperCase())))
 				roomID=Name()+roomID.substring(Name().length()); // for case sensitive situations
-			R=CMLib.database().DBReadRoomObject(roomID,false);
-			if(R!=null)
+			synchronized(CMClass.getSync("SYNC"+roomID))
 			{
-				R.setArea(this);
-				addProperRoom(R);
-				CMLib.database().DBReadRoomExits(roomID,R,false);
-				CMLib.database().DBReadContent(roomID,R,true);
-				fillInAreaRoom(R);
-				R.setExpirationDate(System.currentTimeMillis()+WorldMap.ROOM_EXPIRATION_MILLIS);
+				R=super.getRoomBase(roomID);
+				if((R==null)||(R.amDestroyed()))
+				{
+					final DatabaseEngine dbe =(DatabaseEngine)CMLib.library(threadId, Library.DATABASE);
+					R=dbe.DBReadRoomObject(roomID,true, false);
+					if(R!=null)
+					{
+						R.setArea(this);
+						addProperRoom(R);
+						dbe.DBReadRoomExits(roomID,R,false);
+						dbe.DBReadContent(roomID,R,true);
+						fillInAreaRoom(R);
+						R.setExpirationDate(System.currentTimeMillis()+WorldMap.ROOM_EXPIRATION_MILLIS);
+					}
+				}
 			}
 		}
 		return R;
 	}
 
+	@Override
+	public boolean isRoomCached(final String roomID)
+	{
+		if(!isRoom(roomID))
+			return false;
+		final Room R=super.getRoom(roomID); // *NOT* this.getRoom
+		return (((R!=null)&&(!R.amDestroyed()))&&(roomID!=null));
+	}
+
+	@Override
+	public Room getRandomProperRoom()
+	{
+		if (isProperlyEmpty())
+			return null;
+		String roomID;
+		final double cn = getCachedRoomnumbers().roomCountAllAreas();
+		final double pn = getProperRoomnumbers().roomCountAllAreas();
+		if((cn > 0) && (pn > cn) && ((cn / pn) > 0.3))
+			roomID = getCachedRoomnumbers().random();
+		else
+			roomID = getProperRoomnumbers().random();
+		if ((roomID != null)
+		&& (!roomID.startsWith(Name()))
+		&& (roomID.startsWith(Name().toUpperCase())))
+			roomID = Name() + roomID.substring(Name().length());
+		// looping back through CMMap is unnecc because the roomID comes
+		// directly from getProperRoomnumbers()
+		// which means it will never be a grid sub-room.
+		final Room R = getRoom(roomID);
+		if (R == null)
+			return super.getRandomProperRoom();
+		if (R instanceof GridLocale)
+			return ((GridLocale) R).getRandomGridChild();
+		return R;
+	}
 	@Override
 	public Enumeration<Room> getProperMap()
 	{

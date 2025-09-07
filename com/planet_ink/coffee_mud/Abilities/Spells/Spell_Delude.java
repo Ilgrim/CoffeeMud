@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ public class Spell_Delude extends Spell
 		{
 			if(mob.playerStats()!=null)
 				mob.playerStats().setLastUpdated(0);
-			CMLib.factions().postFactionChange(mob,this, CMLib.factions().getAlignmentID(), previousAlignment-mob.fetchFaction(CMLib.factions().getAlignmentID()));
+			CMLib.factions().postSkillFactionChange(mob,this, CMLib.factions().getAlignmentID(), previousAlignment-mob.fetchFaction(CMLib.factions().getAlignmentID()));
 			if(mob.fetchFaction(CMLib.factions().getAlignmentID()) != previousAlignment)
 				mob.addFaction(CMLib.factions().getAlignmentID(), previousAlignment);
 			mob.tell(L("Your attitude returns to normal."));
@@ -105,7 +105,7 @@ public class Spell_Delude extends Spell
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already deluding others."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already deluding others."));
 			return false;
 		}
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
@@ -159,7 +159,7 @@ public class Spell_Delude extends Spell
 										}
 									}
 								}
-								CMLib.factions().postFactionChange(target,this, CMLib.factions().getAlignmentID(), newAlign-target.fetchFaction(CMLib.factions().getAlignmentID()));
+								CMLib.factions().postSkillFactionChange(target,this, CMLib.factions().getAlignmentID(), newAlign-target.fetchFaction(CMLib.factions().getAlignmentID()));
 								CMLib.utensils().confirmWearability(target);
 								return true;
 							case 2:
@@ -178,7 +178,7 @@ public class Spell_Delude extends Spell
 										}
 									}
 								}
-								CMLib.factions().postFactionChange(target,this, CMLib.factions().getAlignmentID(), newAlign-target.fetchFaction(CMLib.factions().getAlignmentID()));
+								CMLib.factions().postSkillFactionChange(target,this, CMLib.factions().getAlignmentID(), newAlign-target.fetchFaction(CMLib.factions().getAlignmentID()));
 								CMLib.utensils().confirmWearability(target);
 								return true;
 							}
@@ -215,7 +215,7 @@ public class Spell_Delude extends Spell
 										}
 									}
 								}
-								CMLib.factions().postFactionChange(target,this, CMLib.factions().getInclinationID(), newAlign-target.fetchFaction(CMLib.factions().getInclinationID()));
+								CMLib.factions().postSkillFactionChange(target,this, CMLib.factions().getInclinationID(), newAlign-target.fetchFaction(CMLib.factions().getInclinationID()));
 								CMLib.utensils().confirmWearability(target);
 								return true;
 							case 2:
@@ -234,7 +234,7 @@ public class Spell_Delude extends Spell
 										}
 									}
 								}
-								CMLib.factions().postFactionChange(target,this, CMLib.factions().getAlignmentID(), newAlign-target.fetchFaction(CMLib.factions().getAlignmentID()));
+								CMLib.factions().postSkillFactionChange(target,this, CMLib.factions().getAlignmentID(), newAlign-target.fetchFaction(CMLib.factions().getAlignmentID()));
 								CMLib.utensils().confirmWearability(target);
 								return true;
 							}

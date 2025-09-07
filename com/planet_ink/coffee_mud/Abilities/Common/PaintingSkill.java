@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class PaintingSkill extends CommonSkill
+public class PaintingSkill extends CommonSkill implements RecipeDriven
 {
 	@Override
 	public String ID()
@@ -52,8 +52,8 @@ public class PaintingSkill extends CommonSkill
 	}
 
 	// common recipe definition indexes
-	protected static final int	RCP_FINALNAME	= 0;
-	protected static final int	RCP_LEVEL		= 1;
+	//protected static final int	RCP_FINALNAME	= 0;
+	//protected static final int	RCP_LEVEL		= 1;
 	protected static final int	RCP_TICKS		= 2;
 	protected static final int	RCP_COLOR		= 3;
 	protected static final int	RCP_MASK		= 4;
@@ -62,6 +62,42 @@ public class PaintingSkill extends CommonSkill
 
 	protected Item found=null;
 	protected String writing="";
+
+	@Override
+	public List<List<String>> fetchRecipes()
+	{
+		return loadRecipes(getRecipeFilename());
+	}
+
+	@Override
+	public String getRecipeFormat()
+	{
+		return
+		"ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\t"
+		+ "COLOR_TERM\tCOLOR_MASK\t"
+		+"EXPERTISENUM\tKEY_VALUE_PARMS";
+	}
+
+	@Override
+	public List<String> matchingRecipeNames(final String recipeName, final boolean beLoose)
+	{
+		final List<String> matches = new Vector<String>();
+		for(final List<String> list : fetchRecipes())
+		{
+			final String name=list.get(RecipeDriven.RCP_FINALNAME);
+			if(name.equalsIgnoreCase(recipeName)
+			||(beLoose && (name.toUpperCase().indexOf(recipeName.toUpperCase())>=0)))
+				matches.add(name);
+		}
+		return matches;
+	}
+
+	@Override
+	public Pair<String,Integer> getDecodedItemNameAndLevel(final List<String> recipe)
+	{
+		return new Pair<String,Integer>(recipe.get( RecipeDriven.RCP_FINALNAME ),
+				Integer.valueOf(CMath.s_int(recipe.get( RecipeDriven.RCP_LEVEL ))));
+	}
 
 	protected String fixColor(final String name, final String colorWord)
 	{
@@ -107,7 +143,7 @@ public class PaintingSkill extends CommonSkill
 					final PaintingSkill P=(PaintingSkill)A;
 					if(!P.ID().endsWith("PaintingSkill"))
 					{
-						for(final List<String> recipe : super.loadRecipes(P.getRecipeFile()))
+						for(final List<String> recipe : super.loadRecipes(P.getRecipeFilename()))
 						{
 							if(recipe.size()>RCP_COLOR)
 							{
@@ -139,7 +175,7 @@ public class PaintingSkill extends CommonSkill
 				if(!colors.contains(C.getName2()))
 					colors.add(C.getName2().toLowerCase());
 			}
-			
+
 			Collections.sort(colors,new Comparator<String>()
 			{
 				@Override
@@ -223,9 +259,10 @@ public class PaintingSkill extends CommonSkill
 		}
 	}
 
-	protected String getRecipeFile()
+	@Override
+	public String getRecipeFilename()
 	{
-		return "paintingskill.txt";
+		return "";
 	}
 
 	protected String getColorCode(final String writing)
@@ -237,15 +274,27 @@ public class PaintingSkill extends CommonSkill
 			&&(i<writing.length()-1)
 			&&(writing.charAt(i+1)!='?'))
 			{
-				if((writing.charAt(i+1)==ColorLibrary.COLORCODE_FANSI256)
+				final char c = writing.charAt(i+1);
+				if((c==ColorLibrary.COLORCODE_FANSI256)
+				&&(i<writing.length()-8)
+				&&(writing.charAt(i+2)==ColorLibrary.COLORCODE_FANSI256))
+				{
+					if(!CMath.isHexNumber(writing.substring(i+3,i+9)))
+						colorCode=writing.substring(i+1, i+5);
+					else
+						colorCode=writing.substring(i+1, i+9);
+					break;
+				}
+				else
+				if((c==ColorLibrary.COLORCODE_FANSI256)
 				&&(i<writing.length()-1))
 				{
 					colorCode=writing.substring(i+1, i+5);
 					break;
 				}
 				else
-				if((writing.charAt(i+1)!=ColorLibrary.COLORCODE_BACKGROUND)
-				&&(writing.charAt(i+1)!=ColorLibrary.COLORCODE_BANSI256))
+				if((c!=ColorLibrary.COLORCODE_BACKGROUND)
+				&&(c!=ColorLibrary.COLORCODE_BANSI256))
 				{
 					colorCode=""+writing.charAt(i+1);
 					break;
@@ -263,15 +312,27 @@ public class PaintingSkill extends CommonSkill
 			if((desc.charAt(x)=='^')
 			&&(desc.charAt(x+1)!='?'))
 			{
-				if((desc.charAt(x+1)==ColorLibrary.COLORCODE_FANSI256)
+				final char c = desc.charAt(x+1);
+				if((c==ColorLibrary.COLORCODE_FANSI256)
+				&&(x<desc.length()-8)
+				&&(desc.charAt(x+2)==c))
+				{
+					if(!CMath.isHexNumber(desc.substring(x+3,x+9)))
+						desc.delete(x+1, x+5);
+					else
+						desc.delete(x+1, x+9);
+					desc.insert(x+1, colorCode);
+				}
+				else
+				if((c==ColorLibrary.COLORCODE_FANSI256)
 				&&(x<desc.length()-4))
 				{
 					desc.delete(x+1, x+5);
 					desc.insert(x+1, colorCode);
 				}
 				else
-				if((desc.charAt(x+1)!=ColorLibrary.COLORCODE_BACKGROUND)
-				&&(desc.charAt(x+1)!=ColorLibrary.COLORCODE_BANSI256))
+				if((c!=ColorLibrary.COLORCODE_BACKGROUND)
+				&&(c!=ColorLibrary.COLORCODE_BANSI256))
 				{
 					desc.delete(x+1, x+2);
 					desc.insert(x+1, colorCode);

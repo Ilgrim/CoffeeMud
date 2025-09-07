@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2000-2020 Lee H. Fox
+   Copyright 2000-2025 Lee H. Fox
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class Troll extends StdMOB
 	public Troll()
 	{
 		super();
-		username="a troll";
+		_name="a troll";
 		setDescription("Nine foot tall and reeking of rotten meat..");
 		setDisplayText("A mean looking troll glares at you.");
 		CMLib.factions().setAlignment(this,Faction.Align.EVIL);
@@ -59,7 +59,7 @@ public class Troll extends StdMOB
 		baseCharStats().setMyRace(CMClass.getRace("Troll"));
 		baseCharStats().getMyRace().startRacing(this,false);
 
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(8);
 		basePhyStats().setAttackAdjustment(basePhyStats().attackAdjustment()+20);
 		basePhyStats().setDamage(basePhyStats().damage()+5);

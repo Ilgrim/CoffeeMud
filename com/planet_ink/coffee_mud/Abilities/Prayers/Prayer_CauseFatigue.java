@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Prayers;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMSecurity.DisFlag;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -80,15 +81,20 @@ public class Prayer_CauseFatigue extends Prayer
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MASK_MALICIOUS|verbalCastCode(mob,target,auto),L(auto?"A light fatigue overcomes <T-NAME>.":"^S<S-NAME> "+prayWord(mob)+" for light fatigue to overcome <T-NAMESELF>!^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MASK_MALICIOUS|verbalCastCode(mob,target,auto),
+					L(auto?"A light fatigue overcomes <T-NAME>.":"^S<S-NAME> @x1 for light fatigue to overcome <T-NAMESELF>!^?",prayWord(mob)));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
 				if(msg.value()<=0)
 				{
 					final int harming=CMLib.dice().roll(3,adjustedLevel(mob,asLevel),10);
-					if(target.maxState().getFatigue()>Long.MIN_VALUE/2)
-						target.curState().adjFatigue((target.curState().getFatigue()/2),target.maxState());
+					if((!CMSecurity.isDisabled(DisFlag.FATIGUE))
+					&&(!target.charStats().getMyRace().infatigueable()))
+					{
+						if(target.maxState().getFatigue()>Long.MIN_VALUE/2)
+							target.curState().adjFatigue((target.curState().getFatigue()/2),target.maxState());
+					}
 					target.curState().adjMovement(-harming,target.maxState());
 					target.tell(L("You feel slightly more fatigued!"));
 				}

@@ -1,5 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Properties;
 import com.planet_ink.coffee_mud.core.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.ItemPossessor.Expire;
+import com.planet_ink.coffee_mud.core.interfaces.ItemPossessor.Move;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
@@ -18,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -156,10 +158,24 @@ public class Prop_ReqCapacity extends Property implements TriggeredAffect
 		for(int i=0;i<R.numItems();i++)
 		{
 			final Item I=R.getItem(i);
-			if(CMLib.combat().isAShipSiegeWeapon(I))
+			if(CMLib.combat().isASiegeWeapon(I))
 				soFar++;
 		}
 		return soFar;
+	}
+
+	protected void overflowFix(final Item I, final Room targetRoom)
+	{
+		if((I.phyStats().rejuv()!=0)
+		&&(I.phyStats().rejuv()!=PhyStats.NO_REJUV))
+		{
+			I.basePhyStats().setRejuv(PhyStats.NO_REJUV);
+			I.phyStats().setRejuv(PhyStats.NO_REJUV);
+			final ItemTicker iA=(ItemTicker)CMClass.getAbility("ItemRejuv");
+			if(iA!=null)
+				iA.unloadIfNecessary(I);
+		}
+		targetRoom.moveItemTo(I, Expire.Inheret, Move.Optimize);
 	}
 
 	protected void overflowCheck()
@@ -197,8 +213,11 @@ public class Prop_ReqCapacity extends Property implements TriggeredAffect
 									{
 										final Room R2=R.getRoomInDir(d);
 										final Exit E2=R.getExitInDir(d);
-										if((R2!=null)&&(E2!=null)
-										&&(E2.isOpen())&&(!CMLib.flags().isAiryRoom(R2)))
+										if((R2!=null)
+										&&(E2!=null)
+										&&(E2.isOpen())
+										&&(!CMLib.flags().isAiryRoom(R2))
+										&&(R2!=R))
 										{
 											final int rct=this.getRoomItemCount(R2);
 											if(rct < smallestCount)
@@ -210,29 +229,70 @@ public class Prop_ReqCapacity extends Property implements TriggeredAffect
 									}
 									if(targetRoom != null)
 									{
-										for(int ri=R.numItems()-1;ri>=0 && totOver>0;ri--,totOver--)
+										for(int ri=R.numItems()-1;ri>=0 && totOver>0;ri--)
 										{
 											final Item I=R.getItem(ri);
-											if((I!=null)&&(I.container()==null))
-												targetRoom.moveItemTo(I);
+											if((I!=null)
+											&&(I.container()==null)
+											&&((!(I instanceof Container))||(((Container)I).capacity()<=I.basePhyStats().weight())))
+											{
+												overflowFix(I,targetRoom);
+												totOver--;
+											}
 										}
+										if(totOver > 0)
+										{
+											for(int ri=R.numItems()-1;ri>=0 && totOver>0;ri--)
+											{
+												final Item I=R.getItem(ri);
+												if((I!=null)
+												&&(I.container()==null))
+												{
+													targetRoom.moveItemTo(I, Expire.Inheret, Move.Optimize);
+													totOver--;
+													if(I instanceof Container)
+														totOver-= ((Container)I).getContents().size();
+												}
+											}
+										}
+										if(totOver > 0)
+										{
+											for(int ri=R.numItems()-1;ri>=0 && totOver>0;ri--)
+											{
+												final Item I=R.getItem(ri);
+												if((I!=null)
+												&&(I.container()!=null))
+												{
+													I.setContainer(null);
+													overflowFix(I,targetRoom);
+													totOver--;
+													if(I instanceof Container)
+														totOver-= ((Container)I).getContents().size();
+												}
+											}
+										}
+										R.recoverRoomStats();
+										targetRoom.recoverRoomStats();
 									}
 								}
 							}
 							if(siegeCap<Integer.MAX_VALUE)
 							{
 								final int roomItemCount=getRoomSiegeCount(R);
-								if(roomItemCount>itemCap)
+								if(roomItemCount>siegeCap)
 								{
-									int totOver=roomItemCount-itemCap;
+									int totOver=roomItemCount-siegeCap;
 									Room targetRoom = null;
 									int smallestCount=Integer.MAX_VALUE/2;
 									for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
 									{
 										final Room R2=R.getRoomInDir(d);
 										final Exit E2=R.getExitInDir(d);
-										if((R2!=null)&&(E2!=null)
-										&&(E2.isOpen())&&(!CMLib.flags().isAiryRoom(R2)))
+										if((R2!=null)
+										&&(E2!=null)
+										&&(R2!=R)
+										&&(E2.isOpen())
+										&&(!CMLib.flags().isAiryRoom(R2)))
 										{
 											final int rct=this.getRoomSiegeCount(R2);
 											if(rct < smallestCount)
@@ -247,9 +307,11 @@ public class Prop_ReqCapacity extends Property implements TriggeredAffect
 										for(int ri=R.numItems()-1;ri>=0 && totOver>0;ri--,totOver--)
 										{
 											final Item I=R.getItem(ri);
-											if(CMLib.combat().isAShipSiegeWeapon(I))
-												targetRoom.moveItemTo(I);
+											if(CMLib.combat().isASiegeWeapon(I))
+												overflowFix(I,targetRoom);
 										}
+										R.recoverRoomStats();
+										targetRoom.recoverRoomStats();
 									}
 								}
 							}
@@ -265,8 +327,11 @@ public class Prop_ReqCapacity extends Property implements TriggeredAffect
 									{
 										final Room R2=R.getRoomInDir(d);
 										final Exit E2=R.getExitInDir(d);
-										if((R2!=null)&&(E2!=null)
-										&&(E2.isOpen())&&(!CMLib.flags().isAiryRoom(R2)))
+										if((R2!=null)
+										&&(E2!=null)
+										&&(E2.isOpen())
+										&&(R2!=R)
+										&&(!CMLib.flags().isAiryRoom(R2)))
 										{
 											final int rct=this.getRoomWeight(R2);
 											if(rct < smallestCount)
@@ -283,10 +348,12 @@ public class Prop_ReqCapacity extends Property implements TriggeredAffect
 											final Item I=R.getItem(ri);
 											if((I!=null)&&(I.container()==null))
 											{
-												targetRoom.moveItemTo(I);
+												overflowFix(I,targetRoom);
 												totOver -= I.phyStats().weight();
 											}
 										}
+										R.recoverRoomStats();
+										targetRoom.recoverRoomStats();
 									}
 								}
 							}
@@ -324,7 +391,7 @@ public class Prop_ReqCapacity extends Property implements TriggeredAffect
 			{
 			case CMMsg.TYP_ENTER:
 				if((msg.target() instanceof Room)
-				&&(peopleCap<Integer.MAX_VALUE)
+				&&((peopleCap<Integer.MAX_VALUE)||(playerCap<Integer.MAX_VALUE))
 				&&((!indoorOnly)||((((Room)msg.target()).domainType()&Room.INDOORS)==Room.INDOORS))
 				&&((msg.amITarget(affected))||(msg.tool()==affected)||(affected instanceof Area)))
 				{
@@ -333,8 +400,8 @@ public class Prop_ReqCapacity extends Property implements TriggeredAffect
 						msg.source().tell(L("No more people can fit in there."));
 						if(msg.source().isMonster())
 						{
-							final MOB M=msg.source().amUltimatelyFollowing();
-							if((M!=null)&&(!M.isMonster())&&(M.location()==(Room)msg.target()))
+							final MOB M=msg.source().getGroupLeader();
+							if((M!=msg.source())&&(!M.isMonster())&&(M.location()==(Room)msg.target()))
 								M.tell(L("No more people can fit in here."));
 						}
 						return false;
@@ -348,8 +415,10 @@ public class Prop_ReqCapacity extends Property implements TriggeredAffect
 					&& (((Room)msg.target()).numInhabitants()-((Room)msg.target()).numPCInhabitants())>=mobCap)
 					{
 						msg.source().tell(L("No more MOBs can fit in there."));
-						final MOB M=msg.source().amUltimatelyFollowing();
-						if((!M.isMonster())&&(M.location()==(Room)msg.target()))
+						final MOB M=msg.source().getGroupLeader();
+						if((M!=msg.source())
+						&&(!M.isMonster())
+						&&(M.location()==(Room)msg.target()))
 							M.tell(L("No more people can fit in here."));
 						return false;
 					}
@@ -410,13 +479,14 @@ public class Prop_ReqCapacity extends Property implements TriggeredAffect
 								return false;
 							}
 						}
-						if(siegeCap<Integer.MAX_VALUE)
+						if((siegeCap<Integer.MAX_VALUE)
+						&&(CMLib.combat().isASiegeWeapon((Item)msg.target())))
 						{
 							int soFar=0;
 							for(int i=0;i<R.numItems();i++)
 							{
 								final Item I=R.getItem(i);
-								if(CMLib.combat().isAShipSiegeWeapon(I))
+								if(CMLib.combat().isASiegeWeapon(I))
 									soFar++;
 							}
 							if(soFar>=siegeCap)

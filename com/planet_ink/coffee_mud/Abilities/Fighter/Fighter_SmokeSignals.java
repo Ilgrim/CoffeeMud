@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -198,8 +198,17 @@ public class Fighter_SmokeSignals extends FighterSkill
 				final String str=CMParms.combine(commands,0);
 				final CMMsg msg2=CMClass.getMsg(mob,null,this,CMMsg.NO_EFFECT,null,CMMsg.NO_EFFECT,str,CMMsg.MSG_OK_VISUAL,L("You see some smoke signals in the distance."));
 				final TrackingLibrary.TrackingFlags flags=CMLib.tracking().newFlags();
-				final int range=50 + super.getXLEVELLevel(mob)+(2*super.getXMAXRANGELevel(mob));
+				final int range=20 + super.getXLEVELLevel(mob)+(2*super.getXMAXRANGELevel(mob));
 				final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,range);
+				final boolean[] badWeathers = new boolean[Climate.NUM_WEATHER];
+				badWeathers[Climate.WEATHER_BLIZZARD] = true;
+				badWeathers[Climate.WEATHER_DUSTSTORM] = true;
+				badWeathers[Climate.WEATHER_HAIL] = true;
+				badWeathers[Climate.WEATHER_RAIN] = true;
+				badWeathers[Climate.WEATHER_SLEET] = true;
+				badWeathers[Climate.WEATHER_SNOW] = true;
+				badWeathers[Climate.WEATHER_THUNDERSTORM] = true;
+				final long expires = System.currentTimeMillis() + CMProps.getTickMillis();
 				for(final Iterator<Room> r=checkSet.iterator();r.hasNext();)
 				{
 					R=r.next();
@@ -207,13 +216,8 @@ public class Fighter_SmokeSignals extends FighterSkill
 					if((R!=mob.location())
 					&&((R.domainType()&Room.INDOORS)==0)
 					&&(!CMLib.flags().isUnderWateryRoom(R))
-					&&(weather!=Climate.WEATHER_BLIZZARD)
-					&&(weather!=Climate.WEATHER_DUSTSTORM)
-					&&(weather!=Climate.WEATHER_HAIL)
-					&&(weather!=Climate.WEATHER_RAIN)
-					&&(weather!=Climate.WEATHER_SLEET)
-					&&(weather!=Climate.WEATHER_SNOW)
-					&&(weather!=Climate.WEATHER_THUNDERSTORM)
+					&&(!badWeathers[weather])
+					&&(System.currentTimeMillis()<expires)
 					&&(R.okMessage(mob,msg2)))
 						R.sendOthers(msg.source(),msg2);
 				}

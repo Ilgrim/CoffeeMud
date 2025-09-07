@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -104,13 +104,15 @@ public class Prop_Transporter extends Property implements TriggeredAffect
 			transCode= CMMsg.TYP_MOUNT;
 			switch(((Rideable)affected).rideBasis())
 			{
-			case Rideable.RIDEABLE_ENTERIN:
+			case ENTER_IN:
 				transCode= CMMsg.TYP_ENTER; break;
-			case Rideable.RIDEABLE_SIT:
-			case Rideable.RIDEABLE_TABLE:
+			case FURNITURE_SIT:
+			case FURNITURE_TABLE:
 				transCode= CMMsg.TYP_SIT; break;
-			case Rideable.RIDEABLE_SLEEP:
+			case FURNITURE_SLEEP:
 				transCode= CMMsg.TYP_SLEEP; break;
+			default:
+				break;
 			}
 		}
 		else

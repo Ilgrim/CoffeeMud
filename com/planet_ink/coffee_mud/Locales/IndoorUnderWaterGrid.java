@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -34,6 +34,13 @@ import java.util.*;
 */
 public class IndoorUnderWaterGrid extends UnderWaterGrid
 {
+	public IndoorUnderWaterGrid()
+	{
+		super();
+		setRoomSize(5);
+		recoverPhyStats();
+	}
+
 	@Override
 	public String ID()
 	{
@@ -50,12 +57,6 @@ public class IndoorUnderWaterGrid extends UnderWaterGrid
 	public String getGridChildLocaleID()
 	{
 		return "IndoorUnderWater";
-	}
-
-	@Override
-	public int maxRange()
-	{
-		return 5;
 	}
 
 }

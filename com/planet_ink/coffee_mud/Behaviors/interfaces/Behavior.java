@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ public interface Behavior extends Tickable, MsgListener, Contingent, Modifiable
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.Quest
 	 * @param questName the Quest name
 	 */
-	public void registerDefaultQuest(String questName);
+	public void registerDefaultQuest(Object questName);
 
 	/**
 	 * Returns the raw parameter string for this behavior.
@@ -177,6 +177,11 @@ public interface Behavior extends Tickable, MsgListener, Contingent, Modifiable
 	public static final int CAN_ROOMS=8;
 	/** constant mask for the canImprove() and canImproveCode() methods.  Means it can improve exits @see Behavior#canImprove(Behavable) */
 	public static final int CAN_EXITS=16;
+
+	/** description of the various canImprove() codes */
+	public static final String[] CAN_DESCS = new String[] {
+		"MOBS", "ITEMS", "AREAS", "ROOMS", "EXITS"
+	};
 
 	/** constant mask for the flags() method designating that this behavior makes the host move @see Behavior#flags() */
 	public static final long FLAG_MOBILITY=1;

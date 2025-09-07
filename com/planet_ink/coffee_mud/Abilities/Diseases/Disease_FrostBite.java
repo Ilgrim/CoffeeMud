@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ public class Disease_FrostBite extends Disease
 	@Override
 	public String displayText()
 	{
-		return L("(Frost bitten "+where+")");
+		return L("(Frost bitten @x1)",where);
 	}
 
 	@Override
@@ -86,7 +86,7 @@ public class Disease_FrostBite extends Disease
 		return 1;
 	}
 
-	public int[] limbsAffectable={Race.BODY_EAR,Race.BODY_ANTENNEA,Race.BODY_FOOT,Race.BODY_HAND,Race.BODY_NOSE};
+	public int[] limbsAffectable={Race.BODY_EAR,Race.BODY_ANTENNA,Race.BODY_FOOT,Race.BODY_HAND,Race.BODY_NOSE};
 	@Override
 	protected int DISEASE_TICKS()
 	{

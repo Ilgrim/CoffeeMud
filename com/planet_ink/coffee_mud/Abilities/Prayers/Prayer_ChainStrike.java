@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ public class Prayer_ChainStrike extends Prayer
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_NEUTRAL|Ability.FLAG_AIRBASED;
+		return Ability.FLAG_NEUTRAL|Ability.FLAG_ELECTRICBASED;
 	}
 
 	@Override
@@ -75,9 +75,12 @@ public class Prayer_ChainStrike extends Prayer
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, boolean auto, final int asLevel)
 	{
-		Set<MOB> h=properTargets(mob,givenTarget,auto);
-		if(h==null)
-			h=new HashSet<MOB>();
+		final Set<MOB> h=properTargets(mob,givenTarget,auto);
+		if((h==null)||(h.size()==0))
+		{
+			mob.tell(L("There doesn't appear to be anyone here worth striking at."));
+			return false;
+		}
 
 		final List<MOB> targets=new ArrayList<MOB>(h);
 
@@ -89,7 +92,10 @@ public class Prayer_ChainStrike extends Prayer
 		final boolean success=proficiencyCheck(mob,0,auto);
 		if(success)
 		{
-			if(mob.location().show(mob,null,this,verbalCastCode(mob,null,auto),L(auto?"A thunderous crack of electricity erupts!":"^S<S-NAME> "+prayForWord(mob)+" to send down a thunderous crack of electricity.^?")+CMLib.protocol().msp("lightning.wav",40)))
+			if(mob.location().show(mob,null,this,verbalCastCode(mob,null,auto),
+					(auto?L("A thunderous crack of electricity erupts!"):
+						L("^S<S-NAME> @x1 to send down a thunderous crack of electricity.^?",prayForWord(mob)))
+						+CMLib.protocol().msp("lightning.wav",40)))
 			{
 				while(damage>0)
 				{

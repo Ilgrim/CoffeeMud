@@ -6,7 +6,7 @@ import com.planet_ink.coffee_mud.core.collections.XHashtable;
 import com.planet_ink.coffee_mud.core.collections.XVector;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,6 +20,11 @@ import com.planet_ink.coffee_mud.core.collections.XVector;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+/**
+ * XML parsing and xml document building library.
+ *
+ * @author Bo Zimmerman
+ */
 public interface XMLLibrary extends CMLibrary
 {
 	public static final String FILE_XML_BOUNDARY="<?xml version=\"1.0\"?>";
@@ -371,13 +376,15 @@ public interface XMLLibrary extends CMLibrary
 	/**
 	 * Converts a map into an xml document.  This method handles
 	 * angle brackets and such.
+	 * @param map the map to turn into an xml doc
 	 * @return an xml document
 	 */
 	public String toXML(final Map<String,String> map);
 
 	/**
-	 * Converts a map into an xml document.   This method handles
+	 * Converts an xml document into a map.   This method handles
 	 * angle brackets and such.
+	 * @param str the xml document
 	 * @return an xml document
 	 */
 	public Map<String,String> fromXML(final String str);
@@ -406,6 +413,13 @@ public interface XMLLibrary extends CMLibrary
 		 * @return the value
 		 */
 		public String value();
+
+		/**
+		 * Sets new value
+		 * Be very careful with this
+		 * @param newVal the new value
+		 */
+		public void setValue(final String newVal);
 
 		/**
 		 * @return the contents

@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.AbilityMapper.SecretFlag;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -101,6 +102,7 @@ public class Shaman extends Cleric
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Prayer_CureLight",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Prayer_CauseLight",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Prayer_ReadPrayer",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Prayer_ProtBless",false);
 
 		if(CMLib.factions().isAlignmentLoaded(Faction.Align.EVIL))
 			CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Prayer_SenseEvil",false);
@@ -166,6 +168,8 @@ public class Shaman extends Cleric
 		if(CMLib.factions().isAlignmentLoaded(Faction.Align.NEUTRAL))
 			CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Prayer_InfuseBalance",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Prayer_SanctifyRoom",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"ImprovedAlchemy",false,CMParms.parseSemicolons("Alchemy(100)",true));
+		CMLib.ableMapper().addCharAbilityMapping(ID(),16,"Herding",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Skill_AttackHalf",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),17,"Prayer_MajorInfusion",false);
@@ -201,6 +205,9 @@ public class Shaman extends Cleric
 		CMLib.ableMapper().addCharAbilityMapping(ID(),25,"Prayer_AcidHealing",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),30,"Prayer_HolyDay",true);
+
+		CMLib.ableMapper().addCharAbilityMapping(ID(),35,"Prayer_ElementalPortal", 35, "", false,
+				 SecretFlag.MASKED, null, "+PLANE \"-Prime Material\"");
 	}
 
 	@Override
@@ -285,6 +292,7 @@ public class Shaman extends Cleric
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}

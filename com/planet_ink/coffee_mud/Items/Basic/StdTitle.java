@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,6 +45,14 @@ public class StdTitle extends StdItem implements LandTitle
 	public String displayText()
 	{
 		return "an official looking document sits here";
+	}
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a title");
 	}
 
 	@Override
@@ -141,6 +149,25 @@ public class StdTitle extends StdItem implements LandTitle
 	}
 
 	@Override
+	public boolean allowTheft()
+	{
+		final LandTitle A=fetchALandTitle();
+		if(A==null)
+			return false;
+		return A.allowTheft();
+	}
+
+	@Override
+	public void setAllowTheft(final boolean allow)
+	{
+		final LandTitle A=fetchALandTitle();
+		if(A==null)
+			return;
+		A.setAllowTheft(allow);
+		A.updateTitle();
+	}
+
+	@Override
 	public void setGridLayout(final boolean layout)
 	{
 		final LandTitle A=fetchALandTitle();
@@ -188,18 +215,18 @@ public class StdTitle extends StdItem implements LandTitle
 	}
 
 	@Override
-	public CMObject getOwnerObject()
+	public boolean isProperlyOwned()
 	{
 		final PrivateProperty P=fetchAPropertyRecord();
 		if(P==null)
-			return null;
+			return false;
 		final String owner=P.getOwnerName();
 		if(owner.length()==0)
-			return null;
-		final Clan C=CMLib.clans().getClanExact(owner);
+			return false;
+		final Clan C=CMLib.clans().fetchClanAnyHost(owner);
 		if(C!=null)
-			return C;
-		return CMLib.players().getLoadPlayer(owner);
+			return true;
+		return CMLib.players().playerExistsAllHosts(owner);
 	}
 
 	@Override
@@ -224,10 +251,7 @@ public class StdTitle extends StdItem implements LandTitle
 
 	public LandTitle fetchALandTitle()
 	{
-		final List<Room> V=getAllTitledRooms();
-		if((V!=null)&&(V.size()>0))
-			return CMLib.law().getLandTitle(V.get(0));
-		return null;
+		return CMLib.law().getLandTitle(getATitledRoom());
 	}
 
 	public PrivateProperty fetchAPropertyRecord()
@@ -246,13 +270,10 @@ public class StdTitle extends StdItem implements LandTitle
 			if(A!=null)
 				return A;
 		}
-		final BoardableShip ship = CMLib.map().getShip(landPropertyID());
+		final Boardable ship = CMLib.map().getShip(landPropertyID());
 		if(ship instanceof PrivateProperty)
 			return (PrivateProperty)ship;
-		final List<Room> V=getAllTitledRooms();
-		if((V!=null)&&(V.size()>0))
-			return CMLib.law().getLandTitle(V.get(0));
-		return null;
+		return CMLib.law().getLandTitle(getATitledRoom());
 	}
 
 	@Override
@@ -263,15 +284,18 @@ public class StdTitle extends StdItem implements LandTitle
 
 	public void updateTitleName()
 	{
-		if(!name.startsWith("the title to"))
+		if(!_name.startsWith("the title to"))
 		{
-			final List<Room> V=getAllTitledRooms();
-			if((V.size()<2)
+			final int num = getNumConnectedPropertyRooms();
+			if((num<2)
 			||(CMLib.map().getArea(landPropertyID())!=null)
 			||(CMLib.map().getShip(landPropertyID())!=null))
 				setName("the title to "+landPropertyID());
 			else
-				setName("the title to rooms around "+CMLib.map().getExtendedRoomID(V.get(0)));
+			{
+				final Room R = this.getATitledRoom();
+				setName("the title to rooms around "+CMLib.map().getExtendedRoomID(R));
+			}
 		}
 	}
 
@@ -285,10 +309,8 @@ public class StdTitle extends StdItem implements LandTitle
 	@Override
 	public void updateLot(final Set<String> optPlayerList)
 	{
-		final List<Room> V=getAllTitledRooms();
-		for(int v=0;v<V.size();v++)
+		for(final Room R : getTitledRooms())
 		{
-			final Room R=V.get(v);
 			final LandTitle T=CMLib.law().getLandTitle(R);
 			if(T!=null)
 				T.updateLot(optPlayerList);
@@ -303,44 +325,68 @@ public class StdTitle extends StdItem implements LandTitle
 			T.updateTitle();
 	}
 
-	@Override
-	public List<Room> getConnectedPropertyRooms()
+	protected LandTitle getLandTitleObject()
 	{
 		final Room R=CMLib.map().getRoom(landPropertyID());
 		if(R!=null)
 		{
 			final LandTitle A=CMLib.law().getLandTitle(R);
 			if(A!=null)
-				return A.getConnectedPropertyRooms();
+				return A;
 		}
 		final Area area=CMLib.map().getArea(landPropertyID());
 		if(area!=null)
 		{
 			final LandTitle A=CMLib.law().getLandTitle(area);
 			if(A!=null)
-				return A.getConnectedPropertyRooms();
+				return A;
 		}
-		return new Vector<Room>();
+		return null;
 	}
 
 	@Override
-	public List<Room> getAllTitledRooms()
+	public Room getAConnectedPropertyRoom()
 	{
-		final Room R=CMLib.map().getRoom(landPropertyID());
-		if(R!=null)
-		{
-			final LandTitle A=CMLib.law().getLandTitle(R);
-			if(A!=null)
-				return A.getAllTitledRooms();
-		}
-		final Area area=CMLib.map().getArea(landPropertyID());
-		if(area!=null)
-		{
-			final LandTitle A=CMLib.law().getLandTitle(area);
-			if(A!=null)
-				return A.getAllTitledRooms();
-		}
-		return new Vector<Room>();
+		final LandTitle T = getLandTitleObject();
+		if(T!=null)
+			return T.getAConnectedPropertyRoom();
+		return null;
+	}
+
+	@Override
+	public int getNumConnectedPropertyRooms()
+	{
+		final LandTitle T = getLandTitleObject();
+		if(T!=null)
+			return T.getNumConnectedPropertyRooms();
+		return 0;
+	}
+
+	@Override
+	public List<Room> getTitledRooms()
+	{
+		final LandTitle T = getLandTitleObject();
+		if(T!=null)
+			return T.getTitledRooms();
+		return new Vector<Room>(1);
+	}
+
+	@Override
+	public int getNumTitledRooms()
+	{
+		final LandTitle T = getLandTitleObject();
+		if(T!=null)
+			return T.getNumTitledRooms();
+		return 0;
+	}
+
+	@Override
+	public Room getATitledRoom()
+	{
+		final LandTitle T = getLandTitleObject();
+		if(T!=null)
+			return T.getATitledRoom();
+		return null;
 	}
 
 	@Override
@@ -446,29 +492,33 @@ public class StdTitle extends StdItem implements LandTitle
 
 	private void removeBoardableProperty(final MOB buyer, final PrivateProperty P)
 	{
-		if(P instanceof BoardableShip)
+		if(P instanceof Boardable)
 		{
-			final Item I=((BoardableShip)P).getShipItem();
-			if(I!=null)
+			final Item I=((Boardable)P).getBoardableItem();
+			if((I!=null)
+			&&(isProperlyOwned()))
 			{
-				final CMObject owner = this.getOwnerObject();
+				CMObject owner = CMLib.clans().getClanExact(getOwnerName());
 				if(owner instanceof Clan)
 				{
 					final Clan C=(Clan)owner;
 					C.getExtItems().delItem(I);
 					if(P instanceof LandTitle)
 					{
-						final Room R=((LandTitle)P).getAllTitledRooms().size()>0 ? ((LandTitle)P).getAllTitledRooms().get(0) : null;
+						final Room R=((LandTitle)P).getATitledRoom();
 						if(R != null)
 							CMLib.achievements().possiblyBumpAchievement(buyer, AchievementLibrary.Event.CLANPROPERTY, -1, C, R);
 					}
 				}
 				else
-				if(owner instanceof MOB)
 				{
-					final PlayerStats pStats = ((MOB)owner).playerStats();
-					if(pStats != null)
-						pStats.getExtItems().delItem(I);
+					owner = CMLib.players().getLoadPlayer(getOwnerName());
+					if(owner instanceof MOB)
+					{
+						final PlayerStats pStats = ((MOB)owner).playerStats();
+						if(pStats != null)
+							pStats.getExtItems().delItem(I);
+					}
 				}
 			}
 		}
@@ -476,9 +526,9 @@ public class StdTitle extends StdItem implements LandTitle
 
 	private void addBoardableProperty(final PrivateProperty P, final CMObject obj)
 	{
-		if(P instanceof BoardableShip)
+		if(P instanceof Boardable)
 		{
-			final Item I=((BoardableShip)P).getShipItem();
+			final Item I=((Boardable)P).getBoardableItem();
 			if(I!=null)
 			{
 				final CMObject owner = obj;
@@ -569,28 +619,41 @@ public class StdTitle extends StdItem implements LandTitle
 				destroy();
 				return;
 			}
-
-			removeBoardableProperty(msg.source(), P);
+			final CMMsg buyMsg = CMClass.getMsg((MOB)msg.target(),msg.source(),this,CMMsg.MSG_BUY,CMMsg.MSG_BUY,CMMsg.MSG_BUY,"");
+			if(!msg.target().okMessage(msg.target(), buyMsg))
+			{
+				msg.source().tell(L("@x1 can not seem to accept @x2.",((MOB)msg.target()).name(msg.source()),name()));
+				return;
+			}
 
 			if(CMLib.clans().checkClanPrivilege(msg.source(), getOwnerName(), Clan.Function.PROPERTY_OWNER))
 			{
 				final Pair<Clan,Integer> targetClan=CMLib.clans().findPrivilegedClan((MOB)msg.target(), Clan.Function.PROPERTY_OWNER);
 				if(targetClan!=null)
 				{
+					removeBoardableProperty(msg.source(), P);
 					addBoardableProperty(P,targetClan.first);
 					P.setOwnerName(targetClan.first.clanID());
-					final Room R=this.getAllTitledRooms().size()>0 ? this.getAllTitledRooms().get(0) : null;
+					final Room R=getATitledRoom();
 					if(R != null)
 						CMLib.achievements().possiblyBumpAchievement((MOB)msg.target(), AchievementLibrary.Event.CLANPROPERTY, 1, targetClan, R);
 				}
 				else
+				if(((MOB)msg.target()).getClanRole(getOwnerName())!=null)
 				{
+					// do nothing
+					return;
+				}
+				else
+				{
+					removeBoardableProperty(msg.source(), P);
 					addBoardableProperty(P,msg.target());
 					P.setOwnerName(msg.target().Name());
 				}
 			}
 			else
 			{
+				removeBoardableProperty(msg.source(), P);
 				addBoardableProperty(P,msg.target());
 				P.setOwnerName(msg.target().Name());
 			}
@@ -604,27 +667,23 @@ public class StdTitle extends StdItem implements LandTitle
 					msg.source().tell(L("This property is a rental.  Your rent will be paid every mud-month out of your bank account."));
 				else
 				{
-					final List<Room> allRooms=getAllTitledRooms();
-					if((allRooms!=null)&&(allRooms.size()>0))
+					final Room R=getATitledRoom();
+					final LegalBehavior B=CMLib.law().getLegalBehavior(R);
+					if(B!=null)
 					{
-						final Room R=allRooms.get(0);
-						final LegalBehavior B=CMLib.law().getLegalBehavior(R);
-						if(B!=null)
+						final Area A2=CMLib.law().getLegalObject(R);
+						if(A2==null)
+							Log.errOut("StdTitle",CMLib.map().getExtendedRoomID(R)+" has a legal behavior, but no area!");
+						else
 						{
-							final Area A2=CMLib.law().getLegalObject(R);
-							if(A2==null)
-								Log.errOut("StdTitle",CMLib.map().getExtendedRoomID(R)+" has a legal behavior, but no area!");
+							final Law theLaw=B.legalInfo(A2);
+							if(theLaw==null)
+								Log.errOut("StdTitle",A2.Name()+" has no law.");
 							else
 							{
-								final Law theLaw=B.legalInfo(A2);
-								if(theLaw==null)
-									Log.errOut("StdTitle",A2.Name()+" has no law.");
-								else
-								{
-									final String taxs=(String)theLaw.taxLaws().get("PROPERTYTAX");
-									if((taxs!=null)&&(taxs.length()==0)&&(CMath.s_double(taxs)>0.0))
-										msg.source().tell(L("A property tax of @x1% of @x2 will be paid monthly out of your bank account.",""+CMath.s_double(taxs),""+P.getPrice()));
-								}
+								final String taxs=(String)theLaw.taxLaws().get("PROPERTYTAX");
+								if((taxs!=null)&&(taxs.length()==0)&&(CMath.s_double(taxs)>0.0))
+									msg.source().tell(L("A property tax of @x1% of @x2 will be paid monthly out of your bank account.",""+CMath.s_double(taxs),""+P.getPrice()));
 							}
 						}
 					}
@@ -655,7 +714,7 @@ public class StdTitle extends StdItem implements LandTitle
 					{
 						newOwnerName=clanPair.first.clanID();
 						addBoardableProperty(P,clanPair.first);
-						final Room R=this.getAllTitledRooms().size()>0 ? this.getAllTitledRooms().get(0) : null;
+						final Room R=getATitledRoom();
 						if(R != null)
 							CMLib.achievements().possiblyBumpAchievement(msg.source(), AchievementLibrary.Event.CLANPROPERTY, 1, clanPair.first, R);
 					}

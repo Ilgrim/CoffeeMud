@@ -21,7 +21,7 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.XMLLibrary.XMLTag;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,6 +57,14 @@ public class GenPackagedItems extends GenItem implements PackagedItems
 	}
 
 	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a bunch of things");
+	}
+
+	@Override
 	protected boolean abilityImbuesMagic()
 	{
 		return false;
@@ -67,14 +75,13 @@ public class GenPackagedItems extends GenItem implements PackagedItems
 	{
 		if(numberOfItemsInPackage()!=1)
 			return L("a package of @x1 @x2",""+numberOfItemsInPackage(), CMLib.english().makePlural(Name().trim()));
-		else
-			return L("a package of @x1 @x2",""+numberOfItemsInPackage(), Name().trim());
+		return L("a package of @x1 @x2",""+numberOfItemsInPackage(), Name().trim());
 	}
 
 	@Override
 	public String displayText()
 	{
-		return L("a package of @x1 @x2(s) sit here.",""+numberOfItemsInPackage(), CMLib.english().makePlural(Name().trim()));
+		return L("@x1 sits here.",name());
 	}
 
 	@Override
@@ -111,7 +118,7 @@ public class GenPackagedItems extends GenItem implements PackagedItems
 		|| (!CMLib.utensils().disInvokeEffects(I))
 		|| (I.amDestroyed()))
 			return false;
-		name = CMLib.english().removeArticleLead(I.Name());
+		_name = CMLib.english().removeArticleLead(I.Name());
 		displayText = "";
 		if(I.description().trim().length()==0)
 			setDescription(L("The contents of the stack appears as follows: ") + I.name());
@@ -125,7 +132,7 @@ public class GenPackagedItems extends GenItem implements PackagedItems
 		final StringBuffer itemstr = new StringBuffer("");
 		itemstr.append("<PAKITEM>");
 		itemstr.append(CMLib.xml().convertXMLtoTag("PICLASS", CMClass.classID(I)));
-		itemstr.append(CMLib.xml().convertXMLtoTag("PIDATA", CMLib.coffeeMaker().getPropertiesStr(I, true)));
+		itemstr.append(CMLib.xml().convertXMLtoTag("PIDATA", CMLib.coffeeMaker().getEnvironmentalMiscTextXML(I, true)));
 		itemstr.append("</PAKITEM>");
 		setPackageText(itemstr.toString());
 		setNumberOfItemsInPackage(number);
@@ -183,7 +190,7 @@ public class GenPackagedItems extends GenItem implements PackagedItems
 			Log.errOut("Packaged", "Error parsing 'PAKITEM' data.");
 			return null;
 		}
-		CMLib.coffeeMaker().setPropertiesStr(newOne, idat, true);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(newOne, idat, true);
 		return (Item) newOne;
 	}
 

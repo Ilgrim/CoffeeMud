@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ public class Spell_Nightmare extends Spell
 	@Override
 	public long flags()
 	{
-		return super.flags() | Ability.FLAG_MINDALTERING;
+		return super.flags() | Ability.FLAG_MINDALTERING|Ability.FLAG_FEARING;
 	}
 
 	public int amountRemaining=0;
@@ -257,6 +257,7 @@ public class Spell_Nightmare extends Spell
 				if((msg.value()<=0)&&(msg2.value()<=0))
 				{
 					amountRemaining=100;
+					amountRemaining=(int)Math.round(CMath.mul(amountRemaining, target.basePhyStats().speed()));
 					maliciousAffect(mob,target,asLevel,10,-1);
 					target.location().show(target,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> go(es) into the throes of a horrendous nightmare!!"));
 				}

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -129,15 +129,15 @@ public class Branding extends CommonSkill implements PrivateProperty
 	}
 
 	@Override
-	public CMObject getOwnerObject()
+	public boolean isProperlyOwned()
 	{
 		final String owner=getOwnerName();
 		if(owner.length()==0)
-			return null;
-		final Clan C=CMLib.clans().getClanExact(owner);
+			return false;
+		final Clan C=CMLib.clans().fetchClanAnyHost(owner);
 		if(C!=null)
-			return C;
-		return CMLib.players().getLoadPlayer(owner);
+			return true;
+		return CMLib.players().playerExistsAllHosts(owner);
 	}
 
 	@Override
@@ -185,19 +185,33 @@ public class Branding extends CommonSkill implements PrivateProperty
 				final MOB mob=(MOB)affected;
 				if((branding!=null)&&(!aborted))
 				{
-					final MOB animal=branding;
+					MOB animal=branding;
 					if((messedUp)||(animal==null))
-						commonTell(mob,L("You've failed to brand @x1!",branding.name()));
+						commonTelL(mob,"You've failed to brand @x1!",branding.name());
 					else
 					{
 						final Room room=animal.location();
-						final String ownerName=CMLib.law().getLandOwnerName(room);
+						final String ownerName=CMLib.law().getPropertyOwnerName(room);
 						if((messedUp)||(room==null)||(ownerName.length()==0))
-							commonTell(mob,L("You've messed up branding @x1!",branding.name()));
+							commonTelL(mob,"You've messed up branding @x1!",branding.name());
 						else
 						{
 							animal.delEffect(animal.fetchEffect("Branding"));
 							final Branding bonding=(Branding)this.copyOf();
+							if((animal.isMonster())
+							&&(!animal.isPlayer())
+							&&(animal.getStartRoom()!=null)
+							&&(animal.isSavable())
+							&&(animal.basePhyStats().rejuv()!=0)
+							&&(animal.basePhyStats().rejuv()!=PhyStats.NO_REJUV))
+							{
+								final MOB oldAnimal=animal;
+								animal=(MOB)animal.copyOf();
+								oldAnimal.killMeDead(false); // start the rejuv
+								animal.basePhyStats().setRejuv(0);
+								animal.phyStats().setRejuv(0);
+								animal.bringToLife(room, false);
+							}
 							bonding.setMiscText("OWNER=\""+ownerName+"\"");
 							bonding.canBeUninvoked = false;
 							animal.addNonUninvokableEffect(bonding);
@@ -284,7 +298,7 @@ public class Branding extends CommonSkill implements PrivateProperty
 		{
 			if((msg.source()==affected)
 			&&(msg.sourceMinor()==CMMsg.TYP_NOFOLLOW)
-			&&(CMLib.law().doesOwnThisLand(this.owner, msg.source().location())))
+			&&(CMLib.law().isPropertyOwnersName(this.owner, msg.source().location())))
 				((MOB)affected).setStartRoom(((MOB)affected).location());
 			else
 			if((msg.target()==affected)
@@ -313,18 +327,18 @@ public class Branding extends CommonSkill implements PrivateProperty
 		branding=null;
 		if(!CMLib.flags().canBeSeenBy(M,mob))
 		{
-			commonTell(mob,L("You don't see anyone called '@x1' here.",str));
+			commonTelL(mob,"You don't see anyone called '@x1' here.",str);
 			return false;
 		}
 		if((!M.isMonster())
 		||(!CMLib.flags().isAnimalIntelligence(M)))
 		{
-			commonTell(mob,L("You can't brand @x1.",M.name(mob)));
+			commonTelL(mob,"You can't brand @x1.",M.name(mob));
 			return false;
 		}
 		if(!CMLib.law().doesOwnThisLand(mob, mob.location()))
 		{
-			commonTell(mob,L("You can't brand @x1 here.",M.name(mob)));
+			commonTelL(mob,"You can't brand @x1 here.",M.name(mob));
 			return false;
 		}
 		branding=M;

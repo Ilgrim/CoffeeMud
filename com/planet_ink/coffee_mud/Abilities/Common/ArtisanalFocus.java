@@ -20,7 +20,7 @@ import java.io.IOException;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -87,8 +87,8 @@ public class ArtisanalFocus extends StdAbility
 	}
 
 	protected final static String[][] nameSets = new String[][] {
-		{"Farmer","Irrigation","Farming","Composting","PlantLore","Floristry","Herbology","Gardening","MasterFloristry","MasterHerbology","MasterFarming","MasterGardening"},
-		{"Rancher","AnimalHusbandry","CageBuilding","Taxidermy","Branding","Baiting","Shearing","MasterShearing,"},
+		{"Farmer","Irrigation","Farming","Shrooming","Composting","PlantLore","Floristry","Herbology","Gardening","MasterFloristry","MasterHerbology","MasterFarming","MasterGardening","Mycology"},
+		{"Rancher","AnimalHusbandry","CageBuilding","Taxidermy","Branding","Baiting","Shearing","MasterShearing","Herding","Shepherding"},
 		{"Smith","Smelting","Armorsmithing","Weaponsmithing","JewelMaking","Blacksmithing","Rodsmithing","LockSmith","MasterWeaponsmithing","MasterArmorsmithing"},
 		{"Tailor","Tailoring","LeatherWorking","Weaving","Cobbling","Tanning","Textiling","MasterLeatherWorking","MasterTailoring"},
 		{"Sculptor","GlassBlowing","ScrimShaw","Sculpting","Pottery"},
@@ -201,7 +201,7 @@ public class ArtisanalFocus extends StdAbility
 								final Pair<String,Integer> p=affectedMOB.fetchExpertise(experID);
 								if(p != null)
 								{
-									final double experValue = 1.0 + CMath.div(10 * p.second.intValue(),CMLib.expertises().getStages(experID));
+									final double experValue = 1.0 + CMath.div(10 * p.second.intValue(),CMLib.expertises().numStages(experID));
 									score *= experValue;
 								}
 							}

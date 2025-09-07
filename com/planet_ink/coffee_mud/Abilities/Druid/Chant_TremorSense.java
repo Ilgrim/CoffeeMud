@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,6 +60,12 @@ public class Chant_TremorSense extends Chant
 	public int classificationCode()
 	{
 		return Ability.ACODE_CHANT | Ability.DOMAIN_DEEPMAGIC;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -170,7 +176,7 @@ public class Chant_TremorSense extends Chant
 
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already sensing tremors."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already sensing tremors."));
 			return false;
 		}
 
@@ -187,7 +193,9 @@ public class Chant_TremorSense extends Chant
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L("@x1<T-NAME> gain(s) a sense of the earth!^?",L(auto?"":"^S<S-NAME> chant(s) to <S-HIM-HERSELF>.  ")));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),
+					auto?L("^S<T-NAME> gain(s) a sense of the earth!^?"):
+						L("^S<S-NAME> chant(s) to <S-HIM-HERSELF>.  <T-NAME> gain(s) a sense of the earth!^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -195,6 +203,7 @@ public class Chant_TremorSense extends Chant
 				TrackingLibrary.TrackingFlags flags;
 				flags = CMLib.tracking().newFlags()
 						.plus(TrackingLibrary.TrackingFlag.NOEMPTYGRIDS)
+						.plus(TrackingLibrary.TrackingFlag.PASSABLE)
 						.plus(TrackingLibrary.TrackingFlag.NOAIR)
 						.plus(TrackingLibrary.TrackingFlag.NOWATER);
 				final int range=5 +(super.getXMAXRANGELevel(mob)/2);

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,10 +48,10 @@ public class Bomb_Noxious extends StdBomb
 		return localizedName;
 	}
 
-	@Override
-	protected int trapLevel()
+	public Bomb_Noxious()
 	{
-		return 12;
+		super();
+		trapLevel = 12;
 	}
 
 	@Override
@@ -84,6 +84,18 @@ public class Bomb_Noxious extends StdBomb
 	}
 
 	@Override
+	protected boolean canExplodeOutOf(final int material)
+	{
+		switch(material&RawMaterial.MATERIAL_MASK)
+		{
+		case RawMaterial.MATERIAL_ENERGY:
+		case RawMaterial.MATERIAL_GAS:
+			return false;
+		}
+		return true;
+	}
+
+	@Override
 	public void spring(final MOB target)
 	{
 		if(target.location()!=null)
@@ -93,18 +105,26 @@ public class Bomb_Noxious extends StdBomb
 			||(invoker().getGroupMembers(new HashSet<MOB>()).contains(target))
 			||(target==invoker())
 			||(doesSaveVsTraps(target)))
-				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> avoid(s) the stink bomb!"));
-			else
-			if(target.location().show(invoker(),target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("@x1 explodes stink into <T-YOUPOSS> eyes!",affected.name())))
 			{
-				super.spring(target);
-				Ability A=CMClass.getAbility("Spell_StinkingCloud");
-				if(A!=null)
+				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,
+						getAvoidMsg(L("<S-NAME> avoid(s) the stink bomb!")));
+			}
+			else
+			{
+				final String triggerMsg = getTrigMsg(L("@x1 explodes stink into <T-YOUPOSS> eyes!",affected.name()));
+				if(target.location().show(invoker(),target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE, triggerMsg))
 				{
-					A.invoke(target,target,true,invoker().phyStats().level()+abilityCode());
-					A=target.fetchEffect(A.ID());
+					super.spring(target);
+					Ability A=(miscText.length()>0)?CMClass.getAbility(miscText):null;
+					if(A==null)
+						A=CMClass.getAbility("Spell_StinkingCloud");
 					if(A!=null)
-						A.setInvoker(invoker());
+					{
+						A.invoke(target,target,true,trapLevel()+abilityCode());
+						A=target.fetchEffect(A.ID());
+						if(A!=null)
+							A.setInvoker(invoker());
+					}
 				}
 			}
 		}

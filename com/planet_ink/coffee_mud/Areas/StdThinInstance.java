@@ -22,7 +22,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2008-2020 Bo Zimmerman
+   Copyright 2008-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class StdThinInstance extends StdThinArea
+public class StdThinInstance extends StdThinArea implements SubArea
 {
 	@Override
 	public String ID()
@@ -55,6 +55,7 @@ public class StdThinInstance extends StdThinArea
 	protected final List<AreaInstanceChild>	instanceChildren	= new SVector<AreaInstanceChild>();
 	protected volatile int					instanceCounter		= 0;
 	protected long							childCheckDown		= CMProps.getMillisPerMudHour() / CMProps.getTickMillis();
+	protected volatile int					childTimeout		= 0;
 	protected WeakReference<Area>			parentArea			= null;
 
 	protected String getStrippedRoomID(final String roomID)
@@ -79,7 +80,8 @@ public class StdThinInstance extends StdThinArea
 		&&(!CMath.bset(parentA.flags(),Area.FLAG_INSTANCE_CHILD));
 	}
 
-	protected Area getParentArea()
+	@Override
+	public Area getSuperArea()
 	{
 		if((parentArea!=null)&&(parentArea.get()!=null))
 			return parentArea.get();
@@ -104,10 +106,10 @@ public class StdThinInstance extends StdThinArea
 
 		if(!isRoom(roomID))
 			return null;
-		final Room existingR=super.getRoom(roomID);
+		final Room existingR=super.getRoomBase(roomID);
 		if(((existingR==null)||(existingR.amDestroyed()))&&(roomID!=null))
 		{
-			final Area parentA=getParentArea();
+			final Area parentA=getSuperArea();
 			if(parentA==null)
 				return null;
 
@@ -117,11 +119,14 @@ public class StdThinInstance extends StdThinArea
 			if(parentR==null)
 				return null;
 
-			final Room newR=CMLib.database().DBReadRoomObject(parentR.roomID(), false);
+			final Room newR=CMLib.database().DBReadRoomObject(parentR.roomID(), true, false);
 			if(newR==null)
 				return null;
 			final TreeMap<String,Room> V=new TreeMap<String,Room>();
 			V.put(roomID,newR);
+			newR.setArea(this); // done here, then deleted, so loaded mobs know where they are
+			this.delProperRoom(newR);
+			this.delProperRoomnumber(newR.roomID());
 			CMLib.database().DBReadRoomExits(newR.roomID(), newR, false);
 			CMLib.database().DBReadContent(newR.roomID(), newR, true);
 			newR.clearSky();
@@ -130,10 +135,10 @@ public class StdThinInstance extends StdThinArea
 			for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 				newR.rawDoors()[d]=null;
 			newR.setRoomID(roomID);
-			newR.setArea(this);
+			newR.setArea(this); // must be done after the roomid is corrected for adds
 			addProperRoom(newR);
 
-			synchronized(("SYNC"+roomID).intern())
+			synchronized(CMClass.getSync(("SYNC"+roomID)))
 			{
 				final Room[] newDoors = newR.rawDoors();
 				for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
@@ -194,9 +199,9 @@ public class StdThinInstance extends StdThinArea
 				final Area A=R.getArea();
 				if(R.getArea()==childA)
 					return true;
-				if(A instanceof BoardableShip)
+				if(A instanceof Boardable)
 				{
-					final Room R2=CMLib.map().roomLocation(((BoardableShip)A).getShipItem());
+					final Room R2=CMLib.map().roomLocation(((Boardable)A).getBoardableItem());
 					if((R2!=null)
 					&&(R2.getArea()==childA))
 						return true;
@@ -246,12 +251,12 @@ public class StdThinInstance extends StdThinArea
 				}
 			}
 		}
-		for(final Enumeration<BoardableShip> s = CMLib.map().ships();s.hasMoreElements();)
+		for(final Enumeration<Boardable> s = CMLib.map().ships();s.hasMoreElements();)
 		{
-			final BoardableShip B=s.nextElement();
+			final Boardable B=s.nextElement();
 			if(B!=null)
 			{
-				final Item I=B.getShipItem();
+				final Item I=B.getBoardableItem();
 				if((I!=null)
 				&&(I.baseGoldValue()>2)
 				&&(I.owner() instanceof Room))
@@ -377,7 +382,7 @@ public class StdThinInstance extends StdThinArea
 				if(R!=null)
 				{
 					if((startRoom == null)
-					&&(I instanceof SailingShip))
+					&&(I instanceof NavigableItem))
 					{
 						final Room R1=CMLib.tracking().getRadiantRoomTarget(R, new AllWaterFilters(), new OutOfAreaFilter(childA));
 						if(R1!=null)
@@ -407,6 +412,17 @@ public class StdThinInstance extends StdThinArea
 		try
 		{
 			final CMMsg msg=CMClass.getMsg(mob,null,null,CMMsg.MSG_EXPIRE,null);
+			msg.setTarget(childA);
+			for(final WeakReference<MOB> m : child.mobs)
+			{
+				final MOB M=m.get();
+				if(M!=null)
+				{
+					msg.setSource(M);
+					M.executeMsg(M, msg);
+				}
+			}
+			msg.setSource(mob);
 			final LinkedList<Room> propRooms = new LinkedList<Room>();
 			for(final Enumeration<Room> r=childA.getFilledProperMap();r.hasMoreElements();)
 				propRooms.add(r.nextElement());
@@ -493,6 +509,13 @@ public class StdThinInstance extends StdThinArea
 	{
 		if(!super.tick(ticking, tickID))
 			return false;
+		if((CMath.bset(flags(),Area.FLAG_INSTANCE_CHILD))
+		&&(this.childTimeout > 0)
+		&&(--this.childTimeout == 0))
+		{
+			this.resetInstance(null);
+			return false;
+		}
 		if(!doesManageChildAreas())
 			return true;
 		if((--childCheckDown)<=0)
@@ -517,6 +540,91 @@ public class StdThinInstance extends StdThinArea
 		return true;
 	}
 
+	protected boolean resetInstance(Room returnToRoom)
+	{
+		if(CMath.bset(flags(),Area.FLAG_INSTANCE_CHILD))
+		{
+			final Area A=this.getSuperArea();
+			if(A instanceof StdThinInstance)
+			{
+				if(returnToRoom == null)
+				{
+					Room backupR = null;
+					for(final Enumeration<Room> r = getProperMap();r.hasMoreElements();)
+					{
+						final Room R = r.nextElement();
+						if(R == null)
+							continue;
+						for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
+						{
+							if(R.getExitInDir(d)!=null)
+							{
+								final Room nR = R.getRoomInDir(d);
+								if((nR != null)
+								&& (nR.getArea() != this))
+								{
+									if (CMLib.flags().canAccess(null, nR))
+									{
+										returnToRoom = R;
+										break;
+									}
+									else
+										backupR = R;
+								}
+							}
+						}
+						if(returnToRoom == null)
+							returnToRoom = backupR;
+					}
+				}
+				final StdThinInstance parentA=(StdThinInstance)A;
+				final List<AreaInstanceChild> resetThese = new LinkedList<AreaInstanceChild>();
+				synchronized(instanceChildren)
+				{
+					for(int i=0;i<parentA.instanceChildren.size();i++)
+					{
+						if(parentA.instanceChildren.get(i).A==this)
+						{
+							final AreaInstanceChild child = parentA.instanceChildren.remove(i);
+							resetThese.add(child);
+						}
+					}
+				}
+				if(resetThese.size()>0)
+				{
+					for(final AreaInstanceChild child : resetThese)
+					{
+						final List<WeakReference<MOB>> V=child.mobs;
+						for(final WeakReference<MOB> wM : V)
+						{
+							final MOB M=wM.get();
+							if((M!=null)
+							&&CMLib.flags().isInTheGame(M,true)
+							&&(M.location()!=null)
+							&&(M.location().getArea()==this))
+							{
+								Room goR = returnToRoom;
+								if(goR == null)
+									goR = M.getStartRoom();
+								if(goR == null)
+									goR = CMLib.map().getRandomRoom();
+								if(M.location() != goR)
+								{
+									goR.bringMobHere(M, true);
+									CMLib.commands().postLook(M, true);
+								}
+							}
+						}
+						setAreaState(Area.State.PASSIVE);
+						flushInstance(child);
+					}
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	@Override
 	public void executeMsg(final Environmental myHost, final CMMsg msg)
 	{
@@ -537,7 +645,9 @@ public class StdThinInstance extends StdThinArea
 						for(int d=0;d<Directions.NUM_DIRECTIONS();d++)
 						{
 							final Room R=thisRoom.getRoomInDir(d);
-							if((R!=null)&&(R.getArea()!=null)&&(R.getArea()!=this))
+							if((R!=null)
+							&&(R.getArea()!=null)
+							&&(R.getArea()!=this))
 								returnToRoom=R;
 						}
 					}
@@ -546,48 +656,14 @@ public class StdThinInstance extends StdThinArea
 						msg.addTrailerMsg(CMClass.getMsg(msg.source(),null,null,CMMsg.MSG_OK_ACTION,CMMsg.NO_EFFECT,CMMsg.NO_EFFECT, L("You must be at an entrance to reset the area.")));
 						return;
 					}
-					final Area A=this.getParentArea();
-					if(A instanceof StdThinInstance)
-					{
-						final StdThinInstance parentA=(StdThinInstance)A;
-						final List<AreaInstanceChild> resetThese = new LinkedList<AreaInstanceChild>();
-						synchronized(instanceChildren)
-						{
-							for(int i=0;i<parentA.instanceChildren.size();i++)
-							{
-								if(parentA.instanceChildren.get(i).A==this)
-								{
-									final AreaInstanceChild child = parentA.instanceChildren.remove(i);
-									resetThese.add(child);
-								}
-							}
-						}
-						for(final AreaInstanceChild child : resetThese)
-						{
-							final List<WeakReference<MOB>> V=child.mobs;
-							for(final WeakReference<MOB> wM : V)
-							{
-								final MOB M=wM.get();
-								if((M!=null)
-								&&CMLib.flags().isInTheGame(M,true)
-								&&(M.location()!=null)
-								&&(M.location()!=returnToRoom)
-								&&(M.location().getArea()==this))
-								{
-									returnToRoom.bringMobHere(M, true);
-									CMLib.commands().postLook(M, true);
-								}
-							}
-							setAreaState(Area.State.PASSIVE);
-							flushInstance(child);
-							msg.addTrailerMsg(CMClass.getMsg(msg.source(),CMMsg.MSG_OK_ACTION,L("The instance has been reset.")));
-						}
-					}
-					msg.addTrailerMsg(CMClass.getMsg(msg.source(),CMMsg.MSG_OK_ACTION,L("The instance failed to reset.")));
+					if(this.resetInstance(returnToRoom))
+						msg.addTrailerMsg(CMClass.getMsg(msg.source(),CMMsg.MSG_OK_ACTION,L("The instance has been reset.")));
+					else
+						msg.addTrailerMsg(CMClass.getMsg(msg.source(),CMMsg.MSG_OK_ACTION,L("The instance failed to reset.")));
 				}
 			}
 			else
-			if((msg.sourceMinor()==CMMsg.TYP_QUIT)&&(CMLib.map().isHere(msg.source(), this)))
+			if((msg.sourceMinor()==CMMsg.TYP_QUIT)&&(CMLib.hunt().isHere(msg.source(), this)))
 			{
 				final MOB mob = msg.source();
 				CMLib.tracking().forceRecall(mob, true);
@@ -596,16 +672,16 @@ public class StdThinInstance extends StdThinArea
 	}
 
 	@Override
-	public int[] getAreaIStats()
+	protected AreaIStats getAreaIStats()
 	{
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 			return emptyStats;
-		final Area parentArea=getParentArea();
+		final Area parentArea=getSuperArea();
 		final String areaName = (parentArea==null)?Name():parentArea.Name();
-		int[] statData=(int[])Resources.getResource("STATS_"+areaName.toUpperCase());
+		AreaIStats statData=(AreaIStats)Resources.getResource("STATS_"+areaName.toUpperCase());
 		if(statData!=null)
 			return statData;
-		synchronized(("STATS_"+areaName).intern())
+		synchronized(CMClass.getSync(("STATS_"+areaName)))
 		{
 			if(parentArea==null)
 			{
@@ -616,22 +692,22 @@ public class StdThinInstance extends StdThinArea
 					int ct=0;
 					if(childE.hasNext())
 					{
-						statData=new int[Area.Stats.values().length];
+						statData=(AreaIStats)CMClass.getCommon("DefaultAreaIStats");
 						for(;childE.hasNext();)
 						{
-							final int[] theseStats=childE.next().A.getAreaIStats();
-							if(theseStats != emptyStats)
+							final Area childA = childE.next().A;
+							if(childA.isAreaStatsLoaded())
 							{
 								ct++;
-								for(int i=0;i<theseStats.length;i++)
-									statData[i]+=theseStats[i];
+								for(final Area.Stats stat : Area.Stats.values())
+									statData.setStat(stat,statData.getStat(stat)+childA.getIStat(stat));
 							}
 						}
 					}
 					if(ct==0)
 						return emptyStats;
-					for(int i=0;i<statData.length;i++)
-						statData[i]=statData[i]/ct;
+					for(final Area.Stats stat : Area.Stats.values())
+						statData.setStat(stat,statData.getStat(stat)/ct);
 				}
 				Resources.removeResource("HELP_"+areaName.toUpperCase());
 				Resources.submitResource("STATS_"+areaName.toUpperCase(),statData);
@@ -652,7 +728,11 @@ public class StdThinInstance extends StdThinArea
 	protected Area createRedirectArea(final List<MOB> mobs)
 	{
 		final StdThinInstance newA=(StdThinInstance)this.copyOf();
+		newA.setTimeObj((TimeClock)getTimeObj().copyOf());
 		newA.properRooms=new STreeMap<String, Room>(new Area.RoomIDComparator());
+		newA.derivedAtmo=getAtmosphere();
+		newA.derivedClimate=getClimateType();
+		newA.derivedTheme=getTheme();
 		newA.parentArea=null;
 		newA.properRoomIDSet = null;
 		newA.metroRoomIDSet = null;
@@ -663,12 +743,63 @@ public class StdThinInstance extends StdThinArea
 			newA.addProperRoomnumber(newA.convertToMyArea(e.nextElement()));
 		CMLib.map().addArea(newA);
 		newA.setAreaState(Area.State.ACTIVE); // starts ticking
-		final List<WeakReference<MOB>> newMobList = new SVector<WeakReference<MOB>>(5);
+		final List<WeakReference<MOB>> newMobList = new SVector<WeakReference<MOB>>(mobs.size());
 		for(final MOB mob : mobs)
 			newMobList.add(new WeakReference<MOB>(mob));
 		final AreaInstanceChild child = new AreaInstanceChild(newA,newMobList);
 		instanceChildren.add(child);
 		return newA;
+	}
+
+	@Override
+	public boolean isStat(final String code)
+	{
+		if(!super.isStat(code))
+		{
+			return (code.equalsIgnoreCase("RESET_INSTANCE")
+					||code.equalsIgnoreCase("FLUSH_INSTANCE")
+					||code.equalsIgnoreCase("TIMEOUT_INSTANCE"));
+		}
+		return true;
+	}
+
+	@Override
+	public void setStat(final String code, final String val)
+	{
+		if(code.equalsIgnoreCase("RESET_INSTANCE")||code.equalsIgnoreCase("FLUSH_INSTANCE"))
+		{
+			final Room returnToR = (val.length()>0) ? CMLib.map().getRoom(val) : null;
+			this.resetInstance(returnToR);
+			return;
+		}
+		else
+		if(code.equalsIgnoreCase("TIMEOUT_INSTANCE"))
+		{
+			childTimeout = CMath.s_int(val);
+			return;
+		}
+		super.setStat(code, val);
+	}
+
+	@Override
+	public String getStat(final String code)
+	{
+		if(code == null)
+			return "";
+		if(code.equalsIgnoreCase("TIMEOUT_INSTANCE"))
+			return ""+childTimeout;
+		return super.getStat(code);
+	}
+
+	private static String[] inst_codes = null;
+
+	@Override
+	public String[] getStatCodes()
+	{
+		if (inst_codes != null)
+			return inst_codes;
+		inst_codes = CMParms.combine(super.getStatCodes(), new String[] { "RESET_INSTANCE", "FLUSH_INSTANCE", "TIMEOUT_INSTANCE"});
+		return inst_codes;
 	}
 
 	@Override
@@ -678,7 +809,8 @@ public class StdThinInstance extends StdThinArea
 			return false;
 		if(!this.doesManageChildAreas())
 			return true;
-		if(CMath.bset(flags(),Area.FLAG_INSTANCE_PARENT))
+		if(CMath.bset(flags(),Area.FLAG_INSTANCE_PARENT)
+		&&(!CMath.bset(flags(),Area.FLAG_INSTANCE_CHILD)))
 			setAreaState(Area.State.PASSIVE);
 		if((msg.sourceMinor()==CMMsg.TYP_ENTER)
 		&&(msg.target() instanceof Room)
@@ -692,11 +824,11 @@ public class StdThinInstance extends StdThinArea
 			Area redirectA = null;
 			final Set<MOB> grp = msg.source().getGroupMembers(new HashSet<MOB>());
 			if(msg.source().isMonster()
-			&&(msg.source().riding() instanceof BoardableShip))
+			&&(msg.source().riding() instanceof Boardable))
 			{
 				final List<MOB> mobSet=new LinkedList<MOB>();
 				boolean playerFound=false;
-				final Area subA=((BoardableShip)msg.source().riding()).getShipArea();
+				final Area subA=((Boardable)msg.source().riding()).getArea();
 				for(final Enumeration<Room> r=subA.getProperMap();r.hasMoreElements();)
 				{
 					final Room R=r.nextElement();

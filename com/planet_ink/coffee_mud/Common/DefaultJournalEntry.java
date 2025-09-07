@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Common;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMFile.CMVFSFile;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -21,7 +22,7 @@ import java.io.IOException;
 import java.util.*;
 
 /*
-   Copyright 2015-2020 Bo Zimmerman
+   Copyright 2015-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -35,15 +36,17 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class DefaultJournalEntry implements JournalEntry
+public class DefaultJournalEntry implements JournalEntry, XMLConfigureable
 {
 	public String		key					= null;
 	public String		from;
 	public String		to;
 	public String		subj;
 	public String		msg;
+	public String		dateStr				= "";
 	public long			date				= 0;
 	public long			update				= 0;
+	public long			expiration			= 0;
 	public String		parent				= "";
 	public long			attributes			= 0;
 	public String		data				= "";
@@ -51,8 +54,12 @@ public class DefaultJournalEntry implements JournalEntry
 	public String		msgIcon				= "";
 	public int			replies				= 0;
 	public int			views				= 0;
+	public int			hashCode			= 0;
 	public boolean		isLastEntry			= false;
+	public List<String>	attachments			= null;
 	public StringBuffer	derivedBuildMessage	= null;
+
+	protected String knownClockName			= null;
 
 	@Override
 	public String ID()
@@ -71,7 +78,7 @@ public class DefaultJournalEntry implements JournalEntry
 	{
 		try
 		{
-			return getClass().newInstance();
+			return getClass().getDeclaredConstructor().newInstance();
 		}
 		catch (final Exception e)
 		{
@@ -163,11 +170,62 @@ public class DefaultJournalEntry implements JournalEntry
 		return date;
 	}
 
-	@Override
-	public JournalEntry date(final long date)
+	protected JournalEntry date(final long date)
 	{
 		this.date = date;
 		return this;
+	}
+
+	@Override
+	public String dateStr()
+	{
+		return dateStr;
+	}
+
+	@Override
+	public JournalEntry dateStr(String date)
+	{
+		knownClockName=null;
+		date = date.trim();
+		if(CMath.isInteger(date))
+		{
+			this.date = CMath.s_long(date);
+			this.dateStr = ""+date;
+		}
+		else
+		{
+			final int slashCount = CMStrings.countChars(date,'/');
+			if(slashCount == 1)
+			{
+				final int datestrdex=date.indexOf('/');
+				update(CMath.s_long(date.substring(datestrdex+1)));
+				date(CMath.s_long(date.substring(0,datestrdex)));
+				this.dateStr = ""+date();
+			}
+			else
+			if(slashCount == 3)
+			{
+				final int x = date.indexOf(' ');
+				TimeClock nowC = null;
+				if(x > 0)
+					nowC =CMLib.map().getClockCache().get(date.substring(x+1).trim());
+				if(nowC == null)
+					nowC = CMLib.time().globalClock();
+				knownClockName = nowC.name();
+				final TimeClock C = nowC.fromTimePeriodCodeString(date);
+				date(C.toTimestamp(nowC));
+				this.dateStr = date;
+			}
+		}
+		return this;
+	}
+
+	@Override
+	public TimeClock getKnownClock()
+	{
+		if((knownClockName != null)&&(knownClockName.length()>0))
+			return CMLib.map().getClockCache().get(knownClockName);
+		return null;
 	}
 
 	@Override
@@ -180,6 +238,19 @@ public class DefaultJournalEntry implements JournalEntry
 	public JournalEntry update(final long update)
 	{
 		this.update = update;
+		return this;
+	}
+
+	@Override
+	public long expiration()
+	{
+		return expiration;
+	}
+
+	@Override
+	public JournalEntry expiration(final long expiration)
+	{
+		this.expiration = expiration;
 		return this;
 	}
 
@@ -275,6 +346,23 @@ public class DefaultJournalEntry implements JournalEntry
 	}
 
 	@Override
+	public synchronized List<String> attachmentKeys()
+	{
+		if(attachments == null)
+		{
+			if(!CMath.bset(attributes(), JournalEntry.JournalAttrib.ATTACHMENT.bit))
+			{
+				@SuppressWarnings("unchecked")
+				final List<String> empty = XVector.empty;
+				attachments = empty;
+			}
+			else
+				attachments =  CMLib.database().DBReadVFSKeysLike(this.key()+"/%", CMFile.VFS_MASK_ATTACHMENT);
+		}
+		return attachments;
+	}
+
+	@Override
 	public boolean isLastEntry()
 	{
 		return isLastEntry;
@@ -308,6 +396,64 @@ public class DefaultJournalEntry implements JournalEntry
 		if(date > o.date())
 			return 1;
 		return 0;
+	}
+
+	@Override
+	public String getXML()
+	{
+		final XMLLibrary xmlLib=CMLib.xml();
+		final StringBuilder xml=new StringBuilder();
+		xml.append("<JENTRY ");
+		xml.append("KEY=\"").append(xmlLib.parseOutAngleBracketsAndQuotes(key)).append("\" ");
+		xml.append("FROM=\"").append(xmlLib.parseOutAngleBracketsAndQuotes(from)).append("\" ");
+		xml.append("TO=\"").append(xmlLib.parseOutAngleBracketsAndQuotes(to)).append("\" ");
+		xml.append("SUBJ=\"").append(xmlLib.parseOutAngleBracketsAndQuotes(subj)).append("\" ");
+		xml.append("DATE=\"").append(date).append("\" ");
+		xml.append("UPDATE=\"").append(update).append("\" ");
+		xml.append("PARENT=\"").append(xmlLib.parseOutAngleBracketsAndQuotes(parent)).append("\" ");
+		xml.append("ATTRIB=\"").append(attributes).append("\" ");
+		xml.append("CARD=\"").append(cardinal).append("\" ");
+		xml.append("REPLIES=\"").append(replies).append("\" ");
+		xml.append("VIEWS=\"").append(views).append("\" ");
+		xml.append("LAST=\"").append(isLastEntry).append("\" ");
+		xml.append("ICON=\"").append(xmlLib.parseOutAngleBracketsAndQuotes(msgIcon)).append("\" ");
+		xml.append("DATA=\"").append(xmlLib.parseOutAngleBracketsAndQuotes(data)).append(">");
+		xml.append(xmlLib.parseOutAngleBrackets(msg));
+		xml.append("</JENTRY>");
+		return xml.toString();
+	}
+
+	@Override
+	public int hashCode()
+	{
+		if(hashCode == 0)
+			hashCode = getXML().hashCode();
+		return hashCode;
+	}
+
+	@Override
+	public void setXML(final String xml)
+	{
+		final XMLLibrary xmlLib=CMLib.xml();
+		final List<XMLLibrary.XMLTag> dat=xmlLib.parseAllXML(xml);
+		if(dat.size()>0 && dat.get(0).tag().equals("JENTRY"))
+		{
+			final XMLLibrary.XMLTag tag = dat.get(0);
+			key=xmlLib.restoreAngleBrackets(tag.getParmValue("KEY"));
+			from=xmlLib.restoreAngleBrackets(tag.getParmValue("FROM"));
+			to=xmlLib.restoreAngleBrackets(tag.getParmValue("TO"));
+			subj=xmlLib.restoreAngleBrackets(tag.getParmValue("SUBJ"));
+			date=CMath.s_long(tag.getParmValue("DATE"));
+			update=CMath.s_long(tag.getParmValue("UPDATE"));
+			parent=xmlLib.restoreAngleBrackets(tag.getParmValue("PARENT"));
+			replies=CMath.s_int(tag.getParmValue("REPLIES"));
+			views=CMath.s_int(tag.getParmValue("VIEWS"));
+			isLastEntry=CMath.s_bool(tag.getParmValue("LAST"));
+			msgIcon=xmlLib.restoreAngleBrackets(tag.getParmValue("ICON"));
+			data=xmlLib.restoreAngleBrackets(tag.getParmValue("DATA"));
+			msg=xmlLib.restoreAngleBrackets(tag.value());
+
+		}
 	}
 
 	@Override

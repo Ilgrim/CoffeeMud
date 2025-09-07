@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ public class Prayer_HealUndead extends Prayer implements MendingSkill
 	public boolean supportsMending(final Physical item)
 	{
 		return (item instanceof MOB)
-			&&(((MOB)item).charStats()).getMyRace().racialCategory().equalsIgnoreCase("Undead")
+			&&(CMLib.flags().isUndead((MOB)item))
 			&&((((MOB)item).curState()).getHitPoints()<(((MOB)item).maxState()).getHitPoints());
 	}
 

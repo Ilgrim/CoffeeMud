@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ public class Antidote extends StdAbility
 
 	public List<Ability> returnOffensiveAffects(final Physical fromMe)
 	{
-		final Vector<Ability> offenders=new Vector<Ability>();
+		final List<Ability> offenders=new Vector<Ability>();
 
 		for(int a=0;a<fromMe.numEffects();a++) // personal
 		{
@@ -93,7 +93,7 @@ public class Antidote extends StdAbility
 			&&((text().length()==0)
 				||(A.name().toUpperCase().indexOf(text().toUpperCase())>=0)
 				||(A.ID().toUpperCase().indexOf(text().toUpperCase())>=0)))
-				offenders.addElement(A);
+				offenders.add(A);
 		}
 		return offenders;
 	}

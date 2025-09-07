@@ -24,7 +24,7 @@ import com.planet_ink.coffee_mud.core.exceptions.*;
 import java.io.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -154,7 +154,7 @@ public class MassMailer implements Runnable
 
 				// check email age
 				if((usePrivateRules)
-				&&(!CMath.bset(mail.attributes(), JournalEntry.ATTRIBUTE_PROTECTED))
+				&&(!CMath.bset(mail.attributes(), JournalEntry.JournalAttrib.PROTECTED.bit))
 				&&(deleteEmailIfOld(journalName, key, date, getEmailDays())))
 					continue;
 
@@ -178,7 +178,8 @@ public class MassMailer implements Runnable
 					final PlayerStats toMpStats=toM.playerStats();
 					if(toMpStats==null)
 						continue;
-					if(toMpStats.isIgnored(from))
+					if(toMpStats.isIgnored(from)
+					||(toMpStats.isIgnored("MAIL."+from)))
 					{
 						// email is ignored
 						CMLib.database().DBDeleteJournal(journalName,key);
@@ -191,7 +192,7 @@ public class MassMailer implements Runnable
 							fromM=CMLib.players().getPlayerAllHosts(from);
 						if(fromM != null)
 						{
-							if(toMpStats.isIgnored(fromM))
+							if(toMpStats.isIgnored("MAIL",fromM))
 							{
 								// email is ignored
 								CMLib.database().DBDeleteJournal(journalName,key);
@@ -203,7 +204,7 @@ public class MassMailer implements Runnable
 							fromM = CMLib.players().getLoadPlayer(from);
 							if(fromM != null)
 							{
-								if(toMpStats.isIgnored(fromM))
+								if(toMpStats.isIgnored("MAIL",fromM))
 								{
 									// email is ignored
 									CMLib.database().DBDeleteJournal(journalName,key);
@@ -257,7 +258,7 @@ public class MassMailer implements Runnable
 				catch(final BadEmailAddressException be)
 				{
 					if((!usePrivateRules)
-					&&(!CMath.bset(mail.attributes(), JournalEntry.ATTRIBUTE_PROTECTED)))
+					&&(!CMath.bset(mail.attributes(), JournalEntry.JournalAttrib.PROTECTED.bit)))
 					{
 						// email is a goner if its a list
 						CMLib.database().DBDeleteJournal(journalName,key);
@@ -273,7 +274,7 @@ public class MassMailer implements Runnable
 						oldEmailComplaints.add(toName);
 						Log.errOut("SMTPServer","Unable to send '"+toEmail+"' for '"+toName+"': "+ioe.getMessage());
 					}
-					if(!CMath.bset(mail.attributes(), JournalEntry.ATTRIBUTE_PROTECTED))
+					if(!CMath.bset(mail.attributes(), JournalEntry.JournalAttrib.PROTECTED.bit))
 						deleteEmailIfOld(journalName, key, date,getFailureDays());
 					continue;
 				}

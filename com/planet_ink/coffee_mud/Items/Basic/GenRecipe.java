@@ -19,7 +19,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ import com.planet_ink.coffee_mud.Libraries.interfaces.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class GenRecipe extends GenReadable implements Recipe
+public class GenRecipe extends GenReadable implements RecipesBook
 {
 	@Override
 	public String ID()
@@ -65,7 +65,6 @@ public class GenRecipe extends GenReadable implements Recipe
 		if(msg.amITarget( this )
 		&& (msg.targetMinor()==CMMsg.TYP_READ))
 		{
-
 			if((msg.targetMessage()!=null)
 			&& (recipeLines.length>0)
 			&&(CMath.isInteger(msg.targetMessage())))
@@ -97,6 +96,22 @@ public class GenRecipe extends GenReadable implements Recipe
 					msg.source().tell(L("This book is only for @x1 recipes.",A.name()));
 			}
 		}
+		if(msg.amITarget(this)
+		&&(msg.targetMinor()==CMMsg.TYP_REWRITE))
+		{
+			if((msg.targetMessage()!=null)
+			&&(msg.targetMessage().toUpperCase().startsWith("DELETE "))
+			&&(CMath.isInteger(msg.targetMessage().substring(7).trim())))
+			{
+				final int totRecipes = getRecipeCodeLines().length;
+				final int msgNum=CMath.s_int(msg.targetMessage().substring(7).trim());
+				if((msgNum <1)||(msgNum>totRecipes))
+				{
+					msg.source().tell(L("There is no Recipe #@x1",""+(msgNum)));
+					return false;
+				}
+			}
+		}
 		if(msg.amITarget( this )
 		&& (msg.targetMinor()==CMMsg.TYP_WRITE))
 		{
@@ -120,7 +135,7 @@ public class GenRecipe extends GenReadable implements Recipe
 					return false;
 				}
 				final Ability A=CMClass.getAbility( getCommonSkillID() );
-				if(!(A instanceof CraftorAbility))
+				if(!(A instanceof RecipeDriven))
 				{
 					msg.source().tell(L("This recipe book is un-prepped."));
 					return false;
@@ -133,8 +148,12 @@ public class GenRecipe extends GenReadable implements Recipe
 						msg.source().tell(L("Your recipes are clearly bad."));
 						return false;
 					}
-					final CraftorAbility C=(CraftorAbility)A;
-					final String components = C.getDecodedComponentsDescription( msg.source(), V );
+					final RecipeDriven C=(RecipeDriven)A;
+					final String components;
+					if(C instanceof CraftorAbility)
+						components = ((CraftorAbility)C).getDecodedComponentsDescription( msg.source(), V );
+					else
+						components="";
 					if(components.equals("?"))
 					{
 						msg.source().tell(L("Your recipes are clearly bad."));
@@ -223,17 +242,23 @@ public class GenRecipe extends GenReadable implements Recipe
 			{
 				final StringBuilder str = new StringBuilder("");
 				final int x=CMath.s_int(msg.targetMessage());
-				if((x>0)&&(x<=this.getRecipeCodeLines().length))
+				if((x>0)
+				&&(x<=this.getRecipeCodeLines().length))
 				{
 					final Ability A=CMClass.getAbility( getCommonSkillID() );
 					if(A!=null)
 						str.append( L("The following recipe is for the @x1 skill:\n\r",A.name()));
-					if(A instanceof CraftorAbility)
+					if(A instanceof RecipeDriven)
 					{
-						final CraftorAbility C=(CraftorAbility)A;
+						final RecipeDriven C=(RecipeDriven)A;
 						final List<String> V=CMParms.parseTabs( this.getRecipeCodeLines()[x-1]+" ", false );
 						final Pair<String,Integer> nameAndLevel = C.getDecodedItemNameAndLevel( V );
-						final String components = C.getDecodedComponentsDescription( msg.source(), V );
+						final String components;
+						if(C instanceof CraftorAbility)
+							components = ((CraftorAbility)C).getDecodedComponentsDescription( msg.source(), V );
+						else
+							components = "nothing";
+
 						final String name=CMStrings.replaceAll( nameAndLevel.first, "% ", "");
 
 						str.append( name).append(", level "+nameAndLevel.second);
@@ -294,6 +319,28 @@ public class GenRecipe extends GenReadable implements Recipe
 			}
 			return;
 		}
+		if(msg.amITarget(this)
+		&&(msg.targetMinor()==CMMsg.TYP_REWRITE))
+		{
+			if((msg.targetMessage()!=null)
+			&&(msg.targetMessage().toUpperCase().startsWith("DELETE "))
+			&&(CMath.isInteger(msg.targetMessage().substring(7).trim())))
+			{
+				final int totRecipes = getRecipeCodeLines().length;
+				final int msgNum=CMath.s_int(msg.targetMessage().substring(7).trim());
+				if((msgNum >0)&&(msgNum<=totRecipes))
+				{
+					final List<String> newLines = new ArrayList<String>(getRecipeCodeLines().length-1);
+					for(int i = 0;i<getRecipeCodeLines().length;i++)
+					{
+						if(i!=(msgNum-1))
+							newLines.add(getRecipeCodeLines()[i]);
+					}
+					setRecipeCodeLines(newLines.toArray(new String[0]));
+				}
+			}
+			return;
+		}
 		if(msg.amITarget( this )
 		&& (msg.targetMinor()==CMMsg.TYP_WRITE))
 		{
@@ -342,10 +389,10 @@ public class GenRecipe extends GenReadable implements Recipe
 				if((recipeLines!=null)&&(recipeLines.length==1)&&(this.getCommonSkillID().length()>0))
 				{
 					final Ability A=CMClass.getAbility(this.getCommonSkillID());
-					if(A instanceof CraftorAbility)
+					if(A instanceof RecipeDriven)
 					{
 						final List<String> V=CMParms.parseTabs( recipeLines[0], false );
-						final Pair<String,Integer> nameAndLevel = ((CraftorAbility)A).getDecodedItemNameAndLevel( V );
+						final Pair<String,Integer> nameAndLevel = ((RecipeDriven)A).getDecodedItemNameAndLevel( V );
 						String itemName=CMStrings.replaceAll( nameAndLevel.first, "% ","");
 						itemName=CMStrings.replaceAll( itemName, " % ","");
 						if(CMClass.getAbilityPrototype(itemName) != null)
@@ -413,7 +460,7 @@ public class GenRecipe extends GenReadable implements Recipe
 	{
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			return CMLib.coffeeMaker().getGenItemStat(this,code);
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return ""+getCommonSkillID();
@@ -440,7 +487,7 @@ public class GenRecipe extends GenReadable implements Recipe
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			CMLib.coffeeMaker().setGenItemStat(this,code,val);
 		else
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			setCommonSkillID(val);
@@ -458,8 +505,7 @@ public class GenRecipe extends GenReadable implements Recipe
 		}
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<MYCODES.length;i++)
 		{

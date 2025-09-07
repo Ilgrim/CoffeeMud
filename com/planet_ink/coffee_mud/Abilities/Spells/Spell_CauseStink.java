@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -82,6 +82,7 @@ public class Spell_CauseStink extends Spell
 	}
 
 	public int	cycle	= 1;
+	public int pct = 20;
 
 	@Override
 	public void affectCharStats(final MOB affectedMob, final CharStats affectableStats)
@@ -93,13 +94,20 @@ public class Spell_CauseStink extends Spell
 	}
 
 	@Override
+	public void setMiscText(final String newMiscText)
+	{
+		super.setMiscText(newMiscText);
+		pct = CMParms.getParmInt(newMiscText, "PCT", 20);
+	}
+
+	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
 		if(!super.tick(ticking,tickID))
 			return false;
 		if(tickID==Tickable.TICKID_MOB)
 		{
-			if(CMLib.dice().rollPercentage()>20)
+			if(CMLib.dice().rollPercentage()>pct)
 				return true;
 			if(!(affected instanceof MOB))
 				return false;
@@ -112,7 +120,7 @@ public class Spell_CauseStink extends Spell
 			switch(cycle++)
 			{
 			case 1:
-				str = L("<S-NAME> emanate(s) an unpleasant odor");
+				str = L("<S-NAME> emanate(s) an unpleasant odor.");
 				break;
 			case 2:
 				str = L("<S-NAME> smell(s) like <S-HE-SHE> hasn't bathed in a month!");
@@ -201,7 +209,7 @@ public class Spell_CauseStink extends Spell
 		if(success)
 		{
 			invoker=mob;
-			final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> point(s) and utter(s) a stinky spell at <T-NAMESELF>.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> point(s) and utter(s) a stinky spell at <T-NAMESELF>.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

@@ -24,7 +24,7 @@ import com.planet_ink.coffee_mud.core.collections.Triad;
 import com.planet_ink.coffee_mud.core.collections.KeyPairSearchTree;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -131,6 +131,7 @@ public class CWConfig implements Cloneable
 	private int		requestMaxAliveSecs	 = DEFAULT_MAX_ALIVE_SECS;
 	private int		requestMaxPerConn	 = DEFAULT_MAX_PIPELINED_REQUESTS;
 
+	private String	adminEmail			 = "admin@email.com";
 	private String	defaultPage			 = DEFAULT_PAGE;
 	private String	errorPage			 = DEFAULT_ERROR_PAGE;
 	private String	browsePage			 = DEFAULT_BROWSE_PAGE;
@@ -976,6 +977,14 @@ public class CWConfig implements Cloneable
 	}
 
 	/**
+	 * @return the adminEmail
+	 */
+	public String getAdminEmail()
+	{
+		return adminEmail;
+	}
+
+	/**
 	 * Get a property as an integer
 	 * @param props the props to look in
 	 * @param propName the name of the prop
@@ -1328,7 +1337,7 @@ public class CWConfig implements Cloneable
 				{
 					try
 					{
-						tree=treeClass.newInstance();
+						tree=treeClass.getDeclaredConstructor().newInstance();
 						portMap.put(from.second, tree);
 					}
 					catch (final Exception e)
@@ -1388,6 +1397,7 @@ public class CWConfig implements Cloneable
 		defaultPage=getString(props,"DEFAULTPAGE",defaultPage);
 		errorPage=getString(props,"ERRORPAGE",errorPage);
 		browsePage=getString(props,"BROWSEPAGE",browsePage);
+		adminEmail=getString(props,"ADMINEMAIL",adminEmail);
 		setDebugFlag(getString(props,"DEBUGFLAG",debugFlag));
 		setDupPolicy(getString(props,"DUPPOLICY",dupPolicy.toString()));
 		setAccessLogFlag(getString(props,"ACCESSLOGS",accessLogFlag));

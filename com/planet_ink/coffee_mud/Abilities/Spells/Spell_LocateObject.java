@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,6 +53,12 @@ public class Spell_LocateObject extends Spell
 	protected int canTargetCode()
 	{
 		return 0;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -155,6 +161,7 @@ public class Spell_LocateObject extends Spell
 				Room room=null;
 				ShopKeeper SK=null;
 				final TrackingLibrary.TrackingFlags flags=CMLib.tracking().newFlags();
+				flags.plus(TrackingLibrary.TrackingFlag.PASSABLE);
 				final int range=50 + (2*super.getXLEVELLevel(mob))+(10*super.getXMAXRANGELevel(mob));
 				final List<Room> checkSet=CMLib.tracking().getRadiantRooms(mob.location(),flags,range);
 				for (final Room room2 : checkSet)
@@ -203,13 +210,13 @@ public class Spell_LocateObject extends Spell
 						break;
 				}
 				if(itemsFound.size()==0)
-					mob.tell(L("Your magic fails to focus on anything called '@x1'.",what));
+					commonTelL(mob,"Your magic fails to focus on anything called '@x1'.",what);
 				else
 				{
 					while(itemsFound.size()>maxFound)
 						itemsFound.remove(CMLib.dice().roll(1,itemsFound.size(),-1));
 					for(final String found : itemsFound)
-						mob.tell(found);
+						commonTell(mob,found);
 				}
 			}
 

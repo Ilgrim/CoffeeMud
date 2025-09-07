@@ -21,7 +21,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -282,7 +282,7 @@ public class Skill_PrisonerTransfer extends StdSkill
 			return false;
 		}
 
-		if(!B.isElligibleOfficer(legalA, target))
+		if(!B.isEligibleOfficer(legalA, target))
 		{
 			mob.tell(L("@x1 is too busy to talk to you right now.",target.name(mob)));
 			return false;
@@ -335,7 +335,7 @@ public class Skill_PrisonerTransfer extends StdSkill
 						oldA.unInvoke();
 						target.delEffect(oldA);
 					}
-					final int duration = (int)(CMProps.getTicksPerMudHour() * CMLib.time().globalClock().getHoursInDay() * (1+super.getXLEVELLevel(mob)));
+					final int duration = (int)(CMProps.getTicksPerMudHour() * CMLib.time().localClock(mob).getHoursInDay() * (1+super.getXLEVELLevel(mob)));
 					final Ability A=beneficialAffect(mob, target, asLevel, duration);
 					if(A!=null)
 					{

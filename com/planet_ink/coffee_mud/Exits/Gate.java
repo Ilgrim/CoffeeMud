@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -38,21 +38,25 @@ public class Gate extends StdClosedDoorway
 		return "Gate";
 	}
 
+	private final static String localizedName = CMLib.lang().L("a gate");
+	private final static String localizedDName = CMLib.lang().L("gate");
+	private final static String localizedCText = CMLib.lang().L("a closed gate");
+
 	@Override
 	public String Name()
 	{
-		return "a gate";
+		return localizedName;
 	}
 
 	@Override
 	public String doorName()
 	{
-		return "gate";
+		return localizedDName;
 	}
 
 	@Override
 	public String closedText()
 	{
-		return "a closed gate";
+		return localizedCText;
 	}
 }

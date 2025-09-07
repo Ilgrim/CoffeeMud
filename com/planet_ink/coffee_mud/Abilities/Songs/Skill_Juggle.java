@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -526,7 +526,7 @@ public class Skill_Juggle extends BardSkill
 			A.pause=false;
 		}
 		else
-			mob.location().show(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> attempt(s) to juggle, but messes up."));
+			mob.location().show(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> attempt(s) to juggle, but mess(es) up."));
 
 		// return whether it worked
 		return success;

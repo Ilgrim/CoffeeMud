@@ -20,7 +20,7 @@ import java.util.*;
 import java.net.URLEncoder;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,7 +45,6 @@ public class RequestParametersEncoded extends StdWebMacro
 	@Override
 	public String runMacro(final HTTPRequest httpReq, final String parm, final HTTPResponse httpResp)
 	{
-
 		final StringBuilder str=new StringBuilder();
 		try
 		{

@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Common;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMClass.CMObjectType;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,7 +52,7 @@ public class DefaultMessage implements CMMsg
 	{
 		try
 		{
-			return getClass().newInstance();
+			return getClass().getDeclaredConstructor().newInstance();
 		}
 		catch (final Exception e)
 		{
@@ -85,6 +86,7 @@ public class DefaultMessage implements CMMsg
 	protected int				value			= 0;
 	protected List<CMMsg>		trailMsgs		= null;
 	protected List<Runnable>	trailRunnables	= null;
+	protected boolean			suspendTrailers = false;
 
 	@Override
 	public CMObject copyOf()
@@ -129,6 +131,7 @@ public class DefaultMessage implements CMMsg
 		myTool=null;
 		trailMsgs=null;
 		trailRunnables=null;
+		suspendTrailers=false;
 		value=0;
 		if(!CMClass.returnMsg(this))
 			super.finalize();
@@ -302,15 +305,23 @@ public class DefaultMessage implements CMMsg
 	@Override
 	public List<CMMsg> trailerMsgs()
 	{
-		return trailMsgs;
+		return this.suspendTrailers?null:trailMsgs;
 	}
 
 	@Override
 	public List<Runnable> trailerRunnables()
 	{
-		return trailRunnables;
+		return this.suspendTrailers?null:trailRunnables;
 	}
 
+	@Override
+	public boolean suspendResumeTrailers(final Boolean newValue)
+	{
+		if(newValue != null)
+			suspendTrailers=newValue.booleanValue();
+		return this.suspendTrailers;
+	}
+	
 	@Override
 	public CMMsg addTrailerMsg(final CMMsg msg)
 	{
@@ -473,6 +484,12 @@ public class DefaultMessage implements CMMsg
 	}
 
 	@Override
+	public final boolean targetMajorAny(final int bitMask)
+	{
+		return (targetMajorMask&bitMask) != 0;
+	}
+
+	@Override
 	public final int targetMinor()
 	{
 		return targetMinorType;
@@ -503,6 +520,12 @@ public class DefaultMessage implements CMMsg
 	}
 
 	@Override
+	public final boolean sourceMajorAny(final int bitMask)
+	{
+		return (sourceMajorMask&bitMask) != 0;
+	}
+
+	@Override
 	public final int sourceMinor()
 	{
 		return sourceMinorType;
@@ -518,6 +541,12 @@ public class DefaultMessage implements CMMsg
 	public final boolean othersMajor(final int bitMask)
 	{
 		return (othersMajorMask&bitMask)==bitMask;
+	}
+
+	@Override
+	public final boolean othersMajorAny(final int bitMask)
+	{
+		return (othersMajorMask&bitMask) != 0;
 	}
 
 	@Override
@@ -793,20 +822,31 @@ public class DefaultMessage implements CMMsg
 		final String[] subParts=part.split(":",2);
 		if(subParts.length < 2)
 			return null;
-		if(subParts[0].equals("StdMOB") || subParts[0].equals("StdRideable"))
-		{
-			final MOB M=CMLib.players().getLoadPlayer(subParts[1]);
-			if(M != null)
-				return M;
-		}
 		CMObject o;
 		o = CMClass.getCommon(subParts[0]);
 		if(o == null)
-			o = CMClass.getByType(subParts[0], preferClass);
-		if(o == null)
-			o = CMClass.getUnknown(subParts[0]);
-		if((o == null) || (o instanceof MOB))
-			o = CMClass.getFactoryMOB();
+		{
+			if(CMClass.doesTypeExist(preferClass, subParts[0]))
+			{
+				if(preferClass == CMObjectType.MOB)
+					o=CMClass.getFactoryMOB();
+				else
+					o = CMClass.getByType(subParts[0], preferClass);
+			}
+			else
+			{
+				final CMObjectType preferredType = CMClass.getUnknownType(subParts[0]);
+				if(preferredType != null)
+				{
+					if(preferredType == CMObjectType.MOB)
+						o=CMClass.getFactoryMOB();
+					else
+						o = CMClass.getUnknown(subParts[0]);
+				}
+				else
+					o=CMClass.getFactoryMOB();
+			}
+		}
 		if(o instanceof Social)
 			o = CMLib.socials().fetchSocial(subParts[1], true);
 		else
@@ -829,7 +869,8 @@ public class DefaultMessage implements CMMsg
 		else
 		if((o instanceof Environmental)&&(!o.name().equals(subParts[1])))
 			((Environmental)o).setName(subParts[1]);
-		if((o instanceof MOB)&&(((MOB)o).location()==null))
+
+		if(o instanceof MOB)
 			((MOB)o).setLocation(CMLib.map().getRandomRoom());
 		return o;
 	}

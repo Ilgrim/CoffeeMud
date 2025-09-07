@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Tim Kassebaum
+   Copyright 2004-2025 Tim Kassebaum
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ public class MasterTailoring extends Tailoring
 	}
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return "mastertailor.txt";
 	}
@@ -75,7 +75,7 @@ public class MasterTailoring extends Tailoring
 
 	@Override
 	protected boolean autoGenInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto,
-			 					 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<Item> crafted)
+			 					 final int asLevel, final int autoGenerate, final boolean forceLevels, final List<CraftedItem> crafted)
 	{
 		if(super.checkStop(mob, commands))
 			return true;
@@ -86,8 +86,8 @@ public class MasterTailoring extends Tailoring
 		randomRecipeFix(mob,addRecipes(mob,loadRecipes()),commands,autoGenerate);
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Knit what? Enter \"mknit list\" for a list, \"mknit info <item>\", \"mknit refit <item>\" to resize,"
-						+ " \"mknit learn <item>\", \"mknit scan\", \"mknit mend <item>\", or \"mknit stop\" to cancel."));
+			commonTelL(mob,"Knit what? Enter \"mknit list\" for a list, \"mknit info <item>\", \"mknit refit <item>\" to resize,"
+						+ " \"mknit learn <item>\", \"mknit scan\", \"mknit mend <item>\", or \"mknit stop\" to cancel.");
 			return false;
 		}
 		return super.autoGenInvoke(mob,commands,givenTarget,auto,asLevel,autoGenerate,forceLevels,crafted);

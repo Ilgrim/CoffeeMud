@@ -19,7 +19,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -71,11 +71,15 @@ public class Link extends At
 		Room thisRoom=null;
 		final String roomID=CMParms.combine(commands,1);
 		thisRoom = mob.location().getArea().getRoom(roomID);
-		if(thisRoom != null)
+		if(thisRoom == null)
 			thisRoom=CMLib.map().getRoom(roomID);
+		if((thisRoom == null)
+		&&(mob.location().getArea() instanceof Boardable)
+		&&(roomID.equalsIgnoreCase("outside")))
+			thisRoom=CMLib.map().roomLocation(((Boardable)mob.location().getArea()).getBoardableItem());
 		if(thisRoom==null)
 		{
-			thisRoom=CMLib.map().findWorldRoomLiberally(mob,roomID,"R",100,120000);
+			thisRoom=CMLib.hunt().findWorldRoomLiberally(mob,roomID,"R",100,120000);
 			if(thisRoom==null)
 			{
 				mob.tell(L("Room \"@x1\" is unknown.  Try again.",roomID));
@@ -83,7 +87,8 @@ public class Link extends At
 				return false;
 			}
 		}
-		exitifyNewPortal(mob,thisRoom,direction);
+		if(!exitifyNewPortal(mob,thisRoom,direction))
+			return false;
 		mob.location().getArea().fillInAreaRoom(mob.location());
 		mob.location().getArea().fillInAreaRoom(thisRoom);
 
@@ -93,15 +98,27 @@ public class Link extends At
 		return false;
 	}
 
-	protected void exitifyNewPortal(final MOB mob, final Room room, final int direction)
+	protected boolean exitifyNewPortal(final MOB mob, final Room room, final int direction)
 	{
+		if(direction>=mob.location().rawDoors().length)
+		{
+			mob.tell(L("Room was created without that possible direction."));
+			return false;
+		}
 		Room opRoom=mob.location().rawDoors()[direction];
 		if((opRoom!=null)&&(opRoom.roomID().length()==0))
 			opRoom=null;
 		Room reverseRoom=null;
 		final int opDir=Directions.getOpDirectionCode(direction);
 		if(opRoom!=null)
+		{
+			if(opDir>=opRoom.rawDoors().length)
+			{
+				mob.tell(L("The target room was created without that possible direction."));
+				return false;
+			}
 			reverseRoom=opRoom.rawDoors()[opDir];
+		}
 
 		if((reverseRoom!=null)
 		&&((reverseRoom==mob.location())||(reverseRoom==mob.location().getGridParent())))
@@ -190,7 +207,7 @@ public class Link extends At
 		}
 		else
 		if((room.rawDoors()[opDir]==null)
-		&&(!(mob.location().getArea() instanceof BoardableShip)))
+		&&(!(mob.location().getArea() instanceof Boardable)))
 		{
 			if(hereGL!=null)
 			{
@@ -218,6 +235,7 @@ public class Link extends At
 			CMLib.database().DBUpdateExits(thereGL);
 		else
 			CMLib.database().DBUpdateExits(room);
+		return true;
 	}
 
 	@Override

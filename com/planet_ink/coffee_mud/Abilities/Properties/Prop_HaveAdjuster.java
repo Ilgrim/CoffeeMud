@@ -1,6 +1,7 @@
 package com.planet_ink.coffee_mud.Abilities.Properties;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
+import com.planet_ink.coffee_mud.core.CMClass.CMObjectType;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
@@ -10,6 +11,7 @@ import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.CMFlagLibrary;
 import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary;
 import com.planet_ink.coffee_mud.Libraries.interfaces.MaskingLibrary.CompiledZMask;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
@@ -19,7 +21,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,6 +61,14 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 		return true;
 	}
 
+	protected static class ItemSetDef
+	{
+		protected String			name			= "";
+		protected int				allSetReqNum	= 2;
+		protected volatile boolean	setChecked		= false;
+		protected volatile boolean	setActivated	= false;
+	}
+
 	protected Object[]		charStatsChanges	= null;
 	protected Object[]		charStateChanges	= null;
 	protected Object[]		phyStatsChanges		= null;
@@ -66,7 +76,13 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 	protected boolean		multiplyPhyStats	= false;
 	protected boolean		multiplyCharStates	= false;
 	protected boolean		firstTime			= false;
+	protected boolean		removeOnDeath		= false;
 	protected String[]		parameters			= new String[] { "", "" };
+	protected ItemSetDef	allSet				= null;
+	protected Set<String>	ambianceAdd			= null;
+	protected Set<String>	ambianceDel			= null;
+
+	private static String[]	allParms			= null;
 
 	@Override
 	public long flags()
@@ -80,14 +96,47 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 		return TriggeredAffect.TRIGGER_GET;
 	}
 
-	public boolean addIfPlussed(final String newText, final String parm, final int parmCode, final ArrayList<Object> addTo)
+	public boolean addIfPlussed(final Map<String,String> ps, final String newText, final String parm, final int parmCode, final ArrayList<Object> addTo, final List<String> errors)
 	{
-		final int val=CMParms.getParmPlus(newText,parm);
-		if(val==0)
-			return false;
-		addTo.add(Integer.valueOf(parmCode));
-		addTo.add(Integer.valueOf(val));
-		return true;
+		if(ps.containsKey(parm))
+		{
+			final String val=ps.get(parm);
+			if(val.startsWith("+")
+			&&(CMath.isNumber(val.substring(1))))
+			{
+				addTo.add(Integer.valueOf(parmCode));
+				addTo.add(Integer.valueOf(CMath.s_int(val.substring(1))));
+				return true;
+			}
+			else
+			if(val.startsWith("-")
+			&&(CMath.isNumber(val.substring(1))))
+			{
+				addTo.add(Integer.valueOf(parmCode));
+				addTo.add(Integer.valueOf(CMath.s_int(val)));
+				return true;
+			}
+			else
+			if(val.startsWith("+")
+			&&(CMath.isMathExpression(val.substring(1))))
+			{
+				addTo.add(Integer.valueOf(parmCode));
+				addTo.add(Integer.valueOf(CMath.s_parseIntExpression(val.substring(1))));
+				return true;
+			}
+			else
+			if(val.startsWith("-")
+			&&(CMath.isMathExpression(val.substring(1))))
+			{
+				addTo.add(Integer.valueOf(parmCode));
+				addTo.add(Integer.valueOf(CMath.s_parseIntExpression(val)));
+				return true;
+			}
+			else
+			if(errors!=null)
+				errors.add("Argument "+parm+": expected +-, got '"+val+"' in '"+newText+"'");
+		}
+		return false;
 	}
 
 	public Object[] makeObjectArray(final ArrayList<? extends Object> V)
@@ -102,6 +151,142 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 		return O;
 	}
 
+	private final Boolean getParmBool(final Map<String,String> ps, final String newText, final String parm, final boolean def, final List<String> errors)
+	{
+		if(ps.containsKey(parm))
+		{
+			final String val=ps.get(parm);
+			if(CMath.isBool(val))
+				return Boolean.valueOf(CMath.s_bool(val));
+			else
+			if(errors!=null)
+				errors.add("Argument "+parm+": expected boolean, got '"+val+"' in '"+newText+"'");
+		}
+		return Boolean.valueOf(def);
+	}
+
+	protected void addPlusMinusAmbiances(final Map<String, String> ps, final String parameters, final List<String> errors)
+	{
+		int num = 1;
+		String numKey = "AMBIANCE";
+		while(ps.containsKey(numKey))
+		{
+			final String val = ps.get(numKey);
+			if(val.startsWith("+"))
+			{
+				if(this.ambianceAdd == null)
+					this.ambianceAdd = new TreeSet<String>();
+				this.ambianceAdd.add(val.substring(1));
+			}
+			else
+			if(val.startsWith("-"))
+			{
+				if(this.ambianceDel == null)
+					this.ambianceDel = new TreeSet<String>();
+				this.ambianceDel.add(val.substring(1));
+			}
+			numKey = "AMBIANCE"+(++num);
+		}
+	}
+
+	private final void addAbleAdjustments(final Map<String,String> ps, final String newText, final String parm, final String prefix, final List<Object> charStatsV, final List<String> errors)
+	{
+		final String ableProfs=this.getParmStr(ps, parameters[0], parm, "");
+		if(ableProfs.length()>0)
+		{
+			final int size=charStatsV.size();
+			final List<String> parts=CMParms.parseCommas(ableProfs, true);
+			for(final String s : parts)
+			{
+				if(s.endsWith(")"))
+				{
+					final int x=s.indexOf('(');
+					if(x>0)
+					{
+						final String ableID = s.substring(0,x);
+						String amts=s.substring(x+1, s.length()-1).trim();
+						if(amts.startsWith("+"))
+							amts=amts.substring(1);
+						if(CMath.isInteger(amts))
+						{
+							final Pair<String,Integer> p = new Pair<String,Integer>(prefix+ableID.toUpperCase(),Integer.valueOf(CMath.s_int(amts)));
+							charStatsV.add(p);
+							charStatsV.add(p); // have to add twice, because thats how charadjs work
+						}
+					}
+				}
+			}
+			if(charStatsV.size()-(parts.size()*2)!=size)
+				errors.add("Unable to properly parse all "+parm+": "+ableProfs);
+		}
+	}
+
+	private final double getParmDoublePlus(final Map<String,String> ps, final String newText, final String parm, final double def, final List<String> errors)
+	{
+		if(ps.containsKey(parm))
+		{
+			String val=ps.get(parm);
+			if(val.startsWith("+")
+			&&(CMath.isNumber(val.substring(1))))
+				val=val.substring(1);
+			else
+			if(val.startsWith("-")
+			&&(CMath.isNumber(val.substring(1))))
+			{}
+			else
+			{
+				if(errors!=null)
+					errors.add("Argument "+parm+": expected +-, got '"+val+"' in '"+newText+"'");
+				return def;
+			}
+			return CMath.s_double(val);
+		}
+		return def;
+	}
+
+	private final String getParmStr(final Map<String,String> ps, final String newText, final String parm, final String def)
+	{
+		if(ps.containsKey(parm))
+			return ps.get(parm);
+		return def;
+	}
+
+	private final void getComplexPhyTerm(final Map<String,String> ps, final String parm, final int parmCode, final String[] parmCodeStr, final ArrayList<Object> addTo, final List<String> errors)
+	{
+		if(ps.containsKey(parm))
+		{
+			String senStr=ps.get(parm).toUpperCase();
+			if((senStr.startsWith("+")||senStr.startsWith("-"))
+			&&(CMath.isNumber(senStr.substring(1))))
+				addIfPlussed(ps,parameters[0],parm,parmCode,addTo,errors);
+			else
+			{
+				int multiply=1;
+				if(senStr.startsWith("+"))
+					senStr=senStr.substring(1);
+				else
+				if(senStr.startsWith("-"))
+				{
+					multiply=-1;
+					senStr=senStr.substring(1);
+				}
+				boolean found=false;
+				for(int chc=0;chc<parmCodeStr.length;chc++)
+				{
+					if(parmCodeStr[chc].indexOf(senStr)>=0)
+					{
+						found=true;
+						addTo.add(Integer.valueOf(parmCode));
+						addTo.add(Integer.valueOf(multiply*((int)Math.pow(2,chc))));
+						break;
+					}
+				}
+				if(!found)
+					errors.add("Illegal "+parm+" term: "+senStr);
+			}
+		}
+	}
+
 	@Override
 	public void setMiscText(final String newText)
 	{
@@ -111,102 +296,202 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 		this.charStatsChanges=null;
 		this.multiplyPhyStats = false;
 		this.multiplyCharStates = false;
+		this.removeOnDeath=false;
 		parameters=CMLib.masking().separateMaskStrs(text());
 		if(parameters[1].trim().length()==0)
 			mask=CMLib.masking().createEmptyMask();
 		else
 			mask=CMLib.masking().getPreCompiledMask(parameters[1]);
 
-		multiplyPhyStats = CMParms.getParmBool(parameters[0],"MULTIPLYPH",false);
-		multiplyCharStates = CMParms.getParmBool(parameters[0],"MULTIPLYCH",false);
+		if(allParms == null)
+		{
+			final List<String> tempV=new ArrayList<String>();
+			tempV.addAll(Arrays.asList(new String[] {
+				"MULTIPLYPH", "MULTIPLYCH", "abi", "arm", "att", "dam", "dis", "lev",
+				"rej", "sen", "spe", "wei", "hei", "gen", "cla", "cls", "rac", "hit",
+				"hun", "man", "mov", "thi", "ALLSAVES", "ABLEPROFS", "ABLELVLS","chr","hp",
+				"ALLSET","RONDEATH","AMBIANCE","DEITY"
+			}));
+			for(final int i : CharStats.CODES.BASECODES())
+			{
+				final String name = CMStrings.limit(CharStats.CODES.NAME(i).toLowerCase(),3);
+				tempV.add(name);
+				tempV.add("max"+name);
+			}
+			for(final int c : CharStats.CODES.SAVING_THROWS())
+				tempV.add("save"+CMStrings.limit(CharStats.CODES.NAME(c).toLowerCase(),3));
+			for(int c = CharStats.STAT_SAVE_DOUBT; c<CharStats.CODES.TOTAL();c++)
+				tempV.add(CharStats.CODES.NAME(c).toLowerCase());
+			allParms = tempV.toArray(new String[tempV.size()]);
+		}
+		final List<String> errors = new LinkedList<String>();
+		final Map<String,String> ps = CMParms.parseLooseParms(parameters[0], allParms, errors);
+		if(parameters[0].startsWith("+")
+		|| parameters[0].startsWith("-"))
+			errors.add("Likely bad arguments: "+parameters[0]);
 
+		this.removeOnDeath="TRUE".startsWith(getParmStr(ps, parameters[0], "RONDEATH", "").toUpperCase());
+		final String allSet=getParmStr(ps, parameters[0], "ALLSET", null);
+		this.allSet=null;
+		if((allSet!=null) && (allSet.length()>0))
+		{
+			this.allSet=new ItemSetDef();
+			final int x=allSet.lastIndexOf('-');
+			if((x>0)
+			&&(CMath.isInteger(allSet.substring(x+1).trim())))
+			{
+				this.allSet.allSetReqNum=CMath.s_int(allSet.substring(x+1).trim());
+				this.allSet.name=allSet.substring(0,x).trim();
+			}
+			else
+				this.allSet.name=allSet;
+		}
+		multiplyPhyStats = getParmBool(ps, parameters[0],"MULTIPLYPH",false,errors).booleanValue();
+		multiplyCharStates = getParmBool(ps, parameters[0],"MULTIPLYCH",false,errors).booleanValue();
+
+		this.ambianceAdd= null;
+		this.ambianceDel= null;
+		if(ps.containsKey("AMBIANCE"))
+			addPlusMinusAmbiances(ps,parameters[0],errors);
 		final ArrayList<Object> phyStatsV=new ArrayList<Object>();
-		addIfPlussed(parameters[0],"abi",PhyStats.STAT_ABILITY,phyStatsV);
-		addIfPlussed(parameters[0],"arm",PhyStats.STAT_ARMOR,phyStatsV);
-		addIfPlussed(parameters[0],"att",PhyStats.STAT_ATTACK,phyStatsV);
-		addIfPlussed(parameters[0],"dam",PhyStats.STAT_DAMAGE,phyStatsV);
-		addIfPlussed(parameters[0],"dis",PhyStats.STAT_DISPOSITION,phyStatsV);
-		addIfPlussed(parameters[0],"lev",PhyStats.STAT_LEVEL,phyStatsV);
-		addIfPlussed(parameters[0],"rej",PhyStats.STAT_REJUV,phyStatsV);
-		addIfPlussed(parameters[0],"sen",PhyStats.STAT_SENSES,phyStatsV);
-		final double dval=CMParms.getParmDoublePlus(parameters[0],"spe");
+		addIfPlussed(ps,parameters[0],"abi",PhyStats.STAT_ABILITY,phyStatsV,errors);
+		addIfPlussed(ps,parameters[0],"arm",PhyStats.STAT_ARMOR,phyStatsV,errors);
+		addIfPlussed(ps,parameters[0],"att",PhyStats.STAT_ATTACK,phyStatsV,errors);
+		addIfPlussed(ps,parameters[0],"dam",PhyStats.STAT_DAMAGE,phyStatsV,errors);
+		getComplexPhyTerm(ps, "dis", PhyStats.STAT_DISPOSITION, PhyStats.IS_CODES, phyStatsV, errors);
+		addIfPlussed(ps,parameters[0],"lev",PhyStats.STAT_LEVEL,phyStatsV,errors);
+		addIfPlussed(ps,parameters[0],"rej",PhyStats.STAT_REJUV,phyStatsV,errors);
+		getComplexPhyTerm(ps, "sen", PhyStats.STAT_SENSES, PhyStats.CAN_SEE_CODES, phyStatsV, errors);
+		final double dval=getParmDoublePlus(ps,parameters[0],"spe",0,errors);
 		if(dval!=0)
 		{
 			phyStatsV.add(Integer.valueOf(PhyStats.NUM_STATS));
 			phyStatsV.add(Double.valueOf(dval));
 		}
-		addIfPlussed(parameters[0],"wei",PhyStats.STAT_WEIGHT,phyStatsV);
-		addIfPlussed(parameters[0],"hei",PhyStats.STAT_HEIGHT,phyStatsV);
+		addIfPlussed(ps,parameters[0],"wei",PhyStats.STAT_WEIGHT,phyStatsV,errors);
+		addIfPlussed(ps,parameters[0],"hei",PhyStats.STAT_HEIGHT,phyStatsV,errors);
 
 		final ArrayList<Object> charStatsV=new ArrayList<Object>();
-		String val=CMParms.getParmStr(parameters[0],"gen","").toUpperCase();
-		if((val.length()>0)&&((val.charAt(0)=='M')||(val.charAt(0)=='F')||(val.charAt(0)=='N')))
+		String val=getParmStr(ps,parameters[0],"gen","").toUpperCase();
+		if((val.length()>0)
+		&&((val.charAt(0)=='M')||(val.charAt(0)=='F')||(val.charAt(0)=='N')))
 		{
-			charStatsV.add(new Character('G'));
-			charStatsV.add(new Character(val.charAt(0)));
+			charStatsV.add(Character.valueOf('G'));
+			charStatsV.add(Character.valueOf(val.charAt(0)));
 		}
-		val=CMParms.getParmStr(parameters[0],"cla","").toUpperCase();
+		val=getParmStr(ps,parameters[0],"DEITY","").toUpperCase();
+		if(val.length()>0)
+		{
+			charStatsV.add(Character.valueOf('W'));
+			charStatsV.add(val);
+		}
+		val=getParmStr(ps,parameters[0],"cla","").toUpperCase();
 		if(val.length()>0)
 		{
 			final CharClass C=CMClass.findCharClass(val);
 			if((C!=null)&&(C.availabilityCode()!=0))
 			{
-				charStatsV.add(new Character('C'));
+				charStatsV.add(Character.valueOf('C'));
 				charStatsV.add(C);
 			}
 		}
-		val=CMParms.getParmStr(parameters[0],"cls","").toUpperCase();
+		val=getParmStr(ps,parameters[0],"cls","").toUpperCase();
 		if(val.length()>0)
 		{
-			charStatsV.add(new Character('S'));
+			charStatsV.add(Character.valueOf('S'));
 			charStatsV.add(Integer.valueOf(CMath.s_int(val)));
 		}
-		val=CMParms.getParmStr(parameters[0],"rac","").toUpperCase();
+		val=getParmStr(ps,parameters[0],"rac","").toUpperCase();
 		if((val.length()>0)&&(CMClass.getRace(val)!=null))
 		{
-			charStatsV.add(new Character('R'));
+			charStatsV.add(Character.valueOf('R'));
 			charStatsV.add(CMClass.getRace(val));
 		}
 		for(final int i : CharStats.CODES.BASECODES())
 		{
 			final String name = CMStrings.limit(CharStats.CODES.NAME(i).toLowerCase(),3);
-			addIfPlussed(parameters[0],name,i,charStatsV);
-			addIfPlussed(parameters[0],"max"+name,CharStats.CODES.toMAXBASE(i),charStatsV);
+			addIfPlussed(ps,parameters[0],name,i,charStatsV,errors);
+			addIfPlussed(ps,parameters[0],"max"+name,CharStats.CODES.toMAXBASE(i),charStatsV,errors);
 		}
 		final int[] CMMSGMAP=CharStats.CODES.CMMSGMAP();
 		for(final int c : CharStats.CODES.SAVING_THROWS())
-		{
-			addIfPlussed(parameters[0],"save"+CMStrings.limit(CharStats.CODES.NAME(c).toLowerCase(),3),c,charStatsV);
-		}
-		for(int c = CharStats.STAT_FAITH; c<CharStats.CODES.TOTAL();c++)
-			addIfPlussed(parameters[0],CharStats.CODES.NAME(c).toLowerCase(),c,charStatsV);
+			addIfPlussed(ps,parameters[0],"save"+CMStrings.limit(CharStats.CODES.NAME(c).toLowerCase(),3),c,charStatsV,errors);
+		for(int c = CharStats.STAT_SAVE_DOUBT; c<CharStats.CODES.TOTAL();c++)
+			addIfPlussed(ps,parameters[0],CharStats.CODES.NAME(c).toLowerCase(),c,charStatsV,errors);
 
 		final ArrayList<Object> charStateV=new ArrayList<Object>();
-		addIfPlussed(parameters[0],"hit",CharState.STAT_HITPOINTS,charStateV);
-		addIfPlussed(parameters[0],"hun",CharState.STAT_HUNGER,charStateV);
-		addIfPlussed(parameters[0],"man",CharState.STAT_MANA,charStateV);
-		addIfPlussed(parameters[0],"mov",CharState.STAT_MOVE,charStateV);
-		addIfPlussed(parameters[0],"thi",CharState.STAT_THIRST,charStateV);
+		addIfPlussed(ps,parameters[0],"hit",CharState.STAT_HITPOINTS,charStateV,errors);
+		addIfPlussed(ps,parameters[0],"hp",CharState.STAT_HITPOINTS,charStateV,errors);
+		addIfPlussed(ps,parameters[0],"hun",CharState.STAT_HUNGER,charStateV,errors);
+		addIfPlussed(ps,parameters[0],"man",CharState.STAT_MANA,charStateV,errors);
+		addIfPlussed(ps,parameters[0],"mov",CharState.STAT_MOVE,charStateV,errors);
+		addIfPlussed(ps,parameters[0],"thi",CharState.STAT_THIRST,charStateV,errors);
 
-		final int allSavesPlus=CMParms.getParmPlus(newText,"ALLSAVES");
+		final double allSavesPlus=getParmDoublePlus(ps,newText,"ALLSAVES",0,errors);
 		if(allSavesPlus!=0)
 		{
+			final int allSavesPlusInt = (int)Math.round(allSavesPlus);
 			for(final int c : CharStats.CODES.SAVING_THROWS())
 			{
 				if(CMMSGMAP[c]!=-1)
 				{
 					charStatsV.add(Integer.valueOf(c));
-					charStatsV.add(Integer.valueOf(allSavesPlus));
+					charStatsV.add(Integer.valueOf(allSavesPlusInt));
 				}
 			}
 		}
+		this.addAbleAdjustments(ps, parameters[0], "ABLETICKS", "TICK+", charStatsV, errors);
+		this.addAbleAdjustments(ps, parameters[0], "ABLEPROFS", "PROF+", charStatsV, errors);
+		this.addAbleAdjustments(ps, parameters[0], "ABLEHPCOSTS", "HPCOST+", charStatsV, errors);
+		this.addAbleAdjustments(ps, parameters[0], "ABLEMNCOSTS", "MNCOST+", charStatsV, errors);
+		this.addAbleAdjustments(ps, parameters[0], "ABLEMVCOSTS", "MVCOST+", charStatsV, errors);
+		this.addAbleAdjustments(ps, parameters[0], "ABLELVLS", "LEVEL+", charStatsV, errors);
+		addIfPlussed(ps,parameters[0],"chr",CharStats.STAT_CHARISMA,charStatsV,errors);
 		this.charStateChanges=makeObjectArray(charStateV);
 		this.phyStatsChanges=makeObjectArray(phyStatsV);
 		this.charStatsChanges=makeObjectArray(charStatsV);
+		if(errors.size()>0)
+		{
+			final Prop_HaveAdjuster meSave=this;
+			if(affected != null)
+			{
+				final Physical P = affected;
+				Log.errOut(ID(),"Following errors found on "+P.Name()+"@"
+						+CMLib.map().getApproximateExtendedRoomID(CMLib.map().roomLocation(P))+": ");
+				for(final String err: errors)
+					Log.errOut(ID(),err);
+			}
+			else
+			CMLib.threads().scheduleRunnable(new Runnable()
+			{
+				final Prop_HaveAdjuster me=meSave;
+				Physical P = me.affected;
+				final List<String> errs = new LinkedList<String>(errors);
+				@Override
+				public void run()
+				{
+					if(P == null)
+						P=me.affected;
+					if(P != null)
+					{
+						Log.errOut(me.ID(),"Following errors found on "+P.Name()+"@"
+								+CMLib.map().getApproximateExtendedRoomID(CMLib.map().roomLocation(P))+": ");
+					}
+					for(final String err: errs)
+						Log.errOut(ID(),err);
+				}
+			}, 500);
+		}
 	}
 
-	public void phyStuff(final Object[] changes, final PhyStats phyStats)
+	public void phyStuff(final Object[] changes, final Physical host, final PhyStats phyStats)
 	{
+		if(this.ambianceAdd != null)
+			for(final String ambiance : this.ambianceAdd)
+				phyStats.addAmbiance(ambiance);
+		if(this.ambianceDel != null)
+			for(final String ambiance : this.ambianceDel)
+				phyStats.delAmbiance(ambiance);
 		if(changes==null)
 			return;
 		if(multiplyPhyStats)
@@ -220,8 +505,13 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 					break;
 				case PhyStats.STAT_ARMOR:
 				{
-					final int baseAmt=100 - phyStats.armor();
-					phyStats.setArmor(100 - (int)Math.round(CMath.mul(baseAmt, CMath.div(((Integer) changes[c + 1]).intValue(),100))));
+					if(host instanceof MOB)
+					{
+						final int baseAmt=100 - phyStats.armor();
+						phyStats.setArmor(100 - (int)Math.round(CMath.mul(baseAmt, CMath.div(((Integer) changes[c + 1]).intValue(),100))));
+					}
+					else
+						phyStats.setArmor((int)Math.round(CMath.mul(phyStats.armor(), CMath.div(((Integer) changes[c + 1]).intValue(),100))));
 					break;
 				}
 				case PhyStats.STAT_ATTACK:
@@ -231,8 +521,15 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 					phyStats.setDamage((int)Math.round(CMath.mul(phyStats.damage(), CMath.div(((Integer) changes[c + 1]).intValue(),100))));
 					break;
 				case PhyStats.STAT_DISPOSITION:
-					phyStats.setDisposition(phyStats.disposition() | ((Integer) changes[c + 1]).intValue());
+				{
+					final int val=((Integer) changes[c + 1]).intValue();
+					if(val > 0)
+						phyStats.setDisposition(phyStats.disposition() | val);
+					else
+					if(val < 0)
+						phyStats.setDisposition(phyStats.disposition() & ~(-val));
 					break;
+				}
 				case PhyStats.STAT_LEVEL:
 				{
 					phyStats.setLevel(phyStats.level() + ((Integer) changes[c + 1]).intValue());
@@ -244,7 +541,14 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 					phyStats.setRejuv(phyStats.rejuv() + ((Integer) changes[c + 1]).intValue());
 					break;
 				case PhyStats.STAT_SENSES:
-					phyStats.setSensesMask(phyStats.sensesMask() | ((Integer) changes[c + 1]).intValue());
+					{
+						final int val=((Integer) changes[c + 1]).intValue();
+						if(val > 0)
+							phyStats.setSensesMask(phyStats.sensesMask() | val);
+						else
+						if(val < 0)
+							phyStats.setSensesMask(phyStats.sensesMask() & ~(-val));
+					}
 					break;
 				case PhyStats.STAT_WEIGHT:
 					phyStats.setWeight((int)Math.round(CMath.mul(phyStats.weight(), CMath.div(((Integer) changes[c + 1]).intValue(),100))));
@@ -277,7 +581,14 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 					phyStats.setDamage(phyStats.damage() + ((Integer) changes[c + 1]).intValue());
 					break;
 				case PhyStats.STAT_DISPOSITION:
-					phyStats.setDisposition(phyStats.disposition() | ((Integer) changes[c + 1]).intValue());
+					{
+						final int val=((Integer) changes[c + 1]).intValue();
+						if(val > 0)
+							phyStats.setDisposition(phyStats.disposition() | val);
+						else
+						if(val < 0)
+							phyStats.setDisposition(phyStats.disposition() & ~(-val));
+					}
 					break;
 				case PhyStats.STAT_LEVEL:
 				{
@@ -290,7 +601,14 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 					phyStats.setRejuv(phyStats.rejuv() + ((Integer) changes[c + 1]).intValue());
 					break;
 				case PhyStats.STAT_SENSES:
-					phyStats.setSensesMask(phyStats.sensesMask() | ((Integer) changes[c + 1]).intValue());
+					{
+						final int val=((Integer) changes[c + 1]).intValue();
+						if(val > 0)
+							phyStats.setSensesMask(phyStats.sensesMask() | val);
+						else
+						if(val < 0)
+							phyStats.setSensesMask(phyStats.sensesMask() & ~(-val));
+					}
 					break;
 				case PhyStats.STAT_WEIGHT:
 					phyStats.setWeight(phyStats.weight() + ((Integer) changes[c + 1]).intValue());
@@ -299,8 +617,94 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 					phyStats.setHeight(phyStats.height() + ((Integer) changes[c + 1]).intValue());
 					break;
 				case PhyStats.NUM_STATS:
-					phyStats.setSpeed(phyStats.speed() + ((Double) changes[c + 1]).doubleValue());
+					phyStats.setSpeed(phyStats.speed() + (((Double) changes[c + 1]).doubleValue()));
 					break;
+				}
+			}
+		}
+	}
+
+	protected boolean setItemCheck(final Item I)
+	{
+		return true;
+	}
+
+	protected boolean setCheck(final Item I)
+	{
+		final ItemSetDef allSet;
+		synchronized(this)
+		{
+			allSet=this.allSet;
+		}
+		if(allSet==null)
+			return true;
+		final ItemPossessor P=I.owner();
+		if(!(P instanceof MOB))
+		{
+			allSet.setChecked=false;
+			allSet.setActivated=false;
+			return false;
+		}
+		if(allSet.setChecked)
+			return allSet.setActivated;
+		final MOB mob=(MOB)P;
+		int ct=0;
+		final List<ItemSetDef> allDefs=new LinkedList<ItemSetDef>();
+		for(int i=0;i<mob.numItems();i++)
+		{
+			final Item I2=mob.getItem(i);
+			if((I2!=null) && (I2.numEffects()>0))
+			{
+				final Prop_HaveAdjuster hA=(Prop_HaveAdjuster)I2.fetchEffect(ID());
+				if((hA!=null)
+				&&(hA.allSet!=null)
+				&&(hA.allSet.name.equalsIgnoreCase(allSet.name))) // just having it is enough
+				{
+					if(setItemCheck(I2))
+						ct++;
+					allDefs.add(hA.allSet);
+				}
+			}
+		}
+		final boolean setActivated=ct >= allSet.allSetReqNum;
+		for(final ItemSetDef def : allDefs)
+		{
+			def.setChecked=true;
+			def.setActivated=setActivated;
+		}
+		return setActivated;
+	}
+
+	protected void clearSet(final MOB mob, final ItemSetDef allSet)
+	{
+		if(allSet!=null)
+		{
+			synchronized(this)
+			{
+				allSet.setActivated=false;
+				allSet.setChecked=false;
+			}
+			if(mob != null)
+			{
+				for(int i=0;i<mob.numItems();i++)
+				{
+					final Item I=mob.getItem(i);
+					if((I!=affected)
+					&&(I!=null)
+					&&(I.numEffects()>0))
+					{
+						final Prop_HaveAdjuster hA=(Prop_HaveAdjuster)I.fetchEffect(ID());
+						if((hA!=null)
+						&&(hA.allSet!=null)
+						&&(hA.allSet.name.equalsIgnoreCase(allSet.name)))
+						{
+							synchronized(hA)
+							{
+								hA.allSet.setActivated=false;
+								hA.allSet.setChecked=false;
+							}
+						}
+					}
 				}
 			}
 		}
@@ -308,10 +712,10 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 
 	public boolean canApply(final MOB mob)
 	{
-		if((affected!=null)
-		&&(affected instanceof Item)
+		if((affected instanceof Item)
 		&&(!((Item)affected).amDestroyed())
-		&&((mask==null)||(CMLib.masking().maskCheck(mask,mob,true))))
+		&&((mask==null)||(CMLib.masking().maskCheck(mask,mob,true)))
+		&&(setCheck((Item)affected)))
 			return true;
 		return false;
 	}
@@ -330,11 +734,45 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 	}
 
 	@Override
+	public void executeMsg(final Environmental host, final CMMsg msg)
+	{
+		super.executeMsg(host,msg);
+		if((msg.target() == affected)
+		&&(affected instanceof Item)
+		&&(msg.source()==((Item)affected).owner())
+		&&(this.allSet!=null)
+		&&(ID().equals("Prop_HaveAdjuster")))
+		{
+			if((msg.targetMinor()==CMMsg.TYP_DROP)
+			||(msg.sourceMinor()==CMMsg.TYP_GET)
+			||(msg.sourceMinor()==CMMsg.TYP_GIVE))
+				clearSet(msg.source(),this.allSet);
+		}
+		else
+		if((msg.sourceMinor()==CMMsg.TYP_DEATH)
+		&&(this.removeOnDeath)
+		&&((msg.source()==affected)
+			||((affected instanceof Item)&&(msg.source()==((Item)affected).owner()))
+			||(affected instanceof Room)
+			||(affected instanceof Area)))
+		{
+			final Physical P = affected;
+			P.delEffect(this);
+			P.recoverPhyStats();
+			if(P instanceof MOB)
+			{
+				((MOB)P).recoverCharStats();
+				((MOB)P).recoverMaxState();
+			}
+		}
+	}
+
+	@Override
 	public void affectPhyStats(final Physical host, final PhyStats affectableStats)
 	{
 		ensureStarted();
 		if(canApply(host))
-			phyStuff(phyStatsChanges,affectableStats);
+			phyStuff(phyStatsChanges,host,affectableStats);
 		super.affectPhyStats(host,affectableStats);
 	}
 
@@ -345,12 +783,19 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 		for(int i=0;i<changes.length;i+=2)
 		{
 			if(changes[i] instanceof Integer)
-				charStats.setStat(((Integer)changes[i]).intValue(),charStats.getStat(((Integer)changes[i]).intValue())+((Integer)changes[i+1]).intValue());
+			{
+				charStats.setStat(((Integer)changes[i]).intValue(),
+							charStats.getStat(((Integer)changes[i]).intValue())
+							+((Integer)changes[i+1]).intValue());
+			}
 			else
 			if(changes[i] instanceof Character)
 			{
 				switch(((Character)changes[i]).charValue())
 				{
+				case 'W':
+					charStats.setWorshipCharID((String) changes[i + 1]);
+					break;
 				case 'G':
 					charStats.setStat(CharStats.STAT_GENDER, ((Character) changes[i + 1]).charValue());
 					break;
@@ -370,6 +815,13 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 					charStats.setWearableRestrictionsBitmap(charStats.getWearableRestrictionsBitmap()|charStats.getMyRace().forbiddenWornBits());
 					break;
 				}
+			}
+			else
+			if(changes[i] instanceof Pair)
+			{
+				@SuppressWarnings("unchecked")
+				final Pair<String,Integer> p = (Pair<String,Integer>)changes[i];
+				charStats.adjustAbilityAdjustment(p.first, p.second.intValue());
 			}
 		}
 	}
@@ -451,8 +903,10 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 		super.affectCharState(affectedMOB,affectedState);
 	}
 
-	public static final String fixAccoutingsWithMask(String parameters, final String mask)
+	public final String fixAccoutingsWithMask(String parameters, final String mask)
 	{
+		if(allSet != null)
+			parameters = CMParms.delParmStr(parameters, "ALLSET");
 		int x=parameters.toUpperCase().indexOf("ARM");
 		for(final StringBuffer ID=new StringBuffer(parameters);((x>0)&&(x<parameters.length()));x++)
 		{
@@ -480,12 +934,7 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 			final int y=parameters.indexOf(""+val,x);
 			if((val!=0)&&(y>x))
 			{
-				final StringBuffer middle=new StringBuffer("");
-				for(int num=0;num<PhyStats.IS_VERBS.length;num++)
-				{
-					if(CMath.bset(val,CMath.pow(2,num)))
-						middle.append(PhyStats.IS_VERBS[num]+" ");
-				}
+				final String middle=CMLib.flags().getDispositionVerbList(val, " ");
 				parameters=parameters.substring(0,x)+middle.toString().trim()+parameters.substring(y+((""+val).length()));
 			}
 		}
@@ -496,15 +945,12 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 			final int y=parameters.indexOf(""+val,x);
 			if((val!=0)&&(y>x))
 			{
-				final StringBuffer middle=new StringBuffer("");
-				for(int num=0;num<PhyStats.CAN_SEE_VERBS.length;num++)
-				{
-					if(CMath.bset(val,CMath.pow(2,num)))
-						middle.append(PhyStats.CAN_SEE_VERBS[num]+" ");
-				}
+				final String middle = CMLib.flags().getSensesVerbList(val, " ");
 				parameters=parameters.substring(0,x)+middle.toString().trim()+parameters.substring(y+((""+val).length()));
 			}
 		}
+		if(allSet!=null)
+			parameters+="  (Requires "+allSet.allSetReqNum+" pieces from the *"+allSet.name.replace('_', ' ')+"* set)";
 		if(mask.length()>0)
 			parameters+="  Restrictions: "+CMLib.masking().maskDesc(mask);
 		return parameters;
@@ -896,8 +1342,165 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 										int newNum = (int)Math.round(CMath.mul(num,pct));
 										if((newNum == num) && (newNum > 1))
 											newNum--;
+										final String newNumStr=((newNum>=0)?"+":"")+Integer.toString(newNum);
 										if(newNum != 0)
-											s=s.substring(0,plusminus+1)+newNum+s.substring(spaceafter);
+											s=s.substring(0,plusminus)+newNumStr+s.substring(spaceafter);
+									}
+								}
+							}
+						}
+					}
+					minus=s.indexOf('-',plusminus+1);
+					plusminus=s.indexOf('+',plusminus+1);
+					if((minus>=0)&&((plusminus<0)||(minus<plusminus)))
+						plusminus=minus;
+				}
+				setMiscText(s);
+			}
+			else
+			if(code.equalsIgnoreCase("TONEUP"))
+			{
+				setStat("TONEUP-ARMOR",val);
+				setStat("TONEUP-WEAPON",val);
+				setStat("TONEUP-MISC",val);
+			}
+			else
+			if(code.equalsIgnoreCase("TONEUP-ARMOR"))
+			{
+				if(CMParms.getParmPlus(text(),"ARM")!=0)
+				{
+					int a=text().toUpperCase().indexOf("ARM");
+					if(a>=0)
+						a=text().indexOf('-',a+1);
+					if(a>0)
+					{
+						int a2=text().toUpperCase().indexOf(' ',a+1);
+						if(a2<0)
+							a2=text().length();
+						final int num=CMath.s_int(text().substring(a+1,a2));
+						int newNum = (int)Math.round(CMath.mul(num,1.1));
+						if((newNum == num) && (newNum > 1))
+							newNum--;
+						if(newNum != 0)
+						{
+							setMiscText(text().substring(0,a+1)+newNum+text().substring(a2));
+						}
+					}
+				}
+				else
+					setMiscText("ARMOR-5 "+text());
+			}
+			else
+			if(code.equalsIgnoreCase("TONEUP-WEAPON"))
+			{
+				final double pct=CMath.s_pct(val);
+				final boolean doesDamn =CMParms.getParmPlus(text(),"DAM")>0;
+				final boolean doesAtt =CMParms.getParmPlus(text(),"DAM")>0;
+				if((!doesDamn) && (!doesAtt))
+				{
+					if(CMLib.dice().rollPercentage()>50)
+						setMiscText("ATTACK+5 "+text());
+					else
+						setMiscText("DAMAGE+1 "+text());
+					return;
+				}
+				if(doesDamn)
+				{
+					int a=text().toUpperCase().indexOf("DAM");
+					if(a>=0)
+						a=text().indexOf('+',a+1);
+					if(a>0)
+					{
+						int a2=text().toUpperCase().indexOf(' ',a+1);
+						if(a2<0)
+							a2=text().length();
+						final int num=CMath.s_int(text().substring(a+1,a2));
+						int newNum = (int)Math.round(CMath.mul(num,pct));
+						if((newNum == num) && (newNum > 1))
+							newNum--;
+						if(newNum != 0)
+						{
+							setMiscText(text().substring(0,a+1)+newNum+text().substring(a2));
+						}
+					}
+				}
+				if(doesAtt)
+				{
+					int a=text().toUpperCase().indexOf("ATT");
+					if(a>=0)
+						a=text().indexOf('+',a+1);
+					if(a>0)
+					{
+						int a2=text().toUpperCase().indexOf(' ',a+1);
+						if(a2<0)
+							a2=text().length();
+						final int num=CMath.s_int(text().substring(a+1,a2));
+						int newNum = (int)Math.round(CMath.mul(num,pct));
+						if((newNum == num) && (newNum > 1))
+							newNum--;
+						if(newNum != 0)
+						{
+							setMiscText(text().substring(0,a+1)+newNum+text().substring(a2));
+						}
+					}
+				}
+			}
+			else
+			if(code.equalsIgnoreCase("TONEUP-MISC"))
+			{
+				final double pct=CMath.s_pct(val);
+				final Physical I=affected;
+				String s=text();
+				int plusminus=s.indexOf('+');
+				int minus=s.indexOf('-');
+				if((minus>=0)&&((plusminus<0)||(minus<plusminus)))
+					plusminus=minus;
+				while(plusminus>=0)
+				{
+					int spaceafter=s.indexOf(' ',plusminus+1);
+					if(spaceafter<0)
+						spaceafter=s.length();
+					if(spaceafter>plusminus)
+					{
+						final String number=s.substring(plusminus+1,spaceafter).trim();
+						if(CMath.isNumber(number))
+						{
+							final int num=CMath.s_int(number);
+							int spacebefore=s.lastIndexOf(' ',plusminus);
+							if(spacebefore<0)
+								spacebefore=0;
+							if(spacebefore<plusminus)
+							{
+								final String wd=s.substring(spacebefore,plusminus).trim().toUpperCase();
+								if(wd.startsWith("DIS")) {}
+								else if(wd.startsWith("SEN"))  {}
+								else if(wd.startsWith("ARM")&&(I instanceof Armor))  {}
+								else if(wd.startsWith("ATT")&&(I instanceof Weapon))  {}
+								else if(wd.startsWith("DAM")&&(I instanceof Weapon))  {}
+								else if(wd.startsWith("ARM")&&(s.charAt(plusminus)=='+'))  {}
+								else
+								if((!wd.startsWith("ARM"))&&(s.charAt(plusminus)=='-'))
+								{
+									if((num!=1)&&(num!=-1)&&(pct>1))
+									{
+										int newNum = num + (int)Math.abs(Math.round(CMath.mul(num,pct-1.0)));
+										if((newNum == num) && (newNum > 1))
+											newNum--;
+										final String newNumStr=((newNum>=0)?"+":"")+Integer.toString(newNum);
+										if(newNum != 0)
+											s=s.substring(0,plusminus)+newNumStr+s.substring(spaceafter);
+									}
+								}
+								else
+								{
+									if((num!=1)&&(num!=-1))
+									{
+										int newNum = num + (int)Math.round(CMath.mul(num,pct));
+										if((newNum == num) && (newNum > 1))
+											newNum--;
+										final String newNumStr=((newNum>=0)?"+":"")+Integer.toString(newNum);
+										if(newNum != 0)
+											s=s.substring(0,plusminus)+newNumStr+s.substring(spaceafter);
 									}
 								}
 							}
@@ -911,7 +1514,6 @@ public class Prop_HaveAdjuster extends Property implements TriggeredAffect
 				setMiscText(s);
 			}
 		}
-		else
-			super.setStat(code, val);
+		super.setStat(code, val);
 	}
 }

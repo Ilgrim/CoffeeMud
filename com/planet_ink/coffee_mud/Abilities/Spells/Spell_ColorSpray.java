@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -171,7 +171,7 @@ public class Spell_ColorSpray extends Spell
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		final Set<MOB> h=properTargets(mob,givenTarget,auto);
-		if(h==null)
+		if((h==null)||(h.size()==0))
 		{
 			mob.tell(L("There doesn't appear to be anyone here worth color spraying."));
 			return false;
@@ -184,7 +184,7 @@ public class Spell_ColorSpray extends Spell
 
 		if(success)
 		{
-			if(mob.location().show(mob,null,this,somanticCastCode(mob,null,auto),auto?"":L("^S<S-NAME> wiggle(s) <S-HIS-HER> fingers, spraying a blast of colors!^?")))
+			if(mob.location().show(mob,null,this,somaticCastCode(mob,null,auto),auto?"":L("^S<S-NAME> wiggle(s) <S-HIS-HER> fingers, spraying a blast of colors!^?")))
 			{
 				for (final Object element : h)
 				{
@@ -194,7 +194,7 @@ public class Spell_ColorSpray extends Spell
 					// won't happen
 					if((target.charStats().getBodyPart(Race.BODY_EYE)>0) && CMLib.flags().canSee(target))
 					{
-						final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),null);
+						final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),null);
 						if((mob.location().okMessage(mob,msg)) && (target.fetchEffect(this.ID())==null))
 						{
 							mob.location().send(mob,msg);

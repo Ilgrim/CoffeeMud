@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,10 +60,10 @@ public class Trap_Boulders extends StdTrap
 		return 0;
 	}
 
-	@Override
-	protected int trapLevel()
+	public Trap_Boulders()
 	{
-		return 20;
+		super();
+		trapLevel = 20;
 	}
 
 	@Override
@@ -136,13 +136,21 @@ public class Trap_Boulders extends StdTrap
 			||(invoker().getGroupMembers(new HashSet<MOB>()).contains(target))
 			||(target==invoker())
 			||(doesSaveVsTraps(target)))
-				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> avoid(s) setting off a boulder trap!"));
-			else
-			if(target.location().show(target,target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> trigger(s) a trap!")))
 			{
-				super.spring(target);
-				final int damage=CMLib.dice().roll(trapLevel()+abilityCode(),20,1);
-				CMLib.combat().postDamage(invoker(),target,this,damage,CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS|CMMsg.TYP_JUSTICE,Weapon.TYPE_BASHING,L("Dozens of boulders <DAMAGE> <T-NAME>!"));
+				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,
+						getAvoidMsg(L("<S-NAME> avoid(s) setting off a boulder trap!")));
+			}
+			else
+			{
+				if(target.location().show(target,target,this,
+						CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,getTrigMsg(L("<S-NAME> trigger(s) a trap!"))))
+				{
+					super.spring(target);
+					final int damage=CMLib.dice().roll(trapLevel()+abilityCode(),20,1);
+					CMLib.combat().postDamage(invoker(),target,this,damage,
+							CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS|CMMsg.TYP_JUSTICE,
+							Weapon.TYPE_BASHING,getDamMsg(L("Dozens of boulders <DAMAGE> <T-NAME>!")));
+				}
 			}
 		}
 	}

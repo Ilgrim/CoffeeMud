@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -95,6 +95,7 @@ public class Chant_AnimalSpy extends Chant
 			return;
 		if(canBeUninvoked())
 		{
+			final MOB invoker=this.invoker();
 			if(invoker!=null)
 			{
 				final Ability A=invoker.fetchEffect(this.ID());
@@ -118,6 +119,7 @@ public class Chant_AnimalSpy extends Chant
 				return;
 
 			if((msg.amISource(spy))
+			&&(affected==spy)
 			&&((msg.sourceMinor()==CMMsg.TYP_LOOK)||(msg.sourceMinor()==CMMsg.TYP_EXAMINE))
 			&&(msg.target()!=null)
 			&&((invoker.location()!=spy.location())||(!(msg.target() instanceof Room))))
@@ -129,6 +131,7 @@ public class Chant_AnimalSpy extends Chant
 			else
 			if((!msg.amISource(invoker))
 			&&(invoker.location()!=spy.location())
+			&&(affected==spy)
 			&&(msg.source().location()==spy.location())
 			&&(msg.othersCode()!=CMMsg.NO_EFFECT)
 			&&(msg.othersMessage()!=null)
@@ -140,6 +143,7 @@ public class Chant_AnimalSpy extends Chant
 			else
 			if(msg.amISource(invoker)
 			&&(!disable)
+			&&(affected==invoker)
 			&&(msg.sourceMinor()==CMMsg.TYP_SPEAK)
 			&&(msg.sourceMessage()!=null)
 			&&((msg.sourceMajor()&CMMsg.MASK_MAGIC)==0))
@@ -175,7 +179,7 @@ public class Chant_AnimalSpy extends Chant
 		if(target!=null)
 		{
 			newRoom=target.location();
-			if((!CMLib.flags().isAnimalIntelligence(target))
+			if((!CMLib.flags().isAnAnimal(target))
 			||(target.amFollowing()!=mob))
 			{
 				mob.tell(L("You have no animal follower named '@x1' here.",mobName));
@@ -195,7 +199,7 @@ public class Chant_AnimalSpy extends Chant
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> chant(s) to <T-NAMESELF>, invoking the a mystical connection.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> chant(s) to <T-NAMESELF>, invoking a mystical connection.^?"));
 			final CMMsg msg2=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),null);
 			if((mob.location().okMessage(mob,msg))&&((newRoom==mob.location())||(newRoom.okMessage(mob,msg2))))
 			{

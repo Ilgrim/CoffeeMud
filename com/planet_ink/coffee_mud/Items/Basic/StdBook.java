@@ -23,7 +23,7 @@ import java.util.*;
 import java.io.IOException;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -61,6 +61,14 @@ public class StdBook extends StdItem implements Book
 	protected int	maxCharsPage	= 0;	// 0=unlimited
 	protected MOB	lastReadTo		= null;
 	protected long	lastDateRead	= -1;
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a book");
+	}
 
 	@Override
 	public boolean okMessage(final Environmental myHost, final CMMsg msg)
@@ -331,13 +339,12 @@ public class StdBook extends StdItem implements Book
 					if((newOnly)&&(msg.value()>0))
 						return;
 					final StringBuffer returnEntry;
+					String chName="";
 					if(read.second.length()>0)
 					{
 						final int x=read.second.indexOf(":");
-						if(x>0)
-							returnEntry=new StringBuffer("::"+read.second.substring(x+1)+"::");
-						else
-							returnEntry=new StringBuffer("::"+read.second+"::");
+						chName = (x>0) ? read.second.substring(x+1) : read.second;
+						returnEntry=new StringBuffer("::"+chName+"::");
 					}
 					else
 						returnEntry=new StringBuffer("");
@@ -347,12 +354,24 @@ public class StdBook extends StdItem implements Book
 					{
 						final int x=eTrim.indexOf(":");
 						int eol=-1;
-						if((x>0)&&(CMath.isInteger(eTrim.substring(chStart.length(),x).trim())))
+						if(((x>0)&&(CMath.isInteger(eTrim.substring(chStart.length(),x).trim())))
+						||(eTrim.startsWith(chName)))
 						{
 							eol=eTrim.indexOf('\n');
 							if(eol < 0)
 								eol=eTrim.indexOf('\r');
 						}
+						if(eol>0)
+							returnEntry.append("\n"+eTrim.substring(eol).trim());
+						else
+							returnEntry.append(entry);
+					}
+					else
+					if(eTrim.startsWith(chStart))
+					{
+						int eol=eTrim.indexOf('\n');
+						if(eol < 0)
+							eol=eTrim.indexOf('\r');
 						if(eol>0)
 							returnEntry.append("\n"+eTrim.substring(eol).trim());
 						else
@@ -429,10 +448,13 @@ public class StdBook extends StdItem implements Book
 								else
 								{
 									editOldChapter(mob.Name(),to,editKey[0],subject[0],message[0]);
-									if((R!=null)&&(msg.targetMessage().length()<=1))
-										R.send(mob, ((CMMsg)msg.copyOf()).modify(CMMsg.MSG_WROTE, L("Chapter modified."), CMMsg.MSG_WROTE, subject+"\n\r"+message, -1, null));
-									else
-										mob.tell(L("Chapter modified."));
+									if(msg.sourceMessage() != null)
+									{
+										if((R!=null)&&(msg.targetMessage().length()<=1))
+											R.send(mob, ((CMMsg)msg.copyOf()).modify(CMMsg.MSG_WROTE, L("Chapter modified."), CMMsg.MSG_WROTE, subject+"\n\r"+message, -1, null));
+										else
+											mob.tell(L("Chapter modified."));
+									}
 								}
 							}
 						}
@@ -498,7 +520,7 @@ public class StdBook extends StdItem implements Book
 							public void showPrompt()
 							{
 								if((subject[0]!=null)&&(subject[0].length()>0))
-									mob.session().promptPrint(L("Enter the name of the chapter ("+subject[0]+"): "));
+									mob.session().promptPrint(L("Enter the name of the chapter (@x1): ",subject[0]));
 								else
 									mob.session().promptPrint(L("Enter the name of the chapter: "));
 							}

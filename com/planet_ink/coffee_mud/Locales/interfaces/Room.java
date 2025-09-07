@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ import java.util.*;
  * @author Bo Zimmerman
  *
  */
-public interface Room extends PhysicalAgent, ItemPossessor, Places
+public interface Room extends PhysicalAgent, ItemPossessor, Places, MOBPossessor
 {
 	/**
 	 * The room ID is the "address" of the room on the world map.  It
@@ -270,6 +270,7 @@ public interface Room extends PhysicalAgent, ItemPossessor, Places
 		SNOW('W',Climate.WEATHER_SNOW),
 		CLEAR('W',Climate.WEATHER_CLEAR),
 		HEATWAVE('W',Climate.WEATHER_HEAT_WAVE),
+		FOG('W',Climate.WEATHER_FOG),
 		THUNDERSTORM('W',Climate.WEATHER_THUNDERSTORM),
 		BLIZZARD('W',Climate.WEATHER_BLIZZARD),
 		WINDY('W',Climate.WEATHER_WINDY),
@@ -290,6 +291,18 @@ public interface Room extends PhysicalAgent, ItemPossessor, Places
 		VISITED('V',-1),
 		ELSE('\n',-1),
 		VARIES('\r',-1),
+		FROMUNKOWN('F',-1),
+		FROMNORTH('F',Directions.NORTH),
+		FROMSOUTH('F',Directions.SOUTH),
+		FROMEAST('F',Directions.EAST),
+		FROMWEST('F',Directions.WEST),
+		FROMUP('F',Directions.UP),
+		FROMDOWN('F',Directions.DOWN),
+		FROMGATE('F',Directions.GATE),
+		FROMNORTHEAST('F',Directions.NORTHEAST),
+		FROMNORTHWEST('F',Directions.NORTHWEST),
+		FROMSOUTHEAST('F',Directions.SOUTHEAST),
+		FROMSOUTHWEST('F',Directions.SOUTHWEST),
 		;
 		public final char c;
 		public final int num;
@@ -349,6 +362,7 @@ public interface Room extends PhysicalAgent, ItemPossessor, Places
 	 * one, or an empty list if none exist yet.
 	 * @see Room#clearSky()
 	 * @see Room#getSky()
+	 * @return the sky rooms
 	 */
 	public List<Room> getSky();
 
@@ -440,6 +454,8 @@ public interface Room extends PhysicalAgent, ItemPossessor, Places
 	 * always call {@link Room#getExitInDir(int)} if you want the final
 	 * Exit object in the given direction.  This method returns null if
 	 * there is no exit in the given direction.
+	 * @see Room#getRawDoor(int)
+	 * @see Room#setRawDoor(int, Room)
 	 * @see Room#setRawExit(int, Exit)
 	 * @see Room#getExitInDir(int)
 	 * @see Room#getReverseExit(int)
@@ -454,6 +470,8 @@ public interface Room extends PhysicalAgent, ItemPossessor, Places
 
 	/**
 	 * Sets the Exit object found in this room in the given direction.
+	 * @see Room#getRawDoor(int)
+	 * @see Room#setRawDoor(int, Room)
 	 * @see Room#getRawExit(int)
 	 * @see Room#getExitInDir(int)
 	 * @see Room#getReverseExit(int)
@@ -465,6 +483,42 @@ public interface Room extends PhysicalAgent, ItemPossessor, Places
 	 * @param E the raw Exit object in that direction, or null
 	 */
 	public void setRawExit(int direction, Exit E);
+
+	/**
+	 * Returns the raw unresolved room link found in this room in the given
+	 * direction.  This method should only be called by internal engine
+	 * systems, as it may return a temporary object.  Instead, you should
+	 * always call {@link Room#getRoomInDir(int)} if you want the final
+	 * Room link in the given direction.  This method returns null if
+	 * there is no link in the given direction.
+	 * @see Room#setRawDoor(int, Room)
+	 * @see Room#setRawExit(int, Exit)
+	 * @see Room#getExitInDir(int)
+	 * @see Room#getReverseExit(int)
+	 * @see Room#getPairedExit(int)
+	 * @see Room#fetchExit(String)
+	 * @see Directions
+	 * @see com.planet_ink.coffee_mud.Exits.interfaces.Exit
+	 * @param direction the direction in this room to look for an exit in
+	 * @return the raw Exit object in that direction, or null
+	 */
+	public Room getRawDoor(int direction);
+
+	/**
+	 * Sets the Room link from in this room to the other
+	 * in the given direction.
+	 * @see Room#getRawDoor(int)
+	 * @see Room#getRawExit(int)
+	 * @see Room#getExitInDir(int)
+	 * @see Room#getReverseExit(int)
+	 * @see Room#getPairedExit(int)
+	 * @see Room#fetchExit(String)
+	 * @see Directions
+	 * @see com.planet_ink.coffee_mud.Exits.interfaces.Exit
+	 * @param direction the direction in this room to look for an exit in
+	 * @param R the Room link in that direction, or null
+	 */
+	public void setRawDoor(int direction, Room R);
 
 	/**
 	 * Returns the Exit opposite this one, in the Room in the given direction.
@@ -838,305 +892,23 @@ public interface Room extends PhysicalAgent, ItemPossessor, Places
 	public boolean isHere(Environmental E);
 
 	/**
-	 * Searches the inhabitants of this room for a mob with the given
-	 * ID(), name, or display name.  If nothing is found, it does a
-	 * substring search as well.  This method also respects index
-	 * suffixes, such as .1, .2 to specify which of identical mobs
-	 * to return.
-	 * @see Room#fetchInhabitants(String)
-	 * @see Room#fetchInhabitantExact(String)
-	 * @see Room#fetchInhabitant(int)
-	 * @see Room#fetchRandomInhabitant()
-	 * @see Room#inhabitants()
-	 * @see Room#addInhabitant(MOB)
-	 * @see Room#delInhabitant(MOB)
-	 * @see Room#isInhabitant(MOB)
-	 * @see Room#numInhabitants()
-	 * @see Room#bringMobHere(MOB, boolean)
-	 * @see Room#numPCInhabitants()
-	 * @see Room#eachInhabitant(EachApplicable)
-	 * @param inhabitantID the name, id, or keyword to search for
-	 * @return the first mob to match the search string
-	 */
-	public MOB fetchInhabitant(String inhabitantID);
-
-	/**
-	 * Searches the inhabitants of this room for a mob with the given
-	 * ID(), name, or display name.  This method also respects index
-	 * suffixes, such as .1, .2 to specify which of identical mobs
-	 * to return.
-	 * @see Room#fetchInhabitants(String)
-	 * @see Room#fetchInhabitant(String)
-	 * @see Room#fetchInhabitant(int)
-	 * @see Room#fetchRandomInhabitant()
-	 * @see Room#inhabitants()
-	 * @see Room#addInhabitant(MOB)
-	 * @see Room#delInhabitant(MOB)
-	 * @see Room#isInhabitant(MOB)
-	 * @see Room#numInhabitants()
-	 * @see Room#bringMobHere(MOB, boolean)
-	 * @see Room#numPCInhabitants()
-	 * @see Room#eachInhabitant(EachApplicable)
-	 * @param inhabitantID the name, id, or keyword to search for
-	 * @return the first mob to match the search string
-	 */
-	public MOB fetchInhabitantExact(String inhabitantID);
-
-	/**
-	 * Searches the inhabitants of this room for mobs with the given
-	 * ID(), name, or display name.  If nothing is found, it does a
-	 * substring search as well.
-	 * @see Room#fetchInhabitant(String)
-	 * @see Room#fetchInhabitant(int)
-	 * @see Room#fetchRandomInhabitant()
-	 * @see Room#inhabitants()
-	 * @see Room#addInhabitant(MOB)
-	 * @see Room#delInhabitant(MOB)
-	 * @see Room#delAllInhabitants(boolean)
-	 * @see Room#isInhabitant(MOB)
-	 * @see Room#numInhabitants()
-	 * @see Room#bringMobHere(MOB, boolean)
-	 * @see Room#numPCInhabitants()
-	 * @see Room#eachInhabitant(EachApplicable)
-	 * @param inhabitantID the name, id, or keyword to search for
-	 * @return all the mobs that match the search string
-	 */
-	public List<MOB> fetchInhabitants(String inhabitantID);
-
-	/**
-	 * Returns a random inhabitant mob in this room, or null
-	 * if there are none.
-	 * @see Room#fetchInhabitant(String)
-	 * @see Room#fetchInhabitant(int)
-	 * @see Room#fetchInhabitants(String)
-	 * @see Room#isInhabitant(MOB)
-	 * @see Room#delAllInhabitants(boolean)
-	 * @see Room#inhabitants()
-	 * @see Room#delInhabitant(MOB)
-	 * @see Room#isInhabitant(MOB)
-	 * @see Room#numInhabitants()
-	 * @see Room#bringMobHere(MOB, boolean)
-	 * @see Room#numPCInhabitants()
-	 * @see Room#eachInhabitant(EachApplicable)
-	 * @return the random mob inhabitant
-	 */
-	public MOB fetchRandomInhabitant();
-
-	/**
-	 * Returns the inhabitant mob in this room at the given
-	 * index, or null if there are none at that index. The
-	 * index is, of course, 0 based.
-	 * @see Room#fetchInhabitant(String)
-	 * @see Room#fetchRandomInhabitant()
-	 * @see Room#fetchInhabitants(String)
-	 * @see Room#isInhabitant(MOB)
-	 * @see Room#delAllInhabitants(boolean)
-	 * @see Room#inhabitants()
-	 * @see Room#delInhabitant(MOB)
-	 * @see Room#isInhabitant(MOB)
-	 * @see Room#numInhabitants()
-	 * @see Room#bringMobHere(MOB, boolean)
-	 * @see Room#numPCInhabitants()
-	 * @see Room#eachInhabitant(EachApplicable)
-	 * @param i the index of the mob
-	 * @return the mob inhabitant at that index
-	 */
-	public MOB fetchInhabitant(int i);
-
-	/**
-	 * Returns an enumeration of all the inhabitants of
-	 * this room.
-	 * @see Room#fetchInhabitant(String)
-	 * @see Room#fetchInhabitant(int)
-	 * @see Room#fetchInhabitants(String)
-	 * @see Room#fetchRandomInhabitant()
-	 * @see Room#delAllInhabitants(boolean)
-	 * @see Room#addInhabitant(MOB)
-	 * @see Room#delInhabitant(MOB)
-	 * @see Room#isInhabitant(MOB)
-	 * @see Room#numInhabitants()
-	 * @see Room#bringMobHere(MOB, boolean)
-	 * @see Room#numPCInhabitants()
-	 * @see Room#eachInhabitant(EachApplicable)
-	 * @return an enumeration of all the inhabitants
-	 */
-	public Enumeration<MOB> inhabitants();
-
-	/**
-	 * Adds the given mob to this room as an inhabitant.
-	 * Does *not* register the new location with the mob,
-	 * so you would need to also call setLocation
-	 * @see com.planet_ink.coffee_mud.MOBS.interfaces.MOB#setLocation(Room)
-	 * @see Room#fetchInhabitant(String)
-	 * @see Room#fetchInhabitant(int)
-	 * @see Room#fetchInhabitants(String)
-	 * @see Room#fetchRandomInhabitant()
-	 * @see Room#delAllInhabitants(boolean)
-	 * @see Room#inhabitants()
-	 * @see Room#delInhabitant(MOB)
-	 * @see Room#isInhabitant(MOB)
-	 * @see Room#numInhabitants()
-	 * @see Room#bringMobHere(MOB, boolean)
-	 * @see Room#numPCInhabitants()
-	 * @see Room#eachInhabitant(EachApplicable)
-	 * @param mob the mob to add to this room
-	 */
-	public void addInhabitant(MOB mob);
-
-	/**
-	 * Removes the given mob from this room as an inhabitant.
-	 * Does *not* un-register the new location with the mob,
-	 * so you would need to also call setLocation
-	 * @see com.planet_ink.coffee_mud.MOBS.interfaces.MOB#setLocation(Room)
-	 * @see Room#fetchInhabitant(String)
-	 * @see Room#fetchInhabitant(int)
-	 * @see Room#fetchInhabitants(String)
-	 * @see Room#fetchRandomInhabitant()
-	 * @see Room#inhabitants()
-	 * @see Room#addInhabitant(MOB)
-	 * @see Room#delAllInhabitants(boolean)
-	 * @see Room#isInhabitant(MOB)
-	 * @see Room#numInhabitants()
-	 * @see Room#bringMobHere(MOB, boolean)
-	 * @see Room#numPCInhabitants()
-	 * @see Room#eachInhabitant(EachApplicable)
-	 * @param mob the mob to remove from this room
-	 */
-	public void delInhabitant(MOB mob);
-
-	/**
-	 * Removes all the mobs from this room as inhabitants and
-	 * optionally destroys the mob objects as well.
-	 * Does *not* un-register the new location with the mob,
-	 * so you would need to also call setLocation if you don't
-	 * destroy them.
-	 * @see com.planet_ink.coffee_mud.MOBS.interfaces.MOB#setLocation(Room)
-	 * @see Room#fetchInhabitant(String)
-	 * @see Room#fetchInhabitant(int)
-	 * @see Room#fetchInhabitants(String)
-	 * @see Room#fetchRandomInhabitant()
-	 * @see Room#inhabitants()
-	 * @see Room#delInhabitant(MOB)
-	 * @see Room#addInhabitant(MOB)
-	 * @see Room#isInhabitant(MOB)
-	 * @see Room#numInhabitants()
-	 * @see Room#bringMobHere(MOB, boolean)
-	 * @see Room#numPCInhabitants()
-	 * @see Room#eachInhabitant(EachApplicable)
-	 * @param destroy true to also destroy the mob objects, false otherwise
-	 */
-	public void delAllInhabitants(boolean destroy);
-
-	/**
-	 * Returns the number of all the inhabitants of
-	 * this room.
-	 * @see Room#fetchInhabitant(String)
-	 * @see Room#fetchInhabitant(int)
-	 * @see Room#fetchInhabitants(String)
-	 * @see Room#fetchRandomInhabitant()
-	 * @see Room#delAllInhabitants(boolean)
-	 * @see Room#addInhabitant(MOB)
-	 * @see Room#delInhabitant(MOB)
-	 * @see Room#isInhabitant(MOB)
-	 * @see Room#inhabitants()
-	 * @see Room#bringMobHere(MOB, boolean)
-	 * @see Room#numPCInhabitants()
-	 * @see Room#eachInhabitant(EachApplicable)
-	 * @return the number of inhabitants
-	 */
-	public int numInhabitants();
-
-	/**
-	 * Returns whether the given mob is an inhabitant of this room.
-	 * @see Room#fetchInhabitant(String)
-	 * @see Room#fetchInhabitant(int)
-	 * @see Room#fetchInhabitants(String)
-	 * @see Room#fetchRandomInhabitant()
-	 * @see Room#delAllInhabitants(boolean)
-	 * @see Room#inhabitants()
-	 * @see Room#delInhabitant(MOB)
-	 * @see Room#addInhabitant(MOB)
-	 * @see Room#numInhabitants()
-	 * @see Room#bringMobHere(MOB, boolean)
-	 * @see Room#numPCInhabitants()
-	 * @see Room#eachInhabitant(EachApplicable)
-	 * @param mob the mob to look for
-	 * @return true if the mob is here, false otherwise
-	 */
-	public boolean isInhabitant(MOB mob);
-
-	/**
-	 * Applies the given applier Java code to each mob in this room
-	 * @see Room#fetchInhabitant(String)
-	 * @see Room#fetchInhabitant(int)
-	 * @see Room#fetchInhabitants(String)
-	 * @see Room#fetchRandomInhabitant()
-	 * @see Room#delAllInhabitants(boolean)
-	 * @see Room#inhabitants()
-	 * @see Room#delInhabitant(MOB)
-	 * @see Room#addInhabitant(MOB)
-	 * @see Room#numInhabitants()
-	 * @see Room#bringMobHere(MOB, boolean)
-	 * @see Room#numPCInhabitants()
-	 * @see Room#isInhabitant(MOB)
-	 * @param applier code to execute against each object
-	 */
-	public void eachInhabitant(final EachApplicable<MOB> applier);
-
-	/**
 	 * Returns the number of player/PC inhabitants of
 	 * this room.
-	 * @see Room#fetchInhabitant(String)
-	 * @see Room#fetchInhabitant(int)
-	 * @see Room#fetchInhabitants(String)
-	 * @see Room#fetchRandomInhabitant()
-	 * @see Room#delAllInhabitants(boolean)
-	 * @see Room#addInhabitant(MOB)
-	 * @see Room#delInhabitant(MOB)
-	 * @see Room#isInhabitant(MOB)
-	 * @see Room#inhabitants()
-	 * @see Room#bringMobHere(MOB, boolean)
-	 * @see Room#numInhabitants()
-	 * @see Room#eachInhabitant(EachApplicable)
+	 * @see MOBCollection#fetchInhabitant(String)
+	 * @see MOBCollection#fetchInhabitant(int)
+	 * @see MOBCollection#fetchInhabitants(String)
+	 * @see MOBCollection#fetchRandomInhabitant()
+	 * @see MOBCollection#delAllInhabitants(boolean)
+	 * @see MOBCollection#addInhabitant(MOB)
+	 * @see MOBCollection#delInhabitant(MOB)
+	 * @see MOBCollection#isInhabitant(MOB)
+	 * @see MOBCollection#inhabitants()
+	 * @see MOBPossessor#bringMobHere(MOB, boolean)
+	 * @see MOBCollection#numInhabitants()
+	 * @see MOBCollection#eachInhabitant(EachApplicable)
 	 * @return the number of player inhabitants
 	 */
 	public int numPCInhabitants();
-
-	/**
-	 * A workhorse method that removes the given mob (and anything
-	 * they are riding or being ridden by, recursively, and
-	 * optionally any followers, and their riders, recursively)
-	 * and places them all in this room. It does not affect those
-	 * that the given mob are themselves following, however.
-	 * @see Room#fetchInhabitant(String)
-	 * @see Room#fetchInhabitant(int)
-	 * @see Room#fetchInhabitants(String)
-	 * @see Room#fetchRandomInhabitant()
-	 * @see Room#delAllInhabitants(boolean)
-	 * @see Room#addInhabitant(MOB)
-	 * @see Room#delInhabitant(MOB)
-	 * @see Room#isInhabitant(MOB)
-	 * @see Room#inhabitants()
-	 * @see Room#numPCInhabitants()
-	 * @see Room#numInhabitants()
-	 * @see Room#eachInhabitant(EachApplicable)
-	 * @param mob the mob to move from where he is, to here
-	 * @param andFollowers true to include followers, false otherwise
-	 */
-	public void bringMobHere(MOB mob, boolean andFollowers);
-
-	/**
-	 * Generates a specific search-string name for the given
-	 * object in this room.  Since items or mobs with the exact
-	 * same name can be in a given room, a context-number-suffix
-	 * (.1, .2, etc..) is used to specify which of the identical
-	 * objects to return in the list.  This method wil, given
-	 * an item or mob in this room, generate that search string
-	 * by returning the name plus the optional context suffix.
-	 * @param E the mob or item to return a search string for
-	 * @return the specific search string that returns the given object
-	 */
-	public String getContextName(Environmental E);
 
 	/**
 	 * Returns an enumeration of all the items in the room,

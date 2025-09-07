@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,59 +48,43 @@ public class Prop_RoomsForSale extends Prop_RoomForSale
 
 	protected String	uniqueLotID	= null;
 
-	protected void fillCluster(final Room R, final List<Room> V)
+	@Override
+	public Room getATitledRoom()
 	{
-		V.add(R);
-		for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
-		{
-			final Room R2=R.getRoomInDir(d);
-			if((R2!=null)&&(R2.roomID().length()>0)&&(!V.contains(R2)))
-			{
-				final Ability A=R2.fetchEffect(ID());
-				if((R2.getArea()==R.getArea())&&(A!=null))
-					fillCluster(R2,V);
-				else
-				{
-					V.remove(R); // purpose here is to put the "front" door up front.
-					V.add(0,R);
-				}
-			}
-		}
+		if(affected instanceof Room)
+			return (Room)affected;
+		else
+			return CMLib.map().getRoom(landPropertyID());
 	}
 
 	@Override
-	public List<Room> getAllTitledRooms()
+	public List<Room> getTitledRooms()
 	{
-		final List<Room> V=new ArrayList<Room>();
-		Room R=null;
-		if(affected instanceof Room)
-			R=(Room)affected;
-		else
-			R=CMLib.map().getRoom(landPropertyID());
-		if(R!=null)
-			fillCluster(R,V);
-		return V;
+		final List<Room> roomsV=new ArrayList<Room>();
+		final Room R = getATitledRoom();
+		if(R!=null) // only return cached rooms here!
+			fillCluster(R,roomsV,null,false);
+		return roomsV;
+	}
+
+	@Override
+	public int getNumTitledRooms()
+	{
+		//TODO: make this faster, maybe?
+		return getTitledRooms().size();
 	}
 
 	@Override
 	public String getTitleID()
 	{
-		if(affected instanceof Room)
-			return "LAND_TITLE_FOR#"+CMLib.map().getExtendedRoomID((Room)affected);
-		else
-		{
-			final Room R=CMLib.map().getRoom(landPropertyID());
-			if(R!=null)
-				return "LAND_TITLE_FOR#"+CMLib.map().getExtendedRoomID(R);
-		}
-		return "";
+		return this.getUniqueLotID();
 	}
 
 	// update title, since it may affect room clusters, worries about EVERYONE
 	@Override
 	public void updateTitle()
 	{
-		final List<Room> V=getAllTitledRooms();
+		final List<Room> V=getTitledRooms();
 		final String owner=getOwnerName();
 		final int price=getPrice();
 		final boolean rental=rentalProperty();
@@ -112,7 +96,7 @@ public class Prop_RoomsForSale extends Prop_RoomForSale
 		for(int v=0;v<V.size();v++)
 		{
 			Room R=V.get(v);
-			synchronized(("SYNC"+R.roomID()).intern())
+			synchronized(CMClass.getSync("SYNC"+R.roomID()))
 			{
 				R=CMLib.map().getRoom(R);
 				final LandTitle A=(LandTitle)R.fetchEffect(ID());
@@ -143,6 +127,13 @@ public class Prop_RoomsForSale extends Prop_RoomForSale
 		return uniqueLotID;
 	}
 
+	@Override
+	public int getNumConnectedPropertyRooms()
+	{
+		//TODO: WRONG! AllTitledRooms can include the Uncached.  So, wrong.
+		return getTitledRooms().size();
+	}
+
 	// update lot, since its called by the savethread, ONLY worries about itself
 	@Override
 	public void updateLot(final Set<String> optPlayerList)
@@ -153,11 +144,11 @@ public class Prop_RoomsForSale extends Prop_RoomForSale
 			lastItemNums=data[0];
 			daysWithNoChange=data[1];
 			if((lastDayDone!=((Room)affected).getArea().getTimeObj().getDayOfMonth())
-			&&(CMProps.getBoolVar(CMProps.Bool.MUDSTARTED)))
+			&&(CMProps.isState(CMProps.HostState.RUNNING)))
 			{
 				final Room R=(Room)affected;
 				lastDayDone=R.getArea().getTimeObj().getDayOfMonth();
-				final List<Room> V=getAllTitledRooms();
+				final List<Room> V=getTitledRooms();
 				for(int v=0;v<V.size();v++)
 				{
 					final Room R2=V.get(v);

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -90,6 +90,9 @@ public class SeaMap extends BardMap
 		case Room.DOMAIN_INDOORS_WATERSURFACE:
 			return '~';
 		case Room.DOMAIN_INDOORS_STONE:
+			if((room.phyStats().weight()>2)&&(room.maxRange()>4))
+				return '=';
+			//$FALL-THROUGH$
 		case Room.DOMAIN_INDOORS_WOOD:
 		case Room.DOMAIN_INDOORS_CAVE:
 		case Room.DOMAIN_INDOORS_MAGIC:

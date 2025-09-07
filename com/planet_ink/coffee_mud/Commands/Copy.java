@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ public class Copy extends StdCommand
 		commands.remove(0); // copy
 		if(commands.size()<1)
 		{
-			mob.tell(L("You have failed to specify the proper fields.\n\rThe format is COPY (NUMBER) ([ITEM NAME]/[MOB NAME][ROOM ID] [DIRECTIONS]/[DIRECTIONS])\n\r"));
+			mob.tell(L("You have failed to specify the proper fields.\n\rThe format is COPY (NUMBER) ([ITEM NAME]/[MOB NAME]/[ROOM ID] [DIRECTIONS]/[DIRECTIONS]/[ABILITY ID] [NEW ABILITY ID])\n\r"));
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
 			return false;
 		}
@@ -155,21 +155,21 @@ public class Copy extends StdCommand
 		{
 			try
 			{
-				E=CMLib.map().findFirstInhabitant(mob.location().getArea().getMetroMap(), mob, name, 50);
+				E=CMLib.hunt().findFirstInhabitant(mob.location().getArea().getMetroMap(), mob, name, 50);
 				if(E==null)
-					E=CMLib.map().findFirstInhabitant(CMLib.map().rooms(), mob, name, 50);
+					E=CMLib.hunt().findFirstInhabitant(CMLib.map().rooms(), mob, name, 50);
 				if(E==null)
-					E=CMLib.map().findFirstRoomItem(mob.location().getArea().getMetroMap(), mob, name, true, 50);
+					E=CMLib.hunt().findFirstRoomItem(mob.location().getArea().getMetroMap(), mob, name, true, 50);
 				if(E==null)
-					E=CMLib.map().findFirstRoomItem(CMLib.map().rooms(), mob, name, true, 50);
+					E=CMLib.hunt().findFirstRoomItem(CMLib.map().rooms(), mob, name, true, 50);
 				if(E==null)
-					E=CMLib.map().findFirstInventory(null, mob, name, 50);
+					E=CMLib.hunt().findFirstInventory(null, mob, name, 50);
 				if(E==null)
-					E=CMLib.map().findFirstShopStock(null, mob, name, 50);
+					E=CMLib.hunt().findFirstShopStock(null, mob, name, 50);
 				if(E==null)
-					E=CMLib.map().findFirstInventory(CMLib.map().rooms(), mob, name, 50);
+					E=CMLib.hunt().findFirstInventory(CMLib.map().rooms(), mob, name, 50);
 				if(E==null)
-					E=CMLib.map().findFirstShopStock(CMLib.map().rooms(), mob, name, 50);
+					E=CMLib.hunt().findFirstShopStock(CMLib.map().rooms(), mob, name, 50);
 			}
 			catch (final NoSuchElementException e)
 			{
@@ -179,9 +179,45 @@ public class Copy extends StdCommand
 		{
 			E=CMLib.map().getArea(name);
 		}
+		if((E == null)
+		&&(commands.size()>1))
+		{
+			E = CMClass.getAbility(commands.get(0));
+			if(E != null)
+			{
+				String newID = CMParms.combine(commands,1);
+				newID = CMStrings.replaceAll(newID, " ", "");
+				if(CMClass.getAbility(newID)!=null)
+				{
+					mob.tell(L("The ability ID '@x1' already exists.\n\r",newID));
+					mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
+					return false;
+				}
+				final Ability CR;
+				if(E.isGeneric())
+				{
+					CR = CMClass.getAbility(E.getStat("JAVACLASS"));
+					CR.setStat("CLASS", newID);
+					CR.setStat("LEVEL","1");
+					CR.setStat("NAME", newID);
+					for(int i=1;i<E.getStatCodes().length;i++)
+						CR.setStat(E.getStatCodes()[i], E.getStat(E.getStatCodes()[i]));
+				}
+				else
+				{
+					CR=CMLib.ableParms().convertAbilityToGeneric((Ability)E);
+					CR.setStat("CLASS", newID);
+					CR.setStat("LEVEL","1");
+					CR.setStat("NAME", newID);
+				}
+				CMLib.database().DBCreateAbility(CR.ID(),CMLib.ableParms().getGenericClassID((Ability)E),CR.getStat("ALLXML"));
+				mob.location().showHappens(CMMsg.MSG_OK_ACTION,L("The skill of the world just increased!"));
+				return true;
+			}
+		}
 		if(E==null)
 		{
-			mob.tell(L("There's no such thing in the living world as a '@x1'.\n\r",name));
+			mob.tell(L("There's no such thing as a '@x1'.\n\r",name));
 			mob.location().showOthers(mob,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> flub(s) a spell.."));
 			return false;
 		}
@@ -190,13 +226,26 @@ public class Copy extends StdCommand
 		{
 			if(E instanceof MOB)
 			{
+				final MOB srcM = (MOB)E;
 				if(!CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.COPYMOBS))
 				{
 					mob.tell(L("You are not allowed to copy @x1",E.name()));
 					return false;
 				}
-				final MOB newMOB=(MOB)E.copyOf();
+				final MOB newMOB;
+				if(srcM.isPlayer())
+				{
+					if(E instanceof Rideable)
+						newMOB=CMClass.getMOB("GenRideable");
+					else
+						newMOB=CMClass.getMOB("GenMOB");
+					for(final String stat : CMLib.coffeeMaker().getAllGenStats(srcM))
+						newMOB.setStat(stat, CMLib.coffeeMaker().getAnyGenStat(srcM, stat));
+				}
+				else
+					newMOB=(MOB)E.copyOf();
 				newMOB.setSession(null);
+				newMOB.setPlayerStats(null);
 				newMOB.setStartRoom(room);
 				newMOB.setLocation(room);
 				newMOB.recoverCharStats();
@@ -259,11 +308,11 @@ public class Copy extends StdCommand
 				}
 				if(room.getRoomInDir(dirCode)!=null)
 				{
-					final boolean useShipDirs=(room instanceof BoardableShip)||(room.getArea() instanceof BoardableShip);
-					mob.tell(L("A room already exists @x1!",(useShipDirs?CMLib.directions().getShipInDirectionName(dirCode):CMLib.directions().getInDirectionName(dirCode))));
+					final Directions.DirType dirType=CMLib.flags().getDirType(room);
+					mob.tell(L("A room already exists @x1!",(CMLib.directions().getInDirectionName(dirCode, dirType))));
 					return false;
 				}
-				synchronized(("SYNC"+room.roomID()).intern())
+				synchronized(CMClass.getSync("SYNC"+room.roomID()))
 				{
 					final Room newRoom=(Room)E.copyOf();
 					newRoom.clearSky();
@@ -295,8 +344,8 @@ public class Copy extends StdCommand
 					if(newRoom.numItems()>0)
 						CMLib.database().DBUpdateItems(newRoom);
 					newRoom.getArea().fillInAreaRoom(newRoom);
-					final boolean useShipDirs=(room instanceof BoardableShip)||(room.getArea() instanceof BoardableShip);
-					final String inDirName=useShipDirs?CMLib.directions().getShipInDirectionName(dirCode):CMLib.directions().getInDirectionName(dirCode);
+					final Directions.DirType dirType=CMLib.flags().getDirType(room);
+					final String inDirName=CMLib.directions().getInDirectionName(dirCode, dirType);
 					if(i==0)
 					{
 						if(number>1)
@@ -329,7 +378,7 @@ public class Copy extends StdCommand
 						return false;
 					}
 				}
-				synchronized(("SYNC"+editRoom.roomID()).intern())
+				synchronized(CMClass.getSync("SYNC"+editRoom.roomID()))
 				{
 					final Exit oldE=editRoom.getRawExit(dirCode);
 					if((oldE==null)||(oldE!=E))
@@ -337,8 +386,8 @@ public class Copy extends StdCommand
 						editRoom.setRawExit(dirCode, (Exit)E);
 						CMLib.database().DBUpdateExits(editRoom);
 					}
-					final boolean useShipDirs=(editRoom instanceof BoardableShip)||(editRoom.getArea() instanceof BoardableShip);
-					final String inDirName=useShipDirs?CMLib.directions().getShipInDirectionName(dirCode):CMLib.directions().getInDirectionName(dirCode);
+					final Directions.DirType dirType=CMLib.flags().getDirType(editRoom);
+					final String inDirName=CMLib.directions().getInDirectionName(dirCode, dirType);
 					room.showHappens(CMMsg.MSG_OK_ACTION,L("Suddenly, @x1 falls @x2.",E.name(),inDirName));
 				}
 			}

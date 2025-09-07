@@ -1,5 +1,7 @@
 package com.planet_ink.coffee_mud.Common.interfaces;
+import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 
 import com.planet_ink.coffee_mud.core.interfaces.*;
@@ -11,6 +13,7 @@ import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
 import com.planet_ink.coffee_mud.Commands.interfaces.*;
 import com.planet_ink.coffee_mud.Common.interfaces.*;
+import com.planet_ink.coffee_mud.Common.interfaces.TimeClock.TimePeriod;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
@@ -19,7 +22,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -196,6 +199,13 @@ public interface TimeClock extends Tickable, CMCommon
 	public Season getSeasonCode();
 
 	/**
+	 * Returns the number of months in a season.
+	 *
+	 * @return  the number of months in a season.
+	 */
+	public int getMonthsInSeason();
+
+	/**
 	 * Alters the time/day by the given number of hours (forward
 	 * or backward)
 	 *
@@ -319,7 +329,7 @@ public interface TimeClock extends Tickable, CMCommon
 	 * Gets the week names, which is the names of the days of each week,
 	 * a string array indexed by the day of the week - 1.
 	 *
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.TimeClock#setDaysInWeek(String[])
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.TimeClock#setWeekNames(String[])
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.TimeClock#getDaysInWeek()
 	 *
 	 * @return the week names as an array of strings
@@ -329,12 +339,44 @@ public interface TimeClock extends Tickable, CMCommon
 	/**
 	 * Gets the number of days in each week
 	 *
-	 * @see com.planet_ink.coffee_mud.Common.interfaces.TimeClock#setDaysInWeek(String[])
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.TimeClock#setWeekNames(String[])
 	 * @see com.planet_ink.coffee_mud.Common.interfaces.TimeClock#getWeekNames()
 	 *
 	 * @return the days in each week
 	 */
 	public int getDaysInWeek();
+
+	/**
+	 * Gets the current week of the month.
+	 *
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.TimeClock#getDaysInWeek()
+	 *
+	 * @return the week of month, 0-x
+	 */
+	public int getWeekOfMonth();
+
+	/**
+	 * Gets the current week of the year.
+	 *
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.TimeClock#getDaysInWeek()
+	 *
+	 * @return the week of year, 0-x
+	 */
+	public int getWeekOfYear();
+
+	/**
+	 * Gets the current days of the year.
+	 *
+	 * @return the day of year, 1-x
+	 */
+	public int getDayOfYear();
+
+	/**
+	 * Gets the current days of the year.
+	 *
+	 * @return the day of year, 1-x
+	 */
+	public int getDaysInYear();
 
 	/**
 	 * Sets the number of days in each week by naming each of them in a string array
@@ -344,7 +386,7 @@ public interface TimeClock extends Tickable, CMCommon
 	 *
 	 * @param days the new days in each week string array
 	 */
-	public void setDaysInWeek(String[] days);
+	public void setWeekNames(String[] days);
 
 	/**
 	 * Gets the names of the year, an arbitrary sized list that is rotated
@@ -410,6 +452,49 @@ public interface TimeClock extends Tickable, CMCommon
 	public long deriveMudHoursAfter(TimeClock C);
 
 	/**
+	 * Given a standard time period, returns this local clocks
+	 * elapsed millis for each period.
+	 *
+	 * @param P the TimePeriod to get a duration for
+	 * @return the millis for the TimePeriod
+	 */
+	public long getPeriodMillis(final TimePeriod P);
+
+	/**
+	 * Returns whether this time clock represents the
+	 * exact same hour as the given one, timezones
+	 * notwithstanding.
+	 *
+	 * @see TimeClock#isBefore(TimeClock)
+	 * @see TimeClock#isEqual(TimeClock)
+	 * @see TimeClock#isAfter(TimeClock)
+	 *
+	 * @param C the clock to compare to
+	 * @return true if they are the same
+	 */
+	public boolean isEqual(final TimeClock C);
+
+	/**
+	 * Returns whether this time clock represents an
+	 * earlier hour than the given one, timezones
+	 * notwithstanding.
+	 *
+	 * @param C the clock to compare to
+	 * @return true if this is before
+	 */
+	public boolean isBefore(final TimeClock C);
+
+	/**
+	 * Returns whether this time clock represents an
+	 * earlier later than the given one, timezones
+	 * notwithstanding.
+	 *
+	 * @param C the clock to compare to
+	 * @return true if this is later
+	 */
+	public boolean isAfter(final TimeClock C);
+
+	/**
 	 * Increase this clocks time by the given number of hours.
 	 * Does NOT move the sky.  Use tickTock for that.
 	 * @see TimeClock#tickTock(int)
@@ -417,6 +502,7 @@ public interface TimeClock extends Tickable, CMCommon
 	 * @see TimeClock#bumpWeeks(int)
 	 * @see TimeClock#bumpMonths(int)
 	 * @see TimeClock#bumpYears(int)
+	 * @see TimeClock#bump(TimePeriod, int)
 	 * @param num the number to bump
 	 */
 	public void bumpHours(int num);
@@ -429,6 +515,7 @@ public interface TimeClock extends Tickable, CMCommon
 	 * @see TimeClock#bumpWeeks(int)
 	 * @see TimeClock#bumpMonths(int)
 	 * @see TimeClock#bumpYears(int)
+	 * @see TimeClock#bump(TimePeriod, int)
 	 * @param num the number to bump
 	 */
 	public void bumpDays(int num);
@@ -441,6 +528,7 @@ public interface TimeClock extends Tickable, CMCommon
 	 * @see TimeClock#bumpDays(int)
 	 * @see TimeClock#bumpMonths(int)
 	 * @see TimeClock#bumpYears(int)
+	 * @see TimeClock#bump(TimePeriod, int)
 	 * @param num the number to bump
 	 */
 	public void bumpWeeks(int num);
@@ -453,6 +541,7 @@ public interface TimeClock extends Tickable, CMCommon
 	 * @see TimeClock#bumpDays(int)
 	 * @see TimeClock#bumpWeeks(int)
 	 * @see TimeClock#bumpYears(int)
+	 * @see TimeClock#bump(TimePeriod, int)
 	 * @param num the number to bump
 	 */
 	public void bumpMonths(int num);
@@ -465,9 +554,41 @@ public interface TimeClock extends Tickable, CMCommon
 	 * @see TimeClock#bumpDays(int)
 	 * @see TimeClock#bumpWeeks(int)
 	 * @see TimeClock#bumpMonths(int)
+	 * @see TimeClock#bump(TimePeriod, int)
 	 * @param num the number to bump
 	 */
 	public void bumpYears(int num);
+
+	/**
+	 * Increase this clocks time by the given number of
+	 * time periods.
+	 *
+	 * @see TimeClock#tickTock(int)
+	 * @see TimeClock#bumpHours(int)
+	 * @see TimeClock#bumpDays(int)
+	 * @see TimeClock#bumpWeeks(int)
+	 * @see TimeClock#bumpMonths(int)
+	 * @see TimeClock#bumpYears(int)
+	 * @param P the time period
+	 * @param num the number of periods to bump by
+	 */
+	public void bump(final TimePeriod P, final int num);
+
+	/**
+	 * Increase this clocks time by the given number of
+	 * time periods, setting the remainder of the clock
+	 * to the very first moment of that time period.
+	 *
+	 * @see TimeClock#tickTock(int)
+	 * @see TimeClock#bumpHours(int)
+	 * @see TimeClock#bumpDays(int)
+	 * @see TimeClock#bumpWeeks(int)
+	 * @see TimeClock#bumpMonths(int)
+	 * @see TimeClock#bumpYears(int)
+	 * @param period the time period
+	 * @param times the number of periods to bump by
+	 */
+	public void bumpToNext(final TimePeriod period, final int times);
 
 	/**
 	 * Returns the total hours since epoc
@@ -514,20 +635,117 @@ public interface TimeClock extends Tickable, CMCommon
 	public void handleTimeChange();
 
 	/**
-	 * Different time periods.
+	 * Converts this TimeClock to an approximate real-life
+	 * millis since epoc.
+	 * @param now the timeclock to convert
+	 *
+	 * @return the real time of this clock.
+	 */
+	public long toTimestamp(TimeClock now);
+
+	/**
+	 * Returns this clocks date/time, plus a brief
+	 * definition of the scale of the various time periods.
+	 *
+	 * @return the coded time
+	 */
+	public String toTimePeriodCodeString();
+
+	/**
+	 * Copies this clock and sets it accord to
+	 * the coded date/time.
+	 *
+	 * @param period the coded time
+	 * @return the TimeClock object copy
+	 */
+	public TimeClock fromTimePeriodCodeString(final String period);
+
+	/**
+	 * Returns this timeclock in m/d/y h format.
+	 * @return this timeclock in m/d/y h format.
+	 */
+	public String toTimeString();
+
+	/**
+	 * Updates the date/time info from one clock into this one.
+	 * The calendar structure should be the same before doing this.
+	 *
+	 * @param fromC the current clock to copy from
+	 */
+	public void setDateTime(final TimeClock fromC);
+
+	/**
+	 * Given a time period, returns the number of mud hours
+	 * contained in each, based on this clock.
+	 *
+	 * @param period the period you are curious about
+	 * @return the number of mud hours.
+	 */
+	public int getHoursPer(final TimePeriod period);
+
+	/**
+	 * Returns the value of the given period for this
+	 * time clock object.
+	 *
+	 * @param period the hours, months, etc.
+	 * @return the value for this calendar
+	 */
+	public int get(final TimePeriod period);
+
+	/**
+	 * Returns the maximum value of the given period for this
+	 * time clock object.
+	 *
+	 * @param period hours, months, days, etc
+	 * @return the last hour, months, etc.
+	 */
+	public int getMax(final TimePeriod period);
+
+	/**
+	 * Returns the first value of the given period for this
+	 * time clock object.
+	 *
+	 * @param period hours, months, days, etc
+	 * @return the first hour, months, etc.
+	 */
+	public int getMin(final TimePeriod period);
+
+	/**
+	 * Sets the value of the given period for this
+	 * time clock object.
+	 *
+	 * @param period the hours, months, etc.
+	 * @param value the value for this calendar
+	 */
+	public void set(final TimePeriod period, int value);
+
+	/**
+	 * Sets the value of the given period for this
+	 * time clock object by bumping the clock until
+	 * it is the next of the given period.
+	 *
+	 * @param period the hours, months, etc.
+	 * @param value the value for this calendar
+	 */
+	public void setNext(final TimePeriod period, int value);
+
+	/**
+	 * Different time periods for player stats.
 	 * @author Bo Zimmerman
 	 */
 	public enum TimePeriod
 	{
-		HOUR(60L * 60L * 1000L),
-		DAY(60L * 60L * 1000L * 24L),
-		WEEK(60L * 60L * 1000L * 24L * 7L),
-		MONTH(60L * 60L * 1000L * 24L * 30L),
-		SEASON(60L * 60L * 1000L * 24L * 365L / 4L),
-		YEAR(60L * 60L * 1000L * 24L * 365L),
+		HOUR(TimeManager.MILI_HOUR),
+		DAY(TimeManager.MILI_DAY),
+		WEEK(TimeManager.MILI_WEEK),
+		MONTH(TimeManager.MILI_MONTH),
+		SEASON(TimeManager.MILI_YEAR / 4L),
+		YEAR(TimeManager.MILI_YEAR),
 		ALLTIME(0)
 		;
 		private final long increment;
+		private static TimePeriod[] reversed = null;
+
 		private TimePeriod(final long increment)
 		{
 			this.increment=increment;
@@ -536,6 +754,35 @@ public interface TimeClock extends Tickable, CMCommon
 		public long getIncrement()
 		{
 			return increment;
+		}
+
+		public static TimePeriod get(final String s)
+		{
+			if(s==null)
+				return null;
+			final String us = s.toUpperCase().trim();
+			try
+			{
+				return valueOf(us);
+			}
+			catch(final Exception e)
+			{
+				if(us.equals("DATE"))
+					return DAY;
+			}
+			if(us.endsWith("S"))
+				return get(us.substring(0,us.length()-1));
+			return null;
+		}
+
+		public static TimePeriod[] reversed()
+		{
+			if(reversed == null)
+			{
+				reversed = Arrays.copyOf(values(),values().length);
+				Collections.reverse(Arrays.asList(reversed));
+			}
+			return reversed;
 		}
 
 		public long nextPeriod()
@@ -586,24 +833,23 @@ public interface TimeClock extends Tickable, CMCommon
 	 */
 	public enum MoonPhase
 	{
-		NEW("There is a new moon in the sky.",1.0,TidePhase.SPRING_HIGH,TidePhase.SPRING_LOW),
-		WAXCRESCENT("The moon is in the waxing crescent phase.",0.5,TidePhase.NORMAL_HIGH,TidePhase.NORMAL_LOW),
-		WAXQUARTER("The moon is in its first quarter.",0.0,TidePhase.NEAP_HIGH,TidePhase.NEAP_LOW),
-		WAXGIBBOUS("The moon is in the waxing gibbous phase (almost full).",-0.5,TidePhase.NORMAL_HIGH,TidePhase.NORMAL_LOW),
-		FULL("There is a full moon in the sky.",-1.0,TidePhase.SPRING_HIGH,TidePhase.SPRING_LOW),
-		WANEGIBBOUS("The moon is in the waning gibbous phase (no longer full).",-0.5,TidePhase.NORMAL_HIGH,TidePhase.NORMAL_LOW),
-		WANEQUARTER("The moon is in its last quarter.",0.0,TidePhase.NEAP_HIGH,TidePhase.NEAP_LOW),
-		WANECRESCENT("The moon is in the waning crescent phase.",0.5,TidePhase.NORMAL_HIGH,TidePhase.NORMAL_LOW),
-		BLUE("There is a BLUE MOON! Oh my GOD! Run away!!!!!",2.0,TidePhase.SPRING_HIGH,TidePhase.SPRING_LOW);
+		NEW(1.0,TidePhase.SPRING_HIGH,TidePhase.SPRING_LOW),
+		WAXCRESCENT(0.5,TidePhase.NORMAL_HIGH,TidePhase.NORMAL_LOW),
+		WAXQUARTER(0.0,TidePhase.NEAP_HIGH,TidePhase.NEAP_LOW),
+		WAXGIBBOUS(-0.5,TidePhase.NORMAL_HIGH,TidePhase.NORMAL_LOW),
+		FULL(-1.0,TidePhase.SPRING_HIGH,TidePhase.SPRING_LOW),
+		WANEGIBBOUS(-0.5,TidePhase.NORMAL_HIGH,TidePhase.NORMAL_LOW),
+		WANEQUARTER(0.0,TidePhase.NEAP_HIGH,TidePhase.NEAP_LOW),
+		WANECRESCENT(0.5,TidePhase.NORMAL_HIGH,TidePhase.NORMAL_LOW),
+		BLUE(2.0,TidePhase.SPRING_HIGH,TidePhase.SPRING_LOW);
 
-		private final String	phaseDesc;
 		private final double	factor;
 		private final TidePhase	highTide;
 		private final TidePhase	lowTide;
+		private String tideDesc = null;
 
-		private MoonPhase(final String desc, final double factor, final TidePhase highTide, final TidePhase lowTide)
+		private MoonPhase(final double factor, final TidePhase highTide, final TidePhase lowTide)
 		{
-			phaseDesc=desc;
 			this.factor=factor;
 			this.highTide=highTide;
 			this.lowTide=lowTide;
@@ -611,7 +857,22 @@ public interface TimeClock extends Tickable, CMCommon
 
 		public String getDesc()
 		{
-			return phaseDesc;
+			if(tideDesc == null)
+			{
+				switch(this)
+				{
+				case NEW: tideDesc= CMLib.lang().L("There is a new moon in the sky."); break;
+				case WAXCRESCENT: tideDesc= CMLib.lang().L("The moon is in the waxing crescent phase."); break;
+				case WAXQUARTER: tideDesc= CMLib.lang().L("The moon is in its first quarter."); break;
+				case WAXGIBBOUS: tideDesc= CMLib.lang().L("The moon is in the waxing gibbous phase (almost full)."); break;
+				case FULL: tideDesc= CMLib.lang().L("There is a full moon in the sky."); break;
+				case WANEGIBBOUS: tideDesc= CMLib.lang().L("The moon is in the waning gibbous phase (no longer full)."); break;
+				case WANEQUARTER: tideDesc= CMLib.lang().L("The moon is in its last quarter."); break;
+				case WANECRESCENT: tideDesc= CMLib.lang().L("The moon is in the waning crescent phase."); break;
+				case BLUE: tideDesc= CMLib.lang().L("There is a BLUE MOON! Oh my GOD! Run away!!!!!"); break;
+				}
+			}
+			return tideDesc;
 		}
 
 		public double getFactor()
@@ -636,26 +897,38 @@ public interface TimeClock extends Tickable, CMCommon
 	 */
 	public enum TidePhase
 	{
-		SPRING_HIGH("The tide is especially high.",1.5),
-		SPRING_LOW("The tide  is especially low.",-1.5),
-		NORMAL_HIGH("The tide is high.",1.0),
-		NORMAL_LOW("The tide is low.",-1.0),
-		NEAP_HIGH("The tide is weak, but high.",0.5),
-		NEAP_LOW("The tide is weak, but low.",-0.5),
-		NO_TIDE("The tide is normal.", 0.0)
+		SPRING_HIGH(1.5),
+		SPRING_LOW(-1.5),
+		NORMAL_HIGH(1.0),
+		NORMAL_LOW(-1.0),
+		NEAP_HIGH(0.5),
+		NEAP_LOW(-0.5),
+		NO_TIDE(0.0)
 		;
-		private final String phaseDesc;
 		private final double factor;
+		private String tideDesc = null;
 
-		private TidePhase(final String desc, final double factor)
+		private TidePhase(final double factor)
 		{
-			phaseDesc=desc;
 			this.factor=factor;
 		}
 
 		public String getDesc()
 		{
-			return phaseDesc;
+			if(tideDesc == null)
+			{
+				switch(this)
+				{
+				case SPRING_HIGH: tideDesc = CMLib.lang().L("The tide is especially high."); break;
+				case SPRING_LOW: tideDesc = CMLib.lang().L("The tide  is especially low."); break;
+				case NORMAL_HIGH: tideDesc = CMLib.lang().L("The tide is high."); break;
+				case NORMAL_LOW: tideDesc = CMLib.lang().L("The tide is low."); break;
+				case NEAP_HIGH: tideDesc = CMLib.lang().L("The tide is weak, but high."); break;
+				case NEAP_LOW: tideDesc = CMLib.lang().L("The tide is weak, but low."); break;
+				case NO_TIDE: tideDesc = CMLib.lang().L("The tide is normal."); break;
+				}
+			}
+			return tideDesc;
 		}
 
 		public double getFactor()

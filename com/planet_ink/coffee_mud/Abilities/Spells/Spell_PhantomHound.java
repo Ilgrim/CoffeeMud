@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -240,15 +240,18 @@ public class Spell_PhantomHound extends Spell
 				newMOB.baseCharStats().getMyRace().startRacing(newMOB,false);
 				for(final int i : CharStats.CODES.SAVING_THROWS())
 					newMOB.baseCharStats().setStat(i,200);
-				newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
-				newMOB.basePhyStats().setAbility(100);
+				newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+				newMOB.addTattoo("SYSTEM_SUMMONED");
+				newMOB.addTattoo("SUMMONED_BY:"+mob.name());
+				newMOB.basePhyStats().setAbility(CMProps.getMobHPBase()*9);
 				newMOB.baseState().setMana(100);
 				newMOB.baseState().setMovement(1000);
+				newMOB.basePhyStats().setRejuv(PhyStats.NO_REJUV);
 				newMOB.recoverPhyStats();
 				newMOB.recoverCharStats();
 				newMOB.recoverMaxState();
 				newMOB.resetToMaxState();
-				newMOB.text();
+				newMOB.setMiscText(newMOB.text());
 				newMOB.bringToLife(mob.location(),true);
 				CMLib.beanCounter().clearZeroMoney(newMOB,null);
 				newMOB.setMoneyVariation(0);

@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,6 +52,7 @@ public class GenMultiPotion extends GenDrink implements Potion
 		setDescription("A strange flask with stranger markings.");
 		secretIdentity="";
 		baseGoldValue=200;
+		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_BONUS);
 		liquidType = RawMaterial.RESOURCE_DRINKABLE;
 		recoverPhyStats();
 	}

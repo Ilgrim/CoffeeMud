@@ -21,7 +21,7 @@ import java.io.IOException;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@ public class Retire extends StdCommand
 					{
 						Log.sysOut("Retire", "Retired: " + mob.Name());
 						CMLib.achievements().possiblyBumpAchievement(mob, Event.RETIRE, 1);
-						CMLib.players().obliteratePlayer(mob, true, false);
+						CMLib.players().obliteratePlayer(mob, true, CMSecurity.isDisabled(CMSecurity.DisFlag.DEATHCRY));
 						session.logout(true);
 					}
 					else
@@ -109,7 +109,7 @@ public class Retire extends StdCommand
 						{
 							Log.sysOut("Retire", "Retired: " + mob.Name() + ": " + this.input);
 							CMLib.achievements().possiblyBumpAchievement(mob, Event.RETIRE, 1);
-							CMLib.players().obliteratePlayer(mob, true, false);
+							CMLib.players().obliteratePlayer(mob, true, CMSecurity.isDisabled(CMSecurity.DisFlag.DEATHCRY));
 							session.logout(true);
 						}
 					});

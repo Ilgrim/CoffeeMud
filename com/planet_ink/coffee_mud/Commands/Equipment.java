@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -46,11 +46,31 @@ public class Equipment extends StdCommand
 		return access;
 	}
 
-	private final static Class<?>[][] internalParameters=new Class<?>[][]{{MOB.class},{Boolean.class},{}};
+	private final static Class<?>[][] internalParameters=new Class<?>[][]{
+		{MOB.class},
+		{Boolean.class},
+		{},
+		{MOB.class, Boolean.class}
+	};
+
+	protected final static Comparator<Item> layerComp = new Comparator<Item>()
+	{
+		@Override
+		public int compare(final Item o1, final Item o2)
+		{
+			final short layer1 = (o1 instanceof Armor)?((Armor)o1).getClothingLayer():0;
+			final short layer2 = (o2 instanceof Armor)?((Armor)o2).getClothingLayer():0;
+			if(layer1>layer2)
+				return -1;
+			else
+			if(layer1<layer2)
+				return 1;
+			return 0;
+		}
+	};
 
 	public StringBuilder getEquipment(final MOB seer, final MOB mob, final boolean allPlaces)
 	{
-		final StringBuilder msg=new StringBuilder("");
 		if(CMLib.flags().isSleeping(seer))
 			return new StringBuilder("(nothing you can see right now)");
 
@@ -58,29 +78,53 @@ public class Equipment extends StdCommand
 		final int shortWrap=CMLib.lister().fixColWidth(50,seer.session());
 		final int headWrap=26;
 
-		long wornCode=0;
-		String header=null;
-		String wornName=null;
-		Item thisItem=null;
-		String tat=null;
 		final boolean paragraphView=(CMProps.getIntVar(CMProps.Int.EQVIEW)>CMProps.Int.EQVIEW_MIXED)
-							||((seer!=mob)&&(CMProps.getIntVar(CMProps.Int.EQVIEW)>CMProps.Int.EQVIEW_DEFAULT))
-							||seer.isAttributeSet(MOB.Attrib.COMPRESS);
+									||((seer!=mob)&&(CMProps.getIntVar(CMProps.Int.EQVIEW)>CMProps.Int.EQVIEW_DEFAULT))
+									||seer.isAttributeSet(MOB.Attrib.COMPRESS);
 		final HashSet<Item> alreadyDone=new HashSet<Item>();
 		final Wearable.CODES codes = Wearable.CODES.instance();
+		final Map<Long,Pair<double[],List<String>>> tattoos = new TreeMap<Long,Pair<double[],List<String>>>();
 		for(int l=0;l<codes.all_ordered().length;l++)
 		{
-			wornCode=codes.all_ordered()[l];
-			wornName=codes.name(wornCode);
+			final long wornCode=codes.all_ordered()[l];
+			final String wornLocName=codes.name(wornCode).toUpperCase().trim();
+			for(final Enumeration<Tattoo> e=mob.tattoos();e.hasMoreElements();)
+			{
+				final Tattoo T = e.nextElement();
+				if(T.getTattooName().startsWith(wornLocName+":"))
+				{
+					final Long t=Long.valueOf(wornCode);
+					if(!tattoos.containsKey(t))
+						tattoos.put(t, new Pair<double[],List<String>>(new double[]{0}, new ArrayList<String>()));
+					tattoos.get(t).second.add(T.getTattooName().substring(wornLocName.length()+1).trim());
+				}
+			}
+		}
+		final Map<Long,String> headers =  new TreeMap<Long,String>();
+		for(int l=0;l<codes.all_ordered().length;l++)
+		{
+			final long wornCode=codes.all_ordered()[l];
+			final String wornLocName=codes.name(wornCode);
+			final Long wC = Long.valueOf(wornCode);
 			if(paragraphView)
-				header=" ^!";
+				headers.put(wC, " ^!");
 			else
 			{
-				header="^N(^H"+wornName+"^?)";
-				header+=CMStrings.SPACES.substring(0,headWrap-header.length())+": ^!";
+				final String headerHead = "^N(^H"+wornLocName+"^?)";
+				headers.put(wC, headerHead
+								+ CMStrings.SPACES.substring(0,headWrap-headerHead.length())
+								+ ": ^!");
 			}
-			final List<Item> wornHere=mob.fetchWornItems(wornCode,(short)(Short.MIN_VALUE+1),(short)0);
-			int shownThisLoc=0;
+		}
+		final Map<Long,StringBuilder> strs = new TreeMap<Long, StringBuilder>();
+		for(int l=0;l<codes.all_ordered().length;l++)
+		{
+			final long wornCode=codes.all_ordered()[l];
+			final Long wC = Long.valueOf(wornCode);
+			final String wornLocHeader = headers.get(wC);
+			final StringBuilder msg = new StringBuilder("");
+			strs.put(wC, msg);
+			final List<Item> wornHere=mob.fetchWornItems(wornCode,(short)(Short.MIN_VALUE+2),(short)0);
 			int numLocations=mob.getWearPositions(wornCode);
 			if(numLocations==0)
 				numLocations=1;
@@ -89,9 +133,9 @@ public class Equipment extends StdCommand
 			{
 				if(!allPlaces)
 				{
-					final List<List<Item>> sets=new Vector<List<Item>>(numLocations);
+					final List<List<Item>> sets=new ArrayList<List<Item>>(numLocations);
 					for(int i=0;i<numLocations;i++)
-						sets.add(new Vector<Item>());
+						sets.add(new ArrayList<Item>());
 					Item I=null;
 					Item I2=null;
 					short layer=Short.MAX_VALUE;
@@ -175,10 +219,15 @@ public class Equipment extends StdCommand
 						}
 					}
 				}
+				if((wornHere.size()>1)&&(allPlaces))
+					Collections.sort(wornHere,layerComp);
+				short lastLayer = Short.MAX_VALUE;
+				String indent = "";
 				for(int i=0;i<wornHere.size();i++)
 				{
-					thisItem=wornHere.get(i);
-					if((thisItem.container()==null)&&(thisItem.amWearingAt(wornCode)))
+					final Item thisItem=wornHere.get(i);
+					if((thisItem.container()==null)
+					&&(thisItem.amWearingAt(wornCode)))
 					{
 						if(paragraphView)
 						{
@@ -192,7 +241,7 @@ public class Equipment extends StdCommand
 							{
 								String name=thisItem.name();
 								if(!allPlaces)
-									name=CMStrings.ellipse(name,wrap);
+									name=CMStrings.ellipseColored(name,wrap);
 								if(wornCode==Wearable.WORN_HELD)
 								{
 									if(msg.length()==0)
@@ -215,80 +264,104 @@ public class Equipment extends StdCommand
 								else
 								{
 									if(mob==seer)
-										msg.append(header+"^<EItem^>"+name+"^</EItem^>"+CMLib.flags().getDispositionBlurbs(thisItem,seer).toString().trim()+"^N,");
+										msg.append(wornLocHeader+"^<EItem^>"+name+"^</EItem^>"+CMLib.flags().getDispositionBlurbs(thisItem,seer).toString().trim()+"^N,");
 									else
-										msg.append(header+name.trim()+CMLib.flags().getDispositionBlurbs(thisItem,seer).toString().trim()+"^N,");
+										msg.append(wornLocHeader+name.trim()+CMLib.flags().getDispositionBlurbs(thisItem,seer).toString().trim()+"^N,");
 								}
 							}
 							else
 							{
+								final short layer = (thisItem instanceof Armor)?((Armor)thisItem).getClothingLayer():0;
+								if((layer < lastLayer)&&(lastLayer < Short.MAX_VALUE))
+									indent += " ";
+								lastLayer = layer;
 								String name=thisItem.name();
-								if((name.length()>shortWrap)&&(!allPlaces))
-									name=name.substring(0,shortWrap)+"...";
+								if((CMStrings.lengthMinusColors(indent+name)>shortWrap)&&(!allPlaces))
+									name=CMStrings.ellipseColored(name,shortWrap);
 								if(mob==seer)
-									msg.append(header+"^<EItem^>"+name+"^</EItem^>"+CMLib.flags().getDispositionBlurbs(thisItem,seer).toString().trim()+"^?\n\r");
+									msg.append(wornLocHeader+indent+"^<EItem^>"+name+"^</EItem^>"+CMLib.flags().getDispositionBlurbs(thisItem,seer).toString().trim()+"^?\n\r");
 								else
-									msg.append(header+name.trim()+CMLib.flags().getDispositionBlurbs(thisItem,seer).toString().trim()+"^?\n\r");
+									msg.append(wornLocHeader+indent+name.trim()+CMLib.flags().getDispositionBlurbs(thisItem,seer).toString().trim()+"^?\n\r");
 							}
-							shownThisLoc++;
 						}
 						else
 						if(seer==mob)
-						{
-							msg.append(L("@x1(something you can`t see)@x2^?\n\r",header,CMLib.flags().getDispositionBlurbs(thisItem,seer).toString().trim()));
-							shownThisLoc++;
-						}
+							msg.append(L("@x1(something you can`t see)@x2^?\n\r",wornLocHeader,CMLib.flags().getDispositionBlurbs(thisItem,seer).toString().trim()));
 					}
 				}
 			}
-			if(emptySlots>0)
+			if(tattoos.size()>0)
 			{
-				double numTattoosTotal=0;
-				wornName=wornName.toUpperCase();
-				for(final Enumeration<Tattoo> e=mob.tattoos();e.hasMoreElements();)
+				if((emptySlots == 0)||(numLocations == 0))
 				{
-					final Tattoo T = e.nextElement();
-					if(T.getTattooName().startsWith(wornName+":"))
-						numTattoosTotal+=1.0;
+					if((wC.longValue() == Wearable.WORN_ABOUT_BODY)
+					||(wC.longValue() == Wearable.WORN_TORSO))
+						tattoos.remove(Long.valueOf(Wearable.WORN_BACK));
+					tattoos.remove(wC);
 				}
-				int numTattoosToShow=(int)Math.round(Math.ceil(CMath.mul(numTattoosTotal,CMath.div(emptySlots,numLocations))));
-				for(final Enumeration<Tattoo> e=mob.tattoos();e.hasMoreElements();)
+				else
+				if(tattoos.containsKey(wC))
+					tattoos.get(wC).first[0] = CMath.div(emptySlots,numLocations);
+			}
+		}
+		for(int l=0;l<codes.all_ordered().length;l++)
+		{
+			final long wornCode=codes.all_ordered()[l];
+			final Long wC = Long.valueOf(wornCode);
+			final String wornLocHeader = headers.get(wC);
+			final Pair<double[], List<String>> p = tattoos.get(wC);
+			if(p != null)
+			{
+				final StringBuilder msg = strs.get(wC);
+				final List<String> tatts = p.second;
+				final double numTattoosTotal=tatts.size();
+				int numTattoosToShow=(int)Math.round(Math.ceil(CMath.mul(numTattoosTotal,p.first[0])));
+				for(String tat : tatts)
 				{
-					final Tattoo T = e.nextElement();
-					if((T.getTattooName().startsWith(wornName+":"))
-					&&((--numTattoosToShow)>=0))
+					if((--numTattoosToShow)>=0)
 					{
-						tat=T.getTattooName();
 						if(paragraphView)
 						{
-							tat=tat.substring(wornName.length()+1).toLowerCase();
-							if(tat.length()>wrap)
+							tat=tat.toLowerCase();
+							if((tat.length()>wrap)&&(!allPlaces))
 								tat=tat.substring(0,wrap)+"...";
-							msg.append(header+tat+"^?,");
+							msg.append(wornLocHeader+tat+"^?,");
 						}
 						else
 						{
-							tat=CMStrings.capitalizeAndLower(tat.substring(wornName.length()+1).toLowerCase());
-							if(tat.length()>shortWrap)
+							tat=CMStrings.capitalizeAndLower(tat);
+							if((tat.length()>shortWrap)&&(!allPlaces))
 								tat=tat.substring(0,shortWrap)+"...";
-							msg.append(header+tat+"^?\n\r");
+							msg.append(wornLocHeader+tat+"^?\n\r");
 						}
-						shownThisLoc++;
 					}
 				}
 			}
-			if((allPlaces)&&(shownThisLoc==0))
+			if((allPlaces)
+			&&(strs.get(wC).length()==0))
 			{
 				if(((!paragraphView)&&(wornCode!=Wearable.WORN_FLOATING_NEARBY))
 				||((paragraphView)&&(wornCode!=Wearable.WORN_WIELD)))
+				{
 					for(int i=mob.getWearPositions(wornCode)-1;i>=0;i--)
-						msg.append(header+"^?\n\r");
+						strs.get(wC).append(wornLocHeader+"^?\n\r");
+				}
+			}
+		}
+		final StringBuilder msg = new StringBuilder();
+		for(int l=0;l<codes.all_ordered().length;l++)
+		{
+			final long wornCode=codes.all_ordered()[l];
+			final Long wC = Long.valueOf(wornCode);
+			if(strs.containsKey(wC))
+			{
+				final StringBuilder str = strs.get(wC);
+				if((!paragraphView)||(CMStrings.removeColors(str.toString()).trim().length()>0))
+					msg.append(str);
 			}
 		}
 		if(msg.length()==0)
-		{
 			msg.append(L("^!(nothing)^?\n\r"));
-		}
 		else
 		{
 			int commaDex=(paragraphView)?msg.lastIndexOf(","):-1;
@@ -345,6 +418,9 @@ public class Equipment extends StdCommand
 		if(!super.checkArguments(internalParameters, args))
 			return null;
 
+		if((args.length>1)&&(args[0] instanceof MOB)&&(args[1] instanceof Boolean))
+			return getEquipment((MOB)args[0],mob,((Boolean)args[1]).booleanValue());
+		else
 		if((args.length>0)&&(args[0] instanceof MOB))
 			return getEquipment((MOB)args[0],mob,false);
 		else

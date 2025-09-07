@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -131,9 +131,14 @@ public class Thief_CutThroat extends ThiefSkill
 			final Ability A2=CMClass.getAbility("Bleeding");
 			if(A2!=null)
 			{
-				A2.invoke(msg.source(),(MOB)msg.target(),true,0);
+				if(((MOB)msg.target()).phyStats().level()>=CMProps.getIntVar(CMProps.Int.INJBLEEDMINLEVEL))
+					A2.invoke(msg.source(),(MOB)msg.target(),true,0);
 				if((msg.trailerMsgs()==null)||(msg.trailerMsgs().size()==0))
-					msg.addTrailerMsg(CMClass.getMsg(msg.source(), msg.target(), msg.tool(), CMMsg.MSG_OK_ACTION, L("<S-NAME> cut(s) <T-YOUPOSS> throat with <O-NAME>! Blood start(s) running...")));
+				{
+					final String bloodStr = (CMLib.flags().isGolem(affected))?"":L("Blood starts running...");
+					msg.addTrailerMsg(CMClass.getMsg(msg.source(), msg.target(), msg.tool(), CMMsg.MSG_OK_ACTION,
+							L("<S-NAME> cut(s) <T-YOUPOSS> throat with <O-NAME>! ")+bloodStr));
+				}
 			}
 		}
 	}
@@ -175,14 +180,24 @@ public class Thief_CutThroat extends ThiefSkill
 			mob.tell(L("@x1 is watching you too closely to do that.",target.name(mob)));
 			return false;
 		}
+		if((!auto)&&(!CMLib.flags().isStanding(mob))&&(mob!=target))
+		{
+			mob.tell(L("You need to stand up!"));
+			return false;
+		}
 		if(lastMOB.equals(target+""))
 		{
-			mob.tell(target,null,null,L("@x1 is watching <S-HIS-HER> neck too closely to do that again.",target.name(mob)));
+			failureTell(mob,target,auto,L("@x1 is watching <S-HIS-HER> neck too closely to do that again.",target.name(mob)));
 			return false;
 		}
 		if(mob.isInCombat())
 		{
 			mob.tell(L("You are too busy to focus on cutting someone`s throat right now."));
+			return false;
+		}
+		if(target.charStats().getBodyPart(Race.BODY_NECK) == 0)
+		{
+			mob.tell(L("@x1 has no neck. :/",target.name(mob)));
 			return false;
 		}
 
@@ -208,7 +223,8 @@ public class Thief_CutThroat extends ThiefSkill
 
 		boolean success=proficiencyCheck(mob,0,auto);
 
-		final CMMsg msg=CMClass.getMsg(mob,target,this,(auto?CMMsg.MSG_OK_ACTION:CMMsg.MSG_THIEF_ACT),auto?"":L("<S-NAME> attempt(s) to cut <T-YOUPOSS> throat!"));
+		final CMMsg msg=CMClass.getMsg(mob,target,this,(auto?CMMsg.MSG_OK_ACTION:CMMsg.MSG_THIEF_ACT),
+				auto?"":L("<S-NAME> attempt(s) to cut <T-YOUPOSS> throat!"));
 		if(mob.location().okMessage(mob,msg))
 		{
 			mob.location().send(mob,msg);

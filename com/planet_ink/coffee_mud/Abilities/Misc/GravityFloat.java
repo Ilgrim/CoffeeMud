@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -165,9 +165,8 @@ public class GravityFloat extends StdAbility
 	{
 		super.affectPhyStats(affected, affectableStats);
 		affectableStats.setWeight(1);
-		affectableStats.addAmbiance(L("Floating"));
+		affectableStats.addAmbiance(PhyStats.Ambiance.IS_FLOATING.code());
 		affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_FLYING);
-		affectableStats.addAmbiance("-FLYING");
 	}
 
 	public boolean showFailedToMove(final MOB mob)
@@ -212,7 +211,7 @@ public class GravityFloat extends StdAbility
 				case 3:
 				case 4:
 				case 5:
-					R.show(mob, P,CMMsg.MSG_NOISYMOVEMENT, L("<S-NAME> flap(s) around reaching for <T-NAME>, but <S-HE-SHE> float(s) away from it."));
+					R.show(mob, P,CMMsg.MSG_NOISYMOVEMENT, L("<S-NAME> flap(s) around reaching for <T-NAME>, but float(s) away from it."));
 					break;
 				case 6:
 				case 7:
@@ -220,7 +219,7 @@ public class GravityFloat extends StdAbility
 				case 9:
 				default:
 				case 10:
-					R.show(mob, P,CMMsg.MSG_NOISYMOVEMENT, L("<S-NAME> flap(s) around trying reach for <T-NAME>, but <T-HE-SHE> float(s) away."));
+					R.show(mob, P,CMMsg.MSG_NOISYMOVEMENT, L("<S-NAME> flap(s) around trying reach for <T-NAME>, but float(s) away."));
 					break;
 				}
 			}
@@ -249,14 +248,14 @@ public class GravityFloat extends StdAbility
 					if((msg.target() instanceof Item)
 					&&(!msg.source().isMine(msg.target()))
 					&&(CMLib.dice().rollPercentage()>20)
-					&&(msg.source().phyStats().isAmbiance(L("Floating"))))
+					&&(CMLib.flags().isFloatingFreely(msg.source())))
 					{
 						showFailedToTouch(msg.source(),(Physical)msg.target());
 						return false;
 					}
 					if((msg.target() instanceof MOB)
 					&&(CMLib.dice().rollPercentage()>20)
-					&&(msg.source().phyStats().isAmbiance(L("Floating"))))
+					&&(CMLib.flags().isFloatingFreely(msg.source())))
 					{
 						showFailedToTouch(msg.source(),(Physical)msg.target());
 						return false;
@@ -268,7 +267,7 @@ public class GravityFloat extends StdAbility
 			case CMMsg.TYP_MOUNT:
 			case CMMsg.TYP_SIT:
 			{
-				if(msg.source().phyStats().isAmbiance(L("Floating"))
+				if((CMLib.flags().isFloatingFreely(msg.source()))
 				&& (!flyingAllowed)
 				&&(!CMath.bset(msg.sourceMajor(), CMMsg.MASK_ALWAYS))
 				&&(msg.target()!=null))
@@ -338,20 +337,28 @@ public class GravityFloat extends StdAbility
 				}
 				//$FALL-THROUGH$
 			case CMMsg.TYP_THROW:
-				if(msg.source().phyStats().isAmbiance(L("Floating")))
+				if(CMLib.flags().isFloatingFreely(msg.source()))
 				{
 					final String sourceMessage = CMStrings.removeColors(CMLib.english().stripPunctuation(msg.sourceMessage()));
 					final List<String> words=CMParms.parseSpaces(sourceMessage, true);
 					final Room R=msg.source().location();
 					if(R==null)
 						break;
-					final boolean useShip =((R instanceof BoardableShip)||(R.getArea() instanceof BoardableShip))?true:false;
+					final Directions.DirType typ;
+					final Rideable.Basis basis = CMLib.flags().getNavRideBasis(R);
+					if(basis == Rideable.Basis.WATER_BASED)
+						typ = Directions.DirType.SHIP;
+					else
+					if(basis == Rideable.Basis.LAND_BASED)
+						typ = Directions.DirType.CARAVAN;
+					else
+						typ = Directions.DirType.COMPASS;
 					int floatDir = -1;
 					for(int i=words.size()-1;(i>=0) && (floatDir<0);i--)
 					{
 						for(final int dir : Directions.DISPLAY_CODES())
 						{
-							if(words.get(i).equals(CMLib.directions().getUpperDirectionName(dir, useShip)))
+							if(words.get(i).equals(CMLib.directions().getUpperDirectionName(dir, typ)))
 							{
 								floatDir = Directions.getOpDirectionCode(dir);
 								break;
@@ -421,7 +428,7 @@ public class GravityFloat extends StdAbility
 				if(A instanceof SpaceObject)
 					o=(SpaceObject)A;
 				else
-					o=CMLib.map().getSpaceObject(A,true);
+					o=CMLib.space().getSpaceObject(A,true);
 				if(o==null)
 					hasGravity=true;
 				else

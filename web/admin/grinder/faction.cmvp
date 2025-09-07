@@ -3,8 +3,10 @@
 @if?!CheckAuthCode?AUTH_CMDFACTIONS=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <META HTTP-EQUIV="Pragma" CONTENT="no-cache">
 <html>
+	<META CHARSET="utf-8"/>
 <head>
     <link rel="grinder icon" href="/images/grinder.ico" >
+    <link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
     <title>Faction Manager</title>
     <script language=JavaScript>
     <!--
@@ -156,6 +158,7 @@
                 <BR><INPUT TYPE=CHECKBOX NAME=SHOWINFACTIONS @FactionData?SHOWINFACTIONS@>Show In Factions
                 <BR><INPUT TYPE=CHECKBOX NAME=SHOWINEDITOR @FactionData?SHOWINEDITOR@>Show In MOB Editor
                 <BR><INPUT TYPE=CHECKBOX NAME=SHOWINREPORTS @FactionData?SHOWINREPORTS@>Show In Reports
+                <BR><INPUT TYPE=CHECKBOX NAME=INHERITED @FactionData?INHERITED@>Is Inherited
                 </FONT>
             </TD>
         </TR>
@@ -261,11 +264,10 @@
             <TABLE WIDTH=100% BORDER=1 cellpadding=0 cellspacing=0 >
             <TR>
                 <TD WIDTH=20%><FONT COLOR=WHITE>Trigger</FONT></TD>
-                <TD WIDTH=12%><FONT COLOR=WHITE>Direction</FONT></TD>
-                <TD WIDTH=8%><FONT COLOR=WHITE>Factor</FONT></TD>
+                <TD WIDTH=10%><FONT COLOR=WHITE>Direction/ Factor</FONT></TD>
                 <TD WIDTH=10%><FONT COLOR=WHITE>Flags</FONT></TD>
                 <TD WIDTH=20%><FONT COLOR=WHITE>Mask <A HREF="javascript:OpenUp('ahelp.cmvp','MASKS')"><FONT COLOR=WHITE><I>?</I></FONT></a></FONT></TD>
-                <TD WIDTH=8%><FONT COLOR=WHITE>Bonus</FONT></TD>
+                <TD WIDTH=20%><FONT COLOR=WHITE>Bonus</FONT></TD>
             </TR>
             @FactionData?ADJUSTMENTCHANGES@
             </TABLE>

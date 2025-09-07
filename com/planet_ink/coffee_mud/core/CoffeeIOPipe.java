@@ -8,7 +8,7 @@ import java.net.Socket;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /*
-Copyright 2005-2020 Bo Zimmerman
+Copyright 2005-2025 Bo Zimmerman
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -67,6 +67,21 @@ public class CoffeeIOPipe
 
 		@Override
 		public int read() throws IOException
+		{
+			if(closed)
+				throw new IOException("Input stream closed.");
+			synchronized(buffer)
+			{
+				if(readDex.get() == writeDex.get())
+					return -1;
+				final int b=buffer[readDex.getAndIncrement()];
+				if(readDex.get() >= buffer.length)
+					readDex.set(0);
+				return b;
+			}
+		}
+
+		public int peek() throws IOException
 		{
 			if(closed)
 				throw new IOException("Input stream closed.");
@@ -142,6 +157,22 @@ public class CoffeeIOPipe
 		}
 
 		@Override
+		public void write(final byte[] bs) throws IOException
+		{
+			super.write(bs);
+			if(writeCallback != null)
+				writeCallback.run();
+		}
+
+		@Override
+		public void write(final byte[] bs, final int off, final int len) throws IOException
+		{
+			super.write(bs, off, len);
+			if(writeCallback != null)
+				writeCallback.run();
+		}
+
+		@Override
 		public void write(final int b) throws IOException
 		{
 			if(closed)
@@ -157,8 +188,6 @@ public class CoffeeIOPipe
 						readDex.set(0);
 				}
 			}
-			if(writeCallback != null)
-				writeCallback.run();
 		}
 
 		@Override
@@ -240,7 +269,7 @@ public class CoffeeIOPipe
 		 * @param addr the fake address to use when asked.
 		 * @param myPipe the pipe to one side of the socket
 		 * @param friendPipe the pipe to the other side of the socket
-		 * @throws IOException
+		 * @throws IOException an exception creating the pipe
 		 */
 		public CoffeePipeSocket(final InetAddress addr, final CoffeeIOPipe myPipe, final CoffeeIOPipe friendPipe) throws IOException
 		{

@@ -20,7 +20,7 @@ import java.net.*;
 import java.util.*;
 
 /*
-   Copyright 2013-2020 Bo Zimmerman
+   Copyright 2013-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -160,6 +160,13 @@ public class StdTickGroup implements TickableGroup, Cloneable
 	}
 
 	@Override
+	public void resetTotals()
+	{
+		milliTotal = 1;
+		tickTotal = 1;
+	}
+
+	@Override
 	public long getTickTotal()
 	{
 		return tickTotal;
@@ -201,14 +208,14 @@ public class StdTickGroup implements TickableGroup, Cloneable
 	}
 
 	@Override
-	public Iterator<TickClient> getLocalItems(final int itemTypes, final Room R)
+	public Iterator<TickClient> getLocalItems(final LocalType itemTypes, final Room R)
 	{
 		LinkedList<TickClient> localItems=null;
 		for (final TickClient C : tickers)
 		{
 			switch(itemTypes)
 			{
-			case 0:
+			case MOBS_OR_ITEMS:
 				if(C.getClientObject() instanceof MOB)
 				{
 					if(((MOB)C.getClientObject()).getStartRoom()==R)
@@ -227,7 +234,7 @@ public class StdTickGroup implements TickableGroup, Cloneable
 					localItems.add(C);
 				}
 				break;
-			case 1:
+			case ITEMS_ONLY:
 				if((C.getClientObject() instanceof ItemTicker)
 				&&((((ItemTicker)C.getClientObject()).properLocation()==R)))
 				{
@@ -236,7 +243,7 @@ public class StdTickGroup implements TickableGroup, Cloneable
 					localItems.add(C);
 				}
 				break;
-			case 2:
+			case MOBS_ONLY:
 				if((C.getClientObject() instanceof MOB)
 				&&(((MOB)C.getClientObject()).getStartRoom()==R))
 				{
@@ -333,7 +340,7 @@ public class StdTickGroup implements TickableGroup, Cloneable
 			currentThread=Thread.currentThread();
 			lastClient=null;
 			final boolean allSuspended=CMLib.threads().isAllSuspended();
-			if((CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+			if((CMProps.isState(CMProps.HostState.RUNNING))
 			&&(!allSuspended))
 			{
 				for(final Iterator<TickClient> i=tickers();i.hasNext();)

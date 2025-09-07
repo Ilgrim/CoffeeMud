@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2010-2020 Bo Zimmerman
+   Copyright 2010-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ public class AreaScriptNext extends StdWebMacro
 	}
 
 	public AreaScriptInstance addScript(final TreeMap<String,ArrayList<AreaScriptInstance>> list,
-			final ArrayList<String> prefix, final String scriptKey, final String immediateHost, final String key, final String file)
+			final ArrayList<String> prefix, final String scriptKey, final String immediateHost, String key, final String file)
 	{
 		final ArrayList<String> next=(ArrayList<String>)prefix.clone();
 		if(immediateHost!=null)
@@ -77,6 +77,26 @@ public class AreaScriptNext extends StdWebMacro
 		{
 			subList = new ArrayList<AreaScriptInstance>();
 			list.put(key,subList);
+		}
+		if((subList.size()>=30)&&(key.equals("Custom")))
+		{
+			for(int i=2;;i++)
+			{
+				subList =list.get(key+"_"+i);
+				if(subList == null)
+				{
+					subList = new ArrayList<AreaScriptInstance>();
+					list.put(key+"_"+i,subList);
+					key=key+"_"+i;
+					break;
+				}
+				else
+				if(subList.size()<30)
+				{
+					key=key+"_"+i;
+					break;
+				}
+			}
 		}
 		final AreaScriptInstance inst = new AreaScriptInstance(scriptKey, next, key, file);
 		subList.add(inst);
@@ -163,9 +183,15 @@ public class AreaScriptNext extends StdWebMacro
 			ArrayList<String> prefix = new ArrayList<String>();
 			for(final Enumeration<WorldMap.LocatedPair> ae=CMLib.map().scriptHosts(A);ae.hasMoreElements();)
 			{
-				LP=ae.nextElement(); if(LP==null) continue;
-				AE=LP.obj(); if(AE==null) continue;
-				R=LP.room(); if(R==null) R=CMLib.map().getStartRoom(AE);
+				LP=ae.nextElement();
+				if(LP==null)
+					continue;
+				AE=LP.obj();
+				if(AE==null)
+					continue;
+				R=LP.room();
+				if(R==null)
+					R=CMLib.map().getStartRoom(AE);
 
 				prefix = new ArrayList<String>();
 				prefix.add(A.name());

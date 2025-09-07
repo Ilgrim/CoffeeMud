@@ -1,7 +1,7 @@
 package com.planet_ink.coffee_mud.core.collections;
 import java.util.*;
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -15,11 +15,27 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+/**
+ * A ListIterator that wraps another ListIterator, converting the objects from
+ * one type to another as they are accessed. Note that this class does not
+ * support adding or setting of elements, as it would require a reverse
+ * conversion operation.
+ *
+ * @param <K> the input object type
+ * @param <L> the output object type
+ * @author Bo Zimmerman
+ */
 public class FullConvertingListIterator<K,L> implements ListIterator<L>
 {
 	private final ListIterator<K> iter;
 	private final FullConverter<K,L> converter;
 
+	/**
+	 * Construct a new converting list iterator
+	 *
+	 * @param i the iterator to wrap
+	 * @param conv the converter to use
+	 */
 	public FullConvertingListIterator(final ListIterator<K> i, final FullConverter<K,L> conv)
 	{
 		iter=i;
@@ -79,5 +95,4 @@ public class FullConvertingListIterator<K,L> implements ListIterator<L>
 	{
 		throw new java.lang.IllegalArgumentException();
 	}
-
 }

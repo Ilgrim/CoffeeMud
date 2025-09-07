@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -99,7 +99,9 @@ public class WanderHomeLater extends StdAbility
 	{
 		final Physical P=affected;
 		super.unInvoke();
-		if((P!=null)&&(this.canBeUninvoked)&&(this.unInvoked))
+		if((P!=null)
+		&&(this.canBeUninvoked)
+		&&(this.unInvoked))
 		{
 			if((!P.amDestroyed())
 			&&(destroy)
@@ -132,7 +134,9 @@ public class WanderHomeLater extends StdAbility
 			if(M.amDead() && (once))
 				unInvoke();
 			else
-			if(respectFollow && (M.amFollowing()!=null) && (M.amFollowing().location()==M.location()))
+			if(respectFollow
+			&& (M.amFollowing()!=null)
+			&& (M.amFollowing().location()==M.location()))
 				unInvoke();
 			else
 			if(CMLib.flags().canActAtAll(M)
@@ -165,5 +169,16 @@ public class WanderHomeLater extends StdAbility
 			}
 		}
 		return super.tick(ticking, tickID);
+	}
+
+	@Override
+	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
+	{
+		if(givenTarget==null)
+			return false;
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
+			return false;
+		this.startTickDown(mob, givenTarget, Integer.MAX_VALUE/2);
+		return true;
 	}
 }

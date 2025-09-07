@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -141,7 +141,9 @@ public class Spell_Pocket extends Spell
 		if(success)
 		{
 			final Room R=mob.location();
-			final CMMsg msg=CMClass.getMsg(mob,target,this,affectType,L(auto?"":"^S<S-NAME> point(s) at <T-NAMESELF> and evoke(s) a little spell!^?")+CMLib.protocol().msp("spelldam2.wav",40));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,affectType,
+					(auto?"":L("^S<S-NAME> point(s) at <T-NAMESELF> and evoke(s) a little spell!^?"))
+					+CMLib.protocol().msp("spelldam2.wav",40));
 			if((R!=null)&&(R.okMessage(mob,msg)))
 			{
 				R.send(mob,msg);

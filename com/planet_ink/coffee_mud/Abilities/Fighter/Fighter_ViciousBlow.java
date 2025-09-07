@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -88,6 +88,20 @@ public class Fighter_ViciousBlow extends FighterSkill
 	public int classificationCode()
 	{
 		return Ability.ACODE_SKILL | Ability.DOMAIN_ANATOMY;
+	}
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
+	{
+		super.executeMsg(myHost, msg);
+		if((msg.source()==affected)
+		&& (msg.targetMinor()==CMMsg.TYP_DAMAGE)
+		&& (msg.tool() instanceof Weapon))
+		{
+			final int hurtAmount = msg.value();
+			if (hurtAmount > msg.source().phyStats().damage())
+				super.helpProficiency(msg.source(), 0);
+		}
 	}
 
 	@Override

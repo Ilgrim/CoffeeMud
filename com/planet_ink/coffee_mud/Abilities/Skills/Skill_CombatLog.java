@@ -19,7 +19,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /*
-   Copyright 2017-2020 Bo Zimmerman
+   Copyright 2017-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -527,6 +527,7 @@ public class Skill_CombatLog extends StdSkill
 				if(log != null)
 				{
 					log.stats = this.stats;
+					log.loggingM=null;
 					log.factionChanges = this.factionChanges;
 					this.stats.clear();
 					this.factionChanges.clear();

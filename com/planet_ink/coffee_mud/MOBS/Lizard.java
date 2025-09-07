@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,8 +43,8 @@ public class Lizard extends StdMOB
 	public Lizard()
 	{
 		super();
-		username="a lizard";
-		setDescription("A small unobtrusize reptile with rough green skin.");
+		_name="a lizard";
+		setDescription("A small unobtrusive reptile with rough green skin.");
 		setDisplayText("A lizard scurries by.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
 		setMoney(0);
@@ -53,7 +53,7 @@ public class Lizard extends StdMOB
 
 		baseCharStats().setStat(CharStats.STAT_INTELLIGENCE,1);
 
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(1);
 		basePhyStats().setArmor(90);
 

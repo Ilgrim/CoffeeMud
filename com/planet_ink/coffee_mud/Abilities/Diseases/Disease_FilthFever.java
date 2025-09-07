@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -119,29 +119,21 @@ public class Disease_FilthFever extends Disease
 	@Override
 	protected String DISEASE_AFFECT()
 	{
-		final String smell;
 		switch(CMLib.dice().roll(1,5,0))
 		{
 		case 1:
-			smell = L("^G<S-NAME> is stinky!^?");
-			break;
+			return L("^G<S-NAME> is stinky!^?");
 		case 2:
-			smell = L("^G<S-NAME> smells like poo.^?");
-			break;
+			return L("^G<S-NAME> smells like poo.^?");
 		case 3:
-			smell = L("^G<S-NAME> must have soiled <S-HIM-HERSELF>.^?");
-			break;
+			return L("^G<S-NAME> must have soiled <S-HIM-HERSELF>.^?");
 		case 4:
-			smell = L("^GWhew! <S-NAME> stinks!^?");
-			break;
+			return L("^GWhew! <S-NAME> stinks!^?");
 		case 5:
-			smell = L("^G<S-NAME> must have let one go!^?");
-			break;
+			return L("^G<S-NAME> must have let one go!^?");
 		default:
-			smell=L("^G<S-NAME> stink(s).^?");
-			break;
+			return L("^G<S-NAME> stink(s).^?");
 		}
-		return L(smell);
 	}
 
 	@Override
@@ -193,8 +185,8 @@ public class Disease_FilthFever extends Disease
 				{
 					final MOB M=R.fetchInhabitant(i);
 					if((M!=null)
-					&&(CMLib.flags().isAnimalIntelligence(M))
-					&&(CMLib.flags().canSmell(M)))
+					&&(CMLib.flags().isAnAnimal(M))
+					&&(CMLib.flags().canSmell(M,mob)))
 						M.tell(mob,null,null,DISEASE_AFFECT());
 				}
 			}

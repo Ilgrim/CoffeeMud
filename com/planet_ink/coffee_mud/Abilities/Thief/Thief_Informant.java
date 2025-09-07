@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -273,7 +273,7 @@ public class Thief_Informant extends ThiefSkill
 		else
 		{
 			final Area A=CMLib.map().areaLocation(mob);
-			final MOB M=(A!=null)?CMLib.map().findFirstInhabitant(A.getProperMap(), mob, reason, 10):null;
+			final MOB M=(A!=null)?CMLib.hunt().findFirstInhabitant(A.getProperMap(), mob, reason, 10):null;
 			if(M==null)
 			{
 				mob.tell(L("No one would even know how to inform you about @x1. Try warrant, an amount of money, a name, a class, or a race.",reason));

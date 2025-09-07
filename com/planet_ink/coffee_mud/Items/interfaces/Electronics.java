@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -85,6 +85,26 @@ public interface Electronics extends Item, Technical
 	public void setPowerRemaining(long remaining);
 
 	/**
+	 * Gets the amount of power capacitance to allow this
+	 * electrical item to charge up to.  It should always
+	 * be less than powerCapacity.
+	 *
+	 * @see Electronics#setPowerTarget(long)
+	 * @return the amount of power capacitance max to draw
+	 */
+	public long powerTarget();
+
+	/**
+	 * Sets the amount of power capacitance to allow this
+	 * electrical item to charge up to.  It should always
+	 * be less than powerCapacity.
+	 *
+	 * @see Electronics#powerTarget()
+	 * @param remaining the amount of power capacitance remaining
+	 */
+	public void setPowerTarget(long remaining);
+
+	/**
 	 * Returns the immediate power needs of this electrical item.
 	 * Typically powerCapacity - powerAvailable
 	 * @see Electronics#powerRemaining()
@@ -110,37 +130,4 @@ public interface Electronics extends Item, Technical
 	 * @param truefalse true to activate, false to deactivate
 	 */
 	public void activate(boolean truefalse);
-
-	/**
-	 * Gets the Manufacturer ID/Name that made this electrical
-	 * item.  This is important because benefits and detriments
-	 * can come along with the manufacturer.
-	 * @see Electronics#setManufacturerName(String)
-	 * @see Manufacturer
-	 * @return the Manufacturer ID/Name that made this
-	 */
-	public String getManufacturerName();
-
-	/**
-	 * Sets the Manufacturer ID/Name that made this electrical
-	 * item.  This is important because benefits and detriments
-	 * can come along with the manufacturer.
-	 * @see Electronics#getManufacturerName()
-	 * @see Electronics#getFinalManufacturer()
-	 * @see Manufacturer
-	 * @param name the Manufacturer ID/Name that made this
-	 */
-	public void setManufacturerName(String name);
-
-	/**
-	 * Returns the Manufacturer object of the manufacturer that
-	 * made this electrical item.  This is important because
-	 * benefits and detriments can come along with the manufacturer.
-	 * @see Electronics#getManufacturerName()
-	 * @see Electronics#setManufacturerName(String)
-	 * @see Manufacturer
-	 * @return the Manufacturer that made this electrical item
-	 */
-	public Manufacturer getFinalManufacturer();
-
 }

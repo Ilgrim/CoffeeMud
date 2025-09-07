@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -73,6 +73,12 @@ public class Spell_DetectInvisible extends Spell
 	protected int canAffectCode()
 	{
 		return CAN_MOBS;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -136,7 +142,7 @@ public class Spell_DetectInvisible extends Spell
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already detecting invisibility."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already detecting invisibility."));
 			return false;
 		}
 
@@ -147,7 +153,7 @@ public class Spell_DetectInvisible extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("<T-NAME> open(s) <S-HIS-HER> softly glowing eyes."):L("^S<S-NAME> incant(s) softly, and open(s) <S-HIS-HER> glowing eyes.^?"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("<T-NAME> open(s) <T-HIS-HER> softly glowing eyes."):L("^S<S-NAME> incant(s) softly, and open(s) <S-HIS-HER> glowing eyes.^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

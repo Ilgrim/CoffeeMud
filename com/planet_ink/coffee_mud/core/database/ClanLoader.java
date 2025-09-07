@@ -21,7 +21,7 @@ import java.util.*;
 
 /**
  * Portions Copyright (c) 2003 Jeremy Vyska
- * Portions Copyright (c) 2004-2020 Bo Zimmerman
+ * Portions Copyright (c) 2004-2025 Bo Zimmerman
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -89,14 +89,17 @@ public class ClanLoader
 								final String roomID=xml.get(0).parms().get("ID");
 								final long expirationDate=CMath.s_long(xml.get(0).parms().get("EXPIRE"));
 								if(roomID.startsWith("SPACE.") && (newItem instanceof SpaceObject))
-									CMLib.map().addObjectToSpace((SpaceObject)newItem,CMParms.toLongArray(CMParms.parseCommas(roomID.substring(6), true)));
+								{
+									CMLib.space().addObjectToSpace((SpaceObject)newItem,
+											new Coord3D(CMParms.toLongArray(CMParms.parseCommas(roomID.substring(6), true))));
+								}
 								else
 								{
 									final Room itemR=CMLib.map().getRoom(roomID);
 									if(itemR!=null)
 									{
-										if(newItem instanceof BoardableShip)
-											((BoardableShip)newItem).dockHere(itemR);
+										if(newItem instanceof Boardable)
+											((Boardable)newItem).dockHere(itemR);
 										else
 											itemR.addItem(newItem);
 										newItem.setExpirationDate(expirationDate);
@@ -236,8 +239,9 @@ public class ClanLoader
 				CMLib.catalog().updateCatalogIntegrity(thisItem);
 				final Item cont=thisItem.ultimateContainer(null);
 				final String sql=getDBItemUpdateString(C,thisItem);
-				final String roomID=((cont.owner()==null)&&(thisItem instanceof SpaceObject)&&(CMLib.map().isObjectInSpace((SpaceObject)thisItem)))?
-						("SPACE."+CMParms.toListString(((SpaceObject)thisItem).coordinates())):CMLib.map().getExtendedRoomID((Room)cont.owner());
+				final String roomID=((cont.owner()==null)&&(thisItem instanceof SpaceObject)&&(CMLib.space().isObjectInSpace((SpaceObject)thisItem)))?
+						("SPACE."+CMParms.toListString(((SpaceObject)thisItem).coordinates().toLongs())):
+							CMLib.map().getExtendedRoomID((Room)cont.owner());
 				final String text="<ROOM ID=\""+roomID+"\" EXPIRE="+thisItem.expirationDate()+" />"+thisItem.text();
 				strings.add(new DBPreparedBatchEntry(sql,text));
 				done.add(""+thisItem);

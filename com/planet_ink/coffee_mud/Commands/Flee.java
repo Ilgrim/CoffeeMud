@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -85,10 +85,26 @@ public class Flee extends Go
 			}
 		}
 
-		if((!XPloss)&&(direction.length()==0))
+		if(direction.length()==0)
 		{
-			mob.tell(L("You stop fighting."));
-			direction="NOWHERE";
+			if(XPloss)
+			{
+				final Room lR = mob.lastLocation();
+				if((lR != null) && (R != null))
+				{
+					final int dir = CMLib.map().getRoomDir(R, lR);
+					if((dir >=0)
+					&&(R.getRoomInDir(dir) == lR)
+					&&(R.getExitInDir(dir) != null)
+					&&(R.getExitInDir(dir).isOpen()))
+						direction=CMLib.directions().getDirectionName(dir);
+				}
+			}
+			else
+			{
+				mob.tell(L("You stop fighting."));
+				direction="NOWHERE";
+			}
 		}
 
 		int directionCode=-1;
@@ -152,7 +168,7 @@ public class Flee extends Go
 					&&((mob.session()==null)
 					   ||(fighting.session()==null)
 					   ||(!mob.session().getAddress().equals(fighting.session().getAddress()))))
-							CMLib.leveler().postExperience(fighting,null,null,gainedExperience,false);
+							CMLib.leveler().postExperience(fighting,"COMMAND:"+ID(),null,null,gainedExperience, false);
 				}
 			}
 		}

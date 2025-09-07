@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ public class ClanCreate extends StdCommand
 			if(p!=null)
 				mob.tell(L("You are already a member of @x1. You need to resign before you can create another.",p.first.getName()));
 			else
-				mob.tell(L("You are not elligible to create a new clan at this time."));
+				mob.tell(L("You are not eligible to create a new clan at this time."));
 			return false;
 		}
 
@@ -96,7 +96,7 @@ public class ClanCreate extends StdCommand
 				@Override
 				public void showPrompt()
 				{
-					session.promptPrint(L("Are you sure you want to found a new clan (y/N)?"));
+					session.promptPrint(L("Founding a new clan costs @x1, are you sure (y/N)?",CMLib.beanCounter().nameCurrencyShort(mob,cost)));
 				}
 
 				@Override

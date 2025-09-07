@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,10 +60,10 @@ public class Trap_Boomerang extends StdTrap
 		return 0;
 	}
 
-	@Override
-	protected int trapLevel()
+	public Trap_Boomerang()
 	{
-		return 24;
+		super();
+		trapLevel = 24;
 	}
 
 	@Override
@@ -92,20 +92,27 @@ public class Trap_Boomerang extends StdTrap
 		{
 			final boolean ok=((invoker()!=null)&&(invoker().location()!=null));
 			if((!ok)||(doesSaveVsTraps(target)))
-				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> foil(s) a trap on @x1!",affected.name()));
-			else
-			if(target.location().show(target,target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> set(s) off a trap!")))
 			{
-				if(affected instanceof Item)
+				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,
+						getAvoidMsg(L("<S-NAME> foil(s) a trap on @x1!",affected.name())));
+			}
+			else
+			{
+				final String triggerMsg = getTrigMsg(L("<S-NAME> set(s) off a trap!"));
+				final String damageMsg = getDamMsg(L("Magically, <T-NAME> appear(s) in your inventory."));
+				if(target.location().show(target,target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,triggerMsg))
 				{
-					((Item)affected).unWear();
-					((Item)affected).removeFromOwnerContainer();
-					invoker().addItem((Item)affected);
-					invoker().tell(invoker(),affected,null,L("Magically, <T-NAME> appear(s) in your inventory."));
+					if(affected instanceof Item)
+					{
+						((Item)affected).unWear();
+						((Item)affected).removeFromOwnerContainer();
+						invoker().addItem((Item)affected);
+						invoker().tell(invoker(),affected,null,damageMsg);
+					}
+					super.spring(target);
+					if((canBeUninvoked())&&(affected instanceof Item))
+						disable();
 				}
-				super.spring(target);
-				if((canBeUninvoked())&&(affected instanceof Item))
-					disable();
 			}
 		}
 	}

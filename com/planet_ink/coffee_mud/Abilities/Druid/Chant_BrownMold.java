@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -202,7 +202,7 @@ public class Chant_BrownMold extends Chant
 		final MOB newMOB=CMClass.getMOB("GenMOB");
 		final int level=20;
 		newMOB.basePhyStats().setLevel(level);
-		newMOB.basePhyStats().setAbility(25);
+		newMOB.basePhyStats().setAbility(3+(CMProps.getMobHPBase()*2));
 		newMOB.baseCharStats().setMyRace(CMClass.getRace("Mold"));
 		final String name="a brown mold";
 		newMOB.setName(name);
@@ -221,13 +221,16 @@ public class Chant_BrownMold extends Chant
 		newMOB.basePhyStats().setAttackAdjustment(60);
 		newMOB.basePhyStats().setArmor(-super.getX1Level(caster));
 		newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'N');
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		if(caster != null)
+			newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		newMOB.setMiscText(newMOB.text());
 		newMOB.recoverCharStats();
 		newMOB.recoverPhyStats();
 		newMOB.recoverMaxState();
 		newMOB.resetToMaxState();
-		newMOB.bringToLife(caster.location(),true);
+		newMOB.bringToLife(caster.location(),true); // does setstartroom, and then calls bringtolife, which sucks
 		CMLib.beanCounter().clearZeroMoney(newMOB,null);
 		newMOB.setMoneyVariation(0);
 		newMOB.setStartRoom(null); // keep before postFollow for Conquest

@@ -11,6 +11,8 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.Libraries.interfaces.IntermudInterface.InterProto;
+import com.planet_ink.coffee_mud.Libraries.interfaces.IntermudInterface.RemoteIMud;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,7 +50,7 @@ public class IMC2 extends StdCommand
 	public void IMC2Error(final MOB mob)
 	{
 		if(CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.IMC2))
-			mob.tell(L("Try IMC2 LIST, IMC2 INFO [MUD], IMC2 LOCATE, IMC2 RESTART, or IMC2 CHANNELS."));
+			mob.tell(L("Try IMC2 LIST, IMC2 INFO [MUD], IMC2 LOCATE, IMC2 RESTART, IMC2 STOP, or IMC2 CHANNELS."));
 		else
 			mob.tell(L("Try IMC2 LIST, IMC2 INFO [MUD], IMC2 LOCATE"));
 	}
@@ -57,7 +59,7 @@ public class IMC2 extends StdCommand
 	public boolean execute(final MOB mob, final List<String> commands, final int metaFlags)
 		throws java.io.IOException
 	{
-		if(!(CMLib.intermud().imc2online()))
+		if(!CMLib.intermud().isOnline(InterProto.IMC2))
 		{
 			mob.tell(L("IMC2 is unavailable."));
 			return false;
@@ -69,31 +71,45 @@ public class IMC2 extends StdCommand
 			return false;
 		}
 		final String str=commands.get(0);
-		if(!(CMLib.intermud().imc2online()))
-			mob.tell(L("IMC2 is unavailable."));
-		else
 		if(str.equalsIgnoreCase("list"))
-			CMLib.intermud().giveIMC2MudList(mob);
+		{
+			final boolean coffeemudOnly=((commands.size()>1)&&(commands.get(1).toLowerCase().startsWith("coffeemud")));
+			final List<RemoteIMud> muds = CMLib.intermud().getMudInfo(InterProto.IMC2, coffeemudOnly);
+			final StringBuffer buf=new StringBuffer("\n\rIMC2 Mud List:\n\r");
+			final int col1Width=CMLib.lister().fixColWidth(25, mob);
+			final int col2Width=CMLib.lister().fixColWidth(25, mob);
+			for(final RemoteIMud m : muds)
+			{
+				if((m!=null)&&(m.mudLib!=null))
+				{
+					final String mudlib = m.mudLib.startsWith("CoffeeMud") ? "^H"+m.mudLib+"^?" : m.mudLib;
+					buf.append("["+CMStrings.padRight(m.name,col1Width)+"]["+CMStrings.padRight(mudlib,col2Width)+"] "+m.hostPort+"\n\r");
+				}
+			}
+			mob.session().wraplessPrintln(buf.toString());
+		}
 		else
 		if(str.equalsIgnoreCase("locate"))
-			CMLib.intermud().i3locate(mob,CMParms.combine(commands,1));
+			CMLib.intermud().imudLocate(mob,CMParms.combine(commands,1));
 		else
 		if(str.equalsIgnoreCase("channels") && CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.IMC2))
-			CMLib.intermud().giveIMC2ChannelsList(mob);
+			CMLib.intermud().getChannelsList(mob,InterProto.IMC2);
 		else
 		if(str.equalsIgnoreCase("info"))
-			CMLib.intermud().imc2mudInfo(mob,CMParms.combine(commands,1));
+			CMLib.intermud().mudInfo(InterProto.IMC2, mob,CMParms.combine(commands,1));
+		else
+		if(str.equalsIgnoreCase("STOP"))
+		{
+			CMLib.intermud().stopIntermud(InterProto.IMC2);
+			mob.tell(L("Done."));
+		}
 		else
 		if(str.equalsIgnoreCase("restart") && CMSecurity.isAllowed(mob,mob.location(),CMSecurity.SecFlag.IMC2))
 		{
-			try
-			{
-				mob.tell(CMLib.hosts().get(0).executeCommand("START IMC2"));
-			}
-			catch (final Exception e)
-			{
-				Log.errOut("IMC2Cmd", e);
-			}
+			if(CMLib.intermud().startIntermud(InterProto.IMC2,true))
+				mob.tell(L("Done."));
+			else
+				mob.tell(L("Failure."));
 		}
 		else
 			IMC2Error(mob);

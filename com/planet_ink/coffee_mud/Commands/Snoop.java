@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ public class Snoop extends StdCommand
 		}
 		final String whom=CMParms.combine(commands,0);
 		Session SnoopOn=null;
-		final Session S=CMLib.sessions().findPlayerSessionOnline(whom,false);
+		final Session S=CMLib.sessions().findCharacterSessionOnline(whom,false);
 		if(S!=null)
 		{
 			if(S==mob.session())

@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ public class Prayer_LowerLaw extends Prayer
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_HOLY;
+		return Ability.FLAG_HOLY | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -107,39 +107,45 @@ public class Prayer_LowerLaw extends Prayer
 				final Area O=CMLib.law().getLegalObject(mob.location());
 				final LegalBehavior B=CMLib.law().getLegalBehavior(mob.location());
 				if((B==null)||(O==null))
-					mob.tell(L("No lower law is established here."));
+					mob.tell(L("No law is established here."));
 				else
 				{
 					final Law L=B.legalInfo(O);
-					final Vector<String> crimes=new Vector<String>();
-					possiblyAddLaw(L,crimes,"TRESPASSING");
-					possiblyAddLaw(L,crimes,"ASSAULT");
-					possiblyAddLaw(L,crimes,"MURDER");
-					possiblyAddLaw(L,crimes,"NUDITY");
-					possiblyAddLaw(L,crimes,"ARMED");
-					possiblyAddLaw(L,crimes,"RESISTINGARREST");
-					possiblyAddLaw(L,crimes,"PROPERTYROB");
-					possiblyAddLaw(L,crimes,"PRISONBREAK");
-					for(final String key : L.abilityCrimes().keySet())
+					if(L==null)
+						mob.tell(L("Lower law has not been established here."));
+					else
 					{
-						if(key.startsWith("$"))
-							crimes.add(key.substring(1));
+						final Vector<String> crimes=new Vector<String>();
+						possiblyAddLaw(L,crimes,"TRESPASSING");
+						possiblyAddLaw(L,crimes,"ASSAULT");
+						possiblyAddLaw(L,crimes,"MURDER");
+						possiblyAddLaw(L,crimes,"NUDITY");
+						possiblyAddLaw(L,crimes,"ARMED");
+						possiblyAddLaw(L,crimes,"RESISTINGARREST");
+						possiblyAddLaw(L,crimes,"PROPERTYROB");
+						possiblyAddLaw(L,crimes,"PRISONBREAK");
+						for(final String key : L.abilityCrimes().keySet())
+						{
+							if(key.startsWith("$"))
+								crimes.add(key.substring(1));
+						}
+						if(L.taxLaws().containsKey("TAXEVASION"))
+							crimes.add(((String[])L.taxLaws().get("TAXEVASION"))[Law.BIT_CRIMENAME]);
+						for(int x=0;x<L.bannedItems().size();x++)
+						{
+							final String name=L.bannedItems().get(x).second[Law.BIT_CRIMENAME];
+							if(!crimes.contains(name))
+								crimes.add(name);
+						}
+						for(int x=0;x<L.otherCrimes().size();x++)
+						{
+							final String name=L.otherBits().get(x)[Law.BIT_CRIMENAME];
+							if(!crimes.contains(name))
+								crimes.add(name);
+						}
+						mob.tell(L("The following lower crimes are divinely revealed to you: @x1.",
+								CMLib.english().toEnglishStringList(crimes.toArray(new String[0]),true)));
 					}
-					if(L.taxLaws().containsKey("TAXEVASION"))
-						crimes.add(((String[])L.taxLaws().get("TAXEVASION"))[Law.BIT_CRIMENAME]);
-					for(int x=0;x<L.bannedSubstances().size();x++)
-					{
-						final String name=L.bannedBits().get(x)[Law.BIT_CRIMENAME];
-						if(!crimes.contains(name))
-							crimes.add(name);
-					}
-					for(int x=0;x<L.otherCrimes().size();x++)
-					{
-						final String name=L.otherBits().get(x)[Law.BIT_CRIMENAME];
-						if(!crimes.contains(name))
-							crimes.add(name);
-					}
-					mob.tell(L("The following lower crimes are divinely revealed to you: @x1.",CMLib.english().toEnglishStringList(crimes.toArray(new String[0]))));
 				}
 			}
 		}

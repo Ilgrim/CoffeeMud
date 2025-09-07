@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -131,7 +131,7 @@ public class Spell_FindFamiliar extends Spell
 			return false;
 
 		int experienceToLose=getXPCOSTAdjustment(mob,100);
-		experienceToLose=-CMLib.leveler().postExperience(mob,null,null,-experienceToLose,false);
+		experienceToLose=-CMLib.leveler().postExperience(mob,"ABILITY:"+ID(),null,null,-experienceToLose, false);
 		mob.tell(L("The effort causes you to lose @x1 experience.",""+experienceToLose));
 
 		final boolean success=proficiencyCheck(mob,0,auto);
@@ -144,6 +144,11 @@ public class Spell_FindFamiliar extends Spell
 			{
 				mob.location().send(mob,msg);
 				final MOB target = determineMonster(mob, mob.phyStats().level());
+				target.bringToLife(mob.location(),true);
+				CMLib.beanCounter().clearZeroMoney(target,null);
+				target.setMoneyVariation(0);
+				target.location().showOthers(target,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> appears!"));
+				mob.location().recoverRoomStats();
 				if(target.isInCombat())
 					target.makePeace(true);
 				CMLib.commands().postFollow(target,mob,true);
@@ -159,11 +164,10 @@ public class Spell_FindFamiliar extends Spell
 		return success;
 	}
 
-	public MOB determineMonster(final MOB caster, final int level)
+	protected MOB determineMonster(final MOB caster, final int level)
 	{
-
 		final MOB newMOB=CMClass.getMOB("GenMOB");
-		newMOB.basePhyStats().setAbility(7);
+		newMOB.basePhyStats().setAbility(CMProps.getMobHPBase()-4);
 		newMOB.basePhyStats().setLevel(level);
 		newMOB.basePhyStats().setRejuv(PhyStats.NO_REJUV);
 		newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,'M');
@@ -241,7 +245,9 @@ public class Spell_FindFamiliar extends Spell
 		newMOB.basePhyStats().setDamage(CMLib.leveler().getLevelMOBDamage(newMOB));
 		newMOB.basePhyStats().setSpeed(CMLib.leveler().getLevelMOBSpeed(newMOB));
 		newMOB.baseCharStats().getMyRace().startRacing(newMOB,false);
-		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+		newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+		newMOB.addTattoo("SYSTEM_SUMMONED");
+		newMOB.addTattoo("SUMMONED_BY:"+caster.name());
 		CMLib.factions().setAlignment(newMOB,Faction.Align.GOOD);
 		newMOB.setStartRoom(null);
 		newMOB.recoverCharStats();
@@ -253,12 +259,7 @@ public class Spell_FindFamiliar extends Spell
 		newMOB.addPriorityEffect(A);
 		A.makeNonUninvokable();
 		A.makeLongLasting();
-		newMOB.text();
-		newMOB.bringToLife(caster.location(),true);
-		CMLib.beanCounter().clearZeroMoney(newMOB,null);
-		newMOB.setMoneyVariation(0);
-		newMOB.location().showOthers(newMOB,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> appears!"));
-		caster.location().recoverRoomStats();
+		newMOB.setMiscText(newMOB.text());
 		return(newMOB);
 
 	}

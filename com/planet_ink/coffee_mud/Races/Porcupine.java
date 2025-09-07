@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Vector;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -142,6 +142,14 @@ public class Porcupine extends Rodent
 	}
 
 	@Override
+	public void unaffectCharStats(final MOB affectedMOB, final CharStats affectableStats)
+	{
+		super.unaffectCharStats(affectedMOB, affectableStats);
+		affectableStats.setStat(CharStats.STAT_STRENGTH,affectedMOB.baseCharStats().getStat(CharStats.STAT_STRENGTH));
+		affectableStats.setStat(CharStats.STAT_MAX_STRENGTH_ADJ,affectedMOB.baseCharStats().getStat(CharStats.STAT_MAX_STRENGTH_ADJ));
+	}
+
+	@Override
 	public List<RawMaterial> myResources()
 	{
 		synchronized(resources)
@@ -151,7 +159,9 @@ public class Porcupine extends Rodent
 				resources.addElement(makeResource
 					(L("some @x1 quills",name().toLowerCase()),RawMaterial.RESOURCE_CACTUS));
 				resources.addElement(makeResource
-					(L("some @x1 bonus",name().toLowerCase()),RawMaterial.RESOURCE_BONE));
+					(L("a @x1 hide",name().toLowerCase()),RawMaterial.RESOURCE_HIDE));
+				resources.addElement(makeResource
+					(L("some @x1 bones",name().toLowerCase()),RawMaterial.RESOURCE_BONE));
 				resources.addElement(makeResource
 					(L("some @x1 blood",name().toLowerCase()),RawMaterial.RESOURCE_BLOOD));
 			}

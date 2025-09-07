@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,6 +59,12 @@ public class Spell_PryingEye extends Spell
 	protected int canAffectCode()
 	{
 		return Ability.CAN_MOBS;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
 	}
 
 	@Override
@@ -140,7 +146,7 @@ public class Spell_PryingEye extends Spell
 	{
 		if(commands.size()==0)
 		{
-			mob.tell(L("You must specify directions for the eye to follow."));
+			commonTelL(mob,"You must specify directions for the eye to follow.");
 			return false;
 		}
 
@@ -150,7 +156,7 @@ public class Spell_PryingEye extends Spell
 			final int dir=CMLib.directions().getDirectionCode(o.toString());
 			if(dir<0)
 			{
-				mob.tell(L("'@x1' is not a valid direction.",o.toString()));
+				commonTelL(mob,"'@x1' is not a valid direction.",o.toString());
 				return false;
 			}
 			directions.add(Integer.valueOf(dir));
@@ -170,7 +176,7 @@ public class Spell_PryingEye extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,null,this,somanticCastCode(mob,null,auto),auto?L("A floating eye appears and begins moving around."):L("^S<S-NAME> invoke(s) a floating eye and begin(s) chanting directions!^?"));
+			final CMMsg msg=CMClass.getMsg(mob,null,this,somaticCastCode(mob,null,auto),auto?L("A floating eye appears and begins moving around."):L("^S<S-NAME> invoke(s) a floating eye and begin(s) chanting directions!^?"));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -195,7 +201,9 @@ public class Spell_PryingEye extends Spell
 				newMOB.setMoneyVariation(0);
 				newMOB.setLocation(R);
 				newMOB.basePhyStats().setRejuv(PhyStats.NO_REJUV);
-				newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+				newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience","0"));
+				newMOB.addTattoo("SYSTEM_SUMMONED");
+				newMOB.addTattoo("SUMMONED_BY:"+mob.name());
 				newMOB.recoverCharStats();
 				newMOB.recoverPhyStats();
 				newMOB.recoverMaxState();

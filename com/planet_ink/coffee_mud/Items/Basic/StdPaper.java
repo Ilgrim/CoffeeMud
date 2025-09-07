@@ -24,7 +24,7 @@ import java.util.*;
 import java.io.IOException;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,6 +59,14 @@ public class StdPaper extends StdItem implements Book
 	}
 
 	protected int	maxCharsPage	= 2048;	// 0=unlimited
+
+	@Override
+	public String genericName()
+	{
+		if(CMLib.english().startsWithAnIndefiniteArticle(name())&&(CMStrings.numWords(name())<4))
+			return CMStrings.removeColors(name());
+		return L("a paper");
+	}
 
 	@Override
 	public String readableText()

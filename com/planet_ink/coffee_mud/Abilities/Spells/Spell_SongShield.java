@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -117,11 +117,16 @@ public class Spell_SongShield extends Spell
 		&&(msg.tool() instanceof Ability)
 		&&((((Ability)msg.tool()).classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SONG)
 		&&(invoker!=null)
-		&&(!mob.amDead())
-		&&(CMLib.dice().rollPercentage()<(35+super.getXLEVELLevel(invoker())+adjustedLevel(invoker(),0)-((Ability)msg.tool()).adjustedLevel(msg.source(), 0))))
+		&&(!mob.amDead()))
 		{
-			mob.location().show(mob,null,null,CMMsg.MSG_OK_VISUAL,L("The shield around <S-NAME> blocks off @x1!",msg.tool().name()));
-			return false;
+			final int invokerAdjustedLevel=super.adjustedLevel(invoker, 0);
+			final int levelCap=mob.phyStats().level()+CMProps.getIntVar(CMProps.Int.EXPRATE);
+			final int invokerLevel=invokerAdjustedLevel>levelCap?levelCap:invokerAdjustedLevel;
+			if(CMLib.dice().rollPercentage()<(35+invokerLevel-((Ability)msg.tool()).adjustedLevel(msg.source(), 0)))
+			{
+				mob.location().show(mob,null,null,CMMsg.MSG_OK_VISUAL,L("The shield around <S-NAME> blocks off @x1!",msg.tool().name()));
+				return false;
+			}
 		}
 		return super.okMessage(myHost,msg);
 	}

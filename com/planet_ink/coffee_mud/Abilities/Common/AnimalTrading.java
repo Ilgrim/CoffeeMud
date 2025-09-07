@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -86,32 +86,32 @@ public class AnimalTrading extends CommonSkill
 		Item cage=null;
 
 		commands.add(0,"SELL");
-		final Environmental shopkeeper=CMLib.english().parseShopkeeper(mob,commands,"Sell what to whom?");
+		final Environmental shopkeeper=CMLib.english().parseShopkeeper(mob,commands,"to", "Sell what to whom?");
 		if(shopkeeper==null)
 			return false;
 		if(commands.size()==0)
 		{
-			commonTell(mob,L("Sell what?"));
+			commonTelL(mob,"Sell what?");
 			return false;
 		}
 
 		final String str=CMParms.combine(commands,0);
-		MOB M=mob.location().fetchInhabitant(str);
+		MOB M=getVisibleRoomTarget(mob,str);
 		if(M!=null)
 		{
 			if(!CMLib.flags().canBeSeenBy(M,mob))
 			{
-				commonTell(mob,L("You don't see anyone called '@x1' here.",str));
+				commonTelL(mob,"You don't see anyone called '@x1' here.",str);
 				return false;
 			}
-			if((!M.isMonster())||(!CMLib.flags().isAnimalIntelligence(M)))
+			if((!M.isMonster())||(!CMLib.flags().isAnAnimal(M)))
 			{
-				commonTell(mob,L("You can't sell @x1.",M.name(mob)));
+				commonTelL(mob,"You can't sell @x1.",M.name(mob));
 				return false;
 			}
 			if((CMLib.flags().canMove(M))&&(!CMLib.flags().isBoundOrHeld(M)))
 			{
-				commonTell(mob,L("@x1 doesn't seem willing to cooperate.  You need to bind the animal before you can sell it.",M.name(mob)));
+				commonTelL(mob,"@x1 doesn't seem willing to cooperate.  You need to bind the animal before you can sell it.",M.name(mob));
 				return false;
 			}
 			taming=M;
@@ -157,13 +157,13 @@ public class AnimalTrading extends CommonSkill
 			}
 			if(cage==null)
 			{
-				commonTell(mob,L("You don't see anyone called '@x1' here.",str));
+				commonTelL(mob,"You don't see anyone called '@x1' here.",str);
 				return false;
 			}
 			taming=mob.location().fetchFromMOBRoomFavorsItems(mob,cage,CMParms.combine(commands,0),Wearable.FILTER_ANY);
 			if((taming==null)||(!CMLib.flags().canBeSeenBy(taming,mob))||(!(taming instanceof CagedAnimal)))
 			{
-				commonTell(mob,L("You don't see any creatures in @x1 called '@x2'.",cage.name(),CMParms.combine(commands,0)));
+				commonTelL(mob,"You don't see any creatures in @x1 called '@x2'.",cage.name(),CMParms.combine(commands,0));
 				return false;
 			}
 			M=((CagedAnimal)taming).unCageMe();

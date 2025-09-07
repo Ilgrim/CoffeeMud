@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ public class Prop_WearZapper extends Prop_HaveZapper
 	@Override
 	public String accountForYourself()
 	{
-		return "Wearing restricted as follows: "+CMLib.masking().maskDesc(miscText);
+		return "Wearing restricted as follows: "+CMLib.masking().maskDesc(maskStr);
 	}
 
 	@Override
@@ -81,24 +81,24 @@ public class Prop_WearZapper extends Prop_HaveZapper
 		switch(msg.targetMinor())
 		{
 		case CMMsg.TYP_HOLD:
-			if((!CMLib.masking().maskCheck(text(),mob,actual))&&(CMLib.dice().rollPercentage()<=percent))
+			if((!CMLib.masking().maskCheck(this.mask,mob,actual))&&(CMLib.dice().rollPercentage()<=percent))
 			{
 				mob.location().show(mob,null,myItem,CMMsg.MSG_OK_VISUAL,msgStr);
-				return false;
+				return executeEvent(msg);
 			}
 			break;
 		case CMMsg.TYP_WEAR:
-			if((!CMLib.masking().maskCheck(text(),mob,actual))&&(CMLib.dice().rollPercentage()<=percent))
+			if((!CMLib.masking().maskCheck(this.mask,mob,actual))&&(CMLib.dice().rollPercentage()<=percent))
 			{
 				mob.location().show(mob,null,myItem,CMMsg.MSG_OK_VISUAL,msgStr);
-				return false;
+				return executeEvent(msg);
 			}
 			break;
 		case CMMsg.TYP_WIELD:
-			if((!CMLib.masking().maskCheck(text(),mob,actual))&&(CMLib.dice().rollPercentage()<=percent))
+			if((!CMLib.masking().maskCheck(this.mask,mob,actual))&&(CMLib.dice().rollPercentage()<=percent))
 			{
 				mob.location().show(mob,null,myItem,CMMsg.MSG_OK_VISUAL,msgStr);
-				return false;
+				return executeEvent(msg);
 			}
 			break;
 		case CMMsg.TYP_GET:

@@ -5,6 +5,7 @@ import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftParms;
 import com.planet_ink.coffee_mud.Abilities.Common.CraftingSkill.CraftingActivity;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
+import com.planet_ink.coffee_mud.Abilities.interfaces.ItemCraftor.CraftorType;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
 import com.planet_ink.coffee_mud.CharClasses.interfaces.*;
@@ -22,7 +23,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -55,6 +56,12 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 	private static final String[]	triggerStrings	= I(new String[] { "STAFFMAKE", "STAFFMAKING" });
 
 	@Override
+	public CraftorType getCraftorType()
+	{
+		return CraftorType.Weapons;
+	}
+
+	@Override
 	public String[] triggerStrings()
 	{
 		return triggerStrings;
@@ -67,18 +74,18 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 	}
 
 	@Override
-	public String parametersFormat()
+	public String getRecipeFormat()
 	{
 		return
 		"ITEM_NAME\tITEM_LEVEL\tBUILD_TIME_TICKS\tMATERIALS_REQUIRED\t"
 		+"ITEM_BASE_VALUE\tITEM_CLASS_ID\tMAX_WAND_USES\tBASE_DAMAGE\t"
 		+"OPTIONAL_RESOURCE_OR_MATERIAL\tOPTIONAL_RESOURCE_OR_MATERIAL_AMT\t"
-		+"CODED_SPELL_LIST\tWAND_TYPE";
+		+"CODED_SPELL_LIST\tWAND_TYPE\tWEAPON_HANDS_REQUIRED";
 	}
 
 	//protected static final int RCP_FINALNAME=0;
 	//protected static final int RCP_LEVEL=1;
-	//protected static final int RCP_TICKS=2;
+	protected static final int	RCP_TICKS		= 2;
 	protected static final int	RCP_WOOD		= 3;
 	protected static final int	RCP_VALUE		= 4;
 	protected static final int	RCP_CLASSTYPE	= 5;
@@ -88,11 +95,12 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 	protected static final int	RCP_EXTRAREQAMT	= 9;
 	protected static final int	RCP_SPELL		= 10;
 	protected static final int	RCP_WAND_TYPE	= 11;
+	protected static final int	RCP_HANDS		= 12;
 
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
+		if((affected instanceof MOB)&&(tickID==Tickable.TICKID_MOB))
 		{
 			if(buildingI==null)
 				unInvoke();
@@ -101,7 +109,7 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 	}
 
 	@Override
-	public String parametersFile()
+	public String getRecipeFilename()
 	{
 		return "staffmaking.txt";
 	}
@@ -109,7 +117,7 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 	@Override
 	protected List<List<String>> loadRecipes()
 	{
-		return super.loadRecipes(parametersFile());
+		return super.loadRecipes(getRecipeFilename());
 	}
 
 	@Override
@@ -130,20 +138,24 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 						if(activity == CraftingActivity.LEARNING)
 						{
 							commonEmote(mob,L("<S-NAME> fail(s) to learn how to make @x1.",buildingI.name()));
+							dropALoser(mob,buildingI);
 							buildingI.destroy();
 						}
 						else
 						if(activity == CraftingActivity.REFITTING)
 							commonEmote(mob,L("<S-NAME> mess(es) up refitting @x1.",buildingI.name()));
 						else
-							commonEmote(mob,L("<S-NAME> mess(es) up "+this.getActivePresentTenseVerb()+" @x1.",buildingI.name()));
+						{
+							commonEmote(mob,L("<S-NAME> mess(es) up @x2 @x1.",buildingI.name(),getActivePresentTenseVerb()));
+							dropALoser(mob,buildingI);
+						}
 					}
 					else
 					{
 						if(activity == CraftingActivity.MENDING)
 						{
 							buildingI.setUsesRemaining(100);
-							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.MENDER, 1, this);
+							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.MENDER, 1, this, buildingI);
 						}
 						else
 						if(activity==CraftingActivity.LEARNING)
@@ -160,7 +172,7 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 						else
 						{
 							dropAWinner(mob,buildingI);
-							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this);
+							CMLib.achievements().possiblyBumpAchievement(mob, AchievementLibrary.Event.CRAFTING, 1, this, buildingI);
 						}
 					}
 				}
@@ -204,7 +216,7 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 		||(!mayICraft((Item)E)))
 		{
 			if(!quiet)
-				commonTell(mob,L("That's not a "+name().toLowerCase()+" item."));
+				commonTelL(mob,"That's not a @x1 item.",name().toLowerCase());
 			return false;
 		}
 		return true;
@@ -219,7 +231,7 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
-		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new Vector<Item>(0));
+		return autoGenInvoke(mob,commands,givenTarget,auto,asLevel,0,false,new ArrayList<CraftedItem>(0));
 	}
 
 	protected int getOtherRscAmtRequired(final MOB mob, final String req)
@@ -238,12 +250,12 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 
 	protected String getActivePresentTenseVerb()
 	{
-		return "making";
+		return L("making");
 	}
 
 	protected String getActiveVerb()
 	{
-		return "make";
+		return L("make");
 	}
 
 	protected String getTriggerKeyword()
@@ -269,7 +281,7 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 	}
 
 	@Override
-	protected boolean autoGenInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel, final int autoGenerate, final boolean forceLevels, final List<Item> crafted)
+	protected boolean autoGenInvoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel, final int autoGenerate, final boolean forceLevels, final List<CraftedItem> crafted)
 	{
 		if(super.checkStop(mob, commands))
 			return true;
@@ -283,8 +295,9 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 		final String keyWord = getTriggerKeyword();
 		if(commands.size()==0)
 		{
-			commonTell(mob,L(CMStrings.capitalizeAndLower(keyWord)+" what? Enter \""+keyWord+" list\" for a list, \""+keyWord+" info <item>\","
-							+ " \""+keyWord+" learn <item>\", \""+keyWord+" scan\", \""+keyWord+" mend <item>\", or \""+keyWord+" stop\" to cancel."));
+			final String cword = CMStrings.capitalizeFirstLetter(keyWord);
+			commonTelL(mob,"@x1 what? Enter \"@x2 list\" for a list, \"@x2 info <item>\","
+							+ " \"@x2 learn <item>\", \"@x2 scan\", \"@x2 mend <item>\", or \"@x2 stop\" to cancel.",cword,keyWord);
 			return false;
 		}
 		if((!auto)
@@ -308,7 +321,7 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 				CMLib.lister().fixColWidth(30,mob.session()),
 				CMLib.lister().fixColWidth(10,mob.session()),
 			};
-		if(str.equalsIgnoreCase("list"))
+		if(str.equalsIgnoreCase("list") && (autoGenerate <= 0))
 		{
 			String mask=CMParms.combine(commands,1);
 			boolean allFlag=false;
@@ -317,7 +330,7 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 				allFlag=true;
 				mask="";
 			}
-			final StringBuffer buf=new StringBuffer(L("Item <S-NAME> <S-IS-ARE> skilled at "+getActivePresentTenseVerb()+":\n\r"));
+			final StringBuffer buf=new StringBuffer(L("Item <S-NAME> <S-IS-ARE> skilled at @x1:\n\r",getActivePresentTenseVerb()));
 			buf.append("^H"+
 					CMStrings.padRight(L("Item"),cols[0])+" "+
 					CMStrings.padRight(L("Lvl"),cols[1])+" "+
@@ -326,7 +339,7 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 					CMStrings.padRight(L("Benefit"),cols[4])+
 					"^N");
 			buf.append("\n\r");
-			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipeNames(recipes, mask, true);
+			final List<List<String>> listRecipes=((mask.length()==0) || mask.equalsIgnoreCase("all")) ? recipes : super.matchingRecipes(recipes, mask, true);
 			for(int r=0;r<listRecipes.size();r++)
 			{
 				final List<String> V=listRecipes.get(r);
@@ -358,8 +371,8 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 						}
 						if((wood.length()>5)&&(mat.length()<5))
 						{
-							buf.append(
-									CMStrings.padRight(item,cols[0])+" "+
+							buf.append("^w"+
+									CMStrings.padRight(item,cols[0])+" ^N"+
 									CMStrings.padRight(""+level,cols[1])+" "+
 									CMStrings.padRight(""+wood+mat,cols[2]+cols[3])+"  "+
 									CMStrings.padRight(""+magic,cols[4])+
@@ -368,7 +381,7 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 						else
 						{
 							buf.append(
-								CMStrings.padRight(item,cols[0])+" "+
+								"^w"+CMStrings.padRight(item,cols[0])+"^N "+
 								CMStrings.padRight(""+level,cols[1])+" "+
 								CMStrings.padRight(""+wood,cols[2])+" "+
 								CMStrings.padRight(""+mat,cols[3])+" "+
@@ -429,9 +442,14 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 				amount=CMath.s_int(commands.get(commands.size()-1));
 				commands.remove(commands.size()-1);
 			}
+			final int[] pm=checkMaterialFrom(mob,commands,getBaseMaterialCodes());
+			if(pm==null)
+				return false;
 			final String recipeName=CMParms.combine(commands,0);
 			List<String> foundRecipe=null;
-			final List<List<String>> matches=matchingRecipeNames(recipes,recipeName,true);
+			final List<List<String>> matches=matchingRecipes(recipes,recipeName,false);
+			if(matches.size()==0)
+				matches.addAll(matchingRecipes(recipes,recipeName,true));
 			for(int r=0;r<matches.size();r++)
 			{
 				final List<String> V=matches.get(r);
@@ -448,7 +466,7 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 			}
 			if(foundRecipe==null)
 			{
-				commonTell(mob,L("You don't know how to "+getActiveVerb()+" a '@x1'.  Try \""+keyWord+" list\" for a list.",recipeName));
+				commonTelL(mob,"You don't know how to @x1 a '@x2'.  Try \"@x3 list\" for a list.",getActiveVerb(),recipeName,keyWord);
 				return false;
 			}
 
@@ -465,7 +483,6 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 				woodRequired=amount;
 			final String otherRequired=getOtherRscRequired(foundRecipe.get(RCP_EXTRAREQ));
 			final int otherAmtRequired=getOtherRscAmtRequired(mob,foundRecipe.get(RCP_EXTRAREQAMT));
-			final int[] pm=getBaseMaterialCodes();
 			final int[][] data=fetchFoundResourceData(mob,
 													  woodRequired,getBaseMaterialType().toLowerCase(),pm,
 													  otherAmtRequired,otherRequired,null,
@@ -492,7 +509,7 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 					}
 					if((fire==null)||(!mob.location().isContent(fire)))
 					{
-						commonTell(mob,L("You'll need to build a fire first."));
+						commonTelL(mob,"You'll need to build a fire first.");
 						return false;
 					}
 				}
@@ -503,33 +520,33 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 				return false;
 			final MaterialLibrary.DeadResourceRecord deadMats;
 			if((componentsFoundList.size() > 0)||(autoGenerate>0))
-				deadMats = new MaterialLibrary.DeadResourceRecord();
+				deadMats = deadRecord;
 			else
 			{
 				deadMats = CMLib.materials().destroyResources(mob.location(),woodRequired,
 						data[0][FOUND_CODE],data[0][FOUND_SUB],data[1][FOUND_CODE],data[1][FOUND_SUB]);
 			}
 			final MaterialLibrary.DeadResourceRecord deadComps = CMLib.ableComponents().destroyAbilityComponents(componentsFoundList);
-			final int lostValue=autoGenerate>0?0:(deadMats.lostValue + deadComps.lostValue);
+			final int lostValue=autoGenerate>0?0:(deadMats.getLostValue() + deadComps.getLostValue());
 			buildingI=CMClass.getItem(foundRecipe.get(RCP_CLASSTYPE));
 			final Item buildingI=this.buildingI;
 			if(buildingI==null)
 			{
-				commonTell(mob,L("There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE)));
+				commonTelL(mob,"There's no such thing as a @x1!!!",foundRecipe.get(RCP_CLASSTYPE));
 				return false;
 			}
 			duration=getDuration(CMath.s_int(foundRecipe.get(RCP_TICKS)),mob,CMath.s_int(foundRecipe.get(RCP_LEVEL)),4);
 			buildingI.setMaterial(getBuildingMaterial(woodRequired,data,compData));
 			String itemName=determineFinalName(foundRecipe.get(RCP_FINALNAME),buildingI.material(),deadMats,deadComps);
 			if(bundling)
-				itemName="a "+woodRequired+"# "+itemName;
+				itemName=CMLib.english().startWithAorAn(woodRequired+"# "+itemName);
 			else
 				itemName=CMLib.english().startWithAorAn(itemName);
 			buildingI.setName(itemName);
-			startStr=L("<S-NAME> start(s) "+getActivePresentTenseVerb()+" @x1.",buildingI.name());
-			displayText=L("You are "+getActivePresentTenseVerb()+" @x1",buildingI.name());
+			startStr=L("<S-NAME> start(s) @x2 @x1.",buildingI.name(),getActivePresentTenseVerb());
+			displayText=L("You are @x2 @x1",buildingI.name(),getActivePresentTenseVerb());
 			playSound=getSoundFile();
-			verb=L(""+getActivePresentTenseVerb()+" @x1",buildingI.name());
+			verb=getActivePresentTenseVerb()+" "+buildingI.name();
 			buildingI.setDisplayText(L("@x1 lies here",itemName));
 			buildingI.setDescription(determineDescription(itemName, buildingI.material(), deadMats, deadComps));
 			buildingI.basePhyStats().setWeight(getStandardWeight(woodRequired+compData[CF_AMOUNT],data[1][FOUND_CODE], bundling));
@@ -543,18 +560,20 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 			final int maxuses=CMath.s_int(foundRecipe.get(RCP_MAXUSES));
 			if(bundling)
 				buildingI.setBaseValue(lostValue);
-			addSpells(buildingI,spell,deadMats.lostProps,deadComps.lostProps);
+			addSpellsOrBehaviors(buildingI,spell,deadMats.getLostProps(),deadComps.getLostProps());
 			if((buildingI instanceof Wand)
 			&&(foundRecipe.get(RCP_MAXUSES).trim().length()>0))
-				((Wand)buildingI).setMaxUses(maxuses);
+				((Wand)buildingI).setMaxCharges(maxuses);
 			if((buildingI instanceof Wand)
 			&&(foundRecipe.size()>RCP_WAND_TYPE))
-				((Wand)buildingI).setEnchantType(CMParms.indexOf(Ability.ACODE_DESCS_,foundRecipe.get(RCP_WAND_TYPE)));
+				((Wand)buildingI).setEnchantType(CMParms.indexOf(Ability.ACODE.DESCS_,foundRecipe.get(RCP_WAND_TYPE)));
 			if(buildingI instanceof Weapon)
 			{
 				buildingI.basePhyStats().setAttackAdjustment((baseYield()+abilityCode()+(hardness*5)-1));
 				buildingI.basePhyStats().setDamage(armordmg+hardness);
 			}
+			final int hands=foundRecipe.size()>RCP_HANDS?CMath.s_int(foundRecipe.get(RCP_HANDS)):0;
+			buildingI.setRawLogicalAnd((hands==1)?false:(hands==2)?true:buildingI.rawLogicalAnd());
 			buildingI.recoverPhyStats();
 			buildingI.text();
 			buildingI.recoverPhyStats();
@@ -573,7 +592,7 @@ public class StaffMaking extends EnhancedCraftingSkill implements ItemCraftor
 
 		if(autoGenerate>0)
 		{
-			crafted.add(buildingI);
+			crafted.add(new CraftedItem(buildingI,null,duration));
 			return true;
 		}
 

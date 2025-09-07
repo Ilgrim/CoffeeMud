@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -47,18 +47,18 @@ public class AreaTbl extends StdWebMacro
 	public String runMacro(final HTTPRequest httpReq, final String parm, final HTTPResponse httpResp)
 	{
 		// have to check, otherwise we'll be stuffing a blank string into resources
-		if(!CMProps.getBoolVar(CMProps.Bool.MUDSTARTED))
+		if(!CMProps.isState(CMProps.HostState.RUNNING))
 		{
 			return "<TR><TD colspan=\"" + AT_MAX_COL + "\" class=\"cmAreaTblEntry\"><I>Game is not running - unable to get area list!</I></TD></TR>";
 		}
 
-		final Vector<String> areasVec=new Vector<String>();
+		final List<String> areasVec=new ArrayList<String>();
 
 		for(final Enumeration<Area> a=CMLib.map().areas();a.hasMoreElements();)
 		{
 			final Area A=a.nextElement();
 			if((!CMLib.flags().isHidden(A))&&(!CMath.bset(A.flags(),Area.FLAG_INSTANCE_CHILD)))
-				areasVec.addElement(A.name());
+				areasVec.add(A.name());
 		}
 		final StringBuffer msg=new StringBuffer("\n\r");
 		int col=0;
@@ -85,8 +85,8 @@ public class AreaTbl extends StdWebMacro
 			else
 				msg.append(" width=\"" + percent + "%\"");
 
-			msg.append(L(" class=\"cmAreaTblEntry\">"));
-			msg.append(areasVec.elementAt(i));
+			msg.append(" class=\"cmAreaTblEntry\">");
+			msg.append(areasVec.get(i));
 			msg.append("</td>");
 			// finish the row
 			if((percent == 100) || (++col)> (AT_MAX_COL-1 ))

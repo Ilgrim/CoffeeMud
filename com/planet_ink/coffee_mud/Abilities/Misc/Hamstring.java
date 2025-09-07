@@ -20,7 +20,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2018-2020 Bo Zimmerman
+   Copyright 2018-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -185,7 +185,7 @@ public class Hamstring extends StdAbility
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,auto?CMMsg.MASK_ALWAYS:CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE,auto?"":L("F^<FIGHT^><S-NAME> attempt(s) to hamstring <T-NAME>.^</FIGHT^>^N"));
+			final CMMsg msg=CMClass.getMsg(mob,target,this,auto?CMMsg.MASK_ALWAYS:CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE,auto?"":L("^F^<FIGHT^><S-NAME> attempt(s) to hamstring <T-NAME>.^</FIGHT^>^N"));
 			CMLib.color().fixSourceFightColor(msg);
 			if(mob.location().okMessage(mob,msg))
 			{

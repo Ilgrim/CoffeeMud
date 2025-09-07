@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class CommonBat extends StdMOB
 		super();
 		final Random randomizer = new Random(System.currentTimeMillis());
 
-		username="a common bat";
+		_name="a common bat";
 		setDescription("It seemingly has the body of a rat with wings.");
 		setDisplayText("A bat flies nearby.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -60,7 +60,7 @@ public class CommonBat extends StdMOB
 
 		basePhyStats().setDamage(1);
 		basePhyStats().setSpeed(1.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(1);
 		basePhyStats().setArmor(90);
 		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_FLYING);

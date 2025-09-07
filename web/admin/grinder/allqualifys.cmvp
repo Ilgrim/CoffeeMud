@@ -3,14 +3,16 @@
 @if?!Authenticate@ @AddFile?/grinder/failedlogin.cmvp@ @else@
 @if?!CheckAuthCode?AUTH_ABILITIES=true@ @AddFile?/grinder/nopriv.cmvp@ @else@
 <html>
+	<META CHARSET="utf-8"/>
 <head>
     <link rel="grinder icon" href="/images/grinder.ico" >
+    <link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="grinder.css">
     <title>All Qualify Skills List</title>
     <script language=JavaScript>
     <!--
         function AllQualifyItem(which,action)
         {
-            var strFeatures="top=0,left=75,resizeable=no,scrollbars=yes,height=600,width=550,alwaysRaised=yes,dependent=yes";
+            var strFeatures="top=0,left=75,resizeable=no,scrollbars=yes,height=600,width=600,alwaysRaised=yes,dependent=yes";
             w=window.open("allqualify.cmvp?AUTH=@Authenticate?AUTH@&ALLQUALWHICH="+which+"&ALLQUALID="+action,
                 "All Qualify Item for "+action,strFeatures, false);
         }
@@ -37,10 +39,6 @@
         <TR><TD BGCOLOR=WHITE ALIGN=CENTER><FONT COLOR=BLACK SIZE=-1><B>Menu</B></FONT></TD></TR>
         <TR><TD><a href="javascript:Clicked('/grinder/loggedin.cmvp');"><FONT COLOR=WHITE SIZE=-1><B>MUDGrinder Menu</B></FONT></A></TD></TR>
         <TR><TD><a href="javascript:Clicked('/grinder/abilities.cmvp');"><FONT COLOR=WHITE SIZE=-1><B>Ability Manager</B></FONT></A></TD></TR>
-        @if?CheckAuthCode?AUTH_CMDCOMPONENTS=true@
-            <TR><TD><a href="javascript:Clicked('/grinder/components.cmvp');"><FONT COLOR=WHITE SIZE=-1><B>Skill Components</B></FONT></A></TD></TR>
-        @endif@
-        <TR><TD><a href="javascript:Clicked('/grinder/recipes.cmvp');"><FONT COLOR=WHITE SIZE=-1><B>Skill Recipes</B></FONT></A></TD></TR>
         <TR><TD><a href="javascript:Refresh();"><FONT COLOR=WHITE SIZE=-1><B>Refresh Page</B></FONT></A></TD></TR>
         </TABLE>
     </TD>
@@ -51,22 +49,23 @@
 <INPUT TYPE=HIDDEN NAME=AUTH VALUE="@Authenticate?AUTH@">
     <TABLE WIDTH=100% BORDER=1>
     <TR><TD WIDTH=100% COLSPAN=6 BGCOLOR=WHITE ALIGN=CENTER><FONT COLOR=BLACK><H2>CoffeeMud @MudServerVersion@ All-Qualified Skills</H2></FONT></TD></TR>
-    // all
     <TR><TD WIDTH=100% COLSPAN=6 BGCOLOR=WHITE ALIGN=LEFT><FONT COLOR=BLACK><H2>Abilities for ALL Classes</H2></FONT></TD></TR>
     <TR>
-    <TD WIDTH=35%><B><FONT COLOR=YELLOW>Skill</FONT></b></TD>
-    <TD WIDTH=10%><B><FONT COLOR=YELLOW>Level</FONT></b></TD>
-    <TD WIDTH=10%><B><FONT COLOR=YELLOW>Auto-Gain</FONT></b></TD>
-    <TD WIDTH=10%><B><FONT COLOR=YELLOW>Def. Proff</FONT></b></TD>
-    <TD WIDTH=30% COLSPAN=2><B><FONT COLOR=YELLOW>Mask</FONT></b></TD>
+    <TD WIDTH=28%><B><FONT COLOR=YELLOW>Skill</FONT></b></TD>
+    <TD WIDTH=8%><B><FONT COLOR=YELLOW>Level</FONT></b></TD>
+    <TD WIDTH=8%><B><FONT COLOR=YELLOW>Auto-Gain</FONT></b></TD>
+    <TD WIDTH=8%><B><FONT COLOR=YELLOW>Visibility</FONT></b></TD>
+    <TD WIDTH=8%><B><FONT COLOR=YELLOW>Def. Proff</FONT></b></TD>
+    <TD WIDTH=40% COLSPAN=2><B><FONT COLOR=YELLOW>Mask</FONT></b></TD>
     </TR>
     @AllQualifyNext?RESET@
     @loop@
     @AllQualifyNext?WHICH=ALL@
     <TR>
-    <TD><a href="javascript:AllQualifyItem('ALL','@RequestParameter?ALLQUALID@')"><FONT COLOR=WHITE>@RequestParameter?ALLQUALID@</FONT></a></TD>
+    <TD><a href="javascript:AllQualifyItem('ALL','@RequestParameter?ALLQUALID@')"><FONT COLOR="#FFFF8F"><U>@RequestParameter?ALLQUALID@</U></FONT></a></TD>
     <TD><FONT COLOR=WHITE>@AllQualifyData?LEVEL&WHICH=ALL@</FONT></TD>
     <TD><FONT COLOR=WHITE>@AllQualifyData?AUTOGAIN&WHICH=ALL@</FONT></TD>
+    <TD><FONT COLOR=WHITE>@AllQualifyData?VISIBILITY&WHICH=ALL@</FONT></TD>
     <TD><FONT COLOR=WHITE>@AllQualifyData?PROF&WHICH=ALL@</FONT></TD>
     <TD COLSPAN=2><FONT COLOR=WHITE>@AllQualifyData?MASK&WHICH=ALL@</FONT></TD>
     </TR>
@@ -74,7 +73,7 @@
     <TR>
         <TD COLSPAN=5>
                 <a href="javascript:AllQualifyItem('ALL',document.RESOURCES.NEW1.options[document.RESOURCES.NEW1.selectedIndex].value)">
-                <FONT COLOR=WHITE><B>Create New:</a>
+                <FONT COLOR=CYAN><B><U>Create New:</U></B></a>
                 <SELECT NAME=NEW1>
                     @AbilityNext?RESET@
                     @loop@
@@ -85,22 +84,23 @@
                 </B></FONT>
         </TD>
     </TR>
-    // each
     <TR><TD WIDTH=100% COLSPAN=6 BGCOLOR=WHITE ALIGN=LEFT><FONT COLOR=BLACK><H2>Abilities for EACH Class</H2></FONT></TD></TR>
     <TR>
-    <TD WIDTH=35%><B><FONT COLOR=YELLOW>Skill</FONT></b></TD>
-    <TD WIDTH=10%><B><FONT COLOR=YELLOW>Level</FONT></b></TD>
-    <TD WIDTH=10%><B><FONT COLOR=YELLOW>Auto-Gain</FONT></b></TD>
-    <TD WIDTH=10%><B><FONT COLOR=YELLOW>Def. Proff</FONT></b></TD>
-    <TD WIDTH=30% COLSPAN=2><B><FONT COLOR=YELLOW>Mask</FONT></b></TD>
+    <TD WIDTH=28%><B><FONT COLOR=YELLOW>Skill</FONT></b></TD>
+    <TD WIDTH=8%><B><FONT COLOR=YELLOW>Level</FONT></b></TD>
+    <TD WIDTH=8%><B><FONT COLOR=YELLOW>Auto-Gain</FONT></b></TD>
+    <TD WIDTH=8%><B><FONT COLOR=YELLOW>Visibility</FONT></b></TD>
+    <TD WIDTH=8%><B><FONT COLOR=YELLOW>Def. Proff</FONT></b></TD>
+    <TD WIDTH=40% COLSPAN=2><B><FONT COLOR=YELLOW>Mask</FONT></b></TD>
     </TR>
     @AllQualifyNext?RESET@
     @loop@
     @AllQualifyNext?WHICH=EACH@
     <TR>
-    <TD><a href="javascript:AllQualifyItem('EACH','@RequestParameter?ALLQUALID@')"><FONT COLOR=WHITE>@RequestParameter?ALLQUALID@</FONT></a></TD>
+    <TD><a href="javascript:AllQualifyItem('EACH','@RequestParameter?ALLQUALID@')"><FONT COLOR="#FFFF8F"><U>@RequestParameter?ALLQUALID@</U></FONT></a></TD>
     <TD><FONT COLOR=WHITE>@AllQualifyData?LEVEL&WHICH=EACH@</FONT></TD>
     <TD><FONT COLOR=WHITE>@AllQualifyData?AUTOGAIN&WHICH=EACH@</FONT></TD>
+    <TD><FONT COLOR=WHITE>@AllQualifyData?VISIBILITY&WHICH=ALL@</FONT></TD>
     <TD><FONT COLOR=WHITE>@AllQualifyData?PROF&WHICH=EACH@</FONT></TD>
     <TD COLSPAN=2><FONT COLOR=WHITE>@AllQualifyData?MASK&WHICH=EACH@</FONT></TD>
     </TR>
@@ -108,7 +108,7 @@
     <TR>
         <TD COLSPAN=5>
                 <a href="javascript:AllQualifyItem('EACH',document.RESOURCES.NEW2.options[document.RESOURCES.NEW2.selectedIndex].value)">
-                <FONT COLOR=WHITE><B>Create New:</a>
+                <FONT COLOR=CYAN><B><U>Create New:</U></B></a>
                 <SELECT NAME=NEW2>
                     @AbilityNext?RESET@
                     @loop@

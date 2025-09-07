@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -106,25 +106,30 @@ public class Prayer_BoneMoon extends Prayer
 	@Override
 	public boolean tick(final Tickable ticking, final int tickID)
 	{
-		if((affected!=null)&&(affected instanceof Room))
+		if((affected instanceof Room))
 		{
 			final Room R=(Room)affected;
 			DeadBody B=null;
+			Race rB=null;
 			for(int i=0;i<R.numItems();i++)
 			{
 				final Item I=R.getItem(i);
 				if((I instanceof DeadBody)
 				&&(I.container()==null)
 				&&(!((DeadBody)I).isPlayerCorpse())
+				&&(((DeadBody)I).charStats()!=null)
 				&&(((DeadBody)I).getMobName().length()>0))
 				{
 					B=(DeadBody)I;
+					rB=((DeadBody)I).charStats().getMyRace();
 					break;
 				}
 			}
 			if(B!=null)
 			{
-				new Prayer_AnimateSkeleton().makeSkeletonFrom(R,B,null,level);
+				final Prayer_AnimateSkeleton skA = (Prayer_AnimateSkeleton)CMClass.getAbility("Prayer_AnimateSkeleton");
+				final MOB newMOB=skA.makeUndeadFrom(R, B, rB, invoker(), level);
+				skA.beneficialAffect(invoker(), newMOB, 0, 0);
 				B.destroy();
 				level+=3;
 			}
@@ -132,9 +137,9 @@ public class Prayer_BoneMoon extends Prayer
 		return super.tick(ticking,tickID);
 	}
 
-   @Override
-public int castingQuality(final MOB mob, final Physical target)
-   {
+	@Override
+	public int castingQuality(final MOB mob, final Physical target)
+	{
 		if(mob!=null)
 		{
 			if((mob.isMonster())&&(mob.isInCombat()))

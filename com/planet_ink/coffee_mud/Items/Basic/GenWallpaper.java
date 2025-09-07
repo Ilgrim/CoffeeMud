@@ -19,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
- Copyright 2002-2020 Bo Zimmerman
+ Copyright 2002-2025 Bo Zimmerman
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ public class GenWallpaper implements Item
 	@Override
 	public String L(final String str, final String... xs)
 	{
-		return CMLib.lang().fullSessionTranslation(str, xs);
+		return CMLib.lang().fullSessionTranslation(getClass(), str, xs);
 	}
 
 	@Override
@@ -101,6 +101,12 @@ public class GenWallpaper implements Item
 	@Override
 	public void initializeClass()
 	{
+	}
+
+	@Override
+	public String genericName()
+	{
+		return L("a thing");
 	}
 
 	@Override
@@ -187,7 +193,7 @@ public class GenWallpaper implements Item
 	{
 		try
 		{
-			return this.getClass().newInstance();
+			return this.getClass().getDeclaredConstructor().newInstance();
 		}
 		catch (final Exception e)
 		{
@@ -431,7 +437,7 @@ public class GenWallpaper implements Item
 		{
 			setName(CMLib.xml().getValFromPieces(V, "NAME"));
 			setDescription(CMLib.xml().getValFromPieces(V, "DESC"));
-			CMLib.coffeeMaker().setEnvFlags(this, CMath.s_int(CMLib.xml().getValFromPieces(V, "FLAG")));
+			CMLib.coffeeMaker().setSpecialEnvFlags(this, CMath.s_int(CMLib.xml().getValFromPieces(V, "FLAG")));
 			setReadableText(CMLib.xml().getValFromPieces(V, "READ"));
 		}
 	}
@@ -442,7 +448,7 @@ public class GenWallpaper implements Item
 		final StringBuffer text = new StringBuffer("");
 		text.append(CMLib.xml().convertXMLtoTag("NAME", Name()));
 		text.append(CMLib.xml().convertXMLtoTag("DESC", description()));
-		text.append(CMLib.xml().convertXMLtoTag("FLAG", CMLib.coffeeMaker().envFlags(this)));
+		text.append(CMLib.xml().convertXMLtoTag("FLAG", CMLib.coffeeMaker().getSpecialEnvFlags(this)));
 		text.append(CMLib.xml().convertXMLtoTag("READ", readableText()));
 		return text.toString();
 	}

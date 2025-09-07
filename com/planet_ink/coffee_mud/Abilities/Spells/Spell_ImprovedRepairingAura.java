@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2019-2020 Bo Zimmerman
+   Copyright 2019-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -153,6 +153,7 @@ public class Spell_ImprovedRepairingAura extends Spell
 			I=owner.getItem(i);
 			if((I!=null)
 			&&(I.subjectToWearAndTear())
+			&&(!I.ID().equalsIgnoreCase("GlowingMageArmor"))
 			&&(I.fetchEffect("Spell_RepairingAura")==null)
 			&&(I.fetchEffect("Spell_MassRepairingAura")==null)
 			&&(I.fetchEffect(ID())==null))
@@ -172,8 +173,10 @@ public class Spell_ImprovedRepairingAura extends Spell
 	}
 
 	@Override
-	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
+	public boolean invoke(final MOB mob, final List<String> commands, Physical givenTarget, final boolean auto, final int asLevel)
 	{
+		if((commands.size()==0)&&(givenTarget==null))
+			givenTarget=mob;
 		final Physical target=getAnyTarget(mob,commands,givenTarget,Wearable.FILTER_ANY);
 		if(target==null)
 			return false;
@@ -209,8 +212,8 @@ public class Spell_ImprovedRepairingAura extends Spell
 
 		if(success)
 		{
-			final CMMsg msg=CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAMESELF>, incanting.^?"));
-			final CMMsg msg2=(target==realTarget)?null:CMClass.getMsg(mob,target,this,somanticCastCode(mob,target,auto),null);
+			final CMMsg msg=CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),auto?"":L("^S<S-NAME> wave(s) <S-HIS-HER> hands around <T-NAMESELF>, incanting.^?"));
+			final CMMsg msg2=(target==realTarget)?null:CMClass.getMsg(mob,target,this,somaticCastCode(mob,target,auto),null);
 			if(mob.location().okMessage(mob,msg)
 			&&(realTarget!=null)
 			&&((msg2==null)||mob.location().okMessage(mob,msg2)))

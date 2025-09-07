@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,43 +70,49 @@ public class Poison_Sting extends Poison
 	@Override
 	protected String POISON_DONE()
 	{
-		return "The stinging poison runs its course.";
+		return L("The stinging poison runs its course.");
 	}
 
 	@Override
 	protected String POISON_START()
 	{
-		return "^G<S-NAME> turn(s) green.^?";
+		return L("^G<S-NAME> turn(s) green.^?");
 	}
 
 	@Override
 	protected String POISON_AFFECT()
 	{
-		return "<S-NAME> cringe(s) from the poisonous itch.";
+		return L("<S-NAME> cringe(s) from the poisonous itch.");
 	}
 
 	@Override
 	protected String POISON_CAST()
 	{
-		return "^F^<FIGHT^><S-NAME> sting(s) <T-NAMESELF>!^</FIGHT^>^?";
+		return L("^F^<FIGHT^><S-NAME> sting(s) <T-NAMESELF>!^</FIGHT^>^?");
 	}
 
 	@Override
 	protected String POISON_FAIL()
 	{
-		return "<S-NAME> attempt(s) to sting <T-NAMESELF>, but fail(s).";
+		return L("<S-NAME> attempt(s) to sting <T-NAMESELF>, but fail(s).");
 	}
 
 	@Override
 	protected int POISON_DAMAGE()
 	{
-		return (invoker!=null)?2:0;
+		return (invoker!=null)?(1+(int)Math.round(rank)):0;
+	}
+
+	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_POTENTIALLY_DEADLY;
 	}
 
 	@Override
 	public void affectCharStats(final MOB affected, final CharStats affectableStats)
 	{
-		affectableStats.setStat(CharStats.STAT_CONSTITUTION,affectableStats.getStat(CharStats.STAT_CONSTITUTION)-1);
+		affectableStats.setStat(CharStats.STAT_CONSTITUTION,affectableStats.getStat(CharStats.STAT_CONSTITUTION)-(int)Math.round(rank));
 		if(affectableStats.getStat(CharStats.STAT_CONSTITUTION)<=0)
 			affectableStats.setStat(CharStats.STAT_CONSTITUTION,1);
 	}

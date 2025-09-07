@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Vector;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ public class Angelfish extends Fish
 	public void affectPhyStats(final Physical affected, final PhyStats affectableStats)
 	{
 		super.affectPhyStats(affected,affectableStats);
-		affectableStats.setSpeed(affectableStats.speed() + 1.0);
+		affectableStats.setSpeed(affectableStats.speed() + CMProps.getSpeedAdjustment());
 	}
 
 	private final String[]	racialAbilityNames			= { "Aquan", "Skill_Swim", "Blessing" };
@@ -104,7 +104,7 @@ public class Angelfish extends Fish
 				for(int i=0;i<3;i++)
 				{
 					resources.addElement(makeResource
-					(L("some @x1",name().toLowerCase()),RawMaterial.RESOURCE_FISH));
+					(L("some @x1 meat",name().toLowerCase()),RawMaterial.RESOURCE_FISH));
 				}
 				for(int i=0;i<2;i++)
 				{

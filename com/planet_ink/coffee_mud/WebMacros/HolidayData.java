@@ -4,6 +4,7 @@ import com.planet_ink.coffee_web.interfaces.*;
 import com.planet_ink.coffee_mud.core.interfaces.*;
 import com.planet_ink.coffee_mud.core.*;
 import com.planet_ink.coffee_mud.core.collections.*;
+import com.planet_ink.coffee_mud.core.exceptions.CMException;
 import com.planet_ink.coffee_mud.Abilities.interfaces.*;
 import com.planet_ink.coffee_mud.Areas.interfaces.*;
 import com.planet_ink.coffee_mud.Behaviors.interfaces.*;
@@ -21,7 +22,7 @@ import java.net.URLEncoder;
 import java.util.*;
 
 /*
-   Copyright 2006-2020 Bo Zimmerman
+   Copyright 2006-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +44,6 @@ public class HolidayData extends StdWebMacro
 		return "HolidayData";
 	}
 
-	@SuppressWarnings("unchecked")
 	@Override
 	public String runMacro(final HTTPRequest httpReq, final String parm, final HTTPResponse httpResp)
 	{
@@ -62,9 +62,14 @@ public class HolidayData extends StdWebMacro
 				List<String> steps=null;
 				if(index>=0)
 				{
-					final Object resp=CMLib.quests().getHolidayFile();
-					if(resp instanceof List)
-						steps=(List<String>)resp;
+					try
+					{
+						steps=CMLib.quests().getHolidayFile();
+					}
+					catch(final CMException e)
+					{
+						steps = null;
+					}
 					if(steps!=null)
 						encodedData=CMLib.quests().getEncodedHolidayData(steps.get(index));
 				}
@@ -222,7 +227,7 @@ public class HolidayData extends StdWebMacro
 						final String s=V.elementAt(v);
 						str.append("<OPTION VALUE=\""+s+"\" "+((old.trim().equalsIgnoreCase(s))?" SELECTED":"")+">"+s);
 					}
-					str.append(old+", ");
+					str.append(", ");
 				}
 				if(parms.containsKey("AGGRESSIVE"))
 				{
@@ -717,7 +722,9 @@ public class HolidayData extends StdWebMacro
 			return V;
 		int x=0;
 		A.setMiscText(""+x);
-		while((A.text().length()>0)&&(!V.contains(A.text())))
+		while((A.text().length()>0)
+		&&(!CMath.isInteger(A.text()))
+		&&(!V.contains(A.text().toUpperCase().trim())))
 		{
 			V.addElement(A.text().toUpperCase().trim());
 			x++;

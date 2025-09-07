@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -117,9 +117,9 @@ public class Spell_MindLight extends Spell
 			if(M!=null)
 			{
 				if(invoker()!=null)
-					M.curState().adjMana((invoker().charStats().getStat(CharStats.STAT_INTELLIGENCE)+invoker().charStats().getStat(CharStats.STAT_WISDOM))/8,M.maxState());
+					M.curState().adjMana((invoker().charStats().getStat(CharStats.STAT_INTELLIGENCE)+invoker().charStats().getStat(CharStats.STAT_WISDOM))/9,M.maxState());
 				else
-					M.curState().adjMana((M.charStats().getStat(CharStats.STAT_INTELLIGENCE)+M.charStats().getStat(CharStats.STAT_WISDOM))/8,M.maxState());
+					M.curState().adjMana((M.charStats().getStat(CharStats.STAT_INTELLIGENCE)+M.charStats().getStat(CharStats.STAT_WISDOM))/9,M.maxState());
 			}
 		}
 		return true;
@@ -144,7 +144,9 @@ public class Spell_MindLight extends Spell
 		if(success)
 		{
 
-			final CMMsg msg = CMClass.getMsg(mob, target, this, somanticCastCode(mob,target,auto), L((auto?"T":"^S<S-NAME> incant(s) and gesture(s) and t")+"he mind light envelopes everyone.^?"));
+			final CMMsg msg = CMClass.getMsg(mob, target, this, somaticCastCode(mob,target,auto),
+					(auto?L("The mind light envelopes everyone.^?"):
+						L("^S<S-NAME> incant(s) and gesture(s) and the mind light envelopes everyone.^?")));
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);

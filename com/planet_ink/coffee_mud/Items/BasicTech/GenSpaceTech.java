@@ -19,7 +19,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
 
 /*
-   Copyright 2016-2020 Bo Zimmerman
+   Copyright 2016-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ public class GenSpaceTech extends StdSpaceTech
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this, false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this, false);
 	}
 
 	@Override
@@ -78,29 +78,31 @@ public class GenSpaceTech extends StdSpaceTech
 	public void setMiscText(final String newText)
 	{
 		miscText = "";
-		CMLib.coffeeMaker().setPropertiesStr(this, newText, false);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this, newText, false);
 		recoverPhyStats();
 	}
 
-	private final static String[] MYCODES={ "TECHLEVEL","COORDS","RADIUS","DIRECTION","SPEED"};
+	private final static String[] MYCODES={ "TECHLEVEL","COORDS","RADIUS","DIRECTION","SPEED","MANUFACTURER"};
 
 	@Override
 	public String getStat(final String code)
 	{
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			return CMLib.coffeeMaker().getGenItemStat(this,code);
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return "" + techLevel();
 		case 1:
-			return CMParms.toListString(coordinates());
+			return CMParms.toListString(coordinates().toLongs());
 		case 2:
 			return "" + radius();
 		case 3:
-			return CMParms.toListString(direction());
+			return CMParms.toListString(direction().toDoubles());
 		case 4:
 			return "" + speed();
+		case 5:
+			return getManufacturerName();
 		default:
 			return CMProps.getStatCodeExtensionValue(getStatCodes(), xtraValues, code);
 		}
@@ -112,25 +114,28 @@ public class GenSpaceTech extends StdSpaceTech
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			CMLib.coffeeMaker().setGenItemStat(this,code,val);
 		else
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			setTechLevel(CMath.s_parseIntExpression(val));
 			break;
 		case 1:
-			setCoords(CMParms.toLongArray(CMParms.parseCommas(val, true)));
-			coordinates[0] = coordinates[0] % SpaceObject.Distance.GalaxyRadius.dm;
-			coordinates[1] = coordinates[1] % SpaceObject.Distance.GalaxyRadius.dm;
-			coordinates[2] = coordinates[2] % SpaceObject.Distance.GalaxyRadius.dm;
+			setCoords(new Coord3D(CMParms.toLongArray(CMParms.parseCommas(val, true))));
+			coordinates.x(coordinates.x().longValue() % SpaceObject.Distance.GalaxyRadius.dm);
+			coordinates.y(coordinates.y().longValue() % SpaceObject.Distance.GalaxyRadius.dm);
+			coordinates.z(coordinates.z().longValue() % SpaceObject.Distance.GalaxyRadius.dm);
 			break;
 		case 2:
 			setRadius(CMath.s_long(val));
 			break;
 		case 3:
-			setDirection(CMParms.toDoubleArray(CMParms.parseCommas(val, true)));
+			setDirection(new Dir3D(CMParms.toDoubleArray(CMParms.parseCommas(val, true))));
 			break;
 		case 4:
 			setSpeed(CMath.s_double(val));
+			break;
+		case 5:
+			setManufacturerName(val);
 			break;
 		default:
 			CMProps.setStatCodeExtensionValue(getStatCodes(), xtraValues, code, val);
@@ -138,8 +143,7 @@ public class GenSpaceTech extends StdSpaceTech
 		}
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<MYCODES.length;i++)
 		{

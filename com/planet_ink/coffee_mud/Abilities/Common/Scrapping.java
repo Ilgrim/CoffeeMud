@@ -11,6 +11,7 @@ import com.planet_ink.coffee_mud.Common.interfaces.*;
 import com.planet_ink.coffee_mud.Exits.interfaces.*;
 import com.planet_ink.coffee_mud.Items.interfaces.*;
 import com.planet_ink.coffee_mud.Libraries.interfaces.*;
+import com.planet_ink.coffee_mud.core.interfaces.CostDef;
 import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
@@ -18,7 +19,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -57,7 +58,7 @@ public class Scrapping extends CommonSkill
 	}
 
 	@Override
-	protected ExpertiseLibrary.SkillCostDefinition getRawTrainingCost()
+	protected CostDef getRawTrainingCost()
 	{
 		return CMProps.getNormalSkillGainCost(ID());
 	}
@@ -90,7 +91,10 @@ public class Scrapping extends CommonSkill
 		&&(tickID==Tickable.TICKID_MOB))
 		{
 			final MOB mob=(MOB)affected;
-			if((found==null)||(fireRequired&&(getRequiredFire(mob,0)==null)))
+			if((found==null)
+			||(fireRequired
+				&&(getRequiredFire(mob,0)==null)
+				&&(mob.location()==activityRoom)))
 			{
 				messedUp=true;
 				unInvoke();
@@ -110,7 +114,7 @@ public class Scrapping extends CommonSkill
 				if((found!=null)&&(!aborted)&&(mob.location()!=null))
 				{
 					if(messedUp)
-						commonTell(mob,L("You've messed up scrapping @x1!",oldItemName));
+						commonTelL(mob,"You've messed up scrapping @x1!",oldItemName);
 					else
 					{
 						amount=amount*(baseYield()+abilityCode());
@@ -118,10 +122,10 @@ public class Scrapping extends CommonSkill
 						msg.setValue(amount);
 						if(mob.location().okMessage(mob, msg))
 						{
-							String s="s";
-							if(msg.value()==1)
-								s="";
-							msg.modify(L("<S-NAME> manage(s) to scrap @x1 pound@x2 of @x3.",""+msg.value(),s,foundShortName));
+							if(msg.value()<2)
+								msg.modify(L("<S-NAME> manage(s) to scrap @x1.",found.name()));
+							else
+								msg.modify(L("<S-NAME> manage(s) to scrap @x1 pounds of @x2.",""+msg.value(),foundShortName));
 							mob.location().send(mob, msg);
 							if(found.material() != RawMaterial.RESOURCE_NOTHING)
 							{
@@ -151,7 +155,7 @@ public class Scrapping extends CommonSkill
 		final Item I=mob.location().findItem(null,str);
 		if((I==null)||(!CMLib.flags().canBeSeenBy(I,mob)))
 		{
-			commonTell(mob,L("You don't see anything called '@x1' here.",str));
+			commonTelL(mob,"You don't see anything called '@x1' here.",str);
 			return false;
 		}
 		boolean okMaterial=true;
@@ -173,19 +177,25 @@ public class Scrapping extends CommonSkill
 		}
 		if(!okMaterial)
 		{
-			commonTell(mob,L("You don't know how to scrap @x1.",I.name(mob)));
+			commonTelL(mob,"You don't know how to scrap @x1.",I.name(mob));
+			return false;
+		}
+
+		if(CMath.bset(I.phyStats().sensesMask(),PhyStats.SENSE_ITEMNOSCRAP))
+		{
+			commonTelL(mob,"@x1 can't be scrapped for some reason.",I.name(mob));
 			return false;
 		}
 
 		if(I instanceof RawMaterial)
 		{
-			commonTell(mob,L("@x1 already looks like scrap.",I.name(mob)));
+			commonTelL(mob,"@x1 already looks like scrap.",I.name(mob));
 			return false;
 		}
 
 		if(CMLib.flags().isEnchanted(I))
 		{
-			commonTell(mob,L("@x1 is enchanted, and can't be scrapped.",I.name(mob)));
+			commonTelL(mob,"@x1 is enchanted, and can't be scrapped.",I.name(mob));
 			return false;
 		}
 
@@ -204,7 +214,7 @@ public class Scrapping extends CommonSkill
 		final LandTitle t=CMLib.law().getLandTitle(mob.location());
 		if((t!=null)&&(!CMLib.law().doesHavePriviledgesHere(mob,mob.location())))
 		{
-			mob.tell(L("You are not allowed to scrap anything here."));
+			commonTelL(mob,"You are not allowed to scrap anything here.");
 			return false;
 		}
 
@@ -213,14 +223,14 @@ public class Scrapping extends CommonSkill
 			final Item I2=mob.location().getItem(i);
 			if((I2.container()!=null)&&(V.contains(I2.container())))
 			{
-				commonTell(mob,L("You need to remove the contents of @x1 first.",I2.name(mob)));
+				commonTelL(mob,"You need to remove the contents of @x1 first.",I2.name(mob));
 				return false;
 			}
 		}
 		amount=totalWeight/5;
 		if(amount<1)
 		{
-			commonTell(mob,L("You don't have enough here to get anything from."));
+			commonTelL(mob,"You don't have enough here to get anything from.");
 			return false;
 		}
 		fireRequired=false;
@@ -237,9 +247,9 @@ public class Scrapping extends CommonSkill
 
 		final PrivateProperty prop=CMLib.law().getPropertyRecord(I);
 		if(((prop != null)&&(!CMLib.law().doesHavePrivilegesWith(mob, prop)))
-		||(I instanceof SailingShip))
+		||(I instanceof NavigableItem))
 		{
-			commonTell(mob,L("@x1 can't be scrapped.",I.name(mob)));
+			commonTelL(mob,"@x1 can't be scrapped.",I.name(mob));
 			return false;
 		}
 

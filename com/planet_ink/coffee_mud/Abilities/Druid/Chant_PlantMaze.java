@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -116,20 +116,22 @@ public class Chant_PlantMaze extends Chant
 	public void unInvoke()
 	{
 		// undo the affects of this spell
-		if(affected==null)
-			return;
 		if(!(affected instanceof Room))
 			return;
 		final Room room=(Room)affected;
 		if(canBeUninvoked())
 		{
-			if((room instanceof GridLocale)
-			&&(oldRoom!=null))
+			super.unInvoke();
+			if(room.getGridParent() != null)
+				room.getGridParent().clearGrid(oldRoom);
+			else
+			if(room instanceof GridLocale)
 				((GridLocale)room).clearGrid(oldRoom);
 			for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
 				room.setRawExit(d,null);
 		}
-		super.unInvoke();
+		else
+			super.unInvoke();
 		if(canBeUninvoked())
 			room.destroy();
 	}
@@ -181,7 +183,11 @@ public class Chant_PlantMaze extends Chant
 				final Room newRoom=CMClass.getLocale("WoodsMaze");
 				((GridLocale)newRoom).setXGridSize(10+super.getX1Level(invoker())+super.getXLEVELLevel(invoker()));
 				((GridLocale)newRoom).setYGridSize(10+super.getX1Level(invoker())+super.getXLEVELLevel(invoker()));
-				final String s=CMLib.english().makePlural(CMParms.parse(thePlants.name()).lastElement().toLowerCase());
+				final String s;
+				if(thePlants.name().toLowerCase().endsWith("s"))
+					s=CMParms.parse(thePlants.name()).lastElement().toLowerCase();
+				else
+					s=CMLib.english().makePlural(CMParms.parse(thePlants.name()).lastElement().toLowerCase());
 				final String nos=s.substring(0,s.length()-1).toLowerCase();
 				newRoom.setDisplayText(L("@x1 Maze",CMStrings.capitalizeAndLower(nos)));
 				newRoom.addNonUninvokableEffect(CMClass.getAbility("Prop_NoTeleportOut"));
@@ -194,7 +200,7 @@ public class Chant_PlantMaze extends Chant
 				desc.append("<P>");
 				desc.append(L("A light growth of tall @x1 surrounds you on all sides.  You can hear the sound of a running brook, but can't tell which direction its coming from.",s));
 				desc.append("<P>");
-				desc.append(L("The @x1 around you are tall, dark and old, their leaves seeming to reach towards you.  In the distance, a wolfs howl can be heard.",s));
+				desc.append(L("The @x1 around you are tall, dark and old, their leaves seeming to reach towards you.  In the distance, a wolf`s howl can be heard.",s));
 				desc.append("<P>");
 				desc.append(L("The path seems to end at the base of a copse of tall @x1.",s));
 				desc.append("<P>");

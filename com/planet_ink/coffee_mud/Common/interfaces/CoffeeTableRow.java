@@ -16,7 +16,7 @@ import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -88,6 +88,20 @@ public interface CoffeeTableRow extends CMCommon
 	 * @return number of times the number of players online has been polled
 	 */
 	public long numberOnlineCounter();
+
+	/**
+	 * Returns the highest number of chars online during this period.
+	 * @return the highest number of chars online
+	 */
+	public long highestCharsOnline();
+
+	/**
+	 * Returns the cumulative number online during this period per poll.
+	 * Used to calulate the avg online for the period.
+	 * @see com.planet_ink.coffee_mud.Common.interfaces.CoffeeTableRow#numberOnlineCounter()
+	 * @return the cumulative number online during this period per poll
+	 */
+	public long numberCharsOnlineTotal();
 
 	/**
 	 * Returns an XML document representing all the information in this object.
@@ -170,8 +184,18 @@ public interface CoffeeTableRow extends CMCommon
 	public final int STAT_SOCUSE=12;
 	/** a constant index into statistics for a command use event*/
 	public final int STAT_CMDUSE=13;
+	/** a constant index into statistics for warrants issued to players*/
+	public final int STAT_WARRANTS=14;
+	/** a constant index into statistics for successful arrest of players*/
+	public final int STAT_ARRESTS=15;
+	/** a constant index into statistics for successful warning of players*/
+	public final int STAT_PAROLES=16;
+	/** a constant index into statistics for successful warnings of players*/
+	public final int STAT_JAILINGS=17;
+	/** a constant index into statistics for successful execution of players*/
+	public final int STAT_EXECUTIONS=18;
 	/** a constant index of the total number of enumerated statistical events*/
-	public final int STAT_TOTAL=14;
+	public final int STAT_TOTAL=19;
 
 	/** a constant index into statistics for a quest failed start*/
 	public final int STAT_QUESTFAILEDSTART=1;

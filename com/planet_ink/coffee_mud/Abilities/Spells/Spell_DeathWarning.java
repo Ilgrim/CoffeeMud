@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2011-2020 Bo Zimmerman
+   Copyright 2011-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -70,6 +70,12 @@ public class Spell_DeathWarning extends Spell
 	}
 
 	@Override
+	public long flags()
+	{
+		return super.flags() | Ability.FLAG_DIVINING;
+	}
+
+	@Override
 	public int classificationCode()
 	{
 		return Ability.ACODE_SPELL|Ability.DOMAIN_DIVINATION;
@@ -86,8 +92,10 @@ public class Spell_DeathWarning extends Spell
 
 		super.unInvoke();
 		if(canBeUninvoked())
+		{
 			if((mob.location()!=null)&&(!mob.amDead()))
 				mob.tell(mob,null,null,L("<S-YOUPOSS> death warning magic fades."));
+		}
 	}
 
 	@Override
@@ -103,7 +111,7 @@ public class Spell_DeathWarning extends Spell
 			final int hitPoints=mob.curState().getHitPoints();
 			mob.curState().setHitPoints(1);
 			final Room room=mob.location();
-			mob.tell(L("^SYou receive a warning of your impending death!!^N"));
+			commonTelL(mob,"^S You receive a warning of your impending death!!^N");
 			mob.doCommand(commands,0);
 			if(mob.location()!=room)
 			{
@@ -125,7 +133,7 @@ public class Spell_DeathWarning extends Spell
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> already <S-HAS-HAVE> a death's warning."));
+			failureTell(mob,target,auto,L("<S-NAME> already <S-HAS-HAVE> a death's warning."));
 			return false;
 		}
 
@@ -135,7 +143,7 @@ public class Spell_DeathWarning extends Spell
 				commands.add("FLEE");
 			else
 			{
-				mob.tell(L("You need to specify what you want to do should the warning arrives!"));
+				commonTelL(mob,"You need to specify what you want to do should the warning arrives!");
 				return false;
 			}
 		}

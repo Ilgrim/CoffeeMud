@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ public class Song_Mana extends Song
 			return true;
 		//int level=invoker.phyStats().level();
 		//int mana=(int)Math.round(Integer.valueOf(level).doubleValue()/2.0);
-		mob.curState().adjMana((adjustedLevel(invoker(),0)*3),mob.maxState());
+		mob.curState().adjMana((adjustedLevel(invoker(),0)),mob.maxState());
 		return true;
 	}
 }

@@ -15,10 +15,11 @@ import com.planet_ink.coffee_mud.Locales.interfaces.*;
 import com.planet_ink.coffee_mud.MOBS.interfaces.*;
 import com.planet_ink.coffee_mud.Races.interfaces.*;
 
+import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -32,7 +33,7 @@ import java.util.*;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-public class Spell_BigMouth extends Spell
+public class Spell_BigMouth extends Spell implements MOBPossessor, ItemCollection
 {
 
 	@Override
@@ -89,13 +90,15 @@ public class Spell_BigMouth extends Spell
 		{
 			final CMMsg maliciousNessMsg=CMClass.getMsg(msg.source(), msg.target(), CMMsg.MSG_OK_ACTION | CMMsg.MASK_MALICIOUS, null);
 			final int targetWeight = (msg.target() instanceof MOB) ? ((MOB)msg.target()).baseWeight() : ((Physical)msg.target()).phyStats().weight();
-			if((targetWeight<(mob.baseWeight()/3))
+			final Room stomachR=getStomach();
+			if((targetWeight<(mob.baseWeight()/3)) // THIS is min size, not stomach capacity
 			&&(mob.location()!=null))
 			{
 				if(mob.location().okMessage(myHost, maliciousNessMsg))
 				{
-					final int maxInhabitants=1+((mob.fetchAbility(ID())!=null)?super.getXLEVELLevel(mob):0);
-					if((getStomach()!=null)&&(getStomach().numInhabitants()>maxInhabitants))
+					final int maxInhabitants=1+((mob.fetchAbility(ID())!=null)?(super.getXLEVELLevel(mob)/2):0);
+					if((stomachR!=null)
+					&&(stomachR.numInhabitants()>maxInhabitants))
 					{
 						mob.tell(L("Your stomach is too full."));
 						return false;
@@ -160,27 +163,32 @@ public class Spell_BigMouth extends Spell
 		&&(msg.target() instanceof Physical)
 		&&(getStomach()!=null))
 		{
+			final Room stomachR=getStomach();
 			final int targetWeight = (msg.target() instanceof MOB) ? ((MOB)msg.target()).baseWeight() : ((Physical)msg.target()).phyStats().weight();
 			if(targetWeight<(mob.baseWeight()/3))
 			{
 				if(msg.target() instanceof MOB)
 				{
-					final MOB TastyMorsel=(MOB)msg.target();
-					final CMMsg msg2=CMClass.getMsg(mob,TastyMorsel,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE,null);
-					if(TastyMorsel.location().okMessage(mob,msg2))
+					final MOB tastyMorselM=(MOB)msg.target();
+					final CMMsg msg2=CMClass.getMsg(mob,tastyMorselM,this,CMMsg.MSK_MALICIOUS_MOVE|CMMsg.TYP_JUSTICE,null);
+					if(tastyMorselM.location().okMessage(mob,msg2))
 					{
-						TastyMorsel.location().send(mob,msg2);
+						tastyMorselM.location().send(mob,msg2);
 						if(msg2.value()<=0)
 						{
-							getStomach().bringMobHere(TastyMorsel,false);
-							final CMMsg enterMsg=CMClass.getMsg(TastyMorsel,getStomach(),null,CMMsg.MSG_ENTER,L("<S-NAME> <S-IS-ARE> swallowed whole by @x1!",mob.name()),CMMsg.MSG_ENTER,null,CMMsg.MSG_ENTER,L("<S-NAME> slide(s) down the gullet into the stomach!"));
-							getStomach().send(TastyMorsel,enterMsg);
+							mob.curState().setHunger(mob.maxState().maxHunger(mob.baseWeight()));
+							stomachR.bringMobHere(tastyMorselM,false);
+							final CMMsg enterMsg=CMClass.getMsg(tastyMorselM,stomachR,null,CMMsg.MSG_ENTER,L("<S-NAME> <S-IS-ARE> swallowed whole by @x1!",mob.name()),CMMsg.MSG_ENTER,null,CMMsg.MSG_ENTER,L("<S-NAME> slide(s) down the gullet into the stomach!"));
+							stomachR.send(tastyMorselM,enterMsg);
 						}
+						else
+							msg.addTrailerMsg(CMClass.getMsg(tastyMorselM, null, CMMsg.MSG_OK_VISUAL, L("<S-NAME> avoid(s) being eaten!")));
 					}
 				}
+				else
 				if((msg.target() instanceof Item)
 				&&(!(msg.target() instanceof Food)))
-					getStomach().moveItemTo((Item)msg.target(),ItemPossessor.Expire.Monster_EQ);
+					stomachR.moveItemTo((Item)msg.target(),ItemPossessor.Expire.Monster_EQ);
 			}
 		}
 
@@ -191,6 +199,7 @@ public class Spell_BigMouth extends Spell
 		super.executeMsg(myHost,msg);
 	}
 
+	protected int  dmgBonus = 0;
 	protected Room myStomachR = null;
 	protected Room lastKnownRoom=null;
 	protected Room lastKnownLocation()
@@ -209,14 +218,99 @@ public class Spell_BigMouth extends Spell
 
 	protected Room getStomach()
 	{
-		if((myStomachR==null)&&(affected!=null))
+		if(myStomachR==null)
 		{
+			if(!(affected instanceof MOB))
+				return null;
+			final MOB forMe = (MOB)affected;
 			myStomachR = CMClass.getLocale("StdRoom");
 			myStomachR.setSavable(false);
 			myStomachR.setRoomID("");
 			myStomachR.setArea(CMLib.map().getRandomArea());
 			myStomachR.setName(L("The Stomach of @x1",affected.name()));
 			myStomachR.setDescription(L("You are in the stomach of @x1.  It is wet with digestive acids, and the walls are grinding you to a pulp.  You have been swallowed whole and are being digested.",affected.name()));
+			myStomachR.addNonUninvokableEffect(CMClass.getAbility("Prop_NoRecall"));
+			myStomachR.addNonUninvokableEffect(CMClass.getAbility("Prop_NoTeleportOut"));
+			final ExtendableAbility A=(ExtendableAbility)CMClass.getAbility("ExtAbility");
+			final WeakReference<MOB> eater=new WeakReference<MOB>(forMe);
+			myStomachR.addNonUninvokableEffect(A.setAbilityID("MOBEaterStomachWatcher").setMsgListener(new MsgListener()
+			{
+				@Override
+				public void executeMsg(final Environmental myHost, final CMMsg msg)
+				{
+					if(A.affecting() instanceof Room)
+					{
+						if((eater.get()==null)||(eater.get().amDestroyed())||(eater.get().amDead()))
+						{
+							CMLib.map().emptyRoom((Room)A.affecting(), null, true);
+						}
+					}
+				}
+
+				@Override
+				public boolean okMessage(final Environmental myHost, final CMMsg msg)
+				{
+					if((msg.sourceMinor()==CMMsg.TYP_COMMANDFAIL)
+					&&(msg.targetMessage()!=null)
+					&&(msg.targetMessage().length()>0))
+					{
+						final char c=Character.toUpperCase(msg.targetMessage().charAt(0));
+						if((c=='K')||(c=='A'))
+						{
+							final List<String> parsedFail = CMParms.parse(msg.targetMessage());
+							final String cmd=parsedFail.get(0).toUpperCase();
+							if("ATTACK".startsWith(cmd)||"KILL".startsWith(cmd))
+							{
+								final String rest = CMParms.combine(parsedFail,1).toUpperCase().trim();
+								if("HERE".equals(rest)||"STOMACH".startsWith(rest)||"WALLS".startsWith(rest))
+								{
+									Item I=msg.source().fetchWieldedItem();
+									if(I == null)
+										I=msg.source().getNaturalWeapon();
+									if((!(I instanceof Weapon))
+									||(I.minRange()>0))
+									{
+										msg.source().tell(L("You aren't wielding an appropriate weapon."));
+										return false;
+									}
+									if(msg.source().getPeaceTime()<CMProps.getTickMillis())
+									{
+										msg.source().tell(L("You are too busy trying to survive right now!"));
+										return false;
+									}
+									if(!CMLib.combat().rollToHit(msg.source(), forMe))
+									{
+										final Weapon weapon=(Weapon)I;
+										msg.source().tell(L("Your @x1 attack fails to penetrate the stomach.", weapon.name(msg.source())));
+									}
+									else
+									{
+										final Weapon weapon=(Weapon)I;
+										final int dmg = CMLib.combat().adjustedDamage(msg.source(), (Weapon)I, forMe, 0, true, false)/10;
+										final MOB M=CMClass.getFactoryMOB(L("Someone inside @x1",forMe.name()), msg.source().phyStats().level(), forMe.location());
+										try
+										{
+											if(myStomachR.show(msg.source(), forMe, CMMsg.MSG_NOISYMOVEMENT,
+													L("<S-NAME> @x1 <T-YOUPOSS> stomach with @x2!",CMLib.combat().standardHitWord(weapon.weaponDamageType(),dmg),
+													I.name(msg.source()))))
+											{
+												CMLib.combat().postDamage(M, forMe, I, dmg, CMMsg.MSG_WEAPONATTACK, weapon.weaponDamageType(),
+														L("<S-NAME> <DAMAGE> <T-HIM-HER>!"));
+											}
+										}
+										finally
+										{
+											M.destroy();
+										}
+									}
+									return false;
+								}
+							}
+						}
+					}
+					return true;
+				}
+			}));
 		}
 		return myStomachR;
 	}
@@ -225,29 +319,30 @@ public class Spell_BigMouth extends Spell
 
 	public void kill()
 	{
-		if((getStomach()==null)||(lastKnownLocation()==null))
+		final Room stomachR=getStomach();
+		if((stomachR==null)||(lastKnownLocation()==null))
 			return;
 
 		// ===== move all inhabitants to the dragons location
 		// ===== loop through all inhabitants of the stomach
-		final int morselCount = getStomach().numInhabitants();
+		final int morselCount = stomachR.numInhabitants();
 		for (int x=morselCount-1;x>=0;x--)
 		{
 			// ===== get the tasty morsels
-			final MOB TastyMorsel = getStomach().fetchInhabitant(x);
+			final MOB TastyMorsel = stomachR.fetchInhabitant(x);
 			if(TastyMorsel!=null)
 				lastKnownLocation().bringMobHere(TastyMorsel,false);
 		}
 
 		// =====move the inventory of the stomach to the room
-		final int itemCount = getStomach().numItems();
+		final int itemCount = stomachR.numItems();
 		for (int y=itemCount-1;y>=0;y--)
 		{
-			final Item PartiallyDigestedItem = getStomach().getItem(y);
-			if (PartiallyDigestedItem!=null)
+			final Item partiallyDigestedItem = stomachR.getItem(y);
+			if (partiallyDigestedItem!=null)
 			{
-				lastKnownLocation().addItem(PartiallyDigestedItem,ItemPossessor.Expire.Player_Drop);
-				getStomach().delItem(PartiallyDigestedItem);
+				lastKnownLocation().addItem(partiallyDigestedItem,ItemPossessor.Expire.Player_Drop);
+				stomachR.delItem(partiallyDigestedItem);
 			}
 		}
 		if((morselCount>0)||(itemCount>0))
@@ -259,30 +354,52 @@ public class Spell_BigMouth extends Spell
 	{
 		if(!super.tick(ticking,tickID))
 			return false;
-		if(invoker()==null)
+		if(!(affected instanceof MOB))
 			return true;
-		final MOB mob=invoker();
-		if((!mob.amDead())&&((--digestDown)<=0)&&(getStomach()!=null))
+		final MOB mob=(MOB)affected;
+		final Room stomachR=getStomach();
+		if((!mob.amDead())
+		&&(stomachR!=null))
 		{
-			digestDown=2;
-			for (int x=0;x<getStomach().numInhabitants();x++)
+			if((--digestDown)<=0)
 			{
-				// ===== get a tasty morsel
-				final MOB TastyMorsel = getStomach().fetchInhabitant(x);
-				if (TastyMorsel != null)
+				digestDown=2;
+				for (int x=0;x<stomachR.numInhabitants();x++)
 				{
-					final CMMsg DigestMsg=CMClass.getMsg(mob,
-											   TastyMorsel,
-											   null,
-											   CMMsg.MASK_ALWAYS|CMMsg.TYP_ACID,
-											   L("<S-NAME> digest(s) <T-NAMESELF>!!"));
-					// no OKaffectS, since the dragon is not in his own stomach.
-					getStomach().send(mob,DigestMsg);
-					int damage=(int)Math.round(CMath.div(TastyMorsel.curState().getHitPoints(),2));
-					if(damage<(TastyMorsel.phyStats().level()+6))
-						damage=TastyMorsel.curState().getHitPoints()*100;
-					CMLib.combat().postDamage(mob,TastyMorsel,null,damage,CMMsg.MASK_ALWAYS|CMMsg.TYP_ACID,Weapon.TYPE_MELTING,L("The stomach acid <DAMAGE> <T-NAME>!"));
+					// ===== get a tasty morsel
+					final MOB tastyMorselM = stomachR.fetchInhabitant(x);
+					if (tastyMorselM != null)
+					{
+						final CMMsg digestMsg=CMClass.getMsg(mob,
+															 tastyMorselM,
+															 null,
+															 CMMsg.MASK_ALWAYS|CMMsg.TYP_ACID,
+															 L("<S-NAME> digest(s) <T-NAMESELF>."));
+						// no OKaffectS, since the dragon is not in his own stomach.
+						stomachR.send(mob,digestMsg);
+						int damage=(int)Math.round(CMath.mul(tastyMorselM.curState().getHitPoints(), (0.15 + (0.01 * super.getXLEVELLevel(mob)))));
+						if(damage<tastyMorselM.maxState().getHitPoints()/15)
+							damage=tastyMorselM.maxState().getHitPoints()/15;
+						if(damage<2)
+							damage=2;
+						if(digestMsg.value()!=0)
+							damage=damage/2;
+						CMLib.combat().postDamage(mob,tastyMorselM,null,damage,CMMsg.MASK_ALWAYS|CMMsg.TYP_ACID,Weapon.TYPE_MELTING,
+								L("The stomach acid <DAMAGE> <T-NAME>!"));
+					}
 				}
+				if(stomachR.numInhabitants() == 0)
+					dmgBonus = 0;
+				else
+					dmgBonus++;
+			}
+			for (int x=0;x<stomachR.numInhabitants();x++)
+			{
+				// ===== get a tasty morsel and allow them to fight back
+				final MOB tastyMorselM = stomachR.fetchInhabitant(x);
+				if((tastyMorselM != null)
+				&&(tastyMorselM.isMonster()))
+					tastyMorselM.enqueCommand(new XVector<String>("ATTACK", "STOMACH"), MUDCmdProcessor.METAFLAG_FORCED, 1.0);
 			}
 		}
 		else
@@ -293,6 +410,205 @@ public class Spell_BigMouth extends Spell
 		&&(((Room)affected).numInhabitants()==0))
 			unInvoke();
 		return true;
+	}
+
+	@Override
+	public MOB fetchInhabitant(final String inhabitantID)
+	{
+		if(getStomach() != null)
+			return getStomach().fetchInhabitant(inhabitantID);
+		return null;
+	}
+
+	@Override
+	public void eachInhabitant(final EachApplicable<MOB> applier)
+	{
+		if(getStomach() != null)
+			getStomach().eachInhabitant(applier);
+	}
+
+	@Override
+	public MOB fetchInhabitantExact(final String inhabitantID)
+	{
+		if(getStomach() != null)
+			return getStomach().fetchInhabitantExact(inhabitantID);
+		return null;
+	}
+
+	@Override
+	public List<MOB> fetchInhabitants(final String inhabitantID)
+	{
+		if(getStomach() != null)
+			return getStomach().fetchInhabitants(inhabitantID);
+		return null;
+	}
+
+	@Override
+	public MOB fetchInhabitant(final int i)
+	{
+		if(getStomach() != null)
+			return getStomach().fetchInhabitant(i);
+		return null;
+	}
+
+	@Override
+	public Enumeration<MOB> inhabitants()
+	{
+		if(getStomach() != null)
+			return getStomach().inhabitants();
+		return null;
+	}
+
+	@Override
+	public void addInhabitant(final MOB mob)
+	{
+		if(getStomach() != null)
+			getStomach().addInhabitant(mob);
+	}
+
+	@Override
+	public void delInhabitant(final MOB mob)
+	{
+		if(getStomach() != null)
+			getStomach().delInhabitant(mob);
+	}
+
+	@Override
+	public int numInhabitants()
+	{
+		if(getStomach() != null)
+			return getStomach().numInhabitants();
+		return 0;
+	}
+
+	@Override
+	public boolean isInhabitant(final MOB mob)
+	{
+		if(getStomach() != null)
+			return getStomach().isInhabitant(mob);
+		return false;
+	}
+
+	@Override
+	public void delAllInhabitants(final boolean destroy)
+	{
+		if(getStomach() != null)
+			getStomach().delAllInhabitants(destroy);
+	}
+
+	@Override
+	public MOB fetchRandomInhabitant()
+	{
+		if(getStomach() != null)
+			return getStomach().fetchRandomInhabitant();
+		return null;
+	}
+
+	@Override
+	public void bringMobHere(final MOB mob, final boolean andFollowers)
+	{
+		if(getStomach() != null)
+			getStomach().bringMobHere(mob, andFollowers);
+	}
+
+	@Override
+	public void addItem(final Item item)
+	{
+		if(getStomach() != null)
+			getStomach().addItem(item);
+	}
+
+	@Override
+	public void delItem(final Item item)
+	{
+		if(getStomach() != null)
+			getStomach().delItem(item);
+	}
+
+	@Override
+	public int numItems()
+	{
+		if(getStomach() != null)
+			return getStomach().numItems();
+		return 0;
+	}
+
+	@Override
+	public Item getItem(final int i)
+	{
+		if(getStomach() != null)
+			return getStomach().getItem(i);
+		return null;
+	}
+
+	@Override
+	public Item getRandomItem()
+	{
+		if(getStomach() != null)
+			return getStomach().getRandomItem();
+		return null;
+	}
+
+	@Override
+	public Enumeration<Item> items()
+	{
+		if(getStomach() != null)
+			return getStomach().items();
+		return null;
+	}
+
+	@Override
+	public Item findItem(final Item goodLocation, final String itemID)
+	{
+		if(getStomach() != null)
+			return getStomach().findItem(goodLocation, itemID);
+		return null;
+	}
+
+	@Override
+	public Item findItem(final String itemID)
+	{
+		if(getStomach() != null)
+			return getStomach().findItem(itemID);
+		return null;
+	}
+
+	@Override
+	public List<Item> findItems(final Item goodLocation, final String itemID)
+	{
+		if(getStomach() != null)
+			return getStomach().findItems(goodLocation, itemID);
+		return null;
+	}
+
+	@Override
+	public List<Item> findItems(final String itemID)
+	{
+		if(getStomach() != null)
+			return getStomach().findItems(itemID);
+		return null;
+	}
+
+	@Override
+	public boolean isContent(final Item item)
+	{
+		if(getStomach() != null)
+			return getStomach().isContent(item);
+		return false;
+	}
+
+	@Override
+	public void delAllItems(final boolean destroy)
+	{
+		if(getStomach() != null)
+			getStomach().delAllItems(destroy);
+	}
+
+	@Override
+	public void eachItem(final EachApplicable<Item> applier)
+	{
+		if(getStomach() != null)
+			getStomach().eachItem(applier);
 	}
 
 	@Override
@@ -309,12 +625,13 @@ public class Spell_BigMouth extends Spell
 		{
 			if(thang instanceof MOB)
 			{
+				final Room stomachR=getStomach();
 				((MOB)thang).tell(L("Your mouth shrinks to normal size."));
-				if((getStomach()!=null)&&(getStomach().numInhabitants()>0))
+				if((stomachR!=null)&&(stomachR.numInhabitants()>0))
 				{
 					unInvoked=false;
 					final Spell_BigMouth A =(Spell_BigMouth)this.copyOf();
-					A.startTickDown(invoker,getStomach(),10000);
+					A.startTickDown(invoker,stomachR,10000);
 				}
 			}
 			else
@@ -333,7 +650,7 @@ public class Spell_BigMouth extends Spell
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already the owner of a huge mouth."));
+			failureTell(mob,target,auto,L("<S-NAME> <S-IS-ARE> already the owner of a huge mouth."));
 			return false;
 		}
 
@@ -359,7 +676,7 @@ public class Spell_BigMouth extends Spell
 				if((!isJustUnInvoking)&&(msg.value()<=0))
 				{
 					mob.location().show(target,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> feel(s) <S-HIS-HER> mouth grow to an enormous size!"));
-					beneficialAffect(mob,target,asLevel,4);
+					beneficialAffect(mob,target,asLevel,0);
 				}
 			}
 		}

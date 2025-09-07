@@ -3,7 +3,7 @@ package com.planet_ink.coffee_mud.core.collections;
 import java.util.*;
 
 /*
-   Copyright 2012-2020 Bo Zimmerman
+   Copyright 2012-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -104,9 +104,20 @@ public class PairVector<T, K> extends Vector<Pair<T, K>> implements PairList<T, 
 		add(new Pair<T, K>(t, k));
 	}
 
+	@Override
+	public void add(final int x, final T t, final K k)
+	{
+		add(x, new Pair<T, K>(t, k));
+	}
+
 	public void addElement(final T t, final K k)
 	{
 		add(new Pair<T, K>(t, k));
+	}
+
+	public void addElement(final int x, final T t, final K k)
+	{
+		add(x, new Pair<T, K>(t, k));
 	}
 
 	@SuppressWarnings("unchecked")

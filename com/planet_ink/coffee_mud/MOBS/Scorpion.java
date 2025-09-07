@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class Scorpion extends StdMOB
 		super();
 		final Random randomizer = new Random(System.currentTimeMillis());
 
-		username="a Scorpion";
+		_name="a Scorpion";
 		setDescription("The scorpion has a black carapace, legs and pincers. The segmented tail has a vicious stinger on the end.");
 		setDisplayText("A scorpion hunts for prey.");
 		CMLib.factions().setAlignment(this,Faction.Align.NEUTRAL);
@@ -62,7 +62,7 @@ public class Scorpion extends StdMOB
 
 		basePhyStats().setDamage(10);
 		basePhyStats().setSpeed(1.0);
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(1);
 		basePhyStats().setArmor(90);
 

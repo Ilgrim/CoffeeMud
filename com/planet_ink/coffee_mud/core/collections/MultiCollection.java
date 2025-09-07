@@ -4,7 +4,7 @@ import java.util.*;
 import com.planet_ink.coffee_mud.core.CMParms;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -18,11 +18,24 @@ import com.planet_ink.coffee_mud.core.CMParms;
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+/**
+ * A MultiCollection is a collection that contains other collections. It can be
+ * used to combine multiple collections into one, for purposes of enumeration
+ * and searching.
+ *
+ * @param <T> the type of object in the collection
+ * @author Bo Zimmerman
+ */
 @SuppressWarnings("unchecked")
 public class MultiCollection<T> implements Collection<T>
 {
 	private final Vector<Collection<? extends T>> collections = new Vector<Collection<? extends T>>();
 
+	/**
+	 * Constructs a MultiCollection from the given collections
+	 *
+	 * @param colls the collections to combine
+	 */
 	public MultiCollection(final Collection<T>... colls)
 	{
 		super();

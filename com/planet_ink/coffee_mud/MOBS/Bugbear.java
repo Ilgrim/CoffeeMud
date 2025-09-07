@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2001-2020 Bo Zimmerman
+   Copyright 2001-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class Bugbear extends StdMOB
 	public Bugbear()
 	{
 		super();
-		username="a Bugbear";
+		_name="a Bugbear";
 		setDescription("a 7 foot tall, hairy, yellow-brown, muscular creature with sharp teeth and recessed eyes.");
 		setDisplayText("A large Bugbear stands here.");
 		CMLib.factions().setAlignment(this,Faction.Align.EVIL);
@@ -62,7 +62,7 @@ public class Bugbear extends StdMOB
 		baseCharStats().setStat(CharStats.STAT_CHARISMA,2);
 		baseCharStats().setStat(CharStats.STAT_STRENGTH,22);
 
-		basePhyStats().setAbility(0);
+		basePhyStats().setAbility(CMProps.getMobHPBase());
 		basePhyStats().setLevel(3);
 		basePhyStats().setArmor(70);
 

@@ -1,14 +1,17 @@
 package com.planet_ink.coffee_mud.core;
 
+import com.planet_ink.coffee_mud.Abilities.interfaces.Ability;
 import com.planet_ink.coffee_mud.Common.interfaces.Session;
 import com.planet_ink.coffee_mud.Libraries.interfaces.CombatLibrary;
 import com.planet_ink.coffee_mud.Libraries.interfaces.ExpertiseLibrary;
-import com.planet_ink.coffee_mud.Libraries.interfaces.ExpertiseLibrary.CostType;
 import com.planet_ink.coffee_mud.MOBS.interfaces.MOB;
 import com.planet_ink.coffee_mud.Libraries.interfaces.LanguageLibrary;
 import com.planet_ink.coffee_mud.Libraries.interfaces.TimeManager;
 import com.planet_ink.coffee_mud.core.collections.*;
 import com.planet_ink.coffee_mud.core.interfaces.CMObject;
+import com.planet_ink.coffee_mud.core.interfaces.CostDef;
+import com.planet_ink.coffee_mud.core.interfaces.CostDef.Cost;
+import com.planet_ink.coffee_mud.core.interfaces.CostDef.CostType;
 import com.planet_ink.coffee_mud.core.interfaces.MudHost;
 
 import java.util.*;
@@ -20,7 +23,7 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 
 /*
-   Copyright 2005-2020 Bo Zimmerman
+   Copyright 2005-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,8 +56,9 @@ public class CMProps extends Properties
 		return props[Thread.currentThread().getThreadGroup().getName().charAt(0)];
 	}
 
-	protected static final String FILTER_PATTERN="%#@*!$&?";
-	protected static final char[] FILTER_CHARS=FILTER_PATTERN.toCharArray();
+	protected static final String	FILTER_PATTERN		= "%#@*!$&?";
+	protected static final char[]	FILTER_CHARS		= FILTER_PATTERN.toCharArray();
+	private static final double[]	EMPTY_DOUBLE_VARS	= new double[99];
 
 	/**
 	 * Constructor for a property object that applies only to this thread group.
@@ -110,6 +114,24 @@ public class CMProps extends Properties
 	}
 
 	/**
+	 * Constants for the state of the host.
+	 * These are tied to threads, unlike
+	 * MUD object.
+	 *
+	 * @author Bo Zimmerman
+	 *
+	 */
+	public static enum HostState
+	{
+		BOOTING,
+		LOADINGMAP,
+		STARTING,
+		RUNNING,
+		SHUTTINGDOWN,
+		STOPPED
+	}
+
+	/**
 	 * Enums for String entries in the coffeemud.ini file
 	 * @author Bo Zimmerman
 	 */
@@ -141,7 +163,8 @@ public class CMProps extends Properties
 		MUDNAME,
 		MUDVER,
 		MUDSTATUS,
-		MUDPORTS,
+		ALLMUDPORTS,
+		LOCALMUDPORTS,
 		CORPSEGUARD,
 		INIPATH,
 		MUDBINDADDRESS,
@@ -170,6 +193,9 @@ public class CMProps extends Properties
 		AUTOAREAPROPS,
 		MOBDEATH,
 		I3ROUTERS,
+		RUNGVSERVER,
+		GVCLIENTID,
+		GVCLIENTSECRET,
 		IDLETIMERS,
 		PRICEFACTORS,
 		ITEMLOOTPOLICY,
@@ -240,8 +266,35 @@ public class CMProps extends Properties
 		CLANTROPMONTHLYLVLS,
 		CLANTROPMONTHLYCP,
 		CLANTROPMONTHLYMB,
-		MANACOMPOUND_RULES
+		MANACOMPOUND_RULES,
+		DEITYPOLICY,
+		MANACOST,
+		FORMULA_CLASSHPADD,
+		FORMULA_CLASSMNADD,
+		FORMULA_CLASSMVADD,
+		FORMULA_MAXCARRY,
+		FORMULA_MAXITEMS,
+		FORMULA_MAXFOLLOW,
+		TRAINCOSTS,
+		DEFAULTABILITYARGS,
+		XPMOD,
+		MSXPVARS,
+		NEWDOMAINS,
+		NEWACODES,
+		PRIDECATS,
+		FORMULA_PROFGAIN,
+		DISCORD_JAR_PATH,
+		DISCORD_BOT_KEY,
+		MPCPKEY,
+		TWITTER_OAUTHCONSUMERKEY,
+		TWITTER_OAUTHCONSUMERSECRET,
+		TWITTER_OAUTHACCESSTOKEN,
+		TWITTER_OAUTHACCESSTOKENSECRET,
+		LANGCHAIN4J_JAR_PATH,
+		LANGCHAIN4J_LLM_TYPE
 	}
+
+	public final static int DEFAULT_MOB_HP_BASE = 11;
 
 	/**
 	 * Enums for Integer entries in the coffeemud.ini file
@@ -257,7 +310,6 @@ public class CMProps extends Properties
 		MINCLANMEMBERS,
 		DAYSCLANDEATH,
 		MINCLANLEVEL,
-		MANACOST,
 		DAYSCLANOVERTHROW,
 		//LANGTRAINCOST,
 		//SKILLTRAINCOST,
@@ -357,6 +409,14 @@ public class CMProps extends Properties
 		RP_CHANNEL_NAMED,
 		MAXITEMSWORN,
 		MAXWEARPERLOC,
+		EFFECTCAP,
+		EFFECTCXL,
+		CLASSTRAINCOST,
+		CLASSSWITCHCOST,
+		LOGOUTMASKTICKS,
+		FIRSTCREATEDYEAR,
+		PRIDECOUNT,
+		PRACMAXPCT
 		;
 
 		public static final int	EXVIEW_DEFAULT		= 0;
@@ -399,7 +459,8 @@ public class CMProps extends Properties
 			DAMAGE_NUMBER(4096),
 			SKILL_PROFICIENCY(8192),
 			STAT_PROFICIENCY(16384),
-			FACTION_RANGE(32768)
+			FACTION_RANGE(32768),
+			POWER_LEVEL(65536)
 			;
 			public int value;
 			private Prowesses(final int val)
@@ -428,12 +489,10 @@ public class CMProps extends Properties
 		ITEMDCOMPRESS,
 		ROOMDCOMPRESS,
 		MOBDCOMPRESS,
-		MUDSTARTED,
 		POPULATIONSTARTED,
 		EMAILFORWARDING,
 		MOBNOCACHE,
 		ROOMDNOCACHE,
-		MUDSHUTTINGDOWN,
 		ACCOUNTEXPIRATION,
 		INTRODUCTIONSYSTEM,
 		FILERESOURCENOCACHE,
@@ -522,6 +581,13 @@ public class CMProps extends Properties
 		ARMOR_CONDITION_WOODEN,
 		ARMOR_CONDITION_METAL,
 		ARMOR_CONDITION_OTHER,
+		GENDERS,
+		ISO_LANG_CODES,
+		CORPSE_BLURBS,
+		ANIMAL_ORDER_LIST,
+		PERSONALITY_TRAITS,
+		LMT_STATS,
+		REALESTATE_MARKERS,
 		WEATHER_CLEAR, // try to always and forever keep these at the end...
 		WEATHER_CLOUDY, // try to always and forever keep these at the end...
 		WEATHER_WINDY, // try to always and forever keep these at the end...
@@ -535,9 +601,10 @@ public class CMProps extends Properties
 		WEATHER_DUSTSTORM, // try to always and forever keep these at the end...
 		WEATHER_DROUGHT, // try to always and forever keep these at the end...
 		WEATHER_WINTER_COLD, // try to always and forever keep these at the end...
+		WEATHER_FOG, // try to always and forever keep these at the end...
 		WEATHER_NONE // try to always and forever keep these at the end...
 		;
-		private String key;
+		private final String key;
 
 		private ListFile(final String key)
 		{
@@ -561,9 +628,9 @@ public class CMProps extends Properties
 	 */
 	public static enum WhiteList
 	{
-		CONNS,
+		IPSCONN,
 		LOGINS,
-		NEWPLAYERS
+		IPSNEWPLAYERS
 	}
 
 	@SuppressWarnings("unchecked")
@@ -594,6 +661,7 @@ public class CMProps extends Properties
 	protected int				 pkillLevelDiff		= 26;
 	protected boolean			 loaded				= false;
 	protected byte[]			 promptSuffix		= new byte[0];
+	protected final String[][]	 genderDefs			= new String[256][];
 	protected long				 lastReset			= System.currentTimeMillis();
 	protected long  			 TIME_TICK			= 4000;
 	protected long  			 MILLIS_PER_MUDHOUR	= 600000;
@@ -603,7 +671,8 @@ public class CMProps extends Properties
 	protected double			 TIME_TICK_DOUBLE	= TIME_TICK;
 	protected final Map<String,Integer>	maxClanCatsMap				= new HashMap<String,Integer>();
 	protected final Set<String>			publicClanCats				= new HashSet<String>();
-	protected final Map<String,Double>	skillMaxManaExceptions		= new HashMap<String,Double>();
+	protected volatile Object			skillMaxManaDefault			= Double.valueOf(0.0);
+	protected final Map<String,Object>	skillMaxManaExceptions		= new HashMap<String,Object>();
 	protected final Map<String,Double>	skillMinManaExceptions		= new HashMap<String,Double>();
 	protected final Map<String,Double>	skillActionCostExceptions	= new HashMap<String,Double>();
 	protected final Map<String,Double>	skillComActionCostExceptions= new HashMap<String,Double>();
@@ -614,9 +683,13 @@ public class CMProps extends Properties
 	protected final Map<WhiteList,Pattern[]>whiteLists				= new HashMap<WhiteList,Pattern[]>();
 	protected final PairVector<String,Long> newusersByIP			= new PairVector<String,Long>();
 	protected final Map<String,ThreadGroup> privateSet				= new HashMap<String,ThreadGroup>();
-	protected final Map<String,ExpertiseLibrary.SkillCostDefinition> commonCost  =new HashMap<String,ExpertiseLibrary.SkillCostDefinition>();
-	protected final Map<String,ExpertiseLibrary.SkillCostDefinition> skillsCost  =new HashMap<String,ExpertiseLibrary.SkillCostDefinition>();
-	protected final Map<String,ExpertiseLibrary.SkillCostDefinition> languageCost=new HashMap<String,ExpertiseLibrary.SkillCostDefinition>();
+	protected final Map<String,CostDef> commonCost  =new HashMap<String,CostDef>();
+	protected final Map<String,CostDef> skillsCost  =new HashMap<String,CostDef>();
+	protected final Map<String,CostDef> languageCost=new HashMap<String,CostDef>();
+	protected final Map<String,String>	ableArgs	=new HashMap<String,String>();
+
+	protected double 	speedAdj = 1.0;
+	protected HostState	hostState= HostState.BOOTING;
 
 	/**
 	 * Creates a properties object for the callers thread group using the given input stream
@@ -649,21 +722,7 @@ public class CMProps extends Properties
 		final char c=Thread.currentThread().getThreadGroup().getName().charAt(0);
 		if(props[c]==null)
 			props[c]=this;
-		try
-		{
-			final CMFile F=new CMFile(filename,null);
-			if(F.exists())
-			{
-				this.load(new ByteArrayInputStream(F.textUnformatted().toString().getBytes()));
-				loaded=true;
-			}
-			else
-				loaded=false;
-		}
-		catch(final IOException e)
-		{
-			loaded=false;
-		}
+		load(filename);
 	}
 
 	/**
@@ -679,15 +738,11 @@ public class CMProps extends Properties
 		if(props[c]==null)
 			props[c]=this;
 
-		try
-		{
-			this.load(new ByteArrayInputStream(new CMFile(filename,null).raw()));
-			loaded=true;
-		}
-		catch(final IOException e)
-		{
-			loaded=false;
-		}
+		for(final Object key : p.keySet())
+			if(key instanceof String)
+				super.setProperty((String)key, p.getProperty((String)key));
+		load(filename);
+		loaded=true;
 	}
 
 	/**
@@ -702,6 +757,30 @@ public class CMProps extends Properties
 		if(!page.loaded)
 			return null;
 		return page;
+	}
+
+	/**
+	 * Creates a new properties object detached from any thread group
+	 * and loads the given ini file.
+	 * @param iniFile the path and name of the ini file to load
+	 * @return the new properties object
+	 */
+	public static final Properties loadDetachedProperties(final String iniFile)
+	{
+		final CMFile F=new CMFile(iniFile,null);
+		if(F.exists())
+		{
+			final Properties P = new Properties();
+			try
+			{
+				P.load(new ByteArrayInputStream(F.textUnformatted().toString().getBytes()));
+				return P;
+			}
+			catch (final IOException e)
+			{
+			}
+		}
+		return new Properties();
 	}
 
 	/**
@@ -721,6 +800,31 @@ public class CMProps extends Properties
 				return P;
 		}
 		return p();
+	}
+
+	/**
+	 * Load the given ini filepath into this CMProps instance
+	 * and mark it as loaded.
+	 *
+	 * @param iniFilename the filename to load
+	 */
+	public void load(final String iniFilename)
+	{
+		try
+		{
+			final CMFile F=new CMFile(iniFilename,null);
+			if(F.exists())
+			{
+				this.load(new ByteArrayInputStream(F.textUnformatted().toString().getBytes()));
+				loaded=true;
+			}
+			else
+				loaded=false;
+		}
+		catch(final IOException e)
+		{
+			loaded=false;
+		}
 	}
 
 	/**
@@ -750,7 +854,7 @@ public class CMProps extends Properties
 	*/
 	public final String getPrivateStr(final String tagToGet)
 	{
-		final String s=getProperty(tagToGet);
+		final String s=CMStrings.convertHtmlEntities(getProperty(tagToGet));
 		if(s==null)
 			return "";
 		return s;
@@ -775,7 +879,7 @@ public class CMProps extends Properties
 	*/
 	public final String getStr(final String tagToGet)
 	{
-		final String thisTag=this.getProperty(tagToGet);
+		final String thisTag=CMStrings.convertHtmlEntities(this.getProperty(tagToGet));
 		if((thisTag==null)&&(props[MudHost.MAIN_HOST]!=null)&&(props[MudHost.MAIN_HOST]!=this))
 			return props[MudHost.MAIN_HOST].getStr(tagToGet);
 		if(thisTag==null)
@@ -792,7 +896,7 @@ public class CMProps extends Properties
 	*/
 	public final String getStr(final String tagToGet, final String defaultVal)
 	{
-		String thisTag=this.getProperty(tagToGet);
+		String thisTag=CMStrings.convertHtmlEntities(this.getProperty(tagToGet));
 		if((thisTag==null)&&(props[MudHost.MAIN_HOST]!=null)&&(props[MudHost.MAIN_HOST]!=this))
 			thisTag=props[MudHost.MAIN_HOST].getStr(tagToGet);
 		if((thisTag==null)||(thisTag.length()==0))
@@ -919,6 +1023,15 @@ public class CMProps extends Properties
 		if(overrides.containsKey(uID))
 			return overrides.get(uID).doubleValue();
 		return defaultValue;
+	}
+
+	/**
+	 * Returns a multiplier adjustment for speed bonuses from all causes
+	 * @return the multiplier
+	 */
+	public static final double getSpeedAdjustment()
+	{
+		return p().speedAdj;
 	}
 
 	/**
@@ -1252,11 +1365,11 @@ public class CMProps extends Properties
 		try
 		{
 			final int x=p().sysInts[Int.MOB_HP_BASE.ordinal()].intValue();
-			return (x<=0)?11:x;
+			return (x<=0)?DEFAULT_MOB_HP_BASE:x;
 		}
 		catch(final Exception t)
 		{
-			return 11;
+			return DEFAULT_MOB_HP_BASE;
 		}
 	}
 
@@ -1638,6 +1751,20 @@ public class CMProps extends Properties
 	}
 
 	/**
+	 * Returns any default arguments for the given ability id.
+	 * Parsed from the DEFAULTABILITYARGS entry.
+	 *
+	 * @param abilityID the ability id to get args for
+	 * @return null, or the arguments to use.
+	 */
+	public static final String getAbleArg(final String abilityID)
+	{
+		if(abilityID != null)
+			return p().ableArgs.get(abilityID.toUpperCase());
+		return null;
+	}
+
+	/**
 	 * Retrurns true if the given chk string matches one of the entries in the given WhiteList type for the
 	 * given properties object.
 	 * @param props the properties to check the whitelist on
@@ -1684,7 +1811,7 @@ public class CMProps extends Properties
 	 * @param map the map to store the cost definitions in
 	 * @param fields the pre-separated list of cost definitions to finish parsing
 	 */
-	public static final void setUpCosts(final String fieldName, final Map<String,ExpertiseLibrary.SkillCostDefinition> map, final List<String> fields)
+	public static final void setUpCosts(final String fieldName, final Map<String,CostDef> map, final List<String> fields)
 	{
 		final double[] doubleChecker=new double[10];
 		for(String field : fields)
@@ -1700,11 +1827,23 @@ public class CMProps extends Properties
 			}
 			final String type=field.substring(typeIndex+1).toUpperCase().trim();
 			String formula=field.substring(0,typeIndex).trim();
-			final ExpertiseLibrary.CostType costType=(ExpertiseLibrary.CostType)CMath.s_valueOf(ExpertiseLibrary.CostType.values(), type);
+			final CostType costType;
+			final String curr;
+			final Cost costPoss=CMLib.utensils().compileCost(1, type);
+			if(costPoss != null)
+			{
+				costType = costPoss.second;
+				curr = costPoss.third;
+			}
+			else
+			{
+				costType=(CostType)CMath.s_valueOf(CostType.values(), type);
+				curr=null;
+			}
 			if(costType==null)
 			{
 				Log.errOut("CMProps","Error parsing coffeemud.ini field '"+fieldName+"', invalid type: "+type);
-				Log.errOut("CMProps","Valid values include "+CMParms.toListString(ExpertiseLibrary.CostType.values()));
+				Log.errOut("CMProps","Valid values include "+CMParms.toListString(CostType.values()));
 				continue;
 			}
 			String keyField="";
@@ -1729,13 +1868,23 @@ public class CMProps extends Properties
 				Log.errOut("CMProps","Error parsing coffeemud.ini '"+fieldName+"' has duplicate key:"+((keyField.length()==0)?"<EMPTY>":keyField));
 				continue;
 			}
-			map.put(keyField.toUpperCase(), makeCostDefinition(costType,formula));
+			map.put(keyField.toUpperCase(), makeCostDefinition(costType,curr,formula));
 		}
 	}
 
-	private static final ExpertiseLibrary.SkillCostDefinition makeCostDefinition(final CostType costType, final String costDefinition)
+	/**
+	 * Creates a simple CostDef object from the given type and formula.
+	 * The formula is a number where at-x1 is the qualifying level
+	 * and at-x2 is the player level
+	 *
+	 * @param costType the cost type
+	 * @param currency null, "", or a currency type
+	 * @param costDefinition the definition formula
+	 * @return the built costdef object
+	 */
+	public static final CostDef makeCostDefinition(final CostType costType, final String currency, final String costDefinition)
 	{
-		return new ExpertiseLibrary.SkillCostDefinition()
+		return new CostDef()
 		{
 			@Override
 			public CostType type()
@@ -1748,6 +1897,29 @@ public class CMProps extends Properties
 			{
 				return costDefinition;
 			}
+
+			@Override
+			public String typeCurrency()
+			{
+				return currency;
+			}
+
+			@Override
+			public boolean equals(final Object o)
+			{
+				if(o instanceof CostDef)
+				{
+					return (costType == ((CostDef)o).type())
+						&& (costDefinition.equalsIgnoreCase(((CostDef)o).costDefinition()));
+				}
+				return false;
+			}
+
+			@Override
+			public int hashCode()
+			{
+				return costType.hashCode() ^ costDefinition.hashCode() ^ currency.hashCode();
+			}
 		};
 	}
 
@@ -1757,14 +1929,23 @@ public class CMProps extends Properties
 	 * @param id the Ability id to find a cost for
 	 * @return the cost definition object for the given Ability.
 	 */
-	public static final ExpertiseLibrary.SkillCostDefinition getNormalSkillGainCost(final String id)
+	public static final CostDef getNormalSkillGainCost(final String id)
 	{
 		final CMProps p=p();
-		ExpertiseLibrary.SkillCostDefinition pair=p.skillsCost.get(id.toUpperCase());
-		if(pair==null)
+		if(p.skillsCost.size()==0)
+			setUpCosts("SKILLCOST",p.skillsCost,CMParms.parseCommas(p.getStr(Str.SKILLCOST),true));
+		CostDef pair=p.skillsCost.get(id.toUpperCase());
+		if(pair == null)
+		{
 			pair=p.skillsCost.get("");
+			if(pair != null)
+				p.skillsCost.put(id.toUpperCase(), pair);
+		}
 		if(pair==null)
-			pair=makeCostDefinition(ExpertiseLibrary.CostType.TRAIN, "1");
+		{
+			pair=makeCostDefinition(CostType.TRAIN, null, "1");
+			p.skillsCost.put(id.toUpperCase(), pair);
+		}
 		return pair;
 	}
 
@@ -1774,14 +1955,23 @@ public class CMProps extends Properties
 	 * @param id the common skill Ability id to find a cost for
 	 * @return the cost definition object for the given common skill Ability.
 	 */
-	public static final ExpertiseLibrary.SkillCostDefinition getCommonSkillGainCost(final String id)
+	public static final CostDef getCommonSkillGainCost(final String id)
 	{
 		final CMProps p=p();
-		ExpertiseLibrary.SkillCostDefinition pair=p.commonCost.get(id.toUpperCase());
-		if(pair==null)
+		if(p.commonCost.size()==0)
+			setUpCosts("COMMONCOST",p.commonCost,CMParms.parseCommas(p.getStr(Str.COMMONCOST),true));
+		CostDef pair=p.commonCost.get(id.toUpperCase());
+		if(pair == null)
+		{
 			pair=p.commonCost.get("");
+			if(pair != null)
+				p.commonCost.put(id.toUpperCase(), pair);
+		}
 		if(pair==null)
-			pair=makeCostDefinition(ExpertiseLibrary.CostType.TRAIN, "1");
+		{
+			pair=makeCostDefinition(CostType.TRAIN, null, "1");
+			p.commonCost.put(id.toUpperCase(), pair);
+		}
 		return pair;
 	}
 
@@ -1791,14 +1981,23 @@ public class CMProps extends Properties
 	 * @param id the language skill Ability id to find a cost for
 	 * @return the cost definition object for the given language skill Ability.
 	 */
-	public static final ExpertiseLibrary.SkillCostDefinition getLangSkillGainCost(final String id)
+	public static final CostDef getLangSkillGainCost(final String id)
 	{
 		final CMProps p=p();
-		ExpertiseLibrary.SkillCostDefinition pair=p.languageCost.get(id.toUpperCase());
-		if(pair==null)
+		if(p.languageCost.size()==0)
+			setUpCosts("LANGCOST",p.languageCost,CMParms.parseCommas(p.getStr(Str.LANGCOST),true));
+		CostDef pair=p.languageCost.get(id.toUpperCase());
+		if(pair == null)
+		{
 			pair=p.languageCost.get("");
+			if(pair != null)
+				p.languageCost.put(id.toUpperCase(), pair);
+		}
 		if(pair==null)
-			pair=makeCostDefinition(ExpertiseLibrary.CostType.TRAIN, "1");
+		{
+			pair=makeCostDefinition(CostType.TRAIN, null, "1");
+			p.languageCost.put(id.toUpperCase(), pair);
+		}
 		return pair;
 	}
 
@@ -1857,17 +2056,72 @@ public class CMProps extends Properties
 	}
 
 	/**
-	 * Returns the maximum amount of usage cost (mana) for the given ability ID().
-	 * All for the callers thread group.  If no cost is found, returns MIN_VALUE.
-	 * @param skillID the Ability ID to find a maximum cost for.
-	 * @return the maximum cost of usage (mana) for the ability.
+	 * Returns the amount of usage cost (mana) for the given ability ID().
+	 * All for the callers thread group.  If no cost is found, returns
+	 * the base mana cost object.
+	 * @param skillID the Ability ID to find a cost for.
+	 * @return the cost of usage (mana) determiner for the ability.
 	 */
-	public static final int getMaxManaException(final String skillID)
+	public static final Object getManaCostObject(final String skillID)
 	{
-		final Map<String,Double> DV=p().skillMaxManaExceptions;
+		final CMProps p=p();
+		final Map<String,Object> DV=p.skillMaxManaExceptions;
 		if(DV.containsKey(skillID.toUpperCase()))
-			return DV.get(skillID.toUpperCase()).intValue();
-		return Integer.MIN_VALUE;
+			return DV.get(skillID.toUpperCase());
+		return p.skillMaxManaDefault;
+	}
+
+	/**
+	 * Returns the amount of usage cost (mana) for the given ability ID().
+	 * All for the callers thread group.  If no cost is found, returns
+	 * null.
+	 * @param skillID the Ability ID to find a cost for.
+	 * @return the cost of usage (mana) determiner for the ability.
+	 */
+	public static final Object getManaCostExceptionObject(final String skillID)
+	{
+		final Map<String,Object> DV=p().skillMaxManaExceptions;
+		if(DV.containsKey(skillID.toUpperCase()))
+			return DV.get(skillID.toUpperCase());
+		return null;
+	}
+
+	private static final Object getIndividualManaCostObject(final String s)
+	{
+		if(CMath.isNumber(s))
+			return Integer.valueOf((int)CMath.s_double(s));
+		else
+		if(CMath.isMathExpression(s,EMPTY_DOUBLE_VARS))
+			return CMath.compileMathExpression(s);
+		return null;
+	}
+
+	private static final Object setManaCosts(final String val, final Map<String,Object> set)
+	{
+		if((val==null)||(val.length()==0))
+			return Double.valueOf(0);
+		set.clear();
+		final List<String> V=CMParms.parseCommas(val,true);
+		Object endVal=Double.valueOf(0);
+		for(final String s : V)
+		{
+			final Object simpleCost = getIndividualManaCostObject(s);
+			if(simpleCost != null)
+				endVal = simpleCost;
+			else
+			{
+				final int x=s.indexOf(' ');
+				if(x>=0)
+				{
+					final String ableID=s.substring(0,x).trim().toUpperCase();
+					final String numStr=s.substring(x+1).trim();
+					final Object simpleSkillCost = getIndividualManaCostObject(numStr);
+					if(simpleSkillCost != null)
+						set.put(ableID,simpleSkillCost);
+				}
+			}
+		}
+		return endVal;
 	}
 
 	private static final double setExceptionCosts(final String val, final Map<String,Double> set)
@@ -1881,7 +2135,17 @@ public class CMProps extends Properties
 		{
 			if(CMath.isNumber(s))
 			{
-				endVal=CMath.s_double(s);
+				final double x=CMath.s_double(s);
+				if((endVal < 0)&&(x>0))
+					set.put("_DEFAULT",Double.valueOf(x));
+				else
+				if((endVal > 0)&&(x<0))
+				{
+					set.put("_DEFAULT",Double.valueOf(endVal));
+					endVal=x;
+				}
+				else
+					endVal=x;
 			}
 			else
 			{
@@ -1901,7 +2165,7 @@ public class CMProps extends Properties
 			listFileNameStr=p.getProperty("LISTFILE");
 		else
 			listFileNameStr = props['0'].getProperty("LISTFILE");
-		final String rscKey=("PARSED_LISTFILE"+(listFileNameStr.hashCode())).intern();
+		final String rscKey=("PARSED_LISTFILE"+(listFileNameStr.hashCode()));
 		Properties rawListData=(Properties)Resources.getResource(rscKey);
 		if(rawListData==null)
 		{
@@ -1941,6 +2205,8 @@ public class CMProps extends Properties
 						p.sysLstFileLists[lfVar.ordinal()]=null;
 						p.sysLstFileSet[lfVar.ordinal()]=null;
 					}
+					for(int i=0;i<p.genderDefs.length;i++)
+						p.genderDefs[i]=null;
 				}
 			}
 		}
@@ -1948,6 +2214,50 @@ public class CMProps extends Properties
 		if(val == null)
 			Log.errOut("CMProps","Unable to load required list file entry: "+key);
 		return val;
+	}
+
+	/**
+	 * Returns a pre-parsed version of the GENDER entry from the INI file
+	 * corresponding to the given gender code, which must be an uppercase
+	 * letter.
+	 *
+	 * @param index the uppercase letter code
+	 * @return the gender strings (pronouns, mostly)
+	 */
+	public static String[] getGenderDef(int index)
+	{
+		if((index < 0)||(index > 255))
+			index = 0;
+		final CMProps p=p();
+		if(p.genderDefs[index] == null)
+		{
+			int lastDex = -1;
+			for(final Object[] gendSet : CMProps.getListFileStringChoices(CMProps.ListFile.GENDERS))
+			{
+				if((gendSet.length>0)
+				&&(gendSet[0] instanceof String)
+				&&(((String)gendSet[0]).length()>0))
+				{
+					final char cd = Character.toUpperCase(((String)gendSet[0]).charAt(0));
+					p.genderDefs[cd] = new String[gendSet.length-1];
+					for(int i=1;i<gendSet.length;i++)
+						p.genderDefs[cd][i-1] = (String)gendSet[i];
+					lastDex = cd;
+				}
+			}
+			if(p.genderDefs[index] == null)
+			{
+				if(lastDex < 0)
+				{
+					p.genderDefs[index] = new String[20];
+					Arrays.fill(p.genderDefs, "UNK");
+				}
+				else
+					p.genderDefs[index] = p.genderDefs[lastDex];
+			}
+		}
+		return p.genderDefs[index];
+
 	}
 
 	/**
@@ -1981,6 +2291,36 @@ public class CMProps extends Properties
 			p.sysLstFileSet[var.ordinal()]=null;
 		}
 		return ((String[])objs[var.ordinal()]);
+	}
+
+	/**
+	 * Returns the entire string list from the lists.ini file of the
+	 * given ListFile entry, for the callers thread group.  These
+	 * are in pairs, comma separated, and semicolon groups.
+	 * @param var the ListFile entry to return the string list from
+	 * @return the string pair list from the lists.ini file
+	 */
+	@SuppressWarnings("unchecked")
+	public static final Pair<String,String>[] getListFileStringPairsList(final ListFile var)
+	{
+		if(var==null)
+			return new Pair[0];
+		final CMProps p=p();
+		final Object[] objs=p.sysLstFileLists;
+		if(objs[var.ordinal()]==null)
+		{
+			final List<List<String>> pairStrs = CMParms.parseDoubleDelimited(getRawListFileEntry(var.getKey()), ';', ',');
+			final List<Pair<String,String>> finalPairs = new ArrayList<Pair<String,String>>();
+			for(int i=0;i<pairStrs.size();i++)
+			{
+				final List<String> pair = pairStrs.get(i);
+				if(pair.size()==2)
+					finalPairs.add(new Pair<String,String>(pair.get(0).trim(), pair.get(1).trim()));
+			}
+			objs[var.ordinal()]=finalPairs.toArray(new Pair[pairStrs.size()]);
+			p.sysLstFileSet[var.ordinal()]=null;
+		}
+		return ((Pair[])objs[var.ordinal()]);
 	}
 
 	/**
@@ -2021,7 +2361,7 @@ public class CMProps extends Properties
 	 * @param var the list entry to return
 	 * @return the two-dimensional list.
 	 */
-	private static final Object[][] getListFileStringChoices(final ListFile var)
+	public static final Object[][] getListFileStringChoices(final ListFile var)
 	{
 		if(var==null)
 			return new Object[0][];
@@ -2179,6 +2519,55 @@ public class CMProps extends Properties
 	}
 
 	/**
+	 * Checks the HostState tied to this prop through
+	 * its thread group.
+	 *
+	 * @param state the state to check for
+	 * @return whether it is in that state
+	 */
+	public final static boolean isState(final HostState state)
+	{
+		return p()._isState(state);
+	}
+
+	/**
+	 * Checks the HostState tied to this prop.
+	 *
+	 * @param state the state to check for
+	 * @return whether it is in that state
+	 */
+	public final boolean _isState(final HostState state)
+	{
+		return hostState == state;
+	}
+
+	/**
+	 * Sets the HostState tied to this prop through
+	 * its thread group.
+	 *
+	 * @param state the state to set to
+	 */
+	public final static void setState(final HostState state)
+	{
+		p().hostState = state;
+	}
+
+	/**
+	 * Sets the HostState tied to all props through
+	 * in all thread groups
+	 *
+	 * @param state the state to set to
+	 */
+	public final static void setAllStates(final HostState state)
+	{
+		for(final CMProps p : CMProps.props)
+		{
+			if(p!=null)
+				p.hostState = state;
+		}
+	}
+
+	/**
 	 * Reads this properties objects and sets ALL internal variables.  Can be re-called if
 	 * any properties are changed.
 	 */
@@ -2204,7 +2593,18 @@ public class CMProps extends Properties
 			privateSet.put(s.trim(),Thread.currentThread().getThreadGroup());
 
 		setVar(Str.BADNAMES,getStr("BADNAMES"));
-		setVar(Str.MULTICLASS,getStr("CLASSSYSTEM"));
+		setIntVar(Int.CLASSTRAINCOST,1);
+		setIntVar(Int.CLASSSWITCHCOST,1);
+		for(final String cs : CMParms.parseCommas(getStr("CLASSSYSTEM"), true))
+		{
+			if(CMath.isNumber(CMParms.getParmStr(cs,"GAIN", "")))
+				setIntVar(Int.CLASSTRAINCOST,""+Math.round(CMath.s_double(CMParms.getParmStr(cs,"GAIN", ""))));
+			else
+			if(CMath.isNumber(CMParms.getParmStr(cs,"SWITCH", "")))
+				setIntVar(Int.CLASSSWITCHCOST,""+Math.round(CMath.s_double(CMParms.getParmStr(cs,"SWITCH", ""))));
+			else
+				setVar(Str.MULTICLASS,cs.toUpperCase());
+		}
 		setVar(Str.PKILL,getStr("PLAYERKILL"));
 		setVar(Str.PLAYERDEATH,getStr("PLAYERDEATH"));
 		setVar(Str.ITEMLOOTPOLICY,getStr("ITEMLOOTPOLICY"));
@@ -2235,6 +2635,69 @@ public class CMProps extends Properties
 		setUpLowVar(Str.I3ROUTERS,getStr("I3ROUTERS"));
 		setVar(Str.AUTOREACTION,getStr("AUTOREACTION"));
 		setVar(Str.WIZLISTMASK,getStr("WIZLISTMASK"));
+		setUpLowVar(Str.DEITYPOLICY,getStr("DEITYPOLICY"));
+		setUpLowVar(Str.DEFAULTABILITYARGS,getStr("DEFAULTABILITYARGS"));
+		ableArgs.clear();
+		for(final String set : CMParms.parseCommasSafe(getVar(Str.DEFAULTABILITYARGS), true))
+		{
+			final int i=set.indexOf('=');
+			if(i>0)
+				ableArgs.put(set.substring(0,i).toUpperCase().trim(), set.substring(i+1));
+		}
+		setUpLowVar(Str.NEWDOMAINS,getStr("NEWDOMAINS"));
+		{
+			final List<String> newDoms = CMParms.parseCommas(getVar(Str.NEWDOMAINS), true);
+			if(newDoms.size() > 0)
+			{
+				try
+				{
+					Ability.DOMAIN.DESCS.clear();
+					Ability.DOMAIN.VERBS.clear();
+				}
+				catch(final Exception e)
+				{}
+				for(final String newDom : newDoms)
+				{
+					final int x = newDom.indexOf('=');
+					if(x > 0)
+					{
+						final String newDomainName = newDom.substring(0,x).toUpperCase().trim().replace(' ', '_');
+						final String newDomainVerb = newDom.substring(x+1).trim();
+						if(newDomainName.length()>0)
+						{
+							Ability.DOMAIN.DESCS.add(newDomainName);
+							Ability.DOMAIN.VERBS.add(newDomainVerb);
+						}
+					}
+				}
+			}
+		}
+		setUpLowVar(Str.TWITTER_OAUTHCONSUMERKEY,getStr("TWITTER_OAUTHCONSUMERKEY"));
+		setUpLowVar(Str.TWITTER_OAUTHCONSUMERSECRET,getStr("TWITTER_OAUTHCONSUMERSECRET"));
+		setUpLowVar(Str.TWITTER_OAUTHACCESSTOKEN,getStr("TWITTER_OAUTHACCESSTOKEN"));
+		setUpLowVar(Str.TWITTER_OAUTHACCESSTOKENSECRET,getStr("TWITTER_OAUTHACCESSTOKENSECRET"));
+		setUpLowVar(Str.LANGCHAIN4J_JAR_PATH,getStr("LANGCHAIN4J_JAR_PATH"));
+		setVar(Str.LANGCHAIN4J_LLM_TYPE,getStr("LANGCHAIN4J_LLM_TYPE"));
+		setUpLowVar(Str.MPCPKEY,getStr("MPCPKEY"));
+		setVar(Str.NEWACODES,getStr("NEWACODES"));
+		{
+			final List<String> newCods = CMParms.parseCommas(getVar(Str.NEWACODES), true);
+			if(newCods.size() > 0)
+			{
+				Ability.ACODE.DESCS.clear();
+				Ability.ACODE.DESCS_.clear();
+				for(final String newCod : newCods)
+				{
+					if(newCod.length()>0)
+					{
+						Ability.ACODE.DESCS.add(newCod.toUpperCase().trim().replace('_', ' '));
+						Ability.ACODE.DESCS_.add(newCod.toUpperCase().trim().replace(' ', '_'));
+					}
+				}
+			}
+		}
+		setVar(Str.PRIDECATS,getStr("PRIDECATS"));
+		setIntVar(Int.PRIDECOUNT,getStr("PRIDECOUNT","10"));
 		setUpLowVar(Str.DEFAULTPARENTAREA,getStr("DEFAULTPARENTAREA"));
 		setUpLowVar(Str.CLANWEBSITES,getStr("CLANWEBSITES"));
 		setVar(Str.CHANNELBACKLOG,getStr("CHANNELBACKLOG"));
@@ -2294,6 +2757,8 @@ public class CMProps extends Properties
 			sysLstFileLists[lfVar.ordinal()]=null;
 			sysLstFileSet[lfVar.ordinal()]=null;
 		}
+		for(int i=0;i<genderDefs.length;i++)
+			genderDefs[i]=null;
 		setVar(Str.EMOTEFILTER,getStr("EMOTEFILTER"));
 		p().emoteFilter.clear();
 		p().emoteFilter.addAll(CMParms.parse((getStr("EMOTEFILTER")).toUpperCase()));
@@ -2304,8 +2769,27 @@ public class CMProps extends Properties
 		setVar(Str.EXPDEFER,getStr("EXPDEFER",""));
 		parseXPDeferDetails(getVar(Str.EXPDEFER));
 		setVar(Str.RPAWARDS,getStr("RPAWARDS",""));
+		setVar(Str.XPMOD,getStr("XPMOD",""));
 		parseRPAwards(getVar(Str.RPAWARDS));
-		setVar(Str.LOGOUTMASK,getStr("LOGOUTMASK",""));
+		{
+			final String logoutMaskStr = getStr("LOGOUTMASK","").trim();
+			final String logoutMask;
+			final int logoutTicks;
+			final int x = logoutMaskStr.indexOf(' ');
+			if((x>0)&&(CMath.s_int(logoutMaskStr.substring(0,x))>0))
+			{
+				logoutTicks = CMath.s_int(logoutMaskStr.substring(0,x));
+				logoutMask = logoutMaskStr.substring(x+1).trim();
+			}
+			else
+			{
+				logoutTicks = 0;
+				logoutMask = logoutMaskStr;
+			}
+			setVar(Str.LOGOUTMASK, logoutMask);
+			setIntVar(Int.LOGOUTMASKTICKS, logoutTicks);
+		}
+		setVar(Str.TRAINCOSTS,getStr("TRAINCOSTS","HITPOINTS 10 1 TRAIN, MANA 20 1 TRAIN, MOVES 20 1 TRAIN, GAIN 1 7 PRACTICE, PRACTICES 5 1 TRAIN"));
 		String ppath=getStr("PRIVATERESOURCEPATH","");
 		if(!ppath.endsWith("/"))
 			ppath += "/";
@@ -2343,6 +2827,7 @@ public class CMProps extends Properties
 		setVar(Str.DEFAULTPLAYERFLAGS,getStr("DEFAULTPLAYERFLAGS"));
 		setUpLowVar(Str.AUTOAREAPROPS,getStr("AUTOAREAPROPS"));
 		setUpLowVar(Str.MXPIMAGEPATH,getStr("MXPIMAGEPATH"));
+		setUpLowVar(Str.MSXPVARS,getStr("MSXPVARS"));
 		setBoolVar(Bool.ACCOUNTEXPIRATION,getStr("ACCOUNTEXPIRATION").equalsIgnoreCase("YES")?true:false);
 		setBoolVar(Bool.INTRODUCTIONSYSTEM,getStr("INTRODUCTIONSYSTEM").equalsIgnoreCase("YES")?true:false);
 		setBoolVar(Bool.HASHPASSWORDS,getStr("HASHPASSWORDS").equalsIgnoreCase("YES")?true:false);
@@ -2350,9 +2835,12 @@ public class CMProps extends Properties
 		setUpLowVar(Str.CHARCREATIONSCRIPTS,getStr("CHARCREATIONSCRIPTS"));
 		setUpLowVar(Str.CHARSETINPUT,getStr("CHARSETINPUT","iso-8859-1"));
 		setUpLowVar(Str.CHARSETOUTPUT,getStr("CHARSETOUTPUT","iso-8859-1"));
-		setUpCosts("COMMONCOST",commonCost,CMParms.parseCommas(getStr("COMMONCOST","1 TRAIN"),true));
-		setUpCosts("SKILLCOST",skillsCost,CMParms.parseCommas(getStr("SKILLCOST","1 TRAIN"),true));
-		setUpCosts("LANGCOST",languageCost,CMParms.parseCommas(getStr("LANGCOST","3 PRACTICE"),true));
+		setUpLowVar(Str.COMMONCOST,getStr("COMMONCOST","1 TRAIN"));
+		commonCost.clear();
+		setUpLowVar(Str.SKILLCOST,getStr("SKILLCOST","1 TRAIN"));
+		skillsCost.clear();
+		setUpLowVar(Str.LANGCOST,getStr("LANGCOST","3 PRACTICE"));
+		languageCost.clear();
 		setVar(Str.RACEMIXING,getStr("RACEMIXING"));
 		final String[] hungerCodes=CMParms.parseCommas(getStr("HUNGER","500,100,100"),true).toArray(new String[3]);
 		setIntVar(Int.HUNGER_FULL,hungerCodes.length>0?CMath.s_int(hungerCodes[0]):500);
@@ -2362,15 +2850,13 @@ public class CMProps extends Properties
 		setIntVar(Int.THIRST_FULL,thirstCodes.length>0?CMath.s_int(thirstCodes[0]):500);
 		setIntVar(Int.THIRST_GAIN_PCT,thirstCodes.length>1?CMath.s_int(CMStrings.deleteAllofChar(thirstCodes[1], '%')):100);
 		setIntVar(Int.THIRST_LOSS_PCT,thirstCodes.length>2?CMath.s_int(CMStrings.deleteAllofChar(thirstCodes[2], '%')):100);
-		setIntVar(Int.MOB_HP_BASE,CMath.s_int(getStr("MOB_HP_BASE","11")));
+		setIntVar(Int.MOB_HP_BASE,CMath.s_int(getStr("MOB_HP_BASE",""+DEFAULT_MOB_HP_BASE)));
+		p().speedAdj = CMath.s_double(getStr("BONUSACT","1.0"));
 
 		setUpLowVar(Str.BLACKLISTFILE,getStr("BLACKLISTFILE","/resources/ipblock.ini"));
-		setWhitelist(CMProps.WhiteList.CONNS,getStr("WHITELISTIPSCONN"));
+		setWhitelist(CMProps.WhiteList.IPSCONN,getStr("WHITELISTIPSCONN"));
 		setWhitelist(CMProps.WhiteList.LOGINS,getStr("WHITELISTLOGINS"));
-		setWhitelist(CMProps.WhiteList.NEWPLAYERS,getStr("WHITELISTIPSNEWPLAYERS"));
-
-		if(p().sysBools[Bool.MUDSHUTTINGDOWN.ordinal()]==null)
-			p().sysBools[Bool.MUDSHUTTINGDOWN.ordinal()]=Boolean.FALSE;
+		setWhitelist(CMProps.WhiteList.IPSNEWPLAYERS,getStr("WHITELISTIPSNEWPLAYERS"));
 
 		for(final StrList strListVar : StrList.values())
 		{
@@ -2465,14 +2951,18 @@ public class CMProps extends Properties
 		setIntVar(Int.BASEMAXSTAT,getStr("BASEMAXSTAT","18"));
 		setIntVar(Int.BASEMINSTAT,getStr("BASEMINSTAT","3"));
 		setIntVar(Int.STARTSTAT,getStr("STARTSTAT"));
+		setIntVar(Int.EFFECTCAP,getStr("EFFECTCAP"));
+		setIntVar(Int.EFFECTCXL,getStr("EFFECTCXL"));
 		setIntVar(Int.DEFCMDTIME,(int)Math.round(CMProps.setExceptionCosts(getStr("DEFCMDTIME"),p().cmdActionCostExceptions)*100.0));
 		setIntVar(Int.DEFCOMCMDTIME,(int)Math.round(CMProps.setExceptionCosts(getStr("DEFCOMCMDTIME"),p().cmdComActionCostExceptions)*100.0));
 		setIntVar(Int.DEFABLETIME,(int)Math.round(CMProps.setExceptionCosts(getStr("DEFABLETIME"),p().skillActionCostExceptions)*100.0));
 		setIntVar(Int.DEFCOMABLETIME,(int)Math.round(CMProps.setExceptionCosts(getStr("DEFCOMABLETIME"),p().skillComActionCostExceptions)*100.0));
 		setIntVar(Int.DEFSOCTIME,(int)Math.round(CMProps.setExceptionCosts(getStr("DEFSOCTIME"),p().socActionCostExceptions)*100.0));
 		setIntVar(Int.DEFCOMSOCTIME,(int)Math.round(CMProps.setExceptionCosts(getStr("DEFCOMSOCTIME"),p().socComActionCostExceptions)*100.0));
-		setIntVar(Int.MANACOST,(int)CMProps.setExceptionCosts(getStr("MANACOST"),p().skillMaxManaExceptions));
+		setUpLowVar(Str.MANACOST,getStr("MANACOST"));
+		p().skillMaxManaDefault = CMProps.setManaCosts(getStr("MANACOST"), p().skillMaxManaExceptions);
 		setIntVar(Int.MANAMINCOST,(int)CMProps.setExceptionCosts(getStr("MANAMINCOST"),p().skillMinManaExceptions));
+		setIntVar(Int.PRACMAXPCT,getStr("PRACMAXPCT","75"),75);
 		setIntVar(Int.EDITORTYPE,(getStr("EDITORTYPE").equalsIgnoreCase("WIZARD")) ? 1 : 0);
 		setIntVar(Int.MINCLANMEMBERS,getStr("MINCLANMEMBERS"));
 		setIntVar(Int.MAXCLANMEMBERS,getStr("MAXCLANMEMBERS"));
@@ -2557,15 +3047,9 @@ public class CMProps extends Properties
 		}
 		setIntVar(Int.COMBATPROWESS, prowValue);
 
-		String stateVar=getStr("STARTHP");
-		if((stateVar.length()>0)&&(CMath.isNumber(stateVar)))
-			setIntVar(Int.STARTHP,CMath.s_int(stateVar));
-		stateVar=getStr("STARTMANA");
-		if((stateVar.length()>0)&&(CMath.isNumber(stateVar)))
-			setIntVar(Int.STARTMANA,CMath.s_int(stateVar));
-		stateVar=getStr("STARTMOVE");
-		if((stateVar.length()>0)&&(CMath.isNumber(stateVar)))
-			setIntVar(Int.STARTMOVE,CMath.s_int(stateVar));
+		setStartStateStuff(Int.STARTHP, Str.FORMULA_CLASSHPADD, "STARTHP");
+		setStartStateStuff(Int.STARTMANA, Str.FORMULA_CLASSMNADD, "STARTMANA");
+		setStartStateStuff(Int.STARTMOVE, Str.FORMULA_CLASSMVADD, "STARTMOVE");
 
 		setIntVar(Int.MAXITEMSHOWN,getStr("MAXITEMSHOWN"));
 		setIntVar(Int.MAXITEMSWORN,getStr("MAXITEMSWORN"));
@@ -2603,13 +3087,20 @@ public class CMProps extends Properties
 		setUpLowVar(Str.FORMULA_TOTALCOMBATXP, getStr("FORMULA_TOTALCOMBATXP","100 + ((25*@x1) - (@x1*((25*@x1)^.5)))"));
 		setUpLowVar(Str.FORMULA_INDCOMBATXP, getStr("FORMULA_INDCOMBATXP","(@x1 * (@x2 / @x3)) < 100"));
 
+		setUpLowVar(Str.FORMULA_MAXCARRY, getStr("FORMULA_MAXCARRY","@x1 + ((@x2 + 10.0) * @x2 * @x1 / 150.0) + (@x2 * 5.0)"));
+		setUpLowVar(Str.FORMULA_MAXITEMS, getStr("FORMULA_MAXITEMS","(2 * @x1) + (2 * @x3) + (2 * @x2)"));
+		setUpLowVar(Str.FORMULA_MAXFOLLOW, getStr("FORMULA_MAXFOLLOW","1 + ( ( @x2 - 6.0 ) / 3.0)"));
+		setUpLowVar(Str.FORMULA_PROFGAIN, getStr("FORMULA_PROFGAIN","(100 - (@x3 * 50)) * ( (@x1 + 1 - @x2) / ( (@x1 * 2) + (10 * @x2) ) )"));
+
+		setUpLowVar(Str.DISCORD_JAR_PATH, getStr("DISCORD_JAR_PATH",""));
+		setUpLowVar(Str.DISCORD_BOT_KEY, getStr("DISCORD_BOT_KEY",""));
 		final LanguageLibrary lang = CMLib.lang();
 		Directions.instance().reInitialize(getInt("DIRECTIONS"), new Directions.DirectionWordTranslator()
 		{
 			@Override
-			public String translate(final String string)
+			public String translate(final String directonWord)
 			{
-				return lang.L(string);
+				return lang.fullSessionTranslation(Directions.class,directonWord);
 			}
 		});
 
@@ -2626,6 +3117,20 @@ public class CMProps extends Properties
 
 		CMLib.propertiesLoaded();
 		this.lastReset=System.currentTimeMillis();
+	}
+
+	protected void setStartStateStuff(final Int startState, final Str addState, final String var)
+	{
+		setUpLowVar(addState,"");
+		String stateVar=getStr(var);
+		final int stateVarX=stateVar.indexOf(',');
+		if(stateVarX>0)
+		{
+			setUpLowVar(addState,stateVar.substring(stateVarX+1));
+			stateVar=stateVar.substring(0,stateVarX).trim();
+		}
+		if((stateVar.length()>0)&&(CMath.isNumber(stateVar)))
+			setIntVar(startState,CMath.s_int(stateVar));
 	}
 
 	/**
@@ -3096,12 +3601,12 @@ public class CMProps extends Properties
 		}
 		if((!CMath.isNumber(s)) && (!CMath.isPct(s)))
 		{
-			Log.errOut("Malformed award definition (no or bad pct): "+ln);
+			Log.errOut("Malformed RPAWARDS definition (no or bad pct): "+ln);
 			return;
 		}
 		if(!CMath.isInteger(s2))
 		{
-			Log.errOut("Malformed award definition (no or bad time): "+ln);
+			Log.errOut("Malformed RPAWARDS definition (no or bad time): "+ln);
 			return;
 		}
 		double awardXPPct;
@@ -3123,7 +3628,7 @@ public class CMProps extends Properties
 				Log.errOut("Incomplete award definition ("+s+")");
 			else
 			if(!CMath.isInteger(s.substring(x+1).trim()))
-				Log.errOut("Malformed award amount definition ("+s+")");
+				Log.errOut("Malformed RPAWARDS amount definition ("+s+")");
 			else
 			if(s.startsWith("CHANNEL-NAMED(") && s.endsWith(")"))
 			{
@@ -3135,7 +3640,7 @@ public class CMProps extends Properties
 			{
 				final Int code=(Int)CMath.s_valueOf(Int.class, "RP_"+s.substring(0,x).replace('-','_'));
 				if(code == null)
-					Log.errOut("Malformed award type definition ("+s+")");
+					Log.errOut("Malformed RPAWARDS type definition ("+s+")");
 				else
 					CMProps.setIntVar(code, CMath.s_int(s.substring(x+1).trim()));
 			}

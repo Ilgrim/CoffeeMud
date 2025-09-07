@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -158,11 +158,32 @@ public class Spell_Timeport extends Spell
 	}
 
 	@Override
+	public int castingQuality(final MOB mob, final Physical target)
+	{
+		if(mob!=null)
+		{
+			if((target == null)
+			||(target == mob)
+			||(mob.getGroupMembers(new HashSet<MOB>()).contains(target)))
+				return Ability.QUALITY_INDIFFERENT;
+			return Ability.QUALITY_MALICIOUS;
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		final MOB target=getTarget(mob,commands,givenTarget);
 		if(target==null)
 			return false;
+
+		final int maliciousMask;
+		if((target == mob)
+		||(mob.getGroupMembers(new HashSet<MOB>()).contains(target)))
+			maliciousMask = 0;
+		else
+			maliciousMask = CMMsg.MASK_MALICIOUS;
 
 		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
 			return false;
@@ -172,7 +193,9 @@ public class Spell_Timeport extends Spell
 		if(success)
 		{
 
-			final CMMsg msg = CMClass.getMsg(mob, target, this,somanticCastCode(mob,target,auto),L(auto?"":"^S<S-NAME> speak(s) and gesture(s)")+"!^?");
+			final CMMsg msg = CMClass.getMsg(mob, target, this,
+											 somaticCastCode(mob,target,auto) | maliciousMask,
+											 L(auto?"":"^S<S-NAME> speak(s) and gesture(s)")+"!^?");
 			if(mob.location().okMessage(mob,msg))
 			{
 				mob.location().send(mob,msg);
@@ -193,7 +216,10 @@ public class Spell_Timeport extends Spell
 			}
 		}
 		else
+		if(maliciousMask == 0)
 			return beneficialVisualFizzle(mob,null,L("<S-NAME> incant(s) for awhile, but the spell fizzles."));
+		else
+			return maliciousFizzle(mob,null,L("<S-NAME> incant(s) for awhile, but the spell fizzles."));
 
 		// return whether it worked
 		return success;

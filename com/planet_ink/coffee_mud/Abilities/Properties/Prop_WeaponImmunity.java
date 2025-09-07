@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,6 +53,7 @@ public class Prop_WeaponImmunity extends Property implements TriggeredAffect
 	}
 
 	public Hashtable<String,Object> flags=new Hashtable<String,Object>();
+	public boolean fixFlags = false;
 
 	@Override
 	public int triggerMask()
@@ -73,10 +74,33 @@ public class Prop_WeaponImmunity extends Property implements TriggeredAffect
 		return id;
 	}
 
+	private static final Set<String> validFlags = new HashSet<String>();
+
 	@Override
 	public void setMiscText(final String newValue)
 	{
 		super.setMiscText(newValue);
+		if(validFlags.size()==0)
+		{
+			synchronized(validFlags)
+			{
+				if(validFlags.size()==0)
+				{
+					validFlags.addAll(Arrays.asList(new String[]{ "ALL", "MAGIC", "NONMAGIC", "LEVEL", "MAGICSKILLS", "MAGICSPELLS"}));
+					for(final String s : Weapon.TYPE_DESCS)
+						validFlags.add(s);
+					for(final String s : Weapon.CLASS_DESCS)
+						validFlags.add(s);
+					for(final int r : RawMaterial.CODES.ALL())
+					{
+						validFlags.add(RawMaterial.CODES.NAME(r));
+						validFlags.add(RawMaterial.CODES.MAT_NAME(r));
+					}
+					for(final int c : CharStats.CODES.ALLCODES())
+						validFlags.add(CharStats.CODES.NAME(c));
+				}
+			}
+		}
 		flags=new Hashtable<String,Object>();
 		final Vector<String> V=CMParms.parse(newValue.toUpperCase());
 		Object c=null;
@@ -84,46 +108,86 @@ public class Prop_WeaponImmunity extends Property implements TriggeredAffect
 		for(int v=0;v<V.size();v++)
 		{
 			s=V.elementAt(v);
-			c=new Character(s.charAt(0));
+			c=Character.valueOf(s.charAt(0));
 			if((s.charAt(0)=='-')||(s.charAt(0)=='+'))
 				s=s.substring(1);
 			else
-				c=new Character('+');
+				c=Character.valueOf('+');
 			if((s!=null)&&(s.startsWith("LEVEL")))
 			{
 				c=((Character)c).charValue()+" "+s.substring(5).trim();
 				s=s.substring(5).trim();
 			}
-			flags.put(s,c);
+			if(!validFlags.contains(s))
+			{
+				if(affected != null)
+					Log.errOut(ID(),"Unknown weapon immunity flag on "+affected.Name()+"@"+CMLib.map().getApproximateExtendedRoomID(CMLib.map().roomLocation(affected))+": "+s);
+				else
+				{
+					flags.put(s, Boolean.FALSE);
+					fixFlags=true;
+				}
+			}
+			else
+				flags.put(s,c);
 		}
 	}
+
 
 	@Override
 	public boolean okMessage(final Environmental myHost, final CMMsg msg)
 	{
 		if(!super.okMessage(myHost,msg))
 			return false;
+
+		if(flags.size()==0)
+			return true;
+		if(fixFlags)
+		{
+			fixFlags=false;
+			for(final Iterator<String> s1=flags.keySet().iterator();s1.hasNext();)
+			{
+				final String key = s1.next();
+				if(flags.get(key) == Boolean.FALSE)
+				{
+					Log.errOut(ID(),"Unknown weapon immunity flag on "+affected.Name()+"@"+CMLib.map().getApproximateExtendedRoomID(CMLib.map().roomLocation(affected))+": "+key);
+					s1.remove();
+				}
+			}
+		}
+
 		if((affected!=null)
 		&&(msg.targetMinor()==CMMsg.TYP_DAMAGE)
-		&&(msg.value()>0))
+		&&(msg.value()>0)
+		&&(msg.tool()!=null))
 		{
-			MOB M=null;
+			//MOB M=null;
 			if(affected instanceof MOB)
-				M=(MOB)affected;
+			{
+				if(!msg.amITarget(affected))
+					return true;
+			}
 			else
-			if((affected instanceof Item)
-			&&(((Item)affected).amBeingWornProperly())
-			&&(((Item)affected).owner()!=null)
-			&&(((Item)affected).owner() instanceof MOB))
-				M=(MOB)((Item)affected).owner();
-			if(M==null)
-				return true;
-			if(!msg.amITarget(M))
-				return true;
-			if(msg.tool()==null)
-				return true;
-			if(flags.size()==0)
-				return true;
+			if(affected instanceof Item)
+			{
+				if(affected instanceof Rideable)
+				{
+					if((!(msg.target() instanceof Rider))
+					||(!((Rideable)affected).amRiding((Rider)msg.target())))
+						return true;
+				}
+				else
+				if((((Item)affected).amBeingWornProperly())
+				&&(((Item)affected).owner()!=null)
+				&&(((Item)affected).owner() instanceof MOB))
+				{
+					if(!msg.amITarget(((Item)affected).owner()))
+						return true;
+				}
+				else	// this item is not worn or owned, so it doesn't count.
+					return true;
+			}
+			// else a room or area or exit or something, in which case ALL might be immune
 
 			boolean immune=flags.containsKey("ALL")&&(((Character)flags.get("ALL")).charValue()=='+');
 			Character foundPlusMinus=null;
@@ -169,7 +233,7 @@ public class Prop_WeaponImmunity extends Property implements TriggeredAffect
 					if((O!=null)&&(O instanceof String)&&(((String)O).length()>3))
 					{
 						String lvl=(String)O;
-						foundPlusMinus=new Character(lvl.charAt(0));
+						foundPlusMinus=Character.valueOf(lvl.charAt(0));
 						lvl=lvl.substring(2).trim();
 						if((foundPlusMinus.charValue()=='-')&&(immune))
 						{
@@ -201,6 +265,8 @@ public class Prop_WeaponImmunity extends Property implements TriggeredAffect
 						foundPlusMinus=(Character)flags.get("MAGICSKILLS");
 						if(foundPlusMinus==null)
 							foundPlusMinus=(Character)flags.get("MAGIC");
+						if(foundPlusMinus==null)
+							foundPlusMinus=(Character)flags.get("MAGICSPELLS");
 						if(foundPlusMinus!=null)
 						{
 							if((foundPlusMinus.charValue()=='-')&&(immune))

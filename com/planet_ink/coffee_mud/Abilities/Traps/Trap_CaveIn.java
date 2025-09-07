@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,10 +60,10 @@ public class Trap_CaveIn extends StdTrap
 		return 0;
 	}
 
-	@Override
-	protected int trapLevel()
+	public Trap_CaveIn()
 	{
-		return 22;
+		super();
+		trapLevel = 22;
 	}
 
 	@Override
@@ -157,17 +157,14 @@ public class Trap_CaveIn extends StdTrap
 		{
 			if((doesSaveVsTraps(target))
 			||(invoker().getGroupMembers(new HashSet<MOB>()).contains(target)))
-				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,L("<S-NAME> avoid(s) setting off a cave-in!"));
+			{
+				target.location().show(target,null,null,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,
+						getAvoidMsg(L("<S-NAME> avoid(s) setting off a cave-in!")));
+			}
 			else
 			{
-				String triggerMsg = L("<S-NAME> trigger(s) a cave-in!");
-				String damageMsg = L("The cave-in <DAMAGE> <T-NAME>!");
-				if(newMessaging.size()>0)
-				{
-					triggerMsg=newMessaging.get(0);
-					if(newMessaging.size()>1)
-						damageMsg=newMessaging.get(1);
-				}
+				final String triggerMsg = getTrigMsg(L("<S-NAME> trigger(s) a cave-in!"));
+				final String damageMsg = getDamMsg(L("The cave-in <DAMAGE> <T-NAME>!"));
 				if(target.location().show(target,target,this,CMMsg.MASK_ALWAYS|CMMsg.MSG_NOISE,triggerMsg))
 				{
 					super.spring(target);
@@ -183,7 +180,9 @@ public class Trap_CaveIn extends StdTrap
 								if(invoker().mayIFight(M))
 								{
 									final int damage=CMLib.dice().roll(trapLevel()+abilityCode(),20,1);
-									CMLib.combat().postDamage(invoker(),M,this,damage,CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS|CMMsg.TYP_JUSTICE,Weapon.TYPE_BASHING,damageMsg);
+									CMLib.combat().postDamage(invoker(),M,this,damage,
+											CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS|CMMsg.TYP_JUSTICE,
+											Weapon.TYPE_BASHING,damageMsg);
 								}
 							}
 						}

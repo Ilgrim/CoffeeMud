@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2004-2020 Bo Zimmerman
+   Copyright 2004-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -49,12 +49,6 @@ public class Chant_FindGem extends Chant_FindPlant
 	}
 
 	@Override
-	public String displayText()
-	{
-		return L("(Finding "+lookingFor+")");
-	}
-
-	@Override
 	public int classificationCode()
 	{
 		return Ability.ACODE_CHANT|Ability.DOMAIN_ROCKCONTROL;
@@ -69,7 +63,7 @@ public class Chant_FindGem extends Chant_FindPlant
 	@Override
 	public long flags()
 	{
-		return Ability.FLAG_TRACKING;
+		return Ability.FLAG_TRACKING | Ability.FLAG_DIVINING;
 	}
 
 	private final int[] myMats={RawMaterial.MATERIAL_PRECIOUS,
@@ -91,6 +85,7 @@ public class Chant_FindGem extends Chant_FindPlant
 	{
 		super();
 
-		lookingFor = "gem";
+		lookingFor = L("gem");
+		displayText = L("(Looking for Gems)");
 	}
 }

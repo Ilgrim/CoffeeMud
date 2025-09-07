@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2014-2020 Bo Zimmerman
+   Copyright 2014-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ public class GenShipThruster extends StdShipThruster
 	@Override
 	public String text()
 	{
-		return CMLib.coffeeMaker().getPropertiesStr(this,false);
+		return CMLib.coffeeMaker().getEnvironmentalMiscTextXML(this,false);
 	}
 
 	@Override
@@ -79,7 +79,7 @@ public class GenShipThruster extends StdShipThruster
 	public void setMiscText(final String newText)
 	{
 		miscText="";
-		CMLib.coffeeMaker().setPropertiesStr(this,newText,false);
+		CMLib.coffeeMaker().unpackEnvironmentalMiscTextXML(this,newText,false);
 		recoverPhyStats();
 	}
 
@@ -94,7 +94,7 @@ public class GenShipThruster extends StdShipThruster
 	{
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			return CMLib.coffeeMaker().getGenItemStat(this,code);
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			return "" + hasALock();
@@ -140,7 +140,7 @@ public class GenShipThruster extends StdShipThruster
 		case 16:
 			return "" + getMinThrust();
 		case 17:
-			return "" + isConstantThruster();
+			return "" + isReactionEngine();
 		case 18:
 			return CMParms.toListString(getAvailPorts());
 		case 19:
@@ -156,7 +156,7 @@ public class GenShipThruster extends StdShipThruster
 		if(CMLib.coffeeMaker().getGenItemCodeNum(code)>=0)
 			CMLib.coffeeMaker().setGenItemStat(this,code,val);
 		else
-		switch(getCodeNum(code))
+		switch(getInternalCodeNum(code))
 		{
 		case 0:
 			setDoorsNLocks(hasADoor(), isOpen(), defaultsClosed(), CMath.s_bool(val), false, CMath.s_bool(val) && defaultsLocked());
@@ -220,10 +220,10 @@ public class GenShipThruster extends StdShipThruster
 			setMinThrust(CMath.s_parseIntExpression(val));
 			break;
 		case 17:
-			this.setConstantThruster(CMath.s_bool(val));
+			this.setReactionEngine(CMath.s_bool(val));
 			break;
 		case 18:
-			this.setAvailPorts(CMParms.parseEnumList(TechComponent.ShipDir.class, val, ',').toArray(new TechComponent.ShipDir[0]));
+			this.setAvailPorts(CMParms.parseEnumList(ShipDirectional.ShipDir.class, val, ',').toArray(new ShipDirectional.ShipDir[0]));
 			break;
 		case 19:
 			setRechargeRate(CMath.s_parseLongExpression(val));
@@ -234,8 +234,7 @@ public class GenShipThruster extends StdShipThruster
 		}
 	}
 
-	@Override
-	protected int getCodeNum(final String code)
+	private int getInternalCodeNum(final String code)
 	{
 		for(int i=0;i<MYCODES.length;i++)
 		{

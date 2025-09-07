@@ -18,7 +18,7 @@ import com.planet_ink.coffee_mud.Races.interfaces.*;
 import java.util.*;
 
 /*
-   Copyright 2002-2020 Bo Zimmerman
+   Copyright 2002-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ public class Spell_MageClaws extends Spell
 			||(naturalWeapon.amDestroyed()))
 			{
 				final int level=super.adjustedLevel(mob, 0);
-				naturalWeapon=(Weapon)CMClass.getItem("GenWeapon");
+				naturalWeapon=CMClass.getWeapon("GenWeapon");
 				naturalWeapon.setName(L("a pair of jagged claws"));
 				naturalWeapon.setWeaponDamageType(Weapon.TYPE_SLASHING);
 				naturalWeapon.setWeaponClassification(Weapon.CLASS_NATURAL);
@@ -148,6 +148,17 @@ public class Spell_MageClaws extends Spell
 	}
 
 	@Override
+	public int castingQuality(final MOB mob, final Physical target)
+	{
+		if(mob!=null)
+		{
+			if((target instanceof MOB)&&(!freeHands((MOB)target)))
+				return Ability.QUALITY_INDIFFERENT;
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
 	public boolean invoke(final MOB mob, final List<String> commands, final Physical givenTarget, final boolean auto, final int asLevel)
 	{
 		MOB target=mob;
@@ -155,13 +166,13 @@ public class Spell_MageClaws extends Spell
 			target=(MOB)givenTarget;
 		if(target.fetchEffect(this.ID())!=null)
 		{
-			mob.tell(target,null,null,L("<S-NAME> already <S-HAS-HAVE> mage claws."));
+			failureTell(mob,target,auto,L("<S-NAME> already <S-HAS-HAVE> mage claws."));
 			return false;
 		}
 
 		if(!freeHands(target))
 		{
-			mob.tell(target,null,null,L("<S-NAME> do(es) not have <S-HIS-HER> hands free."));
+			failureTell(mob,target,auto,L("<S-NAME> do(es) not have <S-HIS-HER> hands free."));
 			return false;
 		}
 

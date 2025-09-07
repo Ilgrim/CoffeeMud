@@ -19,7 +19,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 /*
-   Copyright 2003-2020 Bo Zimmerman
+   Copyright 2003-2025 Bo Zimmerman
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -107,6 +107,7 @@ public class Necromancer extends Cleric
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Prayer_UndeadInvisibility",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Prayer_Divorce",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Prayer_ReadPrayer",true);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"Prayer_ProtBless",false);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),1,"ScrollScribing",0,false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),2,"Prayer_SenseLife",false);
@@ -138,6 +139,7 @@ public class Necromancer extends Cleric
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Prayer_Poison",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),11,"Prayer_ProtPoison",false);
+		CMLib.ableMapper().addCharAbilityMapping(ID(),14,"Prayer_AnimateLimb",false);
 
 		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Prayer_Plague",true);
 		CMLib.ableMapper().addCharAbilityMapping(ID(),12,"Prayer_ProtDisease",false);
@@ -243,19 +245,27 @@ public class Necromancer extends Cleric
 		&&(!myChar.isMonster())
 		&&(msg.sourceMinor()==CMMsg.TYP_DEATH)
 		&&(myChar.baseCharStats().getClassLevel(this)>=30)
-		&&(!myChar.baseCharStats().getMyRace().ID().equals("Lich")))
+		&&(!CMLib.flags().isUndead(myChar.baseCharStats().getMyRace())))
 		{
-			final Race newRace=CMClass.getRace("Lich");
+			final Race newRace=CMLib.utensils().getMixedRace("Lich", myChar.baseCharStats().getMyRace().ID(),false);
 			if(newRace!=null)
 			{
-				myChar.tell(L("The dark powers are transforming you into a @x1!!",newRace.name()));
+				myChar.tell(L("The dark powers are transforming you into @x1!!",CMLib.english().startWithAorAn(newRace.name())));
 				myChar.baseCharStats().setMyRace(newRace);
 				myChar.recoverCharStats();
 				final String[] cmds=CMParms.toStringArray(CMParms.parseCommas(CMProps.get(myChar.session()).getStr(CMProps.Str.PLAYERDEATH),true));
 				for(final String cmd : cmds)
 				{
 					if(cmd.toUpperCase().startsWith("PUR"))
-						return false;
+					{
+						int maxLives = 1;
+						final int x = cmd.indexOf(' ');
+						if(x>0)
+							maxLives = CMath.s_int(cmd.substring(x+1).trim());
+						if((myChar.playerStats()==null)
+						||(myChar.playerStats().deathCounter(0)>=maxLives-1))
+							return false;
+					}
 				}
 			}
 		}
@@ -326,6 +336,7 @@ public class Necromancer extends Cleric
 				return new Vector<Item>();
 			outfitChoices=new Vector<Item>();
 			outfitChoices.add(w);
+			cleanOutfit(outfitChoices);
 		}
 		return outfitChoices;
 	}
